@@ -32,12 +32,14 @@ import {
   cachedPromptTokens,
   createOpenRouterAdapter,
   OPENROUTER_MODEL,
+  toOpenRouterMessages,
   visibleOutputTokens,
 } from "../../llmAdapters/openRouterAdapter.js";
 import type { LlmRequest } from "../../llmClient.js";
 
 const REQUEST: LlmRequest = {
-  prompt: "prompt",
+  system: "",
+  messages: [{ role: "user", text: "prompt" }],
   maxOutputTokens: 3_072,
   responseSchema: {
     name: "proactive",
@@ -48,6 +50,7 @@ const REQUEST: LlmRequest = {
       additionalProperties: false,
     },
   },
+  timeoutMs: 45_000,
 };
 
 function okResponse(overrides: Record<string, unknown> = {}) {
@@ -74,6 +77,7 @@ describe("createOpenRouterAdapter", () => {
       expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer test-key");
       const body = JSON.parse(String(init?.body));
       expect(body.model).toBe("google/gemini-3.8-flash");
+      // Empty system: no leading system message, just the one user turn coach-message always sent.
       expect(body.messages).toEqual([{ role: "user", content: "prompt" }]);
       expect(body.reasoning).toEqual({ effort: "low" });
       expect(body.max_tokens).toBe(3_072);
@@ -102,6 +106,43 @@ describe("createOpenRouterAdapter", () => {
     );
     const result = await adapter.generate(REQUEST);
     expect(result.text).toBe(JSON.stringify({ body: "That looked controlled." }));
+  });
+
+  it("maps a non-empty system plus multi-turn messages to a leading system message (#713)", () => {
+    expect(
+      toOpenRouterMessages({
+        system: "You are Coach.",
+        messages: [
+          { role: "user", text: "How was my run?" },
+          { role: "model", text: "Solid effort." },
+          { role: "user", text: "Thanks." },
+        ],
+      }),
+    ).toEqual([
+      { role: "system", content: "You are Coach." },
+      { role: "user", content: "How was my run?" },
+      { role: "assistant", content: "Solid effort." },
+      { role: "user", content: "Thanks." },
+    ]);
+  });
+
+  it("omits the leading system message when system is empty (#713)", () => {
+    expect(
+      toOpenRouterMessages({ system: "", messages: [{ role: "user", text: "prompt" }] }),
+    ).toEqual([{ role: "user", content: "prompt" }]);
+  });
+
+  it("threads request.timeoutMs through to fetchWithTimeout, not a hardcoded constant (#713)", async () => {
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit, timeoutMs?: number) => {
+      expect(timeoutMs).toBe(12_345);
+      return okResponse();
+    });
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate({ ...REQUEST, timeoutMs: 12_345 });
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it("carries OpenRouter's resolved provider and model back to the caller", async () => {

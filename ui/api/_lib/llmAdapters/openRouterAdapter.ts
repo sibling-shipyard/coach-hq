@@ -21,7 +21,6 @@ import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 export const OPENROUTER_MODEL = "google/gemini-3.8-flash";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_TIMEOUT_MS = 45_000;
 
 interface OpenRouterResponse {
   choices?: Array<{
@@ -76,6 +75,24 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
   return usage?.prompt_tokens_details?.cached_tokens;
 }
 
+/**
+ * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
+ * request shape for both providers. OpenAI-style chat completions calls the same turn
+ * `"assistant"`, and puts a system turn ahead of the conversation as its own message rather than
+ * a separate top-level field. Empty `system` is omitted rather than sent as an empty message — a
+ * caller with no system/user split (coach-message) gets the exact wire shape it always sent: one
+ * user message, nothing else.
+ */
+export function toOpenRouterMessages(
+  request: Pick<LlmRequest, "system" | "messages">,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  const turns = request.messages.map((message) => ({
+    role: message.role === "model" ? ("assistant" as const) : ("user" as const),
+    content: message.text,
+  }));
+  return request.system ? [{ role: "system" as const, content: request.system }, ...turns] : turns;
+}
+
 export function createOpenRouterAdapter(
   env: NodeJS.ProcessEnv,
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
@@ -105,7 +122,7 @@ export function createOpenRouterAdapter(
               },
               body: JSON.stringify({
                 model: OPENROUTER_MODEL,
-                messages: [{ role: "user", content: request.prompt }],
+                messages: toOpenRouterMessages(request),
                 response_format: {
                   type: "json_schema",
                   json_schema: {
@@ -127,7 +144,7 @@ export function createOpenRouterAdapter(
                 },
               }),
             },
-            OPENROUTER_TIMEOUT_MS,
+            request.timeoutMs,
           );
           if (!response.ok) {
             const detail = await response.text();

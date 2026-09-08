@@ -28,10 +28,30 @@ export interface LlmJsonSchema {
   };
 }
 
+/**
+ * One turn in a conversation, in Gemini's own role vocabulary (`"user"` | `"model"`) since that's
+ * the more restrictive of the two providers' shapes — the OpenRouter adapter remaps `"model"` to
+ * `"assistant"` on its way out, so callers never need to know that OpenRouter uses a different word
+ * for the same thing.
+ */
+export interface LlmMessage {
+  role: "user" | "model";
+  text: string;
+}
+
 export interface LlmRequest {
-  prompt: string;
+  /**
+   * The system instruction, separate from the conversation turns. Empty string means "none" —
+   * both adapters omit the system field entirely rather than send an empty one, so a caller with
+   * no natural system/user split (coach-message today) gets the exact same wire shape it always
+   * sent: one user turn, no system block.
+   */
+  system: string;
+  messages: LlmMessage[];
   maxOutputTokens: number;
   responseSchema: LlmJsonSchema;
+  /** Per-request timeout in ms. Both adapters pass this straight to `fetchWithTimeout`. */
+  timeoutMs: number;
 }
 
 export interface LlmTelemetry {

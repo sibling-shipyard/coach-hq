@@ -413,9 +413,11 @@ describe("generated message validation", () => {
     const adapter = fakeAdapter();
     await expect(generateProactiveBody(adapter, "prompt")).resolves.toBe("That looked controlled.");
     expect(adapter.generate).toHaveBeenCalledExactlyOnceWith({
-      prompt: "prompt",
+      system: "",
+      messages: [{ role: "user", text: "prompt" }],
       maxOutputTokens: 3_072,
       responseSchema: PROACTIVE_RESPONSE_SCHEMA,
+      timeoutMs: 45_000,
     });
   });
 
