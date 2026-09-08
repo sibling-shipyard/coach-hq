@@ -24,8 +24,8 @@ Vo2Widget structs`). Only `CoachHQWidget/`'s versions are live, wired from
 `CoachHQWidget/EngineWidget.swift`'s `bandStrip` both **shadow those two names** with a local
 per-call derivation (`scaleLow = min(low, load) * 0.85`, etc.) and never read the snapshot
 fields. `EngineDetailView` and Home's `.m`-size Engine card render the **same** `EngineSnapshot`
-object (`snapshots.sizes.engine.M`, `WarmInstrumentHomeView.swift:82` and `:149`) — same week,
-same load, same band — so the two renderers disagree only because one honors the pipeline scale
+object (`snapshots.sizes.engine.M`, `WarmInstrumentHomeView.swift:82` and `:149`). Same week,
+same load, same band — the two renderers disagree only because one honors the pipeline scale
 and the other recomputes its own.
 
 **Decision: adopt `engine.scaleLow`/`engine.scaleHigh` in `bandStrip` for the M/L sizes, on both
@@ -49,8 +49,8 @@ call it out in the W3 PR body so it doesn't read as an unexplained visual diff.
 
 **Consequence for W3:** `bandStrip`, `trendSparkline`, and `mixBar` become one set of pure
 functions of primitive values (load/band/scale doubles, point/mix arrays) — no `@State`, no
-`containerBackground`, no card chrome — callable from both a Home card body and a WidgetKit
-`View`. Each surface's own wrapper still owns its chrome, animation, and background. This is the
+`containerBackground`, no card chrome. Callable from both a Home card body and a WidgetKit
+`View`; each surface's own wrapper still owns its chrome, animation, and background. This is the
 plan's own P2 note under Deferred ("one View across all three surfaces is not the target") —
 shared maths, thin per-surface wrapper, not literal view unification.
 
@@ -75,12 +75,12 @@ shared maths, thin per-surface wrapper, not literal view unification.
   `Views/Widgets/WidgetSize.swift` because the four card files reference it and now compile into
   both targets — it has to resolve in both. Nothing in `CoachHQWidget/` uses it yet (W2 doesn't
   wire it up there); W3 decides whether WidgetKit ever needs it once `bandStrip` etc. are shared.
-- Every other symbol the four cards touch (`WarmCard`, `SportCube`, `SportStripCell`,
-  `MonoLabel`, `HairlineProgress`, `EngineSizes`, `TrendPointSnapshot`, `LoadMixSnapshot`,
-  `CommitmentSizes`, `QuestSnapshot`/`QuestSnapshotS`, `BuildPhaseSnapshot`,
-  `PhaseMilestoneSnapshot`, `WarmInstrument`) is already in `WarmInstrumentAtoms.swift` or
-  `Models/WidgetSnapshots.swift`, both already on the CoachHQWidgetExtension exceptions list — no
-  further pbxproj change needed for W2.
+- Every other symbol the four cards touch is already on the CoachHQWidgetExtension exceptions
+  list. `WarmCard`, `SportCube`, `SportStripCell`, `MonoLabel`, `HairlineProgress`,
+  `WarmInstrument` live in `WarmInstrumentAtoms.swift`. `EngineSizes`, `TrendPointSnapshot`,
+  `LoadMixSnapshot`, `CommitmentSizes`, `QuestSnapshot`, `QuestSnapshotS`, `BuildPhaseSnapshot`,
+  `PhaseMilestoneSnapshot` live in `Models/WidgetSnapshots.swift`. No further pbxproj change
+  needed for W2.
 
 ## 4. Naming
 
@@ -103,8 +103,8 @@ Catalog keys (W6) are the server's strings, never invented here — unaffected b
 
 ## 5. W2 scope, precisely
 
-Move the four structs above verbatim (body untouched, only the type name and file location
-change) into `Views/Widgets/<Name>Card.swift`, update the four call sites in
+Move the four structs above verbatim into `Views/Widgets/<Name>Card.swift` — body untouched,
+only the type name and file location change. Update the four call sites in
 `widgetColumn(for:)`, move `enum WidgetSize` into `Views/Widgets/WidgetSize.swift`, add the five
 new paths to the pbxproj exceptions list. `RecentSessionsWidget`, `WeeklyPlanWidget`,
 `CaloriesWidget`, `CoachMessageCard`, `CoachReadWidget`, `SportChip`, `EngineDetailView` /
