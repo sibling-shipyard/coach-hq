@@ -12,31 +12,29 @@ Chat. iOS's equivalent audit (#928, `ios-widget-modules.md`) found real forks: t
 hand-copied into three renderers, 44 stray colours, 984 lines of dead views. Web does not have
 that problem.
 
-**No structural blocker for M3.** All 11 Home cards (`home-warm/widgets/*.tsx`) are pure
-`<section>`/`<article>` components that take one typed snapshot prop and hold no page-level
-state or fixed-grid assumptions. Proof: `WidgetGallery.tsx` (`pages/WidgetGallery.tsx:1-17`)
-already renders 10 of the 11 outside `DesktopHomeGrid`, in a different layout, from the same
-import — a second surface already exists and required zero component changes for those 10. The
-eleventh, `CoachMessageCard` (`widgets/CoachMessageCard.tsx`, used only in
-`WarmInstrumentHome.tsx:86`), is absent from the gallery and is worth naming on its own. It's a
+**No structural blocker for M3.** Ten Home cards (`home-warm/widgets/*.tsx`) take one typed
+snapshot prop and hold no page-level state or fixed-grid assumptions. Proof: `WidgetGallery.tsx`
+(`pages/WidgetGallery.tsx:1-17`) already renders all 10 outside `DesktopHomeGrid`, in a different
+layout, from the same import. The eleventh, `CoachMessageCard` (`widgets/CoachMessageCard.tsx`,
+used only in `WarmInstrumentHome.tsx:86`), is absent from the gallery and worth naming. It's a
 `wouter` `<Link>` to `/coach-chat` — Home's teaser pointing at the Chat thread, not a fact Chat
 would attach to itself. It's excluded from M3's candidate set by its own logic, not because
 anything blocks it. `pages/CoachChat.tsx:5,7` already imports
 `getActivityZoneLoad` and
 `InstrumentHeader` from `home-warm/`, so cross-directory reuse is an established pattern, not a
 new one. The data contract is cross-platform already (ADR 0005): `WidgetSnapshotsFile`
-(`home-warm/snapshots.ts:281-309`) even carries `sizes.{engine,quest,commitments}` S/M variants
+(`home-warm/snapshots.ts:281-309`) carries `sizes.{engine,quest,commitments}` S/M variants
 for glance surfaces. `ChatAttachment` (`coach-chat/coachChatModel.ts:43-45`) is already a
 versioned, unknown-kind-safe union, tested (`coachChatModel.test.ts:294-313`) to ignore a kind it
 doesn't recognise — the exact plumbing M3 needs to add a new attachment kind without touching
 old clients.
 
-What's real, but not a blocker: the 11 cards live under `home-warm/`, so Chat importing one reads
-as a layering violation even though nothing stops it. Three sport→discipline switch statements
-disagree in shape (not values) across `home-warm/`. Two duration formatters exist with different
-conventions. ~90 hex colours sit outside the token file. One four-entry accent-colour block
-computes and is never read. This plan cleans that up so the M3 build starts from one module per
-widget, not from a nice-looking coincidence.
+What's real, but not a blocker: the 10 portable cards live under `home-warm/`, so Chat importing
+one reads as a layering violation even though nothing stops it. Typed sport mappings intentionally
+differ in recovery handling, while one category mapping is duplicated byte-for-byte. Two duration
+formats intentionally serve different surfaces. ~90 hex colours sit outside the token file. One
+four-entry accent-colour block computes and is never read. This plan cleans that up so the M3
+build starts from one module per widget, not from a nice-looking coincidence.
 
 ## Goal
 
@@ -50,7 +48,7 @@ flowchart LR
     snap -.coachMessage only.-> cc
   end
   subgraph target["After this stack"]
-    widgets["components/widgets/*.tsx"] --> home2["Home page"]
+    widgets["components/widgets/<br/>contract, cards, shared atoms"] --> home2["Home page"]
     widgets --> gallery2["/gallery"]
     widgets -.M3, gated.-> chat2["Chat inline attachment"]
     snap2["WidgetSnapshotsFile"] --> widgets
@@ -60,9 +58,10 @@ flowchart LR
 Today's fork is *data reach*, not view code: Chat reads one field (`home.coachMessage`) off the
 snapshot file by hand (`coachChatModel.ts:128-146`) instead of the `useWidgetSnapshots` hook
 Home uses (`hooks/useWidgetSnapshots.ts`, consumed only by `pages/Home.tsx:9,14`). No card
-component is duplicated. The work is: move the cards somewhere Chat can import without the
-`home-warm` name, dedupe three small helpers, and pay down the colour-token debt — all
-independent of M3's own trigger/catalog logic (out of scope here, per #930).
+component is duplicated. This stack moves the shared contract and 10 portable cards somewhere
+Chat can import without the `home-warm` name. It deduplicates one helper, names intentional
+mapping and duration differences, and pays down colour-token debt. M3's trigger/catalog logic
+remains out of scope here, per #930.
 
 ## What the full read found
 
@@ -70,8 +69,8 @@ independent of M3's own trigger/catalog logic (out of scope here, per #930).
 |---|---|
 | Zero forked widget components | `grep -rln` for each of the 11 card names under `coach-chat/` returns nothing; `CoachChatWidgets.tsx` (653 lines) has no import from `home-warm/` |
 | Cards already surface-portable | `WidgetGallery.tsx:1-17` renders 10 of 11 from the same import, outside `DesktopHomeGrid`, in a `/gallery` list layout — a second surface already exists. The 11th, `CoachMessageCard`, is a Home-only teaser `<Link>` to Chat and isn't a gallery/Chat candidate on its own logic |
-| Three sport→discipline mappings, one exact duplicate | `categoryToSport` (`warmHomeSnapshots.ts:58-75`) and `disciplineToSport` (`warmHomeSnapshots.ts:77-93`) differ in input type from `disciplineFor`, which is **byte-identical** between `currentWeekAdapter.ts:34-50` and `liveWeekContract.ts:32-48`; `mapDiscipline` (`currentWeekAdapter.ts:53-71`) is a fourth, narrower variant |
-| Two duration formatters, different units and format | `formatMinutesLabel` (`home-warm/formatUtils.ts:13-18`, minutes → `"1H30"`) vs `formatDuration` (`lib/activities.ts:281-287`, seconds → `"1h 30m"`) — home-warm and coach-chat each format duration their own way |
+| Typed mappings have different contracts; one implementation is duplicated | `categoryToSport` folds recovery into `WarmSportId.foundation`; `disciplineToSport` preserves recovery outside `WarmSportId`; `mapDiscipline` normalises free strings. Only `disciplineFor` is **byte-identical** between `currentWeekAdapter.ts:34-50` and `liveWeekContract.ts:32-48` |
+| Two duration formats are intentional | `formatMinutesLabel` (`home-warm/formatUtils.ts:13-18`) accepts minutes and emits compact instrument text (`"1H30"`); `formatDuration` (`lib/activities.ts:281-287`) accepts seconds and emits spaced unit text (`"1h 30m"`) for activity rows |
 | ~90 hex colours outside the token file | `grep -c "#[0-9a-fA-F]\{6\}"`: `warm-instrument.css` 34, `coach-chat.css` 50, `widget-gallery.css` 1, `warmHomeModel.ts` 4, `warmHomeSnapshots.ts` 1 (excludes `wi-tokens.generated.css`, the generated source; 40 in `home-warm/`, 50 in `coach-chat/`) |
 | One dead accent-colour block | `CommitmentModel.accent` (`warmHomeModel.ts:303,314,326,335`, four hardcoded hex) is computed by `buildCommitments()` and never read — the live path (`buildCommitmentSnapshots`, `warmHomeSnapshots.ts:433-440`) recomputes `accent` from `sportHex()` independently; confirmed via `grep -rn "\.accent"` across both directories, one hit, in `SportCommitmentCard.tsx:68`, which reads the snapshot's field, not the model's |
 | One dead export | `GOLDEN_SIZES` (`lib/goldenDataset.ts:21`) has zero importers anywhere in the repo |
@@ -81,12 +80,32 @@ independent of M3's own trigger/catalog logic (out of scope here, per #930).
 
 ## PR stack
 
+```mermaid
+flowchart LR
+  U1["U1 Shared module"] --> U2["U2 One vocabulary"] --> U3["U3 Dead code"] --> U4["U4 Token colours"]
+```
+
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| U1 | Shared module | Move the 11 cards + `SessionRow` + `ActivityGlyph` + `formatUtils.ts` from `home-warm/` (and its lone `atoms/`) into `components/widgets/`; update the `WarmInstrumentWidgets.tsx` barrel and every importer (`WarmInstrumentHome.tsx`, `WidgetGallery.tsx`, `pages/CoachChat.tsx`) | `main` | `home-warm/widgets/*`, `home-warm/atoms/*`, `home-warm/ActivityGlyph.tsx`, `home-warm/formatUtils.ts`, `home-warm/WarmInstrumentWidgets.tsx`, `components/widgets/*` (new), `pages/WidgetGallery.tsx`, `pages/CoachChat.tsx` | UI Expert | — | `coach-chat/` can import a card without reading through `home-warm/`; zero visual change |
-| U2 | One vocabulary | Collapse `categoryToSport`/`disciplineToSport`/`disciplineFor`(×2)/`mapDiscipline` into one canonical mapping in `components/widgets/sportMapping.ts`; reconcile `formatMinutesLabel` vs `formatDuration` into one shared duration formatter or two clearly-named, deliberately different ones | U1 | `home-warm/warmHomeSnapshots.ts`, `home-warm/currentWeekAdapter.ts`, `home-warm/liveWeekContract.ts`, `home-warm/formatUtils.ts`, `lib/activities.ts`, `components/widgets/sportMapping.ts` (new), `coach-chat/CoachChatWidgets.tsx` | UI Expert | — | One sport lookup, one documented duration convention |
-| U3 | Dead code | Delete `CommitmentModel.accent` and its four hardcoded hex (confirmed unread); delete or wire up `GOLDEN_SIZES` (athlete's call, P2 below) | U1 | `home-warm/warmHomeModel.ts`, `lib/goldenDataset.ts` | UI Expert | U2 | `warmHomeModel.ts` computes nothing its caller discards |
-| U4 | Token the colours | Move the ~78 stray hex values onto `wi-tokens.generated.css` custom properties (adding new ones in `shared/warm-instrument/tokens.json` where no existing token fits) so no component or CSS file outside the two token files hardcodes a hex | U2 | `home-warm/warm-instrument.css`, `home-warm/widget-gallery.css`, `home-warm/warmHomeSnapshots.ts`, `coach-chat/coach-chat.css`, `shared/warm-instrument/tokens.json` | UI Expert | — | `grep -rn "#[0-9a-fA-F]\{6\}"` over `ui/client/src/components/**`, excluding token files, is empty — issue #930 Done-when #3 |
+| U1 | Shared module | Move `WidgetSnapshotsFile`, the 10 gallery-rendered cards, `SessionRow`, `ActivityGlyph`, and `formatUtils.ts` into `components/widgets/`. Keep `CoachMessageCard` and `DesktopHomeGrid` in `home-warm/` | `main` | `components/widgets/*` (new); `home-warm/widgets/{BuildPhaseCard,CaloriesCard,CoachReadCard,EngineCard,QuestCard,RecentSessionsCard,SportCommitmentCard,TrainingActivityCard,Vo2Card,WeeklyPlanCard}.tsx`; `home-warm/atoms/SessionRow.tsx`; `home-warm/{ActivityGlyph,formatUtils,snapshots,WarmInstrumentWidgets}.{ts,tsx}`; `kdb/decisions/{0038-shared-web-widget-module.md,README.md}` | UI Expert | — | Chat can import the contract or a portable card from `components/widgets/`; zero visual change |
+| U2 | One vocabulary | Extract only the duplicate `disciplineFor` into `home-warm/trainingMappings.ts` as `trainingCategoryToSessionDiscipline`. Keep `trainingCategoryToWarmSport`, `sessionDisciplineToSnapshotSport`, and `normaliseRuntimeDiscipline` separate. Rename duration helpers to `formatMinutesInstrumentLabel` and `formatSecondsDurationLabel` | U1 | `home-warm/{trainingMappings,warmHomeSnapshots,currentWeekAdapter,liveWeekContract}.ts`; `components/widgets/formatUtils.ts`; `lib/activities.ts`; `coach-chat/CoachChatWidgets.tsx`; affected tests | UI Expert | — | One Home data-mapping implementation; distinct mappings and duration formats stay behaviour-identical |
+| U3 | Dead code | Delete unread `CommitmentModel.accent`, its four hardcoded hex values, and the unimported `GOLDEN_SIZES` export | U2 | `home-warm/warmHomeModel.ts`; `lib/goldenDataset.ts`; affected tests | UI Expert | — | Neither dead value remains; `warmHomeModel.ts` computes nothing its caller discards |
+| U4 | Token the colours | Add missing tokens to `tokens.json`, run `generate.mjs`, and replace the remaining ~86 component hex values with generated CSS variables. Commit generated CSS; commit generated Swift only if its bytes change | U3 | `shared/warm-instrument/{tokens.json,generate.mjs}`; `home-warm/{wi-tokens.generated.css,warm-instrument.css,widget-gallery.css,warmHomeSnapshots.ts}`; `coach-chat/coach-chat.css`; `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` (only if changed) | UI Expert | — | The generator is reproducible and the issue #930 hex grep is empty |
+
+U1 makes `components/widgets/` the canonical import path and adds the UI ADR. The existing
+`home-warm/{WarmInstrumentWidgets,snapshots,ActivityGlyph,formatUtils}` files become explicit
+compatibility barrels, so current Home, analytics, welcome, hook, model, and library importers do
+not all churn in the move. New cross-surface code must import the canonical module.
+
+The U1 ADR locks shared widgets to `components/widgets/`, keyed for Home, `/gallery`, and gated
+Chat reuse. It prevents future portable cards from being defined inside `home-warm/`.
+
+U2 keeps training mappings beside the Home adapters and models that consume them. Portable card
+modules remain presentation-only.
+
+U4 runs `node shared/warm-instrument/generate.mjs`. The script reads `tokens.json` and rewrites
+both `wi-tokens.generated.css` and `WarmInstrumentTokens.generated.swift`; palette-only additions
+may leave Swift byte-identical, in which case it stays out of the commit.
 
 **Gated, not in this stack.** A U5 (Chat inline widgets) would give Chat's `ChatAttachment` a new
 kind that renders a `components/widgets/` card at reduced size, capped at two per message per the
@@ -97,17 +116,15 @@ tested at `coachChatModel.test.ts:294-313`) means that day this is a new kind, n
 
 ## Done when
 
-Maps 1:1 onto issue #930.
+These cover issue #930 and the stack's cleanup work.
 
-1. No widget is duplicated per-surface: after U1, `find ui/client/src/components/coach-chat -iname "*card.tsx"` returns nothing — Chat imports cards from `components/widgets/`, never redefines one.
-2. One definition each of the duplicated helpers: after U2, `grep -rn "function disciplineFor\|function categoryToSport\|function disciplineToSport\|function mapDiscipline" ui/client/src` returns exactly one canonical mapping function.
-3. `grep -rn "#[0-9a-fA-F]\{6\}" ui/client/src/components/**` (excluding token files) is empty after U4.
-4. Concrete blocker list: delivered in this PR's Context section above — there are none.
-5. `ui-tests.yml` green on every PR in the U1–U4 stack.
+1. After U1, the shared contract and 10 portable cards live in `components/widgets/`; only Home's `CoachMessageCard` and `DesktopHomeGrid` remain under `home-warm/widgets/`.
+2. After U2, `trainingCategoryToSessionDiscipline` has one definition. Tests pin recovery→foundation for category→`WarmSportId`, recovery preservation for `SessionDiscipline`, free-string normalisation, and both duration outputs.
+3. After U3, `GOLDEN_SIZES` and `CommitmentModel.accent` have no definitions or references.
+4. `grep -rn "#[0-9a-fA-F]\{6\}" ui/client/src/components/**` (excluding token files) is empty after U4.
+5. Concrete blocker list: delivered in this PR's Context section above — there are none.
+6. `ui-tests.yml` green on every PR in the U1–U4 stack.
 
 ## Deferred
 
-- **P2 — `atoms/` folding into `components/widgets/`.** One file doesn't need its own directory; U1 folds it in rather than preserving the split.
-- **P2 — `GOLDEN_SIZES` dead export.** Either `/gallery` grows a size-variant demo that reads it, or U3 deletes it. Athlete's call which.
 - **P2 — Chat-sized (`S`) variants for cards beyond `QuestCard`/`TrainingActivityCard`'s existing `compact` prop.** Needed before U5 can render a card small enough for a chat bubble, but which cards M3 actually requests is the roadmap's own call, not this plan's.
-- **Needs an ADR** (Area: ui) alongside U1: shared widgets live in `components/widgets/`, keyed for reuse across Home, `/gallery`, and (once M3 lands) Chat. Enforces: no new Home card is defined inside `home-warm/` once U1 lands.
