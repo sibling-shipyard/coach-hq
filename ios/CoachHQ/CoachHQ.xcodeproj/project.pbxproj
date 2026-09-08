@@ -78,6 +78,11 @@
 				Views/Theme.swift,
 				Views/WarmInstrumentAtoms.swift,
 				Views/WarmInstrumentTokens.generated.swift,
+				Views/Widgets/BuildPhaseCard.swift,
+				Views/Widgets/CommitmentCard.swift,
+				Views/Widgets/EngineCard.swift,
+				Views/Widgets/QuestCard.swift,
+				Views/Widgets/WidgetSize.swift,
 			);
 			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
 		};
