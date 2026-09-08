@@ -1,6 +1,6 @@
 # Vercel environment variables
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-04
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
 
 ## Context
 
@@ -27,12 +27,12 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 
 | Var | Used by | What breaks if unset |
 |---|---|---|
-| `GLOBAL_CONFIG` | `ui/api/coach-chat/_lib/gemini/soulCache.ts` (via `@vercel/edge-config`'s `createClient`) | Explicit-cache name/expiry can't be read back across cold starts — every request falls back to the pre-caching prompt shape (still correct, just no explicit-cache discount). Named `GLOBAL_CONFIG` because that's the default var name Vercel's "Connect Project" flow gives an Edge Config store (rebranded "Global Config" in the dashboard, Aug 2026) — not `EDGE_CONFIG`, the SDK's own default. See `docs/eng-docs/gemini-flow.md`. |
-| `EDGE_CONFIG_ID` | `ui/api/coach-chat/_lib/gemini/soulCache.ts` | Same fallback as above — a newly-created cache name can't be persisted, so it's only reused within the same warm instance. |
-| `VERCEL_API_TOKEN` | `ui/api/coach-chat/_lib/gemini/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
-| `VERCEL_TEAM_ID` | `ui/api/coach-chat/_lib/gemini/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
+| `GLOBAL_CONFIG` | `ui/api/_lib/llmAdapters/geminiSoulCache.ts` (called by `geminiAdapter.ts`) (via `@vercel/edge-config`'s `createClient`) | Explicit-cache name/expiry can't be read back across cold starts — every request falls back to the pre-caching prompt shape (still correct, just no explicit-cache discount). Named `GLOBAL_CONFIG` because that's the default var name Vercel's "Connect Project" flow gives an Edge Config store (rebranded "Global Config" in the dashboard, Aug 2026) — not `EDGE_CONFIG`, the SDK's own default. See `docs/eng-docs/gemini-flow.md`. |
+| `EDGE_CONFIG_ID` | `ui/api/_lib/llmAdapters/geminiSoulCache.ts` (called by `geminiAdapter.ts`) | Same fallback as above — a newly-created cache name can't be persisted, so it's only reused within the same warm instance. |
+| `VERCEL_API_TOKEN` | `ui/api/_lib/llmAdapters/geminiSoulCache.ts` (called by `geminiAdapter.ts`) | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
+| `VERCEL_TEAM_ID` | `ui/api/_lib/llmAdapters/geminiSoulCache.ts` (called by `geminiAdapter.ts`) | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
 | `COACH_CHAT_BRANCH` | `ui/api/coach-chat.ts`, `ui/api/coach-message.ts` (both via `resolveCoachChatBranch`) | Falls back to `"main"` — the intended default for real athlete traffic, not a misconfiguration, so no `console.warn` on this one (would fire on every production close otherwise). Set to a scratch branch when testing a real close end-to-end (see `coach-chat-design-history.md`'s 2026-08-14/15 entry), so a test run's commit doesn't land on an athlete's actual `main`. |
-| `LLM_PROVIDER` | `ui/api/_lib/llmClient.ts` (`selectLlmAdapter`), read by `ui/api/coach-message.ts` | Falls back to `"gemini"` — the default, and what production runs. No `console.warn`: this is the intended rollback state, not a misconfiguration (docs/plans/chat-openrouter-migration.md). Only the exact value `"openrouter"` selects the OpenRouter adapter; any other value, including a typo, stays on direct Gemini (#713). |
+| `LLM_PROVIDER` | `ui/api/_lib/llmClient.ts` (`selectLlmAdapter`), read by `ui/api/coach-message.ts` and, since #713 M2 PR 2, `ui/api/coach-chat.ts` too | Falls back to `"gemini"` — the default, and what production runs. No `console.warn`: this is the intended rollback state, not a misconfiguration (docs/plans/chat-openrouter-migration.md). Only the exact value `"openrouter"` selects the OpenRouter adapter; any other value, including a typo, stays on direct Gemini (#713). Production stays on `"gemini"` throughout M2 regardless of which callers read it — nothing flips this env var until M3. |
 | `SENTRY_DSN` | `ui/api/_lib/sentry.ts` | Server-side error capture is off — `initServerMonitoring()` returns false and nothing is sent. Set to the `coach-hq-api` project DSN (EU region). |
 | `VITE_SENTRY_DSN` | `ui/client/src/lib/observability.ts` | Browser error capture is off. Set to the `coach-hq-web` project DSN; Vite bakes it into the client bundle at build time, so it must exist at build, not just at runtime. |
 | `SENTRY_RELEASE` / `VITE_SENTRY_RELEASE` | server / browser Sentry setup | Both fall back to `VERCEL_GIT_COMMIT_SHA`, then to `development` if that is missing too. The browser gets it via `ui/vite.config.ts`, which bakes the value into the bundle at build time. Left at `development`, Sentry has no release to match uploaded source maps against. |

@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
 
 ## Context
 
@@ -23,8 +23,13 @@ instead (#713). Its separate message-only schema gets bounded repo-owned activit
 including `effort_shape` but never raw HR points; it does not use chat actions, history, or the
 explicit chat cache.
 
-Chat and template adjustment still call Gemini directly. They move onto `llmClient` in PR 2 of
-#713.
+Chat moved onto `llmClient` too (#713 M2 PR 2). `coach-chat/_lib/gemini/geminiClient.ts`'s
+`askGemini()` now only builds the prompt/request and parses the reply. The actual
+`generateContent` call, the explicit soul cache, and the retry logic described below live instead
+in `ui/api/_lib/llmAdapters/geminiAdapter.ts`, reached via `selectLlmAdapter` like every other
+caller. `LLM_PROVIDER` stays unset/`gemini` in production throughout M2, so this is a plumbing
+move, not a behavior change — chat's wire requests are unchanged. Template adjustment
+(`coachWorkoutFiles.ts`) still calls Gemini directly; it moves onto `llmClient` in PR 3.
 
 ## Prompt shape: static prefix + dynamic block
 
@@ -47,8 +52,11 @@ flowchart LR
 ```
 
 `geminiClient.ts`'s `askGemini()` builds these as two separate strings (`coachPromptText.ts`'s
-`staticSystemText()` and `buildDynamicText()`), not one array, because of a hard API constraint
-below.
+`staticSystemText()` and `buildDynamicText()`). It hands them to the seam as
+`LlmRequest.cachePrefix` (static) and `LlmRequest.system` (dynamic) — still two strings, not one
+array, because of a hard API constraint below. Since #713 M2 PR 2, `askGemini()` itself no longer
+knows whether the cache is actually active; that decision, and the resulting wire-shape split, is
+`geminiAdapter.ts`'s.
 
 ## Caching: implicit (fallback) vs explicit (primary path)
 
@@ -59,7 +67,9 @@ stable comes before anything that varies per call, so a byte-identical prefix ex
 first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md alone clears
 that ~6x over.
 
-**Explicit caching** (`ui/api/coach-chat/_lib/gemini/soulCache.ts`) is the primary path: the static prefix is
+**Explicit caching** (`ui/api/_lib/llmAdapters/geminiSoulCache.ts`, called by `geminiAdapter.ts` -
+moved behind the seam by #713 M2 PR 2, was `coach-chat/_lib/gemini/soulCache.ts`) is the primary
+path: the static prefix is
 uploaded once via `POST /v1beta/cachedContents`, returning a `cachedContents/...` name. Every
 subsequent call passes `cachedContent: <name>` instead of resending the text at all — cached
 reads are billed at 10% of standard input rate, *guaranteed*, not best-effort. The cache is not
@@ -98,11 +108,13 @@ to that, it never blocks a reply.
 return a name that's since gone stale or been evicted server-side between its own read and the
 actual `generateContent` call. This is a different failure mode than *creating* a cache failing
 (which falls back to `null`/no-cache before the call even happens). If the actual call comes back
-`400` with a cache name set, `askGemini()` invalidates the stored record and retries once as a
-plain no-cache call. This never surfaces to the athlete as a failed reply — it costs one extra
-round-trip, silently.
+`400` with a cache name set, `geminiAdapter.ts` (`coach-chat/_lib/gemini/geminiClient.ts` before
+#713 M2 PR 2) invalidates the stored record and retries once as a plain no-cache call. This never
+surfaces to the athlete as a failed reply — it costs one extra round-trip, silently. Gated on the
+request carrying a cache prefix at all (`LlmRequest.cachePrefix`) — coach-message and template
+adjustment never set one, so they never pay for this lookup or retry.
 
-### Cache lifecycle (`soulCache.ts`)
+### Cache lifecycle (`geminiSoulCache.ts`)
 
 - Cache name + expiry + a content hash of the static text live in **Vercel Edge Config**
   (rebranded "Global Config" in the dashboard, Aug 2026 — same product). Read via
@@ -127,9 +139,10 @@ round-trip, silently.
   name is only valid for the model it was created against. The request-time retry above would
   also catch this, but checking up front avoids paying that round-trip when it's knowable
   earlier.
-- Every reply logs `[coach-chat] Gemini usage: prompt=<n> cached=<n>` (`finishGeminiResponse`) —
-  the standing way to confirm caching is actually being hit on real traffic, not just configured.
-  See "Done when" below.
+- Usage, including whether the cache was actually hit, reports through the shared
+  `gen_ai.generate_content` Sentry span (`withGeminiSpan`/`recordUsage`, `_lib/sentry.ts`).
+  `gen_ai.usage.input_tokens.cached` is the attribute to check — every adapter populates it, not
+  just chat's Gemini path. See "Done when" below.
 - Known, accepted race (not fixed): `getCachedSoulName`'s read-then-write isn't atomic, so
   concurrent cold starts that all miss the cache at once can each create and write their own
   entry, last write winning. Harmless — every created cache is independently valid, Gemini just
@@ -152,6 +165,15 @@ ordinary/closing split, only `firstSession` still varies what's available.
 The server owns dates, generated ids, timestamps, commit messages, and thread titles. Gemini
 reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
 check; prompt construction does not infer mode by searching injected text.
+
+**`additionalProperties: false` (#713 M2 PR 2).** Every object in `RESPONSE_PROPERTIES`, at every
+nesting level, carries this — required for OpenRouter's strict `json_schema` mode (M2's probe
+confirmed this model/provider accepts it as-is; see `openrouter-m2-chat-lld.md`). Enforced by the
+type checker, not eyeballed: `RESPONSE_PROPERTIES` is annotated `as const satisfies
+Record<string, LlmJsonSchemaNode>` (`_lib/llmClient.ts`), and `LlmJsonSchemaNode` requires the
+field on every object node, so a new nested object missing it fails `npm run check`. Gemini's own
+`responseSchema` has no such field — `geminiAdapter.ts` strips it before sending, same as it
+already did for `coach-message`'s schema.
 
 **Text-field length caps (issue #462).** `memory_update.text`,
 `injury_flag[].text`/`injury_event[].text`, and `coach_note` each carry a `maxLength` in
@@ -235,9 +257,9 @@ is filtered through these four rules for that reason.
 - `npm run eval:coach-chat` passes against a live key after any prompt-construction change.
 - A live call's `usageMetadata.cachedContentTokenCount` is nonzero on the second request in a
   session, confirming explicit caching is actually hitting (not just configured). Check the
-  standing `[coach-chat] Gemini usage: prompt=... cached=...` log line rather than a one-off
-  script; verified live 2026-08-06, same `cached` value reused across two real messages in one
-  session while `prompt` grew with history.
+  `gen_ai.generate_content` span's `gen_ai.usage.input_tokens.cached` attribute in Sentry, not a
+  one-off script. Verified live 2026-08-06: same `cached` value reused across two real messages in
+  one session while `prompt` grew with history.
 
 ## Deferred
 

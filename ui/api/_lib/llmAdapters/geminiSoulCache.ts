@@ -3,14 +3,17 @@
  * instructions + few-shot examples). Guarantees the caching discount instead of implicit
  * caching's best-effort one. See docs/eng-docs/gemini-flow.md for the full design and numbers.
  *
- * Not per-athlete - one entry (keyed by content hash) serves every call. Cache name + expiry
- * live in Vercel's Edge Config ("Global Config" in the dashboard as of Aug 2026; GLOBAL_CONFIG
- * for reads, EDGE_CONFIG_ID + VERCEL_API_TOKEN for writes via the REST API, since Edge Config
- * has no write API of its own). Fails open on any error - callers get `null` and coach-chat
- * falls back to inlining the text in systemInstruction.
+ * Lives under `llmAdapters/` (relocated here by #713 M2 PR 2, `docs/plans/openrouter-m2-chat-lld.md`
+ * "Done when" #2) - an internal helper the Gemini adapter calls for a request carrying
+ * `LlmRequest.cachePrefix`, not itself an `LlmAdapter`. Not per-athlete - one entry (keyed by
+ * content hash) serves every call. Cache name + expiry live in Vercel's Edge Config ("Global
+ * Config" in the dashboard as of Aug 2026; GLOBAL_CONFIG for reads, EDGE_CONFIG_ID +
+ * VERCEL_API_TOKEN for writes via the REST API, since Edge Config has no write API of its own).
+ * Fails open on any error - callers get `null` and the Gemini adapter falls back to inlining the
+ * text in systemInstruction.
  */
 import { createClient } from "@vercel/edge-config";
-import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
+import { fetchWithTimeout } from "../httpTimeout.js";
 
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 
@@ -117,10 +120,12 @@ async function createCache(
 ): Promise<string | null> {
   try {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
+      "https://generativelanguage.googleapis.com/v1beta/cachedContents",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Header auth, matching geminiAdapter.ts's generateContent call - #713 M2 consolidates
+        // Gemini auth on `x-goog-api-key` everywhere, retiring the old `?key=` query param.
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           model: `models/${model}`,
           systemInstruction: { parts: [{ text: staticSystemText }] },

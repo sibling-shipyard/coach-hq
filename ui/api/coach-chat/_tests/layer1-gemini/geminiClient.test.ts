@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only the network edge is faked: fetchWithTimeout is the sole boundary askGemini crosses to
-// the outside world. Everything else in geminiClient.ts (prompt building, cache-name lookup,
-// retry logic, JSON parsing) runs unmodified against these canned HTTP responses.
+// the outside world - unchanged by #713 M2 PR 2, which moved cache-name lookup, retry logic, and
+// response parsing out of geminiClient.ts and into _lib/llmAdapters/geminiAdapter.ts (reached via
+// selectLlmAdapter). Since fetchWithTimeout is mocked at its own physical module path, not at
+// whichever file imports it, these assertions exercise the real seam end to end: prompt/request
+// building in geminiClient.ts, the explicit-cache lookup and retry-on-400/503/504 in
+// geminiAdapter.ts, and JSON.parse of the model's response text back in geminiClient.ts.
 const { fetchWithTimeout } = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
 }));
@@ -24,8 +28,8 @@ function geminiEnvelope(reply: unknown): Response {
   });
 }
 
-// No GLOBAL_CONFIG in the test env, so soulCache.getCachedSoulName's readRecord() short-circuits
-// without hitting the network - but it still calls createCache(), which does call
+// No GLOBAL_CONFIG in the test env, so geminiSoulCache's getCachedSoulName's readRecord() short-
+// circuits without hitting the network - but it still calls createCache(), which does call
 // fetchWithTimeout against the cachedContents endpoint. Route that away so tests default to the
 // no-cache path (cache creation "fails", same as it does today whenever EDGE_CONFIG_ID/
 // VERCEL_API_TOKEN aren't set) unless a test explicitly overrides it.

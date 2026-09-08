@@ -7,13 +7,33 @@
  * Keeps everything #827 established, now caller-supplied per request rather than hardcoded here:
  * the measured output-token ceiling, the `finishReason === "MAX_TOKENS"` guard, and thinking
  * tokens reaching the usage span.
+ *
+ * #713 M2 PR 2 moves coach-chat's explicit soul cache and its retry logic in here from
+ * `coach-chat/_lib/gemini/geminiClient.ts` (docs/plans/openrouter-m2-chat-lld.md). Both are gated
+ * on `request.cachePrefix` being set, not on whether the cache lookup actually succeeds — that's
+ * the signal that this is a chat-shaped request at all, and it's what keeps coach-message (which
+ * never sets `cachePrefix`) on its exact pre-#713 behavior: one call, no retry.
  */
 import { GEMINI_MODEL } from "../geminiModel.js";
 import { fetchWithTimeout } from "../httpTimeout.js";
 import { withGeminiSpan } from "../sentry.js";
 import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
+import { getCachedSoulName, invalidateCachedSoulName } from "./geminiSoulCache.js";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+
+// A cache-active request cannot carry `systemInstruction` alongside `cachedContent` (Gemini
+// rejects both together) - `request.system` moves into `contents` instead, as a synthetic
+// user/model exchange ahead of real history. This wrapper is what tells the model that turn
+// carries the same binding authority as a system instruction would. `request.system` itself
+// carries no cache-awareness of its own - callers build one dynamic-text shape regardless of
+// whether a cache ends up active, and this file is the only place that wraps it differently.
+const CACHE_ACTIVE_SYSTEM_WRAPPER =
+  "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same binding " +
+  "authority as your system instructions above: follow every directive in it exactly, even " +
+  "though it arrives as a turn rather than a system field.]";
+const CACHE_ACTIVE_ACK =
+  "Understood - I'll follow those instructions exactly, same as my system instructions.";
 
 interface GeminiGenerateResponse {
   candidates?: Array<{
@@ -25,6 +45,7 @@ interface GeminiGenerateResponse {
     candidatesTokenCount?: number;
     totalTokenCount?: number;
     thoughtsTokenCount?: number;
+    cachedContentTokenCount?: number;
   };
 }
 
@@ -42,47 +63,117 @@ export function createGeminiAdapter(
           status: 500,
         });
       }
+
+      // `cachedName` truthy means this call actually carries `cachedContent`; `request.cachePrefix`
+      // being set (regardless of whether the lookup above succeeded) is the broader "this is a
+      // chat-shaped request" signal that gates the retry branches below.
+      const buildBody = (cachedName: string | null) => ({
+        ...(cachedName
+          ? { cachedContent: cachedName }
+          : request.system || request.cachePrefix
+            ? {
+                systemInstruction: {
+                  parts: [
+                    {
+                      // Same concatenation as pre-#713's cache-inactive path: static prefix,
+                      // then dynamic system text, one newline apart.
+                      text: request.cachePrefix
+                        ? `${request.cachePrefix}\n${request.system}`
+                        : request.system,
+                    },
+                  ],
+                },
+              }
+            : {}),
+        contents: cachedName
+          ? [
+              {
+                role: "user",
+                parts: [{ text: `${CACHE_ACTIVE_SYSTEM_WRAPPER}\n${request.system}` }],
+              },
+              { role: "model", parts: [{ text: CACHE_ACTIVE_ACK }] },
+              ...request.messages.map((message) => ({
+                role: message.role,
+                parts: [{ text: message.text }],
+              })),
+            ]
+          : request.messages.map((message) => ({
+              role: message.role,
+              parts: [{ text: message.text }],
+            })),
+        generationConfig: {
+          responseMimeType: "application/json",
+          // Gemini's responseSchema has no additionalProperties field — OpenRouter's
+          // strict json_schema needs one, Gemini rejects fields it doesn't recognize, so
+          // only the three fields it understands cross over.
+          responseSchema: {
+            type: request.responseSchema.schema.type,
+            properties: request.responseSchema.schema.properties,
+            required: request.responseSchema.schema.required,
+          },
+          maxOutputTokens: request.maxOutputTokens,
+        },
+      });
+
+      const callGemini = (cachedName: string | null): Promise<Response> =>
+        fetcher(
+          `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+            body: JSON.stringify(buildBody(cachedName)),
+          },
+          request.timeoutMs,
+        ).catch((err) => {
+          // fetchWithTimeout throws a 504-tagged Error on its own abort rather than resolving a
+          // Response - convert it so the retry branch below can treat a timeout like a real 504.
+          const status = (err as { status?: number }).status;
+          if (status === 504) return new Response(null, { status: 504 });
+          throw err;
+        });
+
       const text = await withGeminiSpan(
         GEMINI_MODEL,
         async (recordUsage) => {
-          const response = await fetcher(
-            `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-              body: JSON.stringify({
-                // Empty system is omitted rather than sent as an empty systemInstruction - a
-                // caller with no system/user split (coach-message) gets the exact wire shape it
-                // always sent: one user content block, nothing else.
-                ...(request.system
-                  ? { systemInstruction: { parts: [{ text: request.system }] } }
-                  : {}),
-                contents: request.messages.map((message) => ({
-                  role: message.role,
-                  parts: [{ text: message.text }],
-                })),
-                generationConfig: {
-                  responseMimeType: "application/json",
-                  // Gemini's responseSchema has no additionalProperties field - OpenRouter's
-                  // strict json_schema needs one, Gemini rejects fields it doesn't recognize, so
-                  // only the three fields it understands cross over.
-                  responseSchema: {
-                    type: request.responseSchema.schema.type,
-                    properties: request.responseSchema.schema.properties,
-                    required: request.responseSchema.schema.required,
-                  },
-                  maxOutputTokens: request.maxOutputTokens,
-                },
-              }),
-            },
-            request.timeoutMs,
-          );
+          let cachedName: string | null = null;
+          if (request.cachePrefix) {
+            cachedName = await getCachedSoulName(apiKey, GEMINI_MODEL, request.cachePrefix).catch(
+              () => null,
+            );
+          }
+          let response = await callGemini(cachedName);
+          // Capped at one retry total (if/else if) - chaining two full-budget calls risks
+          // blowing through vercel.json's maxDuration. Both branches are gated on
+          // `request.cachePrefix`, not just on `cachedName`, so a caller with no cache prefix
+          // (coach-message) never retries - exactly its pre-#713 behavior.
+          if (request.cachePrefix) {
+            if (cachedName && response.status === 400) {
+              // A stale/invalid cachedContent name shows up here as a 400 - retry once as
+              // plain no-cache and drop the bad record so the next request doesn't repeat the
+              // round-trip.
+              invalidateCachedSoulName().catch(() => {});
+              cachedName = null;
+              response = await callGemini(cachedName);
+            } else if (response.status === 504 || response.status === 503) {
+              // A timeout (504) or Gemini overload (503) is transient - retry once with a
+              // short fixed backoff. Unreachable alongside the 400 branch above.
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              response = await callGemini(cachedName);
+            }
+          }
+
           if (!response.ok) {
             const detail = await response.text();
-            throw Object.assign(
-              new Error(`Gemini request failed (${response.status}): ${detail}`),
-              { status: response.status === 429 ? 429 : 502 },
-            );
+            // The real upstream status always passes through - coach-chat's
+            // friendlyGeminiErrorMessage (coachTurn.ts) branches on 429/503/504 specifically to
+            // tell a rate limit from a timeout from a generic failure, pre-#713 behavior this
+            // adapter must not collapse now that chat shares it. Collapsing everything else
+            // (400/403/500) to a generic 502 was a real regression found in review: the athlete
+            // saw the wrong message and callers lost the ability to distinguish a bad request
+            // from a real server error.
+            throw Object.assign(new Error(`Gemini request failed (${response.status}): ${detail}`), {
+              status: response.status,
+            });
           }
           const payload = (await response.json()) as GeminiGenerateResponse;
           if (payload.usageMetadata) {
@@ -90,6 +181,7 @@ export function createGeminiAdapter(
               promptTokens: payload.usageMetadata.promptTokenCount,
               completionTokens: payload.usageMetadata.candidatesTokenCount,
               totalTokens: payload.usageMetadata.totalTokenCount,
+              cachedPromptTokens: payload.usageMetadata.cachedContentTokenCount,
               thinkingTokens: payload.usageMetadata.thoughtsTokenCount,
             });
           }

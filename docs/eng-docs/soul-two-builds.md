@@ -37,7 +37,8 @@ are missing.
 
 ## The cache rule — the one that costs money if you get it wrong
 
-`staticSystemText()` is hashed and uploaded once as Gemini's cached prefix (`soulCache.ts`); **one
+`staticSystemText()` is hashed and uploaded once as Gemini's cached prefix
+(`_lib/llmAdapters/geminiSoulCache.ts`, called by `geminiAdapter.ts`); **one
 entry serves every athlete.** Anything per-athlete in there forks the cache per athlete and the
 discount silently disappears. Nothing fails — the bill just goes up.
 

@@ -80,6 +80,11 @@ if (!apiKey) {
   process.exit(1);
 }
 
+// #713 M2 PR 2: askGemini() now reaches the model through selectLlmAdapter, which reads
+// LLM_PROVIDER. This harness tests direct Gemini specifically - force it regardless of whatever a
+// stray ambient env var says, rather than relying on selectLlmAdapter's default.
+process.env.LLM_PROVIDER = "gemini";
+
 interface TranscriptExpect {
   sessionClosed?: boolean;
   noFabricatedSaveLanguage?: boolean;
@@ -171,8 +176,13 @@ const MODEL = GEMINI_MODEL;
 
 // Files whose content changes what gets sent to Gemini. A cached PASS is only valid while all of
 // them are unchanged - otherwise the cache would vouch for a prompt that no longer exists.
+// #713 M2 PR 2: the actual HTTP call, explicit-cache lookup, and retry logic moved into
+// llmClient.ts/llmAdapters/ - included here for the same reason, they now shape the wire request.
 const PROMPT_SOURCES = [
   path.join(uiRoot, "api", "_lib", "geminiModel.ts"),
+  path.join(uiRoot, "api", "_lib", "llmClient.ts"),
+  path.join(uiRoot, "api", "_lib", "llmAdapters", "geminiAdapter.ts"),
+  path.join(uiRoot, "api", "_lib", "llmAdapters", "geminiSoulCache.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachPromptText.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachReplySchema.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "geminiClient.ts"),

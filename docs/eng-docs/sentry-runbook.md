@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-06 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -292,8 +292,11 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 
 - **Outbound HTTP from the API, deliberately.** Both Node instrumentations copy the full request URL
-  onto the span, and `geminiClient.ts` passes the key in the query string. An `http.client` span
-  would therefore be a credential in Sentry, and `beforeSend` never catches it — that hook fires for
+  onto the span, and template adjustment's own Gemini call (`coachWorkoutFiles.ts`) still passes the
+  key in the query string — coach-message and chat moved to header auth (`x-goog-api-key`) via
+  `_lib/llmAdapters/geminiAdapter.ts` (#713 M2 PR 1/PR 2); template adjustment is the one caller left
+  on the old query-string auth, pending M2 PR 3. An `http.client` span would therefore still be a
+  credential in Sentry for that one caller, and `beforeSend` never catches it — that hook fires for
   error events only. `ui/api/_lib/sentry.ts` gives `httpIntegration` and `nativeNodeFetchIntegration` an
   `ignoreOutgoingRequests` returning true for everything, dropping span and breadcrumb before either
   is built. The cost: GitHub call durations never reach a trace. Gemini is the one outbound call we

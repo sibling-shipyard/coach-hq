@@ -55,8 +55,9 @@ data shows up.
 
 ### 3. Retry-with-repair for JSON truncation
 
-Still a small, isolated, low-risk change to `finishGeminiResponse`'s error handling in
-`geminiClient.ts` — re-ask with the malformed output plus "fix this, keep it short" instead of
+Still a small, isolated, low-risk change to the response-parsing error handling in
+`_lib/llmAdapters/geminiAdapter.ts` (moved there from `geminiClient.ts`'s `finishGeminiResponse`
+by #713 M2 PR 2) — re-ask with the malformed output plus "fix this, keep it short" instead of
 blindly replaying the same request, specifically for the JSON-truncation failure mode ("Unterminated
 string in JSON"). Doesn't touch the schema. Good P2 pickup whenever someone's in this file for
 another reason.
