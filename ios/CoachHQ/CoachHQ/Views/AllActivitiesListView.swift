@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Full training history, paginated — the "All activity" destination from Home.
 ///
-/// Deliberately does not reuse `ActivityListView`'s `recentEntries`/`SyncCache` path:
+/// Deliberately does not reuse the `recentEntries`/`SyncCache` path other feed views take:
 /// that cache only ever backfills the last 7 days and actively evicts anything older than
 /// 30 (see `SyncCache.evictionDays`), so it can never back a genuine "everything" list.
 /// Instead this fetches the full `user_data/activities/hist` file listing once (cheap,
@@ -13,8 +13,8 @@ struct AllActivitiesListView: View {
     private static let initialPageSize = 50
     private static let loadMorePageSize = 20
 
-    /// Row taps call this instead of owning navigation — matches `ActivityListView`'s
-    /// `embedded` pattern so this pushes onto the *caller's* NavigationStack (Home's)
+    /// Row taps call this instead of owning navigation — the same embedded pattern other
+    /// feed views use, so this pushes onto the *caller's* NavigationStack (Home's)
     /// rather than nesting a second one.
     var onSelectEntry: (SyncCacheEntry) -> Void
 

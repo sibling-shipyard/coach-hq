@@ -109,44 +109,18 @@ Mapped in `Theme.sportIcon(for:)`:
 ### ✅ Phase 3 — Sync Tab Chart
 - `WeeklyVolumeChart`: 7-day sport-colored bar chart in Sync tab
 
-### ✅ Phase 4 — Training Heatmap
-- `TrainingHeatmapView`: 8-week Mon–Sun grid, sport-colored cells, tap → `DayDetailSheet`
-- Embedded at bottom of Activity feed (Variant 1)
+### ⛔ Phase 4 — Training Heatmap (removed)
+- `TrainingHeatmapView` was built but never wired into the app; deleted as dead code along with
+  the abandoned Phase 5 screen below (`docs/plans/ios-widget-modules.md`, #928)
 
 ---
 
-## Phase 5 — Coaching Insights Dashboard 🔜 next priority
+## Phase 5 — Coaching Insights Dashboard (dropped)
 
-**File:** new `CoachingInsightsView.swift`  
-**Tab:** new tab in `MainTabView.swift` (icon: `brain.head.profile` or `chart.xyaxis.line`)
-
-This is the sports-scientist screen. Not "your stats" — "here's what your data is telling you."  
-Each widget is a self-contained SwiftUI view taking `entries: [SyncCacheEntry]`.
-
-**These are the first Warm Instrument widgets on iOS** — style them per the token table above, and give each one the interaction budget the Design Philosophy expects for "iOS app (Home)" (tap → detail/drill-down for anything with a trend or history), not a static re-skinned card. Reuse the card shell, sport colors, and monospace-figure convention rather than inventing per-widget styling.
-
-### Widget backlog (build 6–8 of these, pick the best)
-
-| Widget | Data needed | Insight delivered |
-|---|---|---|
-| **Training Load** | `elapsedTime` last 7d vs prev 7d | Are you doing more or less? Trend arrow |
-| **Zone Distribution Ring** | `hrZones` all recent sessions | Aerobic base (Z1/Z2) vs intensity (Z3-5) balance |
-| **Badminton Form Strip** | `hasDescription`, parsed scores | Last 5 match results as W/L dots + trend |
-| **Streak & Consistency** | `startDateLocal` | Current consecutive days, longest this month |
-| **Sport Balance** | `sportType` counts | % split across sports (last 30 days) |
-| **Weekly Calorie Burn** | `calories` sum | Rolling 7-day total vs rough target |
-| **Training Heatmap** | all entries | Reuse `TrainingHeatmapView` directly |
-| **Intensity Trend** | avg `averageHeartrate` per session | Is effort going up or down week-over-week? |
-| **Next Milestone** | session count | "3 more sessions to hit your monthly target" |
-
-### Design rules for widgets
-- Each widget uses `ThemedCard` wrapper
-- Section header: `SectionHeader("WIDGET NAME")` from Theme
-- Numbers use `contentTransition(.numericText())`
-- Animate on appear (spring reveals, staggered where applicable)
-- Empty state: muted placeholder, never crash on nil data
-- Data source: `SyncCache.load()` — no new network calls in widgets (use cached `entry.activity` where available)
-- Color: snapshot JSON items that carry their own hex `color` (`LoadMixSnapshot`, `QuestSideSnapshot`) **must use it** — never re-derive from a table. `WarmInstrument.sportColors` is the palette only for snapshot types that carry just a `sport` id (`RecentSessionSnapshot`, `DoseRowSnapshot`, heatmap cells)
+`CoachingInsightsView.swift` was built but never wired into `MainTabView`, then marked DEPRECATED
+and deleted as dead code. The six existing forked widgets (Engine, Quest, BuildPhase, Vo2,
+TrainingActivity, Commitment) already cover this ground; consolidating them into one reusable
+module is the current plan — see `docs/plans/ios-widget-modules.md` (#928).
 
 ---
 
