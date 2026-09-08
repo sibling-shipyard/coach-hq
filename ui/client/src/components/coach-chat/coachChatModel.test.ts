@@ -41,12 +41,22 @@ function widgetSnapshots() {
   };
 }
 
+const THREAD_SEED_ID = "t-1756540800000";
+
 describe("proactive Coach seed", () => {
   it("parses one valid seed and rejects absent, malformed, or repeated values", () => {
     expect(parseProactiveSeed(`?seed=${encodeURIComponent(SEED_ID)}`)).toBe(SEED_ID);
     expect(parseProactiveSeed("")).toBeNull();
     expect(parseProactiveSeed("?seed=local-proactive-not-a-message")).toBeNull();
     expect(parseProactiveSeed(`?seed=${SEED_ID}&seed=${SEED_ID}`)).toBeNull();
+  });
+
+  // #918: a batch synced with a thread already open points conversation_seed_id at that thread's
+  // real id (`t-<epoch ms>`) instead of a `local-proactive-<id>` stub seed. Both shapes are valid.
+  it("also parses a real thread-id seed but rejects a malformed one", () => {
+    expect(parseProactiveSeed(`?seed=${THREAD_SEED_ID}`)).toBe(THREAD_SEED_ID);
+    expect(parseProactiveSeed("?seed=t-")).toBeNull();
+    expect(parseProactiveSeed("?seed=t-12abc")).toBeNull();
   });
 
   it("matches only the exact latest seed and preserves the exact body", () => {
@@ -59,6 +69,19 @@ describe("proactive Coach seed", () => {
         "local-proactive-cm-99999999-2222-4333-8444-555555555555",
       ),
     ).toBeNull();
+  });
+
+  it("also matches a real thread-id seed", () => {
+    const snapshots = widgetSnapshots();
+    snapshots.home.coachMessage.conversation_seed_id = THREAD_SEED_ID;
+
+    expect(selectProactiveCoachMessage(snapshots, THREAD_SEED_ID)).toEqual(
+      snapshots.home.coachMessage,
+    );
+    // A message id/seed mismatch (e.g. a `local-proactive-` seed that doesn't derive from this
+    // message's own id) stays rejected - a thread-id seed only relaxes the shape check, not the
+    // exact-match requirement against requestedSeed.
+    expect(selectProactiveCoachMessage(snapshots, "t-1")).toBeNull();
   });
 
   it("materializes one local thread with the seed id, divider, and exact Coach body", () => {
@@ -106,6 +129,32 @@ describe("proactive Coach seed", () => {
     expect(resolveProactiveThread(SEED_ID, null, [])).toBeNull();
   });
 
+  // #918: the common case once a chat thread already exists for the synced batch - the seed is
+  // that thread's own real id, which must be opened directly, never stubbed.
+  it("opens an already-persisted thread-id seed directly, and never stubs one that's missing", () => {
+    const persisted: ChatThread = {
+      id: THREAD_SEED_ID,
+      dayOffset: 0,
+      title: "Easy Run",
+      preview: "Nice work.",
+      ageLabel: "NOW",
+      messages: [],
+    };
+
+    expect(resolveProactiveThread(THREAD_SEED_ID, null, [persisted])).toBe(persisted);
+
+    // Even when the widget-snapshot's latest message matches the seed exactly, a thread-id seed
+    // not yet present in existingThreads must not be materialized into a local stub - only a
+    // `local-proactive-<id>` seed can be (there's no cm-id/body relationship to build one from).
+    const latestMessage = {
+      id: MESSAGE_ID,
+      created_at: "2026-08-23T11:55:00.000Z",
+      body: EXACT_BODY,
+      conversation_seed_id: THREAD_SEED_ID,
+    };
+    expect(resolveProactiveThread(THREAD_SEED_ID, latestMessage, [])).toBeNull();
+  });
+
   it("fetches the snapshot contract and degrades unavailable data to normal fallback", async () => {
     const matchedFetcher = vi.fn(async () => Response.json(widgetSnapshots()));
     await expect(
@@ -120,6 +169,16 @@ describe("proactive Coach seed", () => {
     await expect(
       fetchProactiveCoachMessage(SEED_ID, unavailableFetcher as typeof fetch),
     ).resolves.toBeNull();
+  });
+
+  it("also fetches a real thread-id seed", async () => {
+    const snapshots = widgetSnapshots();
+    snapshots.home.coachMessage.conversation_seed_id = THREAD_SEED_ID;
+    const matchedFetcher = vi.fn(async () => Response.json(snapshots));
+
+    await expect(
+      fetchProactiveCoachMessage(THREAD_SEED_ID, matchedFetcher as typeof fetch),
+    ).resolves.toEqual(snapshots.home.coachMessage);
   });
 });
 
