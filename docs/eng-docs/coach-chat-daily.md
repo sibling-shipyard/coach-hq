@@ -99,16 +99,18 @@ call for a greeting nobody reads.
 
 ### 2a. Proactive post-sync seed
 
-A successful post-sync message is a second entry into the same local-thread lifecycle, not a
-second chat system. Home or a local notification carries the exact `conversation_seed_id` and
-body from `latest_message.json`; iOS also persists the repo identity so a cold-launch handoff can
-only be consumed by the matching authenticated athlete.
+Since ADR 0040, a post-sync Coach message usually names the same thread `activitySyncTurn` already
+persisted (§3b), not a second one. Home or a local notification carries the exact
+`conversation_seed_id` and body from `latest_message.json`; iOS also persists the repo identity so
+a cold-launch handoff can only be consumed by the matching authenticated athlete.
 
-`CoachChatView` first restores an exact cached seed when present. Otherwise it materializes one
-divider and one Coach message under `local-proactive-<message.id>`, bypassing greet. Reopening the
-same seed selects that thread without appending the opener again. A requested older proactive seed
-is exempt from the cleanup that removes past-day unreplied greetings; unrelated stale greetings
-still drop. Invalid, missing, or account-mismatched routes clear and fall through to normal greet.
+`CoachChatView` first restores an exact cached seed when present. A real thread id (`t-<epoch ms>`)
+not yet cached is fetched and opened directly — the reply already lives there. Only a
+`local-proactive-<message.id>` seed, the fallback for a sync with no persisted thread yet,
+materializes one divider and one Coach message locally, bypassing greet. Reopening the same seed
+selects that thread without appending the opener again. A requested older proactive seed is exempt
+from the cleanup that removes past-day unreplied greetings; unrelated stale greetings still drop.
+Invalid, missing, or account-mismatched routes clear and fall through to normal greet.
 
 The opener rides in `messages` as prior context on the athlete's first reply. From there sending
 is the ordinary path: that reply's commit writes the same thread id through `chat_history.json`,

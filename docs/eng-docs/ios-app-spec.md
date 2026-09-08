@@ -1,6 +1,6 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-04
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-11
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
@@ -97,9 +97,10 @@ The app will replace the web-based workout timer with a native SwiftUI implement
 
 Home decodes the same widget-snapshot contract as web (ADR 0005). An optional
 `home.coachMessage` renders before dashboard cards and opens its exact `conversation_seed_id`.
-Coach chat materializes that local proactive thread as divider plus exact Coach body, sends the
-opener as prior context on the athlete's first reply, and uses the normal close path and seven-slot
-retention rule (ADR 0012).
+Coach chat opens the real persisted thread directly when the seed names one (ADR 0040). Only the
+`local-proactive-<id>` fallback shape still materializes locally as a divider plus exact Coach
+body. The opener rides as prior context on the athlete's first reply either way. Chat history
+keeps every thread; the seven-thread cap only trims response payloads (ADR 0037).
 
 The Home/notification handoff is account-scoped. Its persisted body, seed, timestamp, and repo are
 accepted only for the matching authenticated repo, then cleared after consumption. A load before
