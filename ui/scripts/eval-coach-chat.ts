@@ -1,9 +1,11 @@
 #!/usr/bin/env -S npx tsx
 /**
  * eval-coach-chat.ts — runs the golden transcripts in
- * ui/api/coach-chat/_tests/coach-chat-eval/transcripts/ through the real askGemini() logic against a live
- * Gemini key, and checks the structural rubric: valid schema, no fabricated "saved" language,
- * session_closed only true when the transcript expects it, coach_note present when expected.
+ * ui/api/coach-chat/_tests/coach-chat-eval/transcripts/ through the real askGemini() logic against
+ * a live model - direct Gemini by default, or OpenRouter when `LLM_PROVIDER=openrouter` is set
+ * (#713 M2 PR 2 put askGemini() on the same seam every other caller uses) - and checks the
+ * structural rubric: valid schema, no fabricated "saved" language, session_closed only true when
+ * the transcript expects it, coach_note present when expected.
  *
  * **Multi-turn transcripts:** a real conversation is rarely one message - someone mentions
  * something vague, gets asked to clarify, then gives the real detail two turns later. A
@@ -36,11 +38,14 @@
  * transcript, the model, and the prompt-construction code, so any change to those re-runs it.
  *
  * Usage (from ui/):
- *   npm run eval:coach-chat              # resume - skips transcripts already passing
- *   npm run eval:coach-chat -- --fresh   # ignore the cache, re-run everything
- *   npm run eval:coach-chat -- --only 03 # run transcripts whose file/name matches a substring
+ *   npm run eval:coach-chat                                    # direct Gemini, resume
+ *   npm run eval:coach-chat -- --fresh                         # ignore the cache, re-run everything
+ *   npm run eval:coach-chat -- --only 03                       # run transcripts whose file/name matches a substring
+ *   LLM_PROVIDER=openrouter npm run eval:coach-chat -- --fresh # OpenRouter instead of direct Gemini
  *
- * Needs GEMINI_API_KEY in ui/.env.local or env.
+ * Needs GEMINI_API_KEY in ui/.env.local or env always (askGemini()'s own signature takes one
+ * regardless of provider - see its header comment); OPENROUTER_API_KEY too when running with
+ * LLM_PROVIDER=openrouter.
  *
  * Run log: every invocation writes a fresh
  * <repo-root>/tests/<YYYY-MM-DD>/eval/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not
@@ -60,7 +65,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { GEMINI_MODEL } from "../api/_lib/geminiModel.js";
+import { selectLlmAdapter } from "../api/_lib/llmClient.js";
 import { askGemini } from "../api/coach-chat/_lib/gemini/geminiClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
 import type { TurnMode } from "../api/coach-chat/_lib/gemini/coachReplySchema.js";
@@ -81,9 +86,11 @@ if (!apiKey) {
 }
 
 // #713 M2 PR 2: askGemini() now reaches the model through selectLlmAdapter, which reads
-// LLM_PROVIDER. This harness tests direct Gemini specifically - force it regardless of whatever a
-// stray ambient env var says, rather than relying on selectLlmAdapter's default.
-process.env.LLM_PROVIDER = "gemini";
+// LLM_PROVIDER. Default to direct Gemini (this harness's original target) only when nothing is
+// already set, rather than forcing it - an explicit ambient LLM_PROVIDER=openrouter must actually
+// select the OpenRouter adapter (e.g. `LLM_PROVIDER=openrouter npm run eval:coach-chat -- --fresh`
+// to eval OpenRouter specifically), not get silently overridden back to Gemini.
+process.env.LLM_PROVIDER ??= "gemini";
 
 interface TranscriptExpect {
   sessionClosed?: boolean;
@@ -172,7 +179,16 @@ const SAVE_CLAIM_PHRASES = [
 
 // Gitignored: results are per-machine and per-key, never shared or committed.
 const CACHE_PATH = path.join(uiRoot, ".eval-cache.json");
-const MODEL = GEMINI_MODEL;
+// The adapter this run actually selected (LLM_PROVIDER above), not a hardcoded GEMINI_MODEL
+// import - this harness can now run against either provider. Read once, up front: each
+// transcript's cache-hit check runs *before* that transcript's own call (that's the whole point -
+// a cache hit skips the call entirely), so the model has to be knowable before any call happens,
+// not threaded in from a call's telemetry afterward. `selectLlmAdapter(...).model` is exactly the
+// same fixed identifier a real call's `LlmResult.telemetry.model` would report - both adapters set
+// it once at construction (`GEMINI_MODEL`/`OPENROUTER_MODEL`) and never vary it per call - so this
+// is authoritative, not a stand-in. Without this, a Gemini run's cached PASS could be wrongly
+// served on a later OpenRouter run for the same transcript, or vice versa.
+const MODEL = selectLlmAdapter(process.env).model;
 
 // Files whose content changes what gets sent to Gemini. A cached PASS is only valid while all of
 // them are unchanged - otherwise the cache would vouch for a prompt that no longer exists.
