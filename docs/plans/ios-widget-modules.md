@@ -72,12 +72,25 @@ already puts in both the ledger and Chat. Every step below copies that shape.
 | W4 | One vocabulary | One number/duration formatter, one sport lookup, one stat cell in `Views/Widgets/Format.swift`; `SessionRow` folded onto `ActivityRowViewModel`; the 44 stray colours moved onto tokens | W3b | `Views/Widgets/`, `Views/WarmInstrumentAtoms.swift`, `Views/CoachChatWarmUI.swift`, `Views/WorkoutTimerWarm.swift`, `Views/WorkoutOverviewView.swift`, `Views/WorkoutListView.swift`, `Views/OnboardingRevealFlow.swift` | iOS Builder | — | One row, one formatter, one sport table; a colour change lands everywhere at once |
 | W5 | Detail widgets | Extract `heroCard`, `ribbonCard`+`zoneLegend`, `usualCard`, `richScoreCard` behind view models; move `cachedUsualRows`/`median` into a `RibbonBuilder`-style type and test it | W4 | `Views/ActivityDetailView.swift`, `Views/Widgets/`, `CoachHQTests/`, `project.pbxproj` | iOS Builder | — | Detail cards are reusable; the vs-usual maths has tests |
 | W6 | Catalog | `WidgetCatalogKey` + factory; Home column becomes stored `[WidgetCatalogKey]` instead of a hardcoded body | W5 | `Views/Widgets/WidgetCatalog.swift` (new), `Views/WarmInstrumentHomeView.swift`, `CoachHQTests/` | iOS Builder | — | Home order is data; an unknown key renders nothing, never crashes |
+| WA | Palette rule | ADR 0037: terracotta is load **and** primary action, never decorative, never status. Rewrite the four places the old load-only wording lives; commit prefix `core:`, per CONVENTIONS line 20 | W6 | `kdb/decisions/0037-*.md` (new), `kdb/decisions/README.md`, `ui/docs/reference-interactions/Widget Design Philosophy.md`, `shared/warm-instrument/ios-token-mapping.md`, `ios/DESIGN.md`, `Views/Theme.swift` | iOS Builder | — | The written rule matches what web and iOS both already ship |
 
 **Gated, not in this stack.** W7 is chat inline widgets: new `ChatAttachment` kinds rendering catalog
 widgets, capped at two. It needs the server catalog from `coach-conversation-widgets-roadmap.md` M3.
 That milestone's locked decision is that Coach picks only opaque keys the server built, so building
 this earlier means guessing those key names. `ChatAttachment` (`CoachChatModels.swift:50`) is already versioned
 with an `.unknown` fallback, so the day those keys exist this is new kinds, not new plumbing.
+
+**WA sits at the top of the stack, not the bottom.** It overlaps W1 on `Theme.swift`, so the two
+cannot run in parallel. `.github/CONVENTIONS.md` § Stacked PRs puts cross-cutting edits on top,
+because at the base they force a rebase of everything above. Nothing in W1–W6 depends on the rule.
+W4 moves hardcoded hex onto tokens and never changes which token a surface picks, so the order is
+free and this is the cheap end of it.
+
+**Why the rule loses rather than the code.** `WarmInstrument.accent`/`WorkoutTimerWarm.rust` appear
+in 14 files, and web dropped the same rule independently: `--wi-rust` is a background in
+`coach-chat.css` (4 sites), `workout-timer-warm.css:239` and `sport-analytics.css` (5 sites). A rule
+neither platform follows is wrong, not violated. "Never decorative" is the half worth keeping — the
+Engine card only reads as special while terracotta stays scarce.
 
 **W2 and W3 share one LLD**, written before W2 starts. It carries three things. The scale decision
 above. A table of what genuinely varies across the three Engine renderings — sizes and the
@@ -114,14 +127,8 @@ points. Catalog keys are the server's strings, never iOS-invented ones.
 - **P2 — one View across all three surfaces is not the target.** WidgetKit has no animation, its own
   type ramp, `containerBackground` and `.redacted`. Shared view models, maths and sub-views; a thin
   per-surface wrapper. Chasing literal view sharing costs more than the fork did.
-- **Decided — terracotta's load-only rule gets rewritten, and not in this stack.** Web abandoned it
-  too: `--wi-rust` is a background in `coach-chat.css` (4 sites), `workout-timer-warm.css:239` and
-  `sport-analytics.css` (5 sites). A rule both platforms independently dropped is wrong, not
-  violated. New rule: terracotta is load **and** primary action; never decorative, never status —
-  the alarm tokens own that. The wording lives in four places across three bands. That makes it a
-  cross-cutting ADR for Tech Lead, not an `ios/` edit. Files:
-  `ui/docs/reference-interactions/Widget Design Philosophy.md:9`,
-  `shared/warm-instrument/ios-token-mapping.md:17`, `ios/DESIGN.md:10` and `:16`, `Theme.swift:202`. W4's colour pass is unaffected: it
+- **P2 — no code moves off terracotta.** WA rewrites the rule, not the 14 files that use the colour.
+  Repainting those CTAs is a separate design pass nobody has asked for. W4's colour pass is unaffected: it
   moves hardcoded hex onto tokens and never touches which token a surface picks.
 - **P2 — `SettingsView`, timer views, onboarding untouched** beyond W4's colour and formatter pass.
   Large, but single-surface: no second renderer, no fork, no payoff.
