@@ -1,11 +1,14 @@
 # OpenRouter M2 — coach-chat onto `llmClient` — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-07
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
 
 Execution detail for milestone 2 in [`chat-openrouter-migration.md`](chat-openrouter-migration.md).
 That plan carries M2 as a single PR. It is three. Chat does not send what the seam can express,
-and one open provider question decides how much of chat's schema has to change. Opens only after #821 merges — J2 moves every chat file this touches, so every chat path
-cited below is the post-J2 one and is not on `main` yet.
+and one open provider question decides how much of chat's schema has to change. J2 moves every
+chat file this touches, so every chat path cited below is the post-J2 one and is not on `main` yet.
+Rather than wait for #821 to merge, all three PRs branch from `fix/808-quest-create-flaky` (#824,
+the current tip of the 819→821→822→824 stack). That stack is rebased current with `main`; these
+PRs rebase onto `main` once it lands.
 
 ## How the three callers reach the model today
 
@@ -61,6 +64,12 @@ So the first task is a probe, not a patch. Send the real post-#824 `coachReplySc
 
 Run the probe before PR 1. It costs one request and it decides whether M2 is a week or a month.
 
+**Run 2026-09-08:** accepted as-is. One live call, the real `RETURNING_ACTIONS` shape (15 action
+fields + `reply`, `required: ["reply"]`, `strict: true`) against `google/gemini-3.8-flash` pinned
+to `google-vertex`, returned HTTP 200 with `{"reply":"Hi"}` ($0.00268). OpenRouter does not enforce
+OpenAI's "every property must be required" rule for this model/provider. **M2 is mechanical** —
+proceed straight to PR 1.
+
 ## What the seam has to grow
 
 `LlmRequest` is `{prompt, maxOutputTokens, responseSchema}`. Chat needs four more things, and each
@@ -85,7 +94,7 @@ what it cost.
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `main`, after #821 | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | not started |
+| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | not started |
 | 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | not started |
 | 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | not started |
 
