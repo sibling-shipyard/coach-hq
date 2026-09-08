@@ -14,10 +14,15 @@ that problem.
 
 **No structural blocker for M3.** All 11 Home cards (`home-warm/widgets/*.tsx`) are pure
 `<section>`/`<article>` components that take one typed snapshot prop and hold no page-level
-state, no fixed-grid assumptions, and no Home-only context. Proof: `WidgetGallery.tsx`
-(`pages/WidgetGallery.tsx:1-17`) already renders all 11 outside `DesktopHomeGrid`, in a
-different layout, from the same import — a second surface already exists and required zero
-component changes. `pages/CoachChat.tsx:5,7` already imports `getActivityZoneLoad` and
+state or fixed-grid assumptions. Proof: `WidgetGallery.tsx` (`pages/WidgetGallery.tsx:1-17`)
+already renders 10 of the 11 outside `DesktopHomeGrid`, in a different layout, from the same
+import — a second surface already exists and required zero component changes for those 10. The
+eleventh, `CoachMessageCard` (`widgets/CoachMessageCard.tsx`, used only in
+`WarmInstrumentHome.tsx:86`), is absent from the gallery and is worth naming on its own. It's a
+`wouter` `<Link>` to `/coach-chat` — Home's teaser pointing at the Chat thread, not a fact Chat
+would attach to itself. It's excluded from M3's candidate set by its own logic, not because
+anything blocks it. `pages/CoachChat.tsx:5,7` already imports
+`getActivityZoneLoad` and
 `InstrumentHeader` from `home-warm/`, so cross-directory reuse is an established pattern, not a
 new one. The data contract is cross-platform already (ADR 0005): `WidgetSnapshotsFile`
 (`home-warm/snapshots.ts:281-309`) even carries `sizes.{engine,quest,commitments}` S/M variants
@@ -64,7 +69,7 @@ independent of M3's own trigger/catalog logic (out of scope here, per #930).
 | finding | evidence |
 |---|---|
 | Zero forked widget components | `grep -rln` for each of the 11 card names under `coach-chat/` returns nothing; `CoachChatWidgets.tsx` (653 lines) has no import from `home-warm/` |
-| Cards already surface-portable | `WidgetGallery.tsx:1-17` renders all 11 from the same import, outside `DesktopHomeGrid`, in a `/gallery` list layout — a second surface already exists |
+| Cards already surface-portable | `WidgetGallery.tsx:1-17` renders 10 of 11 from the same import, outside `DesktopHomeGrid`, in a `/gallery` list layout — a second surface already exists. The 11th, `CoachMessageCard`, is a Home-only teaser `<Link>` to Chat and isn't a gallery/Chat candidate on its own logic |
 | Three sport→discipline mappings, one exact duplicate | `categoryToSport` (`warmHomeSnapshots.ts:58-75`) and `disciplineToSport` (`warmHomeSnapshots.ts:77-93`) differ in input type from `disciplineFor`, which is **byte-identical** between `currentWeekAdapter.ts:34-50` and `liveWeekContract.ts:32-48`; `mapDiscipline` (`currentWeekAdapter.ts:53-71`) is a fourth, narrower variant |
 | Two duration formatters, different units and format | `formatMinutesLabel` (`home-warm/formatUtils.ts:13-18`, minutes → `"1H30"`) vs `formatDuration` (`lib/activities.ts:281-287`, seconds → `"1h 30m"`) — home-warm and coach-chat each format duration their own way |
 | ~90 hex colours outside the token file | `grep -c "#[0-9a-fA-F]\{6\}"`: `warm-instrument.css` 34, `coach-chat.css` 50, `widget-gallery.css` 1, `warmHomeModel.ts` 4, `warmHomeSnapshots.ts` 1 (excludes `wi-tokens.generated.css`, the generated source; 40 in `home-warm/`, 50 in `coach-chat/`) |
