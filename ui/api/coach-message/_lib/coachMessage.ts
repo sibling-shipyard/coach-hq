@@ -971,9 +971,7 @@ export async function generateAndStoreCoachMessage(
         }
       : null;
     const context = await loadProactiveContext(activityIds, deps, now, previousProactiveMessage);
-    body = validateGeneratedBody(
-      await deps.generateBody(buildProactivePrompt(deps.soul, context)),
-    );
+    body = validateGeneratedBody(await deps.generateBody(buildProactivePrompt(deps.soul, context)));
     const rows = context.activity_batch
       .map(syncedActivityRow)
       .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));

@@ -110,9 +110,9 @@ message may carry `attachments`. M0 kind:
 `synced_activity_list` `{ version: 1, batch_id, activities[] }`
 
 `batch_id` is the first 16 hex of sha256 of the sorted unique activity ids, canonicalized to
-`healthkit:<UUID>`/`strava:<id>` first (`/api/coach-chat`'s `hk:<uuid>` request format and
+`healthkit:<UUID>`/`strava:<id>` first. `/api/coach-chat`'s `hk:<uuid>` request format and
 `/api/coach-message`'s `healthkit:<UUID>` format must hash to the same batch id for the same
-sync - `canonicalSyncActivityId` in `activitySync.ts`, #918). Rows:
+sync (`canonicalSyncActivityId` in `activitySync.ts`, #918). Rows:
 `id, title, sport, start, duration_s, load`. Server rereads `user_data/activities/hist/`;
 Gemini cannot set these. Unknown kinds/versions are ignored, never fatal. Tap a row opens
 Activity Detail by `id`.

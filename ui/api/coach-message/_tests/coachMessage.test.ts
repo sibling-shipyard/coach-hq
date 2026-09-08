@@ -486,10 +486,7 @@ describe("one generator, one thread id (#918)", () => {
       ],
     };
     const files = repoFiles();
-    files.set(
-      "user_data/coach/chat_history.json",
-      JSON.stringify({ threads: [existingThread] }),
-    );
+    files.set("user_data/coach/chat_history.json", JSON.stringify({ threads: [existingThread] }));
     const deps = dependencies({
       readFile: vi.fn(async (path: string) =>
         path === "user_data/coach/latest_message.json"

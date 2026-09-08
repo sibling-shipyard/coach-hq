@@ -24,7 +24,9 @@ const {
   listDirectory: vi.fn(
     async (_repo: string, _path: string): Promise<DirectoryEntry[] | null> => [],
   ),
-  listActivityFiles: vi.fn(async (_repo: string, _token: string): Promise<ActivityFileEntry[]> => []),
+  listActivityFiles: vi.fn(
+    async (_repo: string, _token: string): Promise<ActivityFileEntry[]> => [],
+  ),
   loadCoachContext: vi.fn(async () => ({
     soul: "soul",
     profile: { timezone: "UTC" },
