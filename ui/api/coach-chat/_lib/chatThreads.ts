@@ -99,8 +99,9 @@ export interface ChatHistoryFile {
   threads: ChatThread[];
 }
 
-export async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
-  const raw = await getFileRaw(repo, CHAT_FILE_PATH, token);
+// Pure parse, shared with callers that already hold the raw text (e.g. coach-message/_lib's
+// injected deps.readFile) and don't want their own repo/token-based fetch.
+export function parseChatHistory(raw: string | null): ChatHistoryFile {
   if (!raw) return { threads: [] };
   try {
     const parsed = JSON.parse(raw) as ChatHistoryFile;
@@ -108,6 +109,10 @@ export async function loadChatHistory(repo: string, token: string): Promise<Chat
   } catch {
     return { threads: [] };
   }
+}
+
+export async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
+  return parseChatHistory(await getFileRaw(repo, CHAT_FILE_PATH, token));
 }
 
 // Serializes the persisted file shape, stamping _meta the same way coachMemoryFiles.ts's

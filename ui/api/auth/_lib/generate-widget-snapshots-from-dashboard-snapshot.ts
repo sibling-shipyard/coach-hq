@@ -43,6 +43,11 @@ interface LatestCoachMessageFile {
 const HEALTHKIT_ACTIVITY_ID =
   /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 const STRAVA_ACTIVITY_ID = /^strava:[0-9]{1,32}$/;
+// A batch with a thread already open when the sync completed points conversation_seed_id at
+// that real chat-thread id (coach-chat/_lib/activitySync.ts's buildActivitySyncThread,
+// `t-<epoch ms>`) instead of minting `local-proactive-<id>` - one generator, one thread id
+// (#918). Mirrors coach-message/_lib/coachMessage.ts's isValidConversationSeedId.
+const THREAD_SEED_ID = /^t-[0-9]+$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -69,7 +74,9 @@ function isLatestCoachMessageFile(value: unknown): value is LatestCoachMessageFi
     typeof message.body !== "string" ||
     message.body.trim().length === 0 ||
     message.body.length > 360 ||
-    message.conversation_seed_id !== `local-proactive-${message.id}` ||
+    typeof message.conversation_seed_id !== "string" ||
+    (message.conversation_seed_id !== `local-proactive-${message.id}` &&
+      !THREAD_SEED_ID.test(message.conversation_seed_id)) ||
     !Array.isArray(message.activity_ids) ||
     message.activity_ids.length === 0 ||
     message.activity_ids.length > 20

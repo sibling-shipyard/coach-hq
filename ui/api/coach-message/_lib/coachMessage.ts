@@ -1,7 +1,26 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { captureGeminiFailure } from "../../_lib/sentry.js";
+import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import type { LlmAdapter, LlmJsonSchema } from "../../_lib/llmClient.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
+import { getHeadSha, resolveCoachChatBranch } from "../../coach-chat/_lib/decide/coachChatFiles.js";
+import {
+  CHAT_FILE_PATH,
+  parseChatHistory,
+  serializeChatHistory,
+  type ChatThread,
+  type SyncedActivityRow,
+} from "../../coach-chat/_lib/chatThreads.js";
+import {
+  activitySyncBatchId,
+  activityZoneLoad,
+  buildActivitySyncThread,
+  coachReplyText,
+  commitActivitySyncHistory,
+  findThreadForActivitySyncBatch,
+} from "../../coach-chat/_lib/decide/activitySync.js";
+
+const GITHUB_API = "https://api.github.com";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 export const MAX_ACTIVITY_IDS = 20;
@@ -339,6 +358,46 @@ export function parseActivityHistoryTree(payload: unknown): ActivityFileEntry[] 
   });
 }
 
+/**
+ * Recursive Git tree read (not the 1,000-entry-capped Contents API `listDirectory` used
+ * elsewhere) so a large `user_data/activities/hist/` directory never silently truncates the
+ * authoritative activity list. Shared by the /api/coach-message route and activitySyncTurn.ts's
+ * post-sync generation, since both now call `loadProactiveContext` for the same batch.
+ */
+export async function listActivityFiles(repo: string, token: string): Promise<ActivityFileEntry[]> {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  const readGitJson = async (path: string): Promise<unknown> => {
+    const response = await fetchWithTimeout(`${GITHUB_API}/repos/${repo}${path}`, { headers });
+    if (!response.ok) {
+      throw Object.assign(new Error(`Failed to read GitHub tree (${response.status})`), {
+        status: response.status,
+      });
+    }
+    return response.json() as Promise<unknown>;
+  };
+
+  const branch = resolveCoachChatBranch();
+  const headSha = await getHeadSha(repo, token, branch);
+  const commit = await readGitJson(`/git/commits/${encodeURIComponent(headSha)}`);
+  if (
+    !commit ||
+    typeof commit !== "object" ||
+    !("tree" in commit) ||
+    !commit.tree ||
+    typeof commit.tree !== "object" ||
+    !("sha" in commit.tree) ||
+    typeof commit.tree.sha !== "string"
+  ) {
+    throw new CoachMessageError("GitHub commit tree is malformed", 502);
+  }
+  const tree = await readGitJson(`/git/trees/${encodeURIComponent(commit.tree.sha)}?recursive=1`);
+  return parseActivityHistoryTree(tree);
+}
+
 function parseJson(raw: string | null): unknown {
   if (raw == null) return null;
   try {
@@ -442,6 +501,15 @@ export function validateGeneratedBody(value: unknown): string {
   return body;
 }
 
+// A batch with a thread already open when the sync completed points conversation_seed_id at
+// that real chat-thread id (buildActivitySyncThread's `t-<epoch ms>`) instead of minting
+// `local-proactive-<id>` - one generator, one thread id (#918). Both shapes are valid.
+const THREAD_SEED_ID = /^t-[0-9]+$/;
+
+function isValidConversationSeedId(seedId: string, id: string): boolean {
+  return seedId === `local-proactive-${id}` || THREAD_SEED_ID.test(seedId);
+}
+
 function parseLatestMessage(value: unknown): LatestCoachMessage | null {
   if (!isObject(value)) return null;
   const keys = Object.keys(value).sort();
@@ -454,7 +522,8 @@ function parseLatestMessage(value: unknown): LatestCoachMessage | null {
     !id ||
     !createdAt ||
     Number.isNaN(Date.parse(createdAt)) ||
-    seedId !== `local-proactive-${id}`
+    !seedId ||
+    !isValidConversationSeedId(seedId, id)
   ) {
     return null;
   }
@@ -835,6 +904,34 @@ function serializeLatestMessage(message: LatestCoachMessage): string {
   return `${JSON.stringify({ schema_version: 1, message }, null, 2)}\n`;
 }
 
+function isFiniteNumberField(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+// Rebuilds the same SyncedActivityRow shape activitySyncTurn.ts's loadVerifiedActivities
+// produces, from the projected activity object loadProactiveContext already fetched - avoids a
+// second GitHub read of the same hist files when this call is the one minting a new thread.
+function syncedActivityRow(entry: ProactiveContext["activity_batch"][number]): SyncedActivityRow {
+  const { localId } = requestedIdParts(entry.activity_id);
+  const activity = entry.activity;
+  const hrZones = isObject(activity.hr_zones)
+    ? (activity.hr_zones as Record<string, { seconds?: unknown }>)
+    : null;
+  return {
+    id: localId,
+    title: typeof activity.name === "string" ? activity.name : "",
+    sport: typeof activity.sport_type === "string" ? activity.sport_type : "",
+    start: typeof activity.start_date_local === "string" ? activity.start_date_local : "",
+    duration_s: isFiniteNumberField(activity.elapsed_time) ? activity.elapsed_time : 0,
+    load: activityZoneLoad(hrZones),
+  };
+}
+
+function timezoneFromProfile(raw: unknown): string {
+  if (!isObject(raw)) return "UTC";
+  return stringValue(raw.timezone, 64) ?? "UTC";
+}
+
 export async function generateAndStoreCoachMessage(
   activityIds: string[],
   deps: CoachMessageDependencies,
@@ -850,24 +947,62 @@ export async function generateAndStoreCoachMessage(
   }
 
   const now = deps.now?.() ?? new Date();
-  const previousProactiveMessage = initial.message
-    ? {
-        created_at: initial.message.created_at,
-        body: initial.message.body,
-      }
-    : null;
-  const context = await loadProactiveContext(activityIds, deps, now, previousProactiveMessage);
-  const body = validateGeneratedBody(
-    await deps.generateBody(buildProactivePrompt(deps.soul, context)),
-  );
+  const batchId = activitySyncBatchId(activityIds);
+  const history = parseChatHistory(await deps.readFile(CHAT_FILE_PATH));
+  const existingThread = findThreadForActivitySyncBatch(history.threads, batchId);
+
+  // One generator, one thread id (#918): a thread already open for this batch means
+  // activitySyncTurn.ts already generated and persisted this reply - reuse it instead of a
+  // second LLM call and a second thread. Only the no-thread-yet fallback (a genuinely
+  // backgrounded sync) generates here, and it mints the thread itself so a later foreground
+  // open finds the exact same conversation.
+  let body: string;
+  let fallbackSeedThreadId: string | null = null;
+  let chatWrite: ResolvedFileWrite | null = null;
+  let chatOutcome: { threads: ChatThread[]; duplicate: boolean; thread: ChatThread } | undefined;
+
+  if (existingThread) {
+    body = coachReplyText(existingThread);
+  } else {
+    const previousProactiveMessage = initial.message
+      ? {
+          created_at: initial.message.created_at,
+          body: initial.message.body,
+        }
+      : null;
+    const context = await loadProactiveContext(activityIds, deps, now, previousProactiveMessage);
+    body = validateGeneratedBody(
+      await deps.generateBody(buildProactivePrompt(deps.soul, context)),
+    );
+    const rows = context.activity_batch
+      .map(syncedActivityRow)
+      .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+    const timezone = timezoneFromProfile(
+      parseJson(await deps.readFile("user_data/coach/profile.json")),
+    );
+    const newThread = buildActivitySyncThread({
+      batchId,
+      rows,
+      replyText: body,
+      now: now.getTime(),
+      timezone,
+    });
+    fallbackSeedThreadId = newThread.id;
+    chatWrite = {
+      path: CHAT_FILE_PATH,
+      resolve: async () => {
+        const fresh = parseChatHistory(await deps.readFile(CHAT_FILE_PATH));
+        chatOutcome = commitActivitySyncHistory(fresh.threads, batchId, newThread);
+        return serializeChatHistory(
+          chatOutcome.threads,
+          new Date().toISOString(),
+          `sync-${now.getTime().toString(36)}`,
+        );
+      },
+    };
+  }
+
   const id = `cm-${deps.randomUUID?.() ?? crypto.randomUUID()}`;
-  const candidate: LatestCoachMessage = {
-    id,
-    created_at: now.toISOString(),
-    activity_ids: [...activityIds],
-    body,
-    conversation_seed_id: `local-proactive-${id}`,
-  };
   const writeState: {
     durableWinner: LatestCoachMessage | null;
     candidateBecameDurable: boolean;
@@ -875,9 +1010,24 @@ export async function generateAndStoreCoachMessage(
     durableWinner: null,
     candidateBecameDurable: false,
   };
-  const write: ResolvedFileWrite = {
+  const latestMessageWrite: ResolvedFileWrite = {
     path: LATEST_COACH_MESSAGE_PATH,
     resolve: async () => {
+      // chatWrite (when present) always resolves first - commitFilesAtomic resolves entries in
+      // array order, every retry attempt - so chatOutcome reflects the thread that actually won
+      // any concurrent mint-the-same-batch race by the time this reads it.
+      const seedThreadId = existingThread?.id ?? chatOutcome?.thread.id ?? fallbackSeedThreadId;
+      const seedBody = chatOutcome ? coachReplyText(chatOutcome.thread) : body;
+      if (!seedThreadId) {
+        throw new CoachMessageError("Activity-sync thread id did not resolve", 500);
+      }
+      const candidate: LatestCoachMessage = {
+        id,
+        created_at: now.toISOString(),
+        activity_ids: [...activityIds],
+        body: seedBody,
+        conversation_seed_id: seedThreadId,
+      };
       const currentRaw = await deps.readFile(LATEST_COACH_MESSAGE_PATH);
       const current = parseLatestMessageFile(currentRaw).message;
       if (
@@ -894,7 +1044,10 @@ export async function generateAndStoreCoachMessage(
       return serializeLatestMessage(candidate);
     },
   };
-  const committed = await deps.commitFiles([write], "coach: proactive message after sync");
+  const writes: ResolvedFileWrite[] = chatWrite
+    ? [chatWrite, latestMessageWrite]
+    : [latestMessageWrite];
+  const committed = await deps.commitFiles(writes, "coach: proactive message after sync");
   const durableWinner = writeState.durableWinner;
   if (!durableWinner) {
     throw new CoachMessageError(
@@ -905,8 +1058,7 @@ export async function generateAndStoreCoachMessage(
   return {
     message: durableWinner,
     commitSha: committed.commitSha,
-    idempotent:
-      valuesEqual(durableWinner.activity_ids, activityIds) && durableWinner.id !== candidate.id,
+    idempotent: valuesEqual(durableWinner.activity_ids, activityIds) && durableWinner.id !== id,
     shouldNotify: writeState.candidateBecameDurable,
   };
 }

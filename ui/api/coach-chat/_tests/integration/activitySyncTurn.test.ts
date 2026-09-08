@@ -3,27 +3,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // mock bodies infer never[] / Promise<null> and reject every mockResolvedValue in this file.
 import type { DirectoryEntry } from "../../_lib/decide/coachChatFiles.js";
 import type { ChatHistoryFile } from "../../_lib/chatThreads.js";
+import type { ActivityFileEntry } from "../../../coach-message/_lib/coachMessage.js";
+import type { LlmAdapter } from "../../../_lib/llmClient.js";
 
 const {
   captureGeminiFailure,
   commitFilesAtomic,
-  askGemini,
   getFileRaw,
   listDirectory,
+  listActivityFiles,
   loadCoachContext,
   loadChatHistory,
+  generate,
 } = vi.hoisted(() => ({
   commitFilesAtomic: vi.fn(async (writes: { resolve?: () => Promise<string> }[]) => {
     for (const write of writes) await write.resolve?.();
     return { commitSha: "commit-sha" };
   }),
-  askGemini: vi.fn(async () => ({
-    reply: "Nice work on Easy Run.",
-  })),
   getFileRaw: vi.fn(async (_repo: string, _path: string): Promise<string | null> => null),
   listDirectory: vi.fn(
     async (_repo: string, _path: string): Promise<DirectoryEntry[] | null> => [],
   ),
+  listActivityFiles: vi.fn(async (_repo: string, _token: string): Promise<ActivityFileEntry[]> => []),
   loadCoachContext: vi.fn(async () => ({
     soul: "soul",
     profile: { timezone: "UTC" },
@@ -41,13 +42,20 @@ const {
     eventId: "event-id",
     sent: true,
   })),
+  // generateProactiveBody's own contract: a strict-schema `{body}` string, not the old
+  // coach-chat askGemini conversational reply shape.
+  generate: vi.fn(async () => ({
+    text: JSON.stringify({ body: "Nice work on Easy Run." }),
+    telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
+  })),
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure }));
-vi.mock("../../_lib/gemini/geminiClient.js", () => ({
-  askGemini,
-  GEMINI_MODEL: "gemini-flash-latest",
+vi.mock("../../../_lib/llmClient.js", () => ({
+  selectLlmAdapter: vi.fn(
+    (): LlmAdapter => ({ name: "gemini", model: "gemini-pro-latest", generate }),
+  ),
 }));
 vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
@@ -67,9 +75,20 @@ vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
     loadChatHistory,
   };
 });
+// One generator (#918): activitySyncTurn.ts now calls the same body-generation logic
+// /api/coach-message uses. Keep it real (so buildProactivePrompt/loadProactiveContext get
+// genuine coverage through this integration test) and only stand in for the GitHub tree read,
+// which would otherwise need real HTTP mocking.
+vi.mock("../../../coach-message/_lib/coachMessage.js", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../../coach-message/_lib/coachMessage.js")>();
+  return {
+    ...original,
+    listActivityFiles,
+  };
+});
 
 import {
-  ACTIVITY_SYNC_USER_TEXT,
   activitySyncBatchId,
   commitActivitySyncHistory,
   findThreadForActivitySyncBatch,
@@ -94,6 +113,11 @@ function histEntry(uuid: string, date = "2026-08-22") {
 
 function activityJson(overrides: Record<string, unknown> = {}) {
   return {
+    // source/id: loadProactiveContext's authoritative-activity lookup (shared with
+    // /api/coach-message) matches on these, unlike the older loadVerifiedActivities path,
+    // which only ever matched by filename.
+    id: UUID_A,
+    source: "healthkit",
     name: "Easy Run",
     sport_type: "Run",
     start_date_local: "2026-08-22T06:30:00",
@@ -115,11 +139,15 @@ function parseBody(body: Record<string, unknown>) {
   );
 }
 
-function stubVerifiedBatch() {
-  listDirectory.mockResolvedValue([histEntry(UUID_A)]);
+// Stubs both the verification path (loadVerifiedActivities, keyed by "hk:" ids and matched by
+// filename only) and the shared proactive-context path (loadProactiveContext, keyed by the
+// canonicalized "healthkit:" id and matched by filename + source/id) for one activity, UUID_A.
+function stubVerifiedBatch(uuid = UUID_A, overrides: Record<string, unknown> = {}) {
+  listDirectory.mockResolvedValue([histEntry(uuid)]);
+  listActivityFiles.mockResolvedValue([histEntry(uuid)]);
   getFileRaw.mockImplementation(async (_repo: string, path: string) => {
-    if (path.endsWith(`hk_2026-08-22_${UUID_A}.json`)) {
-      return JSON.stringify(activityJson());
+    if (path.endsWith(`hk_2026-08-22_${uuid}.json`)) {
+      return JSON.stringify(activityJson({ id: uuid, ...overrides }));
     }
     return null;
   });
@@ -140,12 +168,18 @@ describe("activity-sync turn contract", () => {
   beforeEach(() => {
     commitFilesAtomic.mockReset();
     commitFilesAtomic.mockImplementation(defaultCommitImpl);
-    askGemini.mockClear();
+    generate.mockClear();
+    generate.mockResolvedValue({
+      text: JSON.stringify({ body: "Nice work on Easy Run." }),
+      telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
+    });
     captureGeminiFailure.mockClear();
     getFileRaw.mockReset();
     getFileRaw.mockResolvedValue(null);
     listDirectory.mockReset();
     listDirectory.mockResolvedValue([]);
+    listActivityFiles.mockReset();
+    listActivityFiles.mockResolvedValue([]);
     loadChatHistory.mockReset();
     loadChatHistory.mockResolvedValue({ threads: [] });
     loadCoachContext.mockClear();
@@ -156,7 +190,14 @@ describe("activity-sync turn contract", () => {
     expect(activitySyncBatchId([ID_A, ID_A, ID_B])).toBe(activitySyncBatchId([ID_B, ID_A]));
   });
 
-  it("returns the existing thread for a duplicate batch without Gemini or a write", async () => {
+  it("computes the same batch_id whichever endpoint's id prefix supplied it", () => {
+    // #918: /api/coach-chat's activity_sync request qualifies as "hk:<uuid>";
+    // /api/coach-message's stricter validator requires "healthkit:<UUID>". Same activity - the
+    // batch id has to match or the two callers never find each other's thread.
+    expect(activitySyncBatchId([ID_A])).toBe(activitySyncBatchId([`healthkit:${UUID_A}`]));
+  });
+
+  it("returns the existing thread for a duplicate batch without generating or writing", async () => {
     const batchId = activitySyncBatchId([ID_A, ID_B]);
     loadChatHistory.mockResolvedValue({
       threads: [
@@ -191,7 +232,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       reply: "Already said.",
@@ -199,11 +240,11 @@ describe("activity-sync turn contract", () => {
       duplicate: true,
       threadId: "t-existing",
     });
-    expect(askGemini).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
     expect(commitFilesAtomic).not.toHaveBeenCalled();
   });
 
-  it("returns 422 when a requested activity is missing, without Gemini or a write", async () => {
+  it("returns 422 when a requested activity is missing, without generating or writing", async () => {
     listDirectory.mockResolvedValue([histEntry(UUID_A)]);
     getFileRaw.mockResolvedValue(null);
     const parsed = await parseBody({
@@ -213,10 +254,10 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ error: expect.any(String) });
-    expect(askGemini).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
     expect(commitFilesAtomic).not.toHaveBeenCalled();
   });
 
@@ -233,7 +274,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(200);
     const body = await response.json();
     const coach = body.threads[0].messages.find(
@@ -262,10 +303,12 @@ describe("activity-sync turn contract", () => {
 
   it("orders attachment rows by start time, not id", async () => {
     listDirectory.mockResolvedValue([histEntry(UUID_A), histEntry(UUID_B)]);
+    listActivityFiles.mockResolvedValue([histEntry(UUID_A), histEntry(UUID_B)]);
     getFileRaw.mockImplementation(async (_repo: string, path: string) => {
       if (path.endsWith(`_${UUID_A}.json`)) {
         return JSON.stringify(
           activityJson({
+            id: UUID_A,
             name: "Later",
             start_date_local: "2026-08-22T09:00:00",
           }),
@@ -274,6 +317,7 @@ describe("activity-sync turn contract", () => {
       if (path.endsWith(`_${UUID_B}.json`)) {
         return JSON.stringify(
           activityJson({
+            id: UUID_B,
             name: "Earlier",
             start_date_local: "2026-08-22T06:00:00",
           }),
@@ -288,7 +332,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     const body = await response.json();
     const coach = body.threads[0].messages.find(
       (message: { role: string }) => message.role === "coach",
@@ -307,11 +351,11 @@ describe("activity-sync turn contract", () => {
     expect(parsed).toBeInstanceOf(Response);
     if (!(parsed instanceof Response)) return;
     expect(parsed.status).toBe(400);
-    expect(askGemini).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
     expect(commitFilesAtomic).not.toHaveBeenCalled();
   });
 
-  it("sends verified titles to Gemini and commits one coach message with the attachment", async () => {
+  it("generates through the shared proactive-message body and commits one coach message with the attachment", async () => {
     stubVerifiedBatch();
     const parsed = await parseBody({
       action: "activity_sync",
@@ -320,24 +364,20 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(200);
     expect(loadCoachContext).toHaveBeenCalledWith("owner/repo", "token", {
       fresh: true,
     });
-    expect(askGemini).toHaveBeenCalledWith(
-      "key",
-      "soul",
-      expect.any(String),
-      expect.any(String),
-      [],
-      ACTIVITY_SYNC_USER_TEXT,
-      "activity_sync",
-      false,
-      expect.stringContaining("Easy Run"),
-      undefined,
-      "UTC",
-    );
+    // The same {body}-schema call /api/coach-message makes - not the old conversational
+    // askGemini(...) activity_sync mode.
+    expect(generate).toHaveBeenCalledExactlyOnceWith({
+      system: "",
+      messages: [{ role: "user", text: expect.stringContaining("Easy Run") }],
+      maxOutputTokens: 3_072,
+      responseSchema: expect.objectContaining({ name: "proactive" }),
+      timeoutMs: 45_000,
+    });
     expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
     expect(commitFilesAtomic.mock.calls[0]?.[0]).toHaveLength(1);
     const body = await response.json();
@@ -450,8 +490,8 @@ describe("activity-sync turn contract", () => {
     }
 
     const [first, second] = await Promise.all([
-      handleActivitySync("owner/repo", "token", "key", parsed),
-      handleActivitySync("owner/repo", "token", "key", parsed),
+      handleActivitySync("owner/repo", "token", parsed),
+      handleActivitySync("owner/repo", "token", parsed),
     ]);
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
@@ -465,10 +505,10 @@ describe("activity-sync turn contract", () => {
     ).toBe(true);
   });
 
-  it("returns an error and writes nothing when Gemini fails", async () => {
+  it("returns an error and writes nothing when generation fails", async () => {
     stubVerifiedBatch();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    askGemini.mockRejectedValueOnce(Object.assign(new Error("model down"), { status: 503 }));
+    generate.mockRejectedValueOnce(Object.assign(new Error("model down"), { status: 503 }));
     const parsed = await parseBody({
       action: "activity_sync",
       activity_ids: [ID_A],
@@ -476,21 +516,22 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: "model down" });
     expect(commitFilesAtomic).not.toHaveBeenCalled();
-    // Nothing else records this turn - no chat write happens on a failed Gemini call.
+    // generateProactiveBody itself captures the failure - handleActivitySync just shapes the
+    // Response, it doesn't double-report.
     expect(captureGeminiFailure).toHaveBeenCalledTimes(1);
     expect(captureGeminiFailure.mock.calls[0][1]).toMatchObject({
-      model: "gemini-flash-latest",
+      model: "gemini-pro-latest",
       upstreamStatus: 503,
-      turnMode: "activity_sync",
+      turnMode: "proactive_message",
     });
     errorSpy.mockRestore();
   });
 
-  it("returns 502 and does not persist when the commit fails after Gemini", async () => {
+  it("returns 502 and does not persist when the commit fails after generation", async () => {
     stubVerifiedBatch();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     commitFilesAtomic.mockRejectedValueOnce(new Error("github 409"));
@@ -501,9 +542,9 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const response = await handleActivitySync("owner/repo", "token", parsed);
     expect(response.status).toBe(502);
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledTimes(1);
     expect(await response.json()).toMatchObject({
       error: expect.stringContaining("saving failed"),
     });

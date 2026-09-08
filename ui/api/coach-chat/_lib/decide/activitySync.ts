@@ -1,9 +1,15 @@
 /** Activity-sync batch identity, hist lookup, and attachment rows. */
 import { createHash } from "node:crypto";
 import { getFileRaw, listDirectory, parseJsonOrNull } from "./coachChatFiles.js";
+import { todayDividerLabel } from "./coachDay.js";
 import {
+  appendConversationTurn,
   mergeThreadToFront,
+  sanitizeTitle,
+  truncateTitle,
+  THREAD_TITLE_MAX_CHARS,
   type ChatAttachment,
+  type ChatMessage,
   type ChatThread,
   type SyncedActivityListAttachment,
   type SyncedActivityRow,
@@ -22,8 +28,26 @@ export const ACTIVITY_SYNC_USER_TEXT =
 
 const HIST_FILE_RE = /^hk_\d{4}-\d{2}-\d{2}_(.+)\.json$/;
 
+/**
+ * `/api/coach-chat`'s activity_sync request qualifies a HealthKit id as `hk:<uuid>`
+ * (`ActivitySyncIDs.qualified` client-side) while `/api/coach-message`'s stricter validator
+ * requires `healthkit:<UUID>` (`PostSyncFanout.coachActivityIds` client-side) - same activity,
+ * two different wire prefixes. Normalize both to the `healthkit:` form, uppercased, before
+ * hashing or looking up authoritative activity data, or the same sync's two server calls
+ * compute two different batch ids and never find each other's thread.
+ */
+export function canonicalSyncActivityId(id: string): string {
+  if (id.startsWith(HK_ACTIVITY_PREFIX)) {
+    return `healthkit:${id.slice(HK_ACTIVITY_PREFIX.length).toUpperCase()}`;
+  }
+  if (id.startsWith("healthkit:")) {
+    return `healthkit:${id.slice("healthkit:".length).toUpperCase()}`;
+  }
+  return id;
+}
+
 export function activitySyncBatchId(activityIds: readonly string[]): string {
-  const unique = [...new Set(activityIds)].sort();
+  const unique = [...new Set(activityIds.map(canonicalSyncActivityId))].sort();
   return createHash("sha256").update(unique.join("\n")).digest("hex").slice(0, 16);
 }
 
@@ -149,6 +173,39 @@ export function syncedActivityListAttachment(
     kind: "synced_activity_list",
     batch_id: batchId,
     activities,
+  };
+}
+
+/**
+ * The one thread shape both post-sync callers write: activitySyncTurn's own commit (a thread
+ * already open) and /api/coach-message's fallback mint (no thread exists yet for this batch).
+ * One generator, one thread id - this is the only place either caller builds a ChatThread.
+ */
+export function buildActivitySyncThread(params: {
+  batchId: string;
+  rows: SyncedActivityRow[];
+  replyText: string;
+  now: number;
+  timezone: string;
+}): ChatThread {
+  const { batchId, rows, replyText, now, timezone } = params;
+  const coachMsg: ChatMessage = {
+    id: `c-${now}`,
+    role: "coach",
+    paragraphs: [replyText],
+    attachments: [syncedActivityListAttachment(batchId, rows)],
+  };
+  const allMessages = appendConversationTurn([], undefined, coachMsg, {
+    id: `d-${now}`,
+    role: "divider",
+    label: todayDividerLabel(timezone),
+  });
+  return {
+    id: `t-${now}`,
+    createdAt: now,
+    title: truncateTitle(sanitizeTitle(syncThreadTitle(rows)), THREAD_TITLE_MAX_CHARS),
+    preview: replyText.slice(0, 80),
+    messages: allMessages,
   };
 }
 
