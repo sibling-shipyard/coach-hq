@@ -114,8 +114,15 @@ points. Catalog keys are the server's strings, never iOS-invented ones.
 - **P2 — one View across all three surfaces is not the target.** WidgetKit has no animation, its own
   type ramp, `containerBackground` and `.redacted`. Shared view models, maths and sub-views; a thin
   per-surface wrapper. Chasing literal view sharing costs more than the fork did.
-- **P2 — terracotta's load-only rule.** Either the timer and Settings stop using it as a CTA colour, or
-  the rule in `Theme.swift:202` gets rewritten to match what shipped. Athlete's call which.
+- **Decided — terracotta's load-only rule gets rewritten, and not in this stack.** Web abandoned it
+  too: `--wi-rust` is a background in `coach-chat.css` (4 sites), `workout-timer-warm.css:239` and
+  `sport-analytics.css` (5 sites). A rule both platforms independently dropped is wrong, not
+  violated. New rule: terracotta is load **and** primary action; never decorative, never status —
+  the alarm tokens own that. The wording lives in four places across three bands. That makes it a
+  cross-cutting ADR for Tech Lead, not an `ios/` edit. Files:
+  `ui/docs/reference-interactions/Widget Design Philosophy.md:9`,
+  `shared/warm-instrument/ios-token-mapping.md:17`, `ios/DESIGN.md:10` and `:16`, `Theme.swift:202`. W4's colour pass is unaffected: it
+  moves hardcoded hex onto tokens and never touches which token a surface picks.
 - **P2 — `SettingsView`, timer views, onboarding untouched** beyond W4's colour and formatter pass.
   Large, but single-surface: no second renderer, no fork, no payoff.
 - **Needs an ADR** (Area: ios) in W2: widgets are modules keyed by the conversation-widget catalog.
