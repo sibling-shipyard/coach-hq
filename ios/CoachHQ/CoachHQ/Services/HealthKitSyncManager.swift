@@ -882,6 +882,11 @@ class HealthKitSyncManager: ObservableObject {
                    ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch) {
                     await self.advanceActivitySyncTurn(snapshotsFresh: fresh)
                 }
+                let turnAnnouncedThisRound = PostSyncFanout.turnAlreadyAnnounced(
+                    turnStartedThisRound: shouldStartCoachTurn
+                        && ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch),
+                    turnPhase: self.activitySyncTurn?.phase
+                )
                 guard fresh else { return }
                 let epochApplies = ActivitySyncEpoch.shouldApply(
                     turnEpoch: epoch,
@@ -908,6 +913,9 @@ class HealthKitSyncManager: ObservableObject {
                     }
                     return
                 }
+                // Still runs even when the turn already announced: this call also writes
+                // latest_message.json, which Home's coach-message card reads independently of
+                // chat_history.json - only its notify is gated on the turn's own decision above.
                 await CoachMessagePostSyncDelivery.run(
                     activityIds: coachActivityIds,
                     repoFullName: repoFullName,
@@ -916,7 +924,8 @@ class HealthKitSyncManager: ObservableObject {
                         await ws?.refresh(showSpinner: false)
                     },
                     notify: { message in
-                        guard apiClient.repoFullName == repoFullName,
+                        guard !turnAnnouncedThisRound,
+                              apiClient.repoFullName == repoFullName,
                               self.syncNotificationsEnabled else { return }
                         await self.postCoachMessageNotification(
                             message,
@@ -1659,6 +1668,23 @@ enum PostSyncFanout {
         case noRepo = "no_repo"
         case repoChangedMidSync = "repo_changed_mid_sync"
         case noNewActivities = "no_new_activities"
+    }
+
+    /// One notification per sync (#918): true once activitySyncTurn's own reply
+    /// (`announceCoachReplyIfNeeded`) has already decided whether to announce this round -
+    /// `/api/coach-message`'s own, separately-gated notify must not fire again once this is true,
+    /// since after M1 it can only be echoing the same committed reply back. `.complete` covers a
+    /// real announcement and a swallowed duplicate alike, since both mean "this round's decision
+    /// is already made." False when the turn was never started this round (e.g. onboarding, where
+    /// `syncNotificationsEnabled` already blocks the coach-message notify separately) or hasn't
+    /// settled yet (still retrying, or its own call failed) - a genuinely backgrounded or
+    /// turn-failed sync then still gets exactly one notification, from coach-message's own
+    /// success.
+    static func turnAlreadyAnnounced(
+        turnStartedThisRound: Bool,
+        turnPhase: ActivitySyncTurn.Phase?
+    ) -> Bool {
+        turnStartedThisRound && turnPhase == .complete
     }
 
     /// Nil when the turn should be sent. Order matches the caller's `guard`, so the reason names

@@ -211,11 +211,13 @@ struct CoachChatView: View {
         }
         .onChange(of: requestedProactiveRoute) { _, route in
             guard route != nil, !threadsLoading else { return }
-            if !openRequestedProactiveRoute(), let apiClient {
+            Task {
+                let opened = await openRequestedProactiveRoute()
+                guard !opened, let apiClient else { return }
                 if let today = todayThread {
                     activeThreadId = today.id
                 } else {
-                    Task { await greetNow(apiClient: apiClient) }
+                    await greetNow(apiClient: apiClient)
                 }
             }
         }
@@ -566,7 +568,7 @@ struct CoachChatView: View {
                     preservingThreadId: requestedSeed
                 )
             } ?? fetched
-            if openRequestedProactiveRoute() {
+            if await openRequestedProactiveRoute() {
                 return
             } else if let today = todayThread {
                 activeThreadId = today.id
@@ -586,15 +588,27 @@ struct CoachChatView: View {
         }
     }
 
-    /// Opens one exact local proactive seed. A repeated Home/notification tap selects the
-    /// cached thread instead of appending the opener again.
+    /// Opens one exact proactive seed. A repeated Home/notification tap selects the already-
+    /// known thread instead of appending the opener again. `route.isPersistedThreadSeed` names a
+    /// real, server-committed thread - if it isn't in our in-memory list yet, refetch once so the
+    /// persisted thread (already carrying its synced-activity attachment) wins over fabricating a
+    /// client-only stub from just the route's body. A `local-proactive-<id>` seed has no server
+    /// thread to find, so it goes straight to the local materialization.
     @discardableResult
-    private func openRequestedProactiveRoute() -> Bool {
+    private func openRequestedProactiveRoute() async -> Bool {
         guard let route = requestedProactiveRoute else { return false }
         guard route.repoFullName == authManager.repoFullName else {
             requestedProactiveRoute = nil
             CoachMessageRoute.clear()
             return false
+        }
+
+        if !threads.contains(where: { $0.id == route.conversationSeedId }),
+           route.isPersistedThreadSeed,
+           let apiClient,
+           let repo = authManager.repoFullName,
+           let fetched = try? await apiClient.fetchThreads() {
+            threads = CoachChatLocalCache.restoring(fetched, repoFullName: repo)
         }
 
         if threads.contains(where: { $0.id == route.conversationSeedId }) {

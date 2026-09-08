@@ -81,22 +81,38 @@ struct CoachMessageRoute: Codable, Equatable {
         body: String,
         createdAt: String? = nil
     ) {
-        let messageId = String(conversationSeedId.dropFirst("local-proactive-".count))
         guard repoFullName.range(
                 of: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
                 options: .regularExpression
               ) != nil,
-              conversationSeedId == "local-proactive-\(messageId)",
-              messageId.range(
-                of: "^cm-[A-Za-z0-9-]{1,160}$",
-                options: .regularExpression
-              ) != nil,
+              Self.isValidConversationSeedId(conversationSeedId),
               !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               body.count <= 360 else { return nil }
         self.repoFullName = repoFullName
         self.conversationSeedId = conversationSeedId
         self.body = body
         self.createdAt = createdAt
+    }
+
+    /// Mirrors `CoachMessageAPIClient.isValidConversationSeedId` for the two valid shapes: a
+    /// real, server-committed chat-thread id (`t-<epoch ms>`) or `local-proactive-<messageId>`.
+    /// This route carries no separate message id to check the latter shape against, so it
+    /// accepts any `cm-...` tail rather than one exact id.
+    private static func isValidConversationSeedId(_ seedId: String) -> Bool {
+        if seedId.range(
+            of: "^local-proactive-cm-[A-Za-z0-9-]{1,160}$",
+            options: .regularExpression
+        ) != nil {
+            return true
+        }
+        return seedId.range(of: "^t-[0-9]+$", options: .regularExpression) != nil
+    }
+
+    /// True when this seed names a real, server-committed chat thread (`t-<epoch ms>`) that a
+    /// caller can fetch and show directly, rather than a `local-proactive-<id>` stub id that only
+    /// ever exists as a client-materialized thread (#918).
+    var isPersistedThreadSeed: Bool {
+        conversationSeedId.range(of: "^t-[0-9]+$", options: .regularExpression) != nil
     }
 
     init?(userInfo: [AnyHashable: Any]) {

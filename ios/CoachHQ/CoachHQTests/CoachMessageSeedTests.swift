@@ -99,13 +99,41 @@ final class CoachMessageAPIClientTests: XCTestCase {
         ))
     }
 
+    /// #918: conversation_seed_id can name a real chat-thread id (t-<epoch ms>) as well as a
+    /// minted local-proactive-<id> - both must decode cleanly.
+    func testResponseAcceptsRealThreadIdSeed() throws {
+        let decoded = try CoachMessageAPIClient.decodeResponse(
+            responseData(createdAt: "2026-08-23T20:00:00.000Z", seed: "t-1735689600000"),
+            expectedActivityIds: ids
+        )
+
+        XCTAssertEqual(decoded.message.conversationSeedId, "t-1735689600000")
+    }
+
+    func testResponseRejectsSeedThatIsNeitherShape() {
+        XCTAssertThrowsError(try CoachMessageAPIClient.decodeResponse(
+            responseData(createdAt: "2026-08-23T20:00:00.000Z", seed: "not-a-real-seed"),
+            expectedActivityIds: ids
+        ))
+    }
+
+    func testIsValidConversationSeedIdAcceptsBothShapes() {
+        XCTAssertTrue(CoachMessageAPIClient.isValidConversationSeedId(
+            "local-proactive-cm-1", messageId: "cm-1"
+        ))
+        XCTAssertTrue(CoachMessageAPIClient.isValidConversationSeedId("t-1735689600000", messageId: "cm-1"))
+        XCTAssertFalse(CoachMessageAPIClient.isValidConversationSeedId("t-", messageId: "cm-1"))
+        XCTAssertFalse(CoachMessageAPIClient.isValidConversationSeedId("local-proactive-cm-2", messageId: "cm-1"))
+    }
+
     private func responseData(
         createdAt: String,
         id: String = "cm-12345678-abcd-4abc-8abc-123456789abc",
         idempotent: Bool = false,
-        shouldNotify: Bool = false
+        shouldNotify: Bool = false,
+        seed: String? = nil
     ) -> Data {
-        let seed = "local-proactive-\(id)"
+        let seed = seed ?? "local-proactive-\(id)"
         let json = """
         {
           "message": {
@@ -192,6 +220,59 @@ final class CoachMessageRouteTests: XCTestCase {
         XCTAssertEqual(reopened.messages, first.messages)
         XCTAssertEqual(reopened.messages.filter { $0.role == .coach }.count, 1)
         XCTAssertEqual(reopened.messages.last?.paragraphs, [body])
+    }
+
+    /// #918: a real, server-committed chat-thread id must construct a route just as cleanly as
+    /// local-proactive-<id>, and must be flagged as persisted so callers know not to fabricate a
+    /// client-only stand-in for it.
+    func testRouteAcceptsRealThreadIdSeedAndFlagsItAsPersisted() throws {
+        let threadSeed = "t-1735689600000"
+        let route = try XCTUnwrap(CoachMessageRoute(
+            repoFullName: repo,
+            conversationSeedId: threadSeed,
+            body: body
+        ))
+
+        XCTAssertTrue(route.isPersistedThreadSeed)
+        XCTAssertEqual(route.conversationSeedId, threadSeed)
+
+        let legacyRoute = try XCTUnwrap(CoachMessageRoute(
+            repoFullName: repo,
+            conversationSeedId: seed,
+            body: body
+        ))
+        XCTAssertFalse(legacyRoute.isPersistedThreadSeed)
+    }
+
+    func testRouteRejectsSeedThatIsNeitherShape() {
+        XCTAssertNil(CoachMessageRoute(
+            repoFullName: repo,
+            conversationSeedId: "t-",
+            body: body
+        ))
+        XCTAssertNil(CoachMessageRoute(
+            repoFullName: repo,
+            conversationSeedId: "t-12ab",
+            body: body
+        ))
+    }
+
+    /// local-proactive-<id> has no server thread to find, so the local materializer is its only
+    /// source - but it must still resolve to something sensible if it's ever handed a real
+    /// thread-id seed too (e.g. a race before the real thread shows up in a fetch).
+    func testProactiveThreadResolvesSensiblyForARealThreadIdSeed() throws {
+        let threadSeed = "t-1735689600000"
+        let route = try XCTUnwrap(CoachMessageRoute(
+            repoFullName: repo,
+            conversationSeedId: threadSeed,
+            body: body,
+            createdAt: "2026-08-23T20:00:00.000Z"
+        ))
+        let thread = CoachChatLocalCache.proactiveThread(for: route)
+
+        XCTAssertEqual(thread.id, threadSeed)
+        XCTAssertEqual(thread.messages.last?.paragraphs, [body])
+        CoachChatLocalCache.clear(repoFullName: repo, threadId: threadSeed)
     }
 
     func testRequestedOlderSeedIsExemptFromGreetingCleanup() throws {
