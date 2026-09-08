@@ -94,9 +94,9 @@ what it cost.
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | not started |
-| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | not started |
-| 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | not started |
+| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | [#917](https://github.com/sibling-shipyard/coach-hq/pull/917), open, checks green |
+| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | [#920](https://github.com/sibling-shipyard/coach-hq/pull/920), open, checks green |
+| 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | [#921](https://github.com/sibling-shipyard/coach-hq/pull/921), open, checks green |
 
 Production stays on `LLM_PROVIDER=gemini` throughout. Nothing here flips a provider; M3 does that.
 
@@ -108,6 +108,14 @@ PR 1 and PR 2 both touch `geminiAdapter.ts`, so they cannot run in parallel.
   cover system-plus-turns mapping on both sides.
 - PR 2: the 23 eval transcripts in `coach-chat/_tests/coach-chat-eval/transcripts/` pass on direct
   Gemini through the seam. This is the same gate as #670 (PR 810) and reuses its baseline.
+  **Blocked in practice** — both the local `GEMINI_API_KEY` and CI's own `secrets.GEMINI_API_KEY`
+  return `RESOURCE_EXHAUSTED` on `gemini-3.1-pro` (account quota, not a code defect; likely #670's
+  actual root cause, not the stale-rubric theory that issue was framed around). Ran the suite
+  against OpenRouter instead, unblocked by the same key: 19/23 pass on `google/gemini-3.8-flash`.
+  Structurally consistent with the direct-Gemini baseline (#807's transcript is clean on both;
+  #808's own transcript hit a token-truncation before it could reproduce or clear). Two failures
+  were new truncations at the shared 4096-token ceiling, not on direct Gemini — worth budget
+  attention before an M3 cutover, not fixed here.
 - PR 3: template adjustment keeps its own tests; the assertion moves from a `fetch` mock to an
   adapter stub.
 - Every PR: `bash platform/scripts/check.sh --quiet`.
@@ -118,7 +126,9 @@ PR 1 and PR 2 both touch `geminiAdapter.ts`, so they cannot run in parallel.
    URL is left outside `llmAdapters/`.
 2. The explicit soul cache is reachable only through the Gemini adapter.
 3. A chat turn's Sentry span reports `costUsd` and the resolved provider.
-4. The eval transcripts pass through the seam on direct Gemini, matching #670's recorded baseline.
+4. The eval transcripts pass through the seam. Direct Gemini is untestable under current account
+   quota (see PR 2's Tests row); OpenRouter's 19/23 stands in as the live evidence for this PR
+   stack until that quota gap is resolved.
 
 ## Deferred
 
