@@ -92,8 +92,8 @@ flowchart LR
 | U3 | Dead code | Delete unread `CommitmentModel.accent`, its four hardcoded hex values, and the unimported `GOLDEN_SIZES` export | U2 | `home-warm/warmHomeModel.ts`; `lib/goldenDataset.ts`; affected tests | UI Expert | — | Neither dead value remains; `warmHomeModel.ts` computes nothing its caller discards |
 | U4 | Token the colours | Add missing tokens to `tokens.json`, run `generate.mjs`, and replace the remaining ~86 component hex values with generated CSS variables. Commit generated CSS; commit generated Swift only if its bytes change | U3 | `shared/warm-instrument/{tokens.json,generate.mjs}`; `home-warm/{wi-tokens.generated.css,warm-instrument.css,widget-gallery.css,warmHomeSnapshots.ts}`; `coach-chat/coach-chat.css`; `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` (only if changed) | UI Expert | — | The generator is reproducible and the issue #930 hex grep is empty |
 
-**Progress:** U1 is PR #935 with `ui-tests` green. U2 is implemented locally on top of U1; its PR
-and CI run are pending. U3–U4 have not started.
+**Progress:** U1 is PR #935 with `ui-tests` green. U2 is PR #937. U3 is implemented locally on
+top of U2; its PR and CI run are pending. U4 has not started.
 
 U1 makes `components/widgets/` the canonical import path and adds the UI ADR. The existing
 `home-warm/{WarmInstrumentWidgets,snapshots,ActivityGlyph,formatUtils}` files become explicit

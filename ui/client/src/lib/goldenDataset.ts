@@ -18,5 +18,4 @@ import type { CurrentWeekContract } from "@/components/home-warm/currentWeek.fix
 // `snapshots.ts` and `currentWeek.fixture.ts` are the source of truth these casts point at.
 export const GOLDEN_SNAPSHOTS = rawSnapshots as unknown as WidgetSnapshotsFile;
 export const GOLDEN_HOME = GOLDEN_SNAPSHOTS.home;
-export const GOLDEN_SIZES = GOLDEN_SNAPSHOTS.sizes;
 export const GOLDEN_CURRENT_WEEK = rawCurrentWeek as unknown as CurrentWeekContract;
