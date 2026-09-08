@@ -10,7 +10,7 @@ export function formatCompact(value: number) {
   return Math.round(value).toLocaleString("en-GB");
 }
 
-export function formatMinutesLabel(value: number) {
+export function formatMinutesInstrumentLabel(value: number) {
   const minutes = Math.round(value);
   return minutes >= 60
     ? `${Math.floor(minutes / 60)}H${String(minutes % 60).padStart(2, "0")}`

@@ -6,8 +6,7 @@ import {
   type TrainingCategory,
 } from "@/lib/activities";
 import { buildBadmintonLensModel } from "@/components/sport-analytics/badmintonLensModel";
-import type { SessionDiscipline } from "./currentWeek.fixture";
-import { formatMinutesLabel } from "./formatUtils";
+import { formatMinutesInstrumentLabel } from "./formatUtils";
 import type {
   ActivityCellState,
   ActivityInspectionSnapshot,
@@ -35,6 +34,7 @@ import {
   type WarmHomeModel,
 } from "./warmHomeModel";
 import type { CurrentWeekContract } from "./currentWeek.fixture";
+import { sessionDisciplineToSnapshotSport, trainingCategoryToWarmSport } from "./trainingMappings";
 import { sportHex, sportMixHex } from "@/lib/wiTokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -53,43 +53,6 @@ function isoWeek(date = new Date()) {
   utc.setUTCDate(utc.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
-}
-
-export function categoryToSport(category: TrainingCategory): WarmSportId {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "foundation" || category === "recovery" || category === "realign") {
-    return "foundation";
-  }
-  if (category === "ride") return "cycling";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
-}
-
-function disciplineToSport(discipline: SessionDiscipline): WarmSportId | "recovery" {
-  if (discipline === "cycling") return "cycling";
-  if (discipline === "badminton") return "badminton";
-  if (discipline === "calisthenics") return "calisthenics";
-  if (discipline === "foundation") return "foundation";
-  if (discipline === "recovery") return "recovery";
-  if (discipline === "run") return "run";
-  if (discipline === "strength") return "strength";
-  if (discipline === "weight_training") return "weight_training";
-  if (discipline === "hike") return "hike";
-  if (discipline === "walk") return "walk";
-  if (discipline === "cricket") return "cricket";
-  if (discipline === "football") return "football";
-  if (discipline === "workout") return "workout";
-  if (discipline === "swim") return "swim";
-  return "other";
 }
 
 function formatSessionTitle(name: string) {
@@ -124,7 +87,7 @@ export function buildActivityEvidenceSnapshots(
           })
           .toUpperCase(),
         title: formatSessionTitle(activity.name),
-        sport: categoryToSport(category),
+        sport: trainingCategoryToWarmSport(category),
         ranked: category === "badminton_ranked",
         durationMinutes: Math.max(0, activity.elapsed_time ?? 0) / 60,
         calories: calories > 0 ? Math.round(calories) : null,
@@ -139,8 +102,8 @@ export function buildActivityEvidenceSnapshots(
     });
 }
 
-function formatDuration(activity: Activity) {
-  const duration = formatMinutesLabel(Math.max(0, activity.elapsed_time ?? 0) / 60);
+function formatActivityEvidenceDetail(activity: Activity) {
+  const duration = formatMinutesInstrumentLabel(Math.max(0, activity.elapsed_time ?? 0) / 60);
   return activity.average_heartrate
     ? `${duration} · ${Math.round(activity.average_heartrate)} BPM`
     : duration;
@@ -184,7 +147,7 @@ export function buildEngineSnapshot(
   const mix = mixDefinition.map((item) => ({
     ...item,
     hours: thisWeek
-      .filter((activity) => categoryToSport(getTrainingCategory(activity)) === item.id)
+      .filter((activity) => trainingCategoryToWarmSport(getTrainingCategory(activity)) === item.id)
       .reduce((sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600, 0),
   }));
   const totalHours = thisWeek.reduce(
@@ -231,10 +194,10 @@ export function buildEngineSnapshot(
         .toLocaleDateString("en-GB", { weekday: "short" })
         .toUpperCase(),
       title: formatSessionTitle(activity.name),
-      detail: formatDuration(activity),
+      detail: formatActivityEvidenceDetail(activity),
       load:
         getActivityZoneLoad(activity) === null ? null : Math.round(getActivityZoneLoad(activity)!),
-      sport: categoryToSport(getTrainingCategory(activity)),
+      sport: trainingCategoryToWarmSport(getTrainingCategory(activity)),
     }));
 
   if (doseRows.length < 5) {
@@ -476,7 +439,7 @@ function buildWeeklyPlanSnapshot(
         day: day.day,
         dayShort: day.day.slice(0, 1),
         glyph: session?.glyph ?? null,
-        sport: session ? disciplineToSport(session.discipline) : "recovery",
+        sport: session ? sessionDisciplineToSnapshotSport(session.discipline) : "recovery",
         title: session?.title ?? "Rest",
         loadDelta:
           dataMode === "live" && hasCompleteLoad
@@ -545,7 +508,7 @@ function buildCaloriesSnapshot(
 }
 
 function dominantActivityState(categories: TrainingCategory[]): ActivityCellState {
-  const states = categories.map(categoryToSport);
+  const states = categories.map(trainingCategoryToWarmSport);
   if (states.includes("badminton")) return "badminton";
   if (states.includes("calisthenics")) return "calisthenics";
   if (states.includes("run")) return "run";
@@ -682,8 +645,8 @@ export function buildRecentSessions(
     title: activity.title,
     detail:
       activity.averageHeartRate === null
-        ? formatMinutesLabel(activity.durationMinutes)
-        : `${formatMinutesLabel(activity.durationMinutes)} · ${activity.averageHeartRate} BPM`,
+        ? formatMinutesInstrumentLabel(activity.durationMinutes)
+        : `${formatMinutesInstrumentLabel(activity.durationMinutes)} · ${activity.averageHeartRate} BPM`,
     load: activity.load,
     sport: activity.sport,
     evidence: activity,
