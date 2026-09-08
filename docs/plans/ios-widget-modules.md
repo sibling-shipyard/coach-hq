@@ -57,6 +57,7 @@ already puts in both the ledger and Chat. Every step below copies that shape.
 | terracotta's stated rule is broken | `WarmInstrument.accent` — *"reserved for LOAD only. Never a generic accent, CTA, or brand colour"* — is aliased as `WorkoutTimerWarm.rust` and used for every timer CTA, Settings' Sync Now, and Reset Test Branch |
 | two card shells | `WarmCard` (live) vs `ThemedCard`/`BrandHeader`/`SectionHeader` (legacy; only the dead files still use them) |
 | two atoms are dead **because** live code bypassed them | `SportChip` (`WarmInstrumentAtoms.swift:142`) redrawn at `WarmInstrumentHomeView.swift:1060` and `:1144`; `CoachReadWidget` (`:1290`) redrawn as `EngineDetailView.coachReadCard` (`:1719`). These get adopted, not deleted — deleting them would ratify the bypass |
+| Home and WidgetKit derive a scale the snapshot already ships | `EngineSnapshot.scaleLow`/`scaleHigh` are non-optional, pipeline-computed fields. `EngineDetailGauge` reads them (`WarmInstrumentHomeView.swift:1743`); both `bandStrip` copies shadow the same two names with locally-derived values (`:624`, `CoachHQWidget/EngineWidget.swift:136`) and ignore them. The load marker therefore sits at a different x on Home than on the detail view, for the same week |
 | one stat cell written 4 times | `SupportingStatCell` (`ActivityDetailView.swift:1327`), `WeekStatCell` (`ActivityFeedVariants.swift:195`), `BigStat` (`OnboardingRevealFlow.swift:507`), `stat(_:_:)` (`WarmInstrumentHomeView.swift:1247`) — all bypassing the legacy `StatItem` |
 
 ## PR stack
@@ -66,7 +67,7 @@ already puts in both the ledger and Chat. Every step below copies that shape.
 | W0 | Seed | Land the open PR 617 — rebase, test, merge | `main` | `Views/ActivityFeedVariants.swift`, `Views/CoachChatView.swift`, `Views/CoachChatWarmUI.swift` | iOS Builder | — | One activity row serves the ledger and Chat |
 | W1 | Clear the ground | Delete the four unreachable files and the genuinely-dead types; **keep `SportChip` and `CoachReadWidget`** — they are dead only because live code bypassed them, and W3b adopts them. Fix `ios/DESIGN.md`, which still lists the deleted Insights file as "Phase 5 next priority" | W0 | `Views/CoachingInsightsView.swift`, `Views/TrainingHeatmapView.swift`, `Views/ActivityListView.swift`, `Views/WorkoutPlaceholderView.swift`, `Views/ActivityFeedVariants.swift`, `Views/Theme.swift`, `ios/DESIGN.md` | iOS Builder | — | Nothing gets carried into `Views/Widgets/` that no screen renders |
 | W2 | Shared band | Move the 6 forked widgets (Engine, Quest, BuildPhase, Vo2, TrainingActivity, Commitment) to `Views/Widgets/`, rename `…Widget`→`…Card`, add to extension membership | W1 | `Views/WarmInstrumentHomeView.swift`, `Views/Widgets/` (new), `CoachHQ.xcodeproj/project.pbxproj` | iOS Builder | — | Both targets compile one copy; zero visual change |
-| W3 | Shared band | Delete the WidgetKit fork; fold `EngineDetailView`'s third Engine rendering onto the same sub-views | W2 | `CoachHQWidget/`, `Views/Widgets/Engine*.swift` | iOS Builder | W3b | `bandStrip`/`trendSparkline`/`mixBar` defined once |
+| W3 | Shared band | Delete the WidgetKit fork. **Settle the scale first**: either adopt the snapshot's `scaleLow`/`scaleHigh` everywhere (ADR 0005-correct, and it moves the marker) or keep the local derivation and drop the two unused fields. `EngineDetailView` keeps its own gauge unless that decision merges them | W2 | `CoachHQWidget/`, `Views/Widgets/Engine*.swift` | iOS Builder | W3b | `bandStrip`/`trendSparkline`/`mixBar` defined once, against one agreed scale |
 | W3b | Shared band | Move the remaining 5 (RecentSessions, WeeklyPlan, Calories, CoachMessage, plan/heatmap slots); the plan slot and heatmap legend adopt `SportChip`, and `EngineDetailView` adopts `CoachReadCard`, instead of redrawing them | W2 | `Views/WarmInstrumentHomeView.swift`, `Views/Widgets/`, `project.pbxproj` | iOS Builder | W3 | `WarmInstrumentHomeView.swift` is layout + chrome only |
 | W4 | One vocabulary | One number/duration formatter, one sport lookup, one stat cell in `Views/Widgets/Format.swift`; `SessionRow` folded onto `ActivityRowViewModel`; the 44 stray colours moved onto tokens | W3b | `Views/Widgets/`, `Views/WarmInstrumentAtoms.swift`, `Views/CoachChatWarmUI.swift`, `Views/WorkoutTimerWarm.swift`, `Views/WorkoutOverviewView.swift`, `Views/WorkoutListView.swift`, `Views/OnboardingRevealFlow.swift` | iOS Builder | — | One row, one formatter, one sport table; a colour change lands everywhere at once |
 | W5 | Detail widgets | Extract `heroCard`, `ribbonCard`+`zoneLegend`, `usualCard`, `richScoreCard` behind view models; move `cachedUsualRows`/`median` into a `RibbonBuilder`-style type and test it | W4 | `Views/ActivityDetailView.swift`, `Views/Widgets/`, `CoachHQTests/`, `project.pbxproj` | iOS Builder | — | Detail cards are reusable; the vs-usual maths has tests |
@@ -77,6 +78,15 @@ widgets, capped at two. It needs the server catalog from `coach-conversation-wid
 That milestone's locked decision is that Coach picks only opaque keys the server built, so building
 this earlier means guessing those key names. `ChatAttachment` (`CoachChatModels.swift:50`) is already versioned
 with an `.unknown` fallback, so the day those keys exist this is new kinds, not new plumbing.
+
+**W2 and W3 share one LLD**, written before W2 starts. It carries three things. The scale decision
+above. A table of what genuinely varies across the three Engine renderings — sizes and the
+entrance animation are parameters, `containerBackground` and `.redacted` are not. And the pbxproj
+mechanics: `membershipExceptions` is an *inclusion* list for a folder not otherwise in that
+target, and getting it wrong fails silently.
+
+W0, W1 and W5 need no LLD. W4 and W6 wait until W2 and W3 set the pattern; W4's sport lookup
+spans three keyspaces and may want an ADR line instead.
 
 **Two naming rules W2 locks in.** `EngineWidget` exists twice today — Home's `private struct` and the
 extension's `Widget` conformer — and they only coexist because they are in separate targets. Sharing
@@ -91,7 +101,8 @@ points. Catalog keys are the server's strings, never iOS-invented ones.
 - One definition each of the number formatter, the duration formatter, the sport lookup, and the stat cell.
 - `Views/ActivityDetailView.swift` holds no `median(` or row-building maths.
 - `xcodebuild test` green locally, then the `iOS Build` check green on the pushed SHA.
-- Screenshots before/after W2 and W3 match — those PRs change no pixels.
+- Screenshots before/after W2 match — that PR changes no pixels. W3 may move the Engine load
+  marker; if it does, that is the scale decision landing, and its LLD says so.
 
 ## Deferred
 
