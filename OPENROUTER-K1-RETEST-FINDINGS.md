@@ -148,6 +148,53 @@ unit-tested. Template generation at onboarding through the OpenRouter seam — l
 
 ---
 
+## WHY flash underperforms, and the model/provider decision (answered with live data)
+
+**Why does `pro` work so well while flash fails so much?** Most likely just model-capability tier -
+`pro` needs less "thinking" to reliably extract several facts from one dense message than a
+smaller/faster model does. Nothing found in this investigation contradicts that; not tested further
+since there was no lead suggesting otherwise.
+
+**Why is OpenRouter's flash worse than direct Gemini's flash?** Root-caused, not guessed:
+`openRouterAdapter.ts` forces `reasoning: {effort: "low"}` on every call (the model 400s on
+`{enabled: false}` - "low" is the floor), specifically to stop it burning its output budget on
+reasoning (Finding C). `geminiAdapter.ts` sets no reasoning config at all - direct Gemini flash
+gets whatever default thinking budget the API picks for itself. **Tested directly, real numbers:**
+
+| Effort | Full success | Partial | Truncation (100% visible failure) | n |
+|---|---|---|---|---|
+| "low" (shipped default) | 0/8 | 1/8 | 0/8 | 8 |
+| "medium" | 3/5 | 2/5 (1 honest, 1 **false-claim** - self-audit missed it) | 0/5 | 5 |
+| "high" | 0/5 | 0/5 | **5/5 (100%)** | 5 |
+
+"Medium" is a real improvement over "low." "High" is strictly worse than doing nothing - every
+single trial burned ~3930 of the 4096-token budget on reasoning and truncated twice in a row (both
+retries exhausted, surfaces as a visible 502 every time). **If OpenRouter's reasoning effort is
+ever raised, "medium" is the only defensible value - never "high."** Not shipped - this is a real
+tradeoff against Finding C that needs a decision, not a default choice made silently.
+
+**Is the `google-vertex` routing pin even verifiable?** No - confirmed, not just assumed. Hit
+OpenRouter's raw endpoint directly with and without the pin: identical `provider: "Google"` in the
+response either way, no `X-Provider-Name` header actually sent despite being listed as exposable,
+`/api/v1/generation` 404s under this account's `data_collection: "deny"` exactly as predicted. The
+existing code comment is accurate and complete - this really is unknowable from the client side.
+
+**How does DeepSeek perform (via OpenRouter)?** Tested live, 5 trials, same scenario. Not viable:
+0/5 full success (worse than either Gemini flash variant), plus a failure mode neither Gemini
+variant showed - **hallucination** (invented `profile_update` values never stated, e.g. a fabricated
+name and timezone). The self-audit missed both of DeepSeek's worst trials too - same blind spot
+already seen once on direct Gemini flash, now seen twice across two different models.
+
+**Overall recommendation, with all data now in: stay on `gemini-pro-latest` direct for now.** It
+remains the only 12/12-clean option found anywhere in this whole investigation. Nothing tested -
+not the reprompt safety net, not raising reasoning effort, not DeepSeek - closes the reliability gap
+enough to justify the cost savings today. If cost pressure forces a move anyway, "medium" reasoning
+effort on OpenRouter flash plus the reprompt safety net is the least-bad combination found, but it
+is a real, measured tradeoff (occasional partial omissions, one confirmed false-claim, a self-audit
+that isn't airtight) - not a safe default, a deliberate risk to accept knowingly.
+
+---
+
 ## Merge readiness — what's left before this stack merges
 
 1. **Finding D** (above) — resolved to a verdict: production (`gemini-pro-latest`) is clean today,
