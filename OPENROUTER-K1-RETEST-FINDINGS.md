@@ -76,6 +76,35 @@ below, now with evidence it would need to fire on direct-Gemini flash too, not j
 (flipping `LLM_PROVIDER=openrouter` in production), until a decision is made on the flash-reliability
 question above.**
 
+**Mitigation built and live-tested (Sep 9, later pass): a reprompt safety net, real improvement,
+not a full fix.** Added `unrecorded_facts` to the response schema - the model self-audits its own
+`reply`/`coach_note` against what it actually set in action fields this turn, and lists anything
+mentioned-but-uncaptured. If it flags anything, one reprompt fires (same one-retry-cap pattern as
+the two existing content-violation reprompts in `coachTurn.ts`), naming exactly what's missing.
+Chosen over a keyword-heuristic alternative because dense messages use too much wording variety for
+a fixed keyword list to reliably tell "a new fact" from "a reference to something already on file."
+
+**Live numbers, small sample (5-7 trials each, real numbers not rounded up):**
+- OpenRouter flash, 5 trials with the fix: **3/5 full success, 2/5 partial-but-honest** (injuries
+  captured, goal/habits explicitly and transparently deferred - "holding off until intake is
+  confirmed" - never falsely claimed as saved), **0/5 total silent omission** (down from 7/8
+  baseline) and **0/5 false-success claims** (down from the core original problem). One partial
+  case involved the safety net directly working as designed: first pass had `unrecorded_facts`
+  correctly flagging the gap, one reprompt fired, second pass captured everything.
+- Direct Gemini flash, 2 trials with the fix: 1/2 full success, 1/2 partial - `season_start` and
+  habits captured correctly, but `injury_flag` silently missing despite the reply/coach_note
+  narrating it **and the self-audit itself reporting `unrecorded_facts: []`** - a real false
+  negative in the self-audit, worth knowing about before trusting it fully.
+
+**Honest read:** this is a real, measurable improvement over the 0/8 and 4/9 baselines - the two
+most dangerous failure modes (silent total omission, false success claims) dropped to zero in this
+sample, and the safety net demonstrably converted at least one would-be failure into a full success
+live. It is not a complete fix - partial omissions still happen, and the self-audit field is itself
+sometimes wrong (as the direct-flash injury_flag miss shows). Sample size is small (5-7 per
+provider, not the 10+ originally planned) - treat this as a strong positive signal, not a final
+verified number. Recommend: land this now (it's a strict improvement, unit-tested, and doesn't
+regress anything), keep gathering live data before flipping any production default.
+
 ---
 
 ## Fixed — 7 items, all on PR #948, full check gate green (9/9) after every commit
