@@ -493,4 +493,50 @@ final class RibbonBuilderTests: XCTestCase {
         XCTAssertEqual(RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 4),
                        [nil, nil, nil, nil])
     }
+
+    // MARK: - Estimated sequence (no recorded HR stream)
+
+    /// The estimate stands in for a recording; an athlete re-opening the same session must not
+    /// see the ribbon reshuffle under them.
+    func testEstimatedSequenceIsDeterministicForTheSameSeed() {
+        let zones: [String: HRZoneEntry] = [
+            "Zone 1": HRZoneEntry(low: 0, high: 100, seconds: 300),
+            "Zone 3": HRZoneEntry(low: 121, high: 140, seconds: 600),
+        ]
+        let a = RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: zones, seedKey: "hk_2026-08-23_abc")
+        let b = RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: zones, seedKey: "hk_2026-08-23_abc")
+
+        XCTAssertEqual(a, b)
+    }
+
+    func testEstimatedSequenceChangesWithSeedKey() {
+        let zones: [String: HRZoneEntry] = [
+            "Zone 1": HRZoneEntry(low: 0, high: 100, seconds: 300),
+            "Zone 3": HRZoneEntry(low: 121, high: 140, seconds: 900),
+            "Zone 4": HRZoneEntry(low: 141, high: 160, seconds: 300),
+        ]
+        let a = RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: zones, seedKey: "hk_a")
+        let b = RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: zones, seedKey: "hk_b")
+
+        XCTAssertNotEqual(a, b, "different activities must not render the identical shuffle")
+    }
+
+    func testEstimatedSequenceHasNoSecondsWithNoZoneTime() {
+        XCTAssertEqual(RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: [:], seedKey: "x"), [])
+    }
+
+    /// Recovery (zone 0) cells are never part of `work` — they only appear via the gap-spreading
+    /// pass — so the sequence's zone-1..4 population must match the seconds recorded for each.
+    func testEstimatedSequenceAllocatesWorkProportionally() {
+        let zones: [String: HRZoneEntry] = [
+            "Zone 2": HRZoneEntry(low: 101, high: 120, seconds: 1200),
+            "Zone 4": HRZoneEntry(low: 141, high: 160, seconds: 400),
+        ]
+        let seq = RibbonBuilder.estimatedSequence(elapsedSeconds: 1600, zones: zones, seedKey: "prop")
+
+        XCTAssertFalse(seq.isEmpty)
+        XCTAssertTrue(seq.contains(1), "Zone 2 (75% of tracked time) should appear")
+        XCTAssertTrue(seq.contains(3), "Zone 4 (25% of tracked time) should appear")
+        XCTAssertFalse(seq.contains(2) || seq.contains(4), "no seconds recorded in Zone 3 or 5")
+    }
 }
