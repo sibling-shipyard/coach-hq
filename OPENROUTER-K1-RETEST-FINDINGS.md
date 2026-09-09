@@ -3,8 +3,14 @@
 Narrative log for the OpenRouter re-test of PR #921's tip. See `OPENROUTER-K1-TEST-RESULTS.md` for
 the structured per-scenario pass/fail results this feeds from.
 
-**Status: 7 of 8 findings fixed and pushed on PR #948. Finding D is the only thing still open —
-read that section first, everything else below is resolved and kept short on purpose.**
+**Status: COMPLETE. All 8 findings addressed, real production decision made, whole 26-PR stack
+rebased and mergeable (not merged).** Five PRs stacked on `main`: #948 (the 7 original findings) →
+#949 (Finding D's reprompt safety net) → #950 (Finding C's residual bug) / #951 (test-infra +
+a real `GEMINI_API_KEY` bug) / #952 (a genuine crash-fix found during Finding D's larger pass) -
+950/951/952 are three siblings on #949, not a linear chain. **Decision: stay on `gemini-pro-latest`
+for now** - see "WHY flash underperforms" below for the full reasoning and real numbers. Testing
+workflow for local athlete repos is now documented in `docs/eng-docs/coach-chat-testing.md`
+(added on #951).
 
 ---
 
@@ -114,7 +120,7 @@ blocked, not less.**
 
 ---
 
-## Fixed — 7 items, all on PR #948, full check gate green (9/9) after every commit
+## Fixed — across #948-#952, full check gate green (9/9) after every commit
 
 - **Finding A** — `plan_edit`/`session_reconcile` silently no-op'd while the reply claimed success,
   because `requestCoachReply` never gave the model real template/session ids to reference on an
@@ -129,12 +135,10 @@ blocked, not less.**
   `coach-akash`: fires and commits for real now.
 - **Finding C** — OpenRouter had no retry on `finish_reason: "length"` truncation (~37% of
   first-turn calls failed outright). Fixed with one retry, mirroring the Gemini adapter's existing
-  pattern. **Live-re-verified, partial:** confirmed the retry works exactly as designed (2 real
-  truncations recovered invisibly across 10 fresh-FSP trials), and the failure rate dropped from
-  ~37% to ~20% - but did not drop to near-zero. **New, separate bug found:** the remaining 2/10
-  failures are malformed JSON (`SyntaxError: Unterminated string`) with a finish reason that isn't
-  `"length"`, so the current retry never engages for them. Not fixed - needs its own fix (broaden
-  the retry trigger to cover a JSON-parse failure too, not just the explicit truncation signal).
+  pattern (#948). Re-verification found the retry works exactly as designed but only dropped the
+  rate to ~20% - a second, distinct bug (malformed JSON with a finish reason that isn't `"length"`,
+  so the first retry never engaged) accounted for the rest. **Fixed on #950**, live-verified 10/10
+  clean afterward.
 - **Finding E** — `quest_event` had no reprompt safety net if the model just skipped it (3/3 misses
   in testing). Strengthened its instruction the same way `season_start`'s already was. **Live-verified**
   3/3 on `coach-skanda`, real `progress.json` writes confirmed via diff.
@@ -147,6 +151,12 @@ blocked, not less.**
 - **Eval transcript date rot** — transcript 19 hardcoded a session date that rotted twice (same
   #807 bug class, predicted by K1 itself). Now resolves its date at run time instead of staying
   hardcoded — can't rot the same way again.
+- **`coach-chat.ts`'s real `handle()` required `GEMINI_API_KEY` regardless of provider** — a genuine
+  production bug found while fixing the test-infra gaps below: a deployment with only
+  `OPENROUTER_API_KEY` set had coach-chat entirely disabled. Fixed on #951, live-verified.
+- **Direct Gemini flash was truncating on `MAX_TOKENS` 8/8 times on the dense-message scenario** —
+  thinking alone was consuming ~3930 of the 4096-token output budget. Raised to 8192 on #952,
+  live-verified 0/8 → 6/6 clean. Unconditional crash fix, no provider/model judgment involved.
 
 **Confirmed still working, no regression:** the #27 fix itself (hallucinated template_id/session_id
 no longer crashes the whole atomic commit) — 0/3 crashes on the exact field-crowding load that used
@@ -209,50 +219,52 @@ that isn't airtight) - not a safe default, a deliberate risk to accept knowingly
 
 ## Merge readiness — what's left before this stack merges
 
-1. **Finding D** (above) — resolved to a verdict: production (`gemini-pro-latest`) is clean today,
-   no live risk. But `gemini-flash-latest` itself is unreliable at this scenario (44% full success
-   direct, 0% through OpenRouter) - a model problem, not purely an OpenRouter one. This blocks any
-   move toward flash, on either provider, until fixed or a safety net is built. Does not block
-   merging code that doesn't touch the model-calling path.
-2. **DONE.** Findings A and C both live-re-verified. A holds up cleanly (3/3). C's retry works as
-   designed but uncovered a new, separate, unfixed bug (malformed-JSON responses with a non-
-   `"length"` finish reason aren't retried) - failure rate dropped 37%→20%, not to zero. Needs a
-   follow-up fix.
-3. **DONE.** K1's own LLD (`docs/plans/ccr-k1-final-test-pass-lld.md`) now records today's work,
-   pushed to #824. M2's LLD execution table is still stale (low priority, "leave M2 for now").
+1. **DONE - decision made.** Model/provider question resolved: stay on `gemini-pro-latest`. Not a
+   blocker to merging - production keeps its current default either way, nothing in this stack
+   flips it. Revisit if flash's reliability improves or cost pressure forces the tradeoff.
+2. **DONE.** Findings A and C both fixed and re-verified live. A holds up cleanly (3/3). C got a
+   second fix (#950) for the residual malformed-JSON bug the first fix's retry didn't cover.
+3. **DONE.** K1's own LLD (`docs/plans/ccr-k1-final-test-pass-lld.md`) records today's work, pushed
+   to #824. M2's LLD execution table is still stale (low priority, "leave M2 for now" stands).
    Plan-file deletion correctly not done yet (K1 hasn't merged).
-4. **F1 (athlete repo migration/backfill)** — still the hard production blocker, unrelated to
-   Finding D. Merging triggers an immediate production deploy (confirmed via `vercel.json`); without
-   F1's `coaching_style` backfill, every real athlete's onboarding resets on their next message.
-   Not started.
-5. **M3 (flipping the provider in production)** — not started. Now specifically blocked on flash's
-   own reliability, not just an OpenRouter question - flipping to OpenRouter would mean flash, and
-   flash drops facts on dense messages at a real rate even called directly. Needs either a fix to
-   flash's reliability or a reprompt safety net before this proceeds.
-6. **157 local-only scratch branches** accumulated across the 6 real athlete repos from all this
-   testing (`coach-skanda`: 64, `coach-skanda-testing`: 42, `coach-akash`: 25, `coach-shreyas`: 13,
-   `coach-date2022`: 11, `coach-prateek`: 2). None touch any athlete's real `main`, none are PRs.
-   Cleanup owed once the investigation is fully done, not urgent.
-7. **Git mechanics are not blocking anything** — the whole 22-PR chain + PR #948 is rebased onto
-   current `main`, green CI, mergeable. Only the findings above are.
+4. **DONE.** All 7 test-infra gaps fixed on #951, plus a real `GEMINI_API_KEY` production bug found
+   and fixed in the same pass, plus the local-athlete-repo testing workflow now documented in
+   `docs/eng-docs/coach-chat-testing.md`. `activity_sync` mode testing intentionally left out per
+   explicit instruction (deferred, not forgotten).
+5. **F1 (athlete repo migration/backfill)** — still the hard production blocker, unrelated to
+   everything above. Merging triggers an immediate production deploy (confirmed via `vercel.json`);
+   without F1's `coaching_style` backfill, every real athlete's onboarding resets on their next
+   message. Not started.
+6. **M3 (flipping the provider in production)** — not started, and given the decision above (stay
+   on `pro`), not currently planned. Revisit this doc's "WHY flash underperforms" section if that
+   changes.
+7. **Real athlete repo scratch branches have accumulated well past 157** across this whole
+   investigation (multiple large verification passes ran after that count was last taken). None
+   touch any athlete's real `main`, none are PRs. Cleanup owed once the investigation is fully
+   done, not urgent - explicitly deferred per instruction, same as `activity_sync` and
+   `coach-message` testing.
+8. **Git mechanics are not blocking anything** — the whole 26-PR stack (`769`→...→`921`→`948`→
+   `949`→{`950`,`951`,`952`}) is rebased onto current `main`, green CI, mergeable. Nothing merged.
 
 ---
 
-## Test-infrastructure gaps noticed (not fixed, low priority, kept short)
+## Test-infrastructure gaps — all fixed on #951 except one deferred item
 
-- No way to inspect the raw assembled prompt sent to the model without editing source — a debug
-  flag on the manual harness would have sped up both major root-cause investigations.
-- No `pretest` hook for the manual harness — first run fails with `ERR_MODULE_NOT_FOUND` until SOUL
-  is built manually.
-- `--message` mode silently starts a new thread every invocation; `--turns` is required for real
-  multi-turn continuity — easy to miss, documented but easy to skim past.
-- The manual harness has no way to reach `mode: "activity_sync"` at all.
-- No retry on a known-shape GitHub API race right after branch creation (one false "ERROR" seen).
-- Run log filenames have no repo/athlete tag, only a timestamp — hard to filter when several agents
-  test in parallel.
-- Resetting an athlete repo to genuinely-blank FSP state is fully manual, no reusable tooling.
-- A misleading counter name (`droppedFacts`) in the harness's own log line undercounts what most
-  people mean by "dropped."
+- **Fixed:** `--debug`/`DEBUG=1` dumps the raw assembled prompt now.
+- **Fixed:** `pretest:coach-chat-manual` hook builds SOUL automatically on a fresh checkout.
+- **Fixed:** `--message` now prints a loud stderr warning about the new-thread-per-call gotcha.
+- **Fixed:** `getHeadSha`'s harness call sites retry once on a transient GitHub API race.
+- **Fixed:** run log filenames now carry a repo slug, not just a timestamp.
+- **Fixed:** `coachTurn.ts`'s log line reports commit-failure drops and validation drops as two
+  distinct counters instead of one misleading `droppedFacts`.
+- **Fixed:** the harness's own startup check, and `coach-chat.ts`'s real `handle()` (a genuine
+  production bug, not just a test-harness one), now require the right API key for the actual
+  selected provider instead of always requiring `GEMINI_API_KEY`.
+- **Still not fixed, deferred on purpose:** the manual harness has no way to reach
+  `mode: "activity_sync"` at all - explicitly left for later per instruction, not forgotten.
+- **Documented, not code:** the local-athlete-repo testing workflow (recreating a conversation,
+  verifying via real diffs, resetting to blank FSP state via the GitHub API) is now written up in
+  `docs/eng-docs/coach-chat-testing.md` instead of living only in agent transcripts.
 
 ## Minor observations, pre-existing, not investigated further
 
