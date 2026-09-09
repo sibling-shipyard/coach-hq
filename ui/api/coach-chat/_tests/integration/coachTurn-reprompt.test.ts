@@ -6,6 +6,19 @@ vi.mock("../../_lib/gemini/geminiClient.js", () => ({
   GEMINI_MODEL: "gemini-flash-latest",
 }));
 
+// Every test below runs a non-first-session turn, which now means requestCoachReply fetches the
+// templates manifest and current_week.json before calling askGemini (Finding A fix). Stubbed here
+// instead of letting it hit real GitHub - most tests below don't care about the content, only the
+// "does not-first-session-context-fetching break anything else" question, so the default is empty
+// (no templates, no sessions) and the one test that cares about real content sets its own return.
+const { getFileRaw } = vi.hoisted(() => ({
+  getFileRaw: vi.fn(async (_repo: string, _path: string, _token: string) => null as string | null),
+}));
+vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
+  return { ...original, getFileRaw };
+});
+
 import { requestCoachReply } from "../../_lib/coachTurn.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
 
@@ -32,6 +45,11 @@ function baseTurnState(overrides: Record<string, unknown> = {}) {
     ...overrides,
   } as unknown as Parameters<typeof requestCoachReply>[0];
 }
+
+beforeEach(() => {
+  getFileRaw.mockReset();
+  getFileRaw.mockResolvedValue(null);
+});
 
 // The reprompt is generic across every capped free-text field, so memory_update.text stands in
 // for the size-cap scenario below. Every fixture here also carries a coach_note, because
@@ -239,5 +257,48 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
     await requestCoachReply(baseTurnState());
 
     expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd
+// while the reply still claimed success, because this prompt never told the model any real
+// template_id/session_id to work from on an ordinary turn - activeTemplatesContext/
+// activeWeekSessionsContext existed but were never wired into requestCoachReply. Live-model
+// compliance is out of scope here (that needs a real API call); what this proves is the prompt
+// itself now carries the real ids, which is the actual bug - not whether the model chooses to use
+// them.
+describe("requestCoachReply supplies real template/session context (Finding A fix)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+    askGemini.mockResolvedValue({ reply: "ok" });
+  });
+
+  it("fetches the templates manifest and current_week.json and folds real ids into extraContext", async () => {
+    getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+      path.endsWith("_manifest.json")
+        ? JSON.stringify({ template_ids: ["tpl-strength-a"] })
+        : path.endsWith("current_week.json")
+          ? JSON.stringify({
+              days: [
+                {
+                  date: "2026-09-10",
+                  sessions: [{ id: "sess_20260910_1", title: "Easy run", status: "planned" }],
+                },
+              ],
+            })
+          : null,
+    );
+
+    await requestCoachReply(baseTurnState({ trimmed: "swap tomorrow's session for a walk" }));
+
+    const extraContext = askGemini.mock.calls[0]?.[8] as string;
+    expect(extraContext).toContain("tpl-strength-a");
+    expect(extraContext).toContain("sess_20260910_1");
+  });
+
+  it("skips the fetch entirely on a first-session turn", async () => {
+    await requestCoachReply(baseTurnState({ firstSession: true }));
+
+    expect(getFileRaw).not.toHaveBeenCalled();
   });
 });
