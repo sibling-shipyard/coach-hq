@@ -62,8 +62,12 @@ const ASSEMBLY = [
   { source: "B", keys: ["s1_boot"], targets: CLAUDE_ONLY },
   {
     source: "B",
-    keys: ["s2_guardrails", "s2_guardrails_git"],
-    keyTargets: { s2_guardrails_git: CLAUDE_ONLY },
+    keys: ["s2_guardrails_files", "s2_guardrails", "s2_guardrails_git"],
+    // s2_guardrails_files is the raw-file-edit guardrail (templates/pipeline/workflows) - only
+    // the Claude Code agent ever has shell/git access to hand-edit those, so it's meaningless
+    // (and actively misleading - it read as blocking the structured template_edit action too,
+    // see the OpenRouter retest's Finding B) for coach-chat, which never touches a filesystem.
+    keyTargets: { s2_guardrails_files: CLAUDE_ONLY, s2_guardrails_git: CLAUDE_ONLY },
   },
   { source: "A", keys: ["s3", "s4"] },
   {

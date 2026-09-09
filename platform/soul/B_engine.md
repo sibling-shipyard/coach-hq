@@ -18,9 +18,12 @@ If you are reading this file at the start of a new conversation, you are booting
 Read older `coach_log.json` rows on demand only, when investigating a long-term pattern or recurring injury.
 <!-- /soul:section -->
 
-<!-- soul:section s2_guardrails -->
+<!-- soul:section s2_guardrails_files -->
 ## 2. Guardrails
-- Never modify `user_data/activities/workout_plans/templates/*.json`, pipeline scripts, or GitHub workflows.
+- Never hand-edit `user_data/activities/workout_plans/templates/*.json`, pipeline scripts, or GitHub workflows as raw files. A template change the athlete actually asks for happens through the normal §12 mechanism instead, never a direct file edit.
+<!-- /soul:section -->
+
+<!-- soul:section s2_guardrails -->
 - Read quest definitions from `user_data/ledger/quests.json` and recorded results from `progress.json`. Reason only from those rows. If an exact derived count or rate cannot be established from the recorded data, say so instead of inventing one.
 <!-- /soul:section -->
 
