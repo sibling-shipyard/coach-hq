@@ -397,6 +397,28 @@ and log gaps there without fixing anything. Two new transcripts, flash:
 - **`session_plan`** - still has zero dedicated live coverage. Not tested this pass (time-boxed);
   flag for whenever the workouts redesign lands, since its shape will likely change anyway.
 
+### `#27` reframed and fixed, plus a full OpenRouter live retest (2026-09-09)
+
+`#27`'s original framing ("injury_flag sometimes drops under field crowding") turned out to be an
+undercount. Four parallel real-commit test agents found the actual shape: a hallucinated
+`template_edit.template_id` crashing the whole atomic commit, not just dropping the field that
+named it - 4/5 crashed outright on one athlete repo. Fixed structurally: `validateTemplateEdit`/
+`validateSessionPlan`/`validateSessionReconcile`/`validatePlanEdit` added to `validateActions.ts`,
+same pre-write-validation pattern `validateQuestEvents`/`validateInjuryEvents` already used for
+quest/injury ids - a bad reference now drops just that one field, never the whole commit. Same
+pass also guarded `applySeasonStart`'s `new_habits` against the model omitting a required field
+(`coachIntents.ts:561`, `input.new_habits ?? []`) - the schema says required, Gemini doesn't always
+comply, same discipline #808 already established.
+
+Both fixes were then re-tested live end to end: a full OpenRouter retest of the whole stack (PR
+#921's tip) against all 6 real athlete repos - the exact field-crowding scenario that crashed 4/5
+times now held 0/3, confirmed on real commits. That retest also surfaced and fixed 7 more real
+bugs (most pre-existing and provider-agnostic, not specific to this redesign or to OpenRouter) and
+found one still-open severe issue with Gemini flash's structured-output reliability on dense
+messages, independent of provider. Full evidence, numbers, and current status:
+`OPENROUTER-K1-RETEST-FINDINGS.md` and `OPENROUTER-K1-TEST-RESULTS.md` (both committed on PR #948,
+stacked on top of #921).
+
 ## What this deliberately does not do
 
 Re-review already-reviewed PRs' code. This is a live-behavior pass, not a second code review —
