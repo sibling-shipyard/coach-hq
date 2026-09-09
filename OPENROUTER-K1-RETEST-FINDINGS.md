@@ -112,8 +112,9 @@ regress anything), keep gathering live data before flipping any production defau
 - **Finding A** — `plan_edit`/`session_reconcile` silently no-op'd while the reply claimed success,
   because `requestCoachReply` never gave the model real template/session ids to reference on an
   ordinary turn. Fixed by fetching that context before asking, not just after to validate a guess.
-  Pre-existing, provider-agnostic — not an OpenRouter bug. Unit-verified, not yet live-re-run
-  through the original real-repo scenario.
+  Pre-existing, provider-agnostic — not an OpenRouter bug. **Live-re-verified 3/3** on `coach-prateek`
+  with varied phrasing (no explicit session_id stated) — every diff confirmed against real
+  `current_week.json` content. Holds up cleanly, fully closed.
 - **Finding B** — `template_edit` was refused 100% of the time live (6/6). Root cause: a
   Claude-Code-only SOUL guardrail ("never modify template files") was composing into the hosted
   chat build too, where it had nothing to do with the separate, validated `template_edit` action
@@ -121,7 +122,12 @@ regress anything), keep gathering live data before flipping any production defau
   `coach-akash`: fires and commits for real now.
 - **Finding C** — OpenRouter had no retry on `finish_reason: "length"` truncation (~37% of
   first-turn calls failed outright). Fixed with one retry, mirroring the Gemini adapter's existing
-  pattern. Unit-verified, not yet re-measured live for the failure-rate drop.
+  pattern. **Live-re-verified, partial:** confirmed the retry works exactly as designed (2 real
+  truncations recovered invisibly across 10 fresh-FSP trials), and the failure rate dropped from
+  ~37% to ~20% - but did not drop to near-zero. **New, separate bug found:** the remaining 2/10
+  failures are malformed JSON (`SyntaxError: Unterminated string`) with a finish reason that isn't
+  `"length"`, so the current retry never engages for them. Not fixed - needs its own fix (broaden
+  the retry trigger to cover a JSON-parse failure too, not just the explicit truncation signal).
 - **Finding E** — `quest_event` had no reprompt safety net if the model just skipped it (3/3 misses
   in testing). Strengthened its instruction the same way `season_start`'s already was. **Live-verified**
   3/3 on `coach-skanda`, real `progress.json` writes confirmed via diff.
@@ -149,12 +155,12 @@ unit-tested. Template generation at onboarding through the OpenRouter seam — l
    direct, 0% through OpenRouter) - a model problem, not purely an OpenRouter one. This blocks any
    move toward flash, on either provider, until fixed or a safety net is built. Does not block
    merging code that doesn't touch the model-calling path.
-2. **Live re-verification gaps** — Findings A and C were fixed and unit-verified but not re-run
-   through their original live real-repo scenarios (only B and E got that treatment). Worth a
-   confirmation pass before calling this fully done.
-3. **Doc upkeep owed** — K1's own LLD (`docs/plans/ccr-k1-final-test-pass-lld.md`) hasn't been
-   updated with any of today's work yet; its "Done when" rule needs this doc linked as evidence
-   before K1 can close. M2's LLD execution table is still stale (low priority, "leave M2 for now").
+2. **DONE.** Findings A and C both live-re-verified. A holds up cleanly (3/3). C's retry works as
+   designed but uncovered a new, separate, unfixed bug (malformed-JSON responses with a non-
+   `"length"` finish reason aren't retried) - failure rate dropped 37%→20%, not to zero. Needs a
+   follow-up fix.
+3. **DONE.** K1's own LLD (`docs/plans/ccr-k1-final-test-pass-lld.md`) now records today's work,
+   pushed to #824. M2's LLD execution table is still stale (low priority, "leave M2 for now").
    Plan-file deletion correctly not done yet (K1 hasn't merged).
 4. **F1 (athlete repo migration/backfill)** — still the hard production blocker, unrelated to
    Finding D. Merging triggers an immediate production deploy (confirmed via `vercel.json`); without
