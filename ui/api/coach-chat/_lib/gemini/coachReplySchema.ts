@@ -547,7 +547,13 @@ function withReferenceEnums(
 // A complex returning turn can legitimately combine several actions. Smaller modes keep the same
 // ceiling; the schema, not truncation pressure, controls their output. Shared by generationConfigFor
 // and chatResponseSchema so the seam's LlmRequest.maxOutputTokens can't drift from it.
-export const CHAT_MAX_OUTPUT_TOKENS = 4096;
+//
+// Raised from 4096 (#827's original budget) after the Finding D verification pass: direct Gemini's
+// dense-message thinking alone was landing at ~3930 tokens on this scenario, so 4096 left the model
+// almost no room to write the actual JSON and it truncated with MAX_TOKENS on every one of 8/8 live
+// trials. 8192 live-verified clean (4/4, then 6/6) on the same scenario with the same maxOutputTokens
+// covering both thinking and output - see OPENROUTER-K1-RETEST-FINDINGS.md's Finding D section.
+export const CHAT_MAX_OUTPUT_TOKENS = 8192;
 
 /** The smallest legal response shape for this turn; forbidden actions are absent structurally. */
 export function generationConfigFor(
