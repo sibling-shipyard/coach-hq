@@ -96,6 +96,11 @@ export interface GeminiReply {
       unit?: string;
     }[];
   };
+  // Finding D (OpenRouter K1 retest) mitigation - a self-audit, not a text heuristic. The model
+  // names any concrete fact its own reply/coach_note narrates that has no matching action field
+  // above, empty array when there's nothing to flag. See coachTurn.ts's findUnrecordedFacts for
+  // the reprompt this triggers, and responsePropertiesFor below for why it's declared after reply.
+  unrecorded_facts?: string[];
 }
 
 // Every turn commits whatever it produces - there is no separate mode for a turn that closes a
@@ -398,6 +403,11 @@ const RESPONSE_PROPERTIES = {
     additionalProperties: false,
   },
   reply: { type: "string" },
+  // Finding D (OpenRouter K1 retest) mitigation - see the GeminiReply.unrecorded_facts comment
+  // above. Declared last in responsePropertiesFor, after reply, on purpose: it's a self-audit of
+  // everything else in this same response including reply's own text, so it needs those already
+  // "written" (in generation order) to check against.
+  unrecorded_facts: { type: "array", items: { type: "string" } },
 } as const satisfies Record<string, LlmJsonSchemaNode>;
 
 type ResponseField = keyof typeof RESPONSE_PROPERTIES;
@@ -457,7 +467,13 @@ function responsePropertiesFor(
       : firstSession
         ? FSP_ACTIONS
         : RETURNING_ACTIONS;
-  const fields: ResponseField[] = [...actionFields, "reply"];
+  // unrecorded_facts (Finding D mitigation) only makes sense when there's at least one action
+  // field to audit against - skipped for greeting/activity_sync, which have none. Declared after
+  // reply, not with the other action fields above, since it audits reply's own text too.
+  const fields: ResponseField[] =
+    actionFields.length > 0
+      ? [...actionFields, "reply", "unrecorded_facts"]
+      : [...actionFields, "reply"];
   return Object.fromEntries(
     fields.map((key): [string, LlmJsonSchemaNode] => [key, RESPONSE_PROPERTIES[key]]),
   );

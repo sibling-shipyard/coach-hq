@@ -42,6 +42,18 @@ export function staticSystemText(soul: string): string {
 const SAVE_CLAIM_GUARD =
   "Never say something is saved, logged, locked, or committed unless the matching action field in this exact response reflects it.";
 
+// Finding D (OpenRouter K1 retest) mitigation: a dense message (a goal plus multiple injuries and
+// habits in one turn) was found to make the model narrate every fact in reply/coach_note while
+// silently dropping almost all of the matching action fields. This is a direct ask to self-check
+// for that specific failure before finishing, not a general caution reminder.
+const UNRECORDED_FACTS_GUIDANCE =
+  "\nBefore you finish, check your own reply and coach_note against every action field you " +
+  "actually set above. If either one describes a concrete fact - a goal, an injury, a habit, a " +
+  "completion, a number - that has no matching action field in this same response, set " +
+  'unrecorded_facts to a short plain-language note for each one (e.g. "mentioned a new knee ' +
+  'injury but set no injury_flag"). Leave it an empty array when everything you said is already ' +
+  "reflected above. This is a check, not a place to restate facts you already captured elsewhere.";
+
 // C2: coach_note is one row per calendar day in coach_log.json, overwritten in place - not
 // appended - every time you write it, so it must always be the FULL revised note (today's
 // existing note, shown above in Current athlete context if there is one, merged with what this
@@ -125,6 +137,7 @@ export function buildDynamicText(
               "first-session athlete has no existing templates or week plan yet.",
               COACH_NOTE_GUIDANCE,
               SAVE_CLAIM_GUARD,
+              UNRECORDED_FACTS_GUIDANCE,
             ].join("\n")
           : [
               "\nTalk with the athlete the way SOUL.md describes, and save any concrete fact they state on this same turn instead of holding it for later (#616).",
@@ -210,6 +223,7 @@ export function buildDynamicText(
               "fill a guess.",
               COACH_NOTE_GUIDANCE,
               SAVE_CLAIM_GUARD,
+              UNRECORDED_FACTS_GUIDANCE,
             ].join("\n"),
     "\n" + todayContextLine(timezone),
   ].join("\n");
