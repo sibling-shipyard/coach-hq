@@ -34,14 +34,47 @@ to the original (much smaller-sample) read.
   3/3 failed identically before and after. The existing instruction was already explicit and
   unambiguous; wording is not the bottleneck.
 
-**In progress right now:** a Gemini-**flash**-specific comparison (not the production-pinned pro
-model — matched to OpenRouter's own `google/gemini-3.8-flash` for a fair test), same methodology,
-same repo. This is the one test that tells us whether this is an OpenRouter routing/model-alias
-problem or something that's been silently affecting direct Gemini in production too. Not yet
-reported back — check back for the result.
+**Direct-Gemini comparison, now run (Sep 9) — real numbers, both models tested on the same
+scenario, same repo, same reset-to-blank-FSP method as the OpenRouter pass:**
+
+| Model | Full success | Partial omission | Total omission | n |
+|---|---|---|---|---|
+| OpenRouter `google/gemini-3.8-flash` | 0/8 (0%) | 1/8 | 7/8 (88%) | 8 |
+| Direct Gemini `gemini-pro-latest` (production's real current default) | 12/12 (100%) | 0/12 | 0/12 | 12 (10 baseline + 2 turn-2 control) |
+| Direct Gemini `gemini-flash-latest` (temporary local override, matched to OpenRouter's alias) | 4/9 (44%) | 3/9 (33%) | 2/9 (22%) | 9 (8 baseline + 1 turn-2 control) |
+
+Turn-2 control: pro was clean 2/2 (matches its 10/10 baseline — genuinely not turn-specific in
+either direction for pro). Flash's single turn-2 control was a full success, but only after the
+existing `coach_note`-missing reprompt regenerated the reply and picked up `injury_flag` the
+second time — the first pass of that same turn also dropped a field, so flash's problem isn't
+turn-specific either, same conclusion as OpenRouter's turn-2 finding.
+
+**Verdict: this is not purely OpenRouter-specific.** Direct-Gemini `gemini-pro-latest` — what
+production actually runs today — is completely clean (12/12), so there's no live production risk
+right now. But the same underlying `google`-side flash model, called directly through Gemini's own
+API with no OpenRouter routing involved, still drops structured fields at a real, non-trivial rate
+(5/9 not fully clean). That rules out "OpenRouter's routing/proxy layer is the cause" as the full
+explanation — the instability travels with the **flash model itself**, not the OpenRouter path.
+OpenRouter's number is still meaningfully worse than direct flash's (0% vs. 44% full success), so
+OpenRouter may still be compounding the problem on top of flash's own baseline unreliability — but
+flash itself, independent of OpenRouter, is not safe for this scenario. Two new flash-specific
+failure shapes were seen that never appeared in the pro runs or the OpenRouter data: a `coach_note`
+correctly narrating facts while the matching structured field never has appeared at all (not
+recoverable by the existing reprompt in 2 of 3 cases), and one run where the model spent its
+output generating a 200+ item garbage `sports_update` array instead of the real fields (a runaway
+generation, not a clean omission).
+
+**Practical read:** production is safe today (`gemini-pro-latest`, 12/12 clean) as long as it stays
+pinned there. Reverting to `gemini-flash-latest` for cost/speed reasons — independent of any
+OpenRouter decision — would reintroduce this exact omission risk. M3 (flipping to
+`LLM_PROVIDER=openrouter`) should stay blocked until either (a) flash's own reliability improves
+upstream, or (b) the reprompt safety-net idea (detect narrated-but-uncommitted facts, force a
+corrective second call) is built and proven to catch this — same proposal already on the table
+below, now with evidence it would need to fire on direct-Gemini flash too, not just OpenRouter.
 
 **Do not merge anything touching coach-chat's model-calling path, and do not proceed with M3
-(flipping `LLM_PROVIDER=openrouter` in production), until this resolves.**
+(flipping `LLM_PROVIDER=openrouter` in production), until a decision is made on the flash-reliability
+question above.**
 
 ---
 
@@ -82,7 +115,11 @@ unit-tested. Template generation at onboarding through the OpenRouter seam — l
 
 ## Merge readiness — what's left before this stack merges
 
-1. **Finding D** (above) — the one thing that could still change the picture. Blocking.
+1. **Finding D** (above) — resolved to a verdict: production (`gemini-pro-latest`) is clean today,
+   no live risk. But `gemini-flash-latest` itself is unreliable at this scenario (44% full success
+   direct, 0% through OpenRouter) - a model problem, not purely an OpenRouter one. This blocks any
+   move toward flash, on either provider, until fixed or a safety net is built. Does not block
+   merging code that doesn't touch the model-calling path.
 2. **Live re-verification gaps** — Findings A and C were fixed and unit-verified but not re-run
    through their original live real-repo scenarios (only B and E got that treatment). Worth a
    confirmation pass before calling this fully done.
@@ -94,8 +131,10 @@ unit-tested. Template generation at onboarding through the OpenRouter seam — l
    Finding D. Merging triggers an immediate production deploy (confirmed via `vercel.json`); without
    F1's `coaching_style` backfill, every real athlete's onboarding resets on their next message.
    Not started.
-5. **M3 (flipping the provider in production)** — not started, should not proceed until Finding D
-   resolves.
+5. **M3 (flipping the provider in production)** — not started. Now specifically blocked on flash's
+   own reliability, not just an OpenRouter question - flipping to OpenRouter would mean flash, and
+   flash drops facts on dense messages at a real rate even called directly. Needs either a fix to
+   flash's reliability or a reprompt safety net before this proceeds.
 6. **157 local-only scratch branches** accumulated across the 6 real athlete repos from all this
    testing (`coach-skanda`: 64, `coach-skanda-testing`: 42, `coach-akash`: 25, `coach-shreyas`: 13,
    `coach-date2022`: 11, `coach-prateek`: 2). None touch any athlete's real `main`, none are PRs.
