@@ -23,6 +23,18 @@
  *   npm run test:coach-chat-manual -- --athlete akash --message "..."
  *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --turns turns.json
  *   npm run test:coach-chat-manual -- --athlete skanda --branch test/reuse-me --message "..."
+ *   npm run test:coach-chat-manual -- --athlete skanda --greet --debug   # dump the raw prompt too
+ *
+ * **--message starts a new thread every invocation.** It's a one-shot: there is no state carried
+ * between two separate `--message` runs, so calling it twice in a row does NOT continue one
+ * conversation - use `--turns turns.json` for real multi-turn continuity in one thread. The
+ * script prints a warning to stderr every time `--message` is used, since this is easy to miss.
+ *
+ * **--debug (or `DEBUG=1` in the environment)** dumps the full assembled prompt geminiClient.ts's
+ * askGemini actually sends (cachePrefix + system + messages), not just mode/userMessage, for
+ * every turn - alongside the parsed JSON reply, which already logs unconditionally. This was the
+ * single most-requested addition across the OpenRouter K1 retest's root-cause sessions: without
+ * it, seeing the real prompt meant editing geminiClient.ts by hand and remembering to revert it.
  *
  * turns.json is an array of { message }. Set `greet: true` on turns[0] to open the run with a
  * real greet turn first - its real threadId carries into every turn after it, so the whole run
@@ -42,11 +54,15 @@
  *     over two more turns before closing - shows one longer real session touching more than one
  *     action field.
  *
- * Needs GEMINI_API_KEY in ui/.env.local or env, and a GitHub CLI session (`gh auth token`).
+ * Needs GEMINI_API_KEY in ui/.env.local or env (or OPENROUTER_API_KEY when
+ * `LLM_PROVIDER=openrouter` is set - only one of the two is actually required, matching which
+ * provider will actually run the call), and a GitHub CLI session (`gh auth token`).
  *
- * Run log: writes <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-chat-log-<HH-MM-SS>.json,
- * same shape as eval-coach-chat.ts's log but with `confidence: "observed"` filesChanged - a real
- * git diff of the local clone across each turn's before/after commit sha, not a guess.
+ * Run log: writes
+ * <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-chat-<repo-slug>-log-<HH-MM-SS>.json (the
+ * repo slug is `owner/name` sanitized to a filename-safe string), same shape as
+ * eval-coach-chat.ts's log but with `confidence: "observed"` filesChanged - a real git diff of
+ * the local clone across each turn's before/after commit sha, not a guess.
  */
 import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
@@ -68,10 +84,14 @@ try {
   // fine if it doesn't exist - GEMINI_API_KEY may already be in the environment
 }
 
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
+// Which key is actually required depends on which provider will run the call -
+// selectLlmAdapter() (llmClient.ts) picks OpenRouter only on the exact value "openrouter", so
+// mirror that here rather than always demanding GEMINI_API_KEY even on a pure OpenRouter run.
+const usingOpenRouter = process.env.LLM_PROVIDER === "openrouter";
+const requiredKeyName = usingOpenRouter ? "OPENROUTER_API_KEY" : "GEMINI_API_KEY";
+if (!process.env[requiredKeyName]) {
   console.error(
-    "run-manual-coach-chat-test: GEMINI_API_KEY not set (check ui/.env.local or export it).",
+    `run-manual-coach-chat-test: ${requiredKeyName} not set (check ui/.env.local or export it) - required because LLM_PROVIDER is${usingOpenRouter ? "" : " not"} "openrouter".`,
   );
   process.exit(1);
 }
@@ -117,11 +137,35 @@ function parseArgs(argv: string[]) {
     greet: argv.includes("--greet"),
     message: get("--message"),
     turnsPath: get("--turns"),
+    debug: argv.includes("--debug") || process.env.DEBUG === "1",
   };
+}
+
+// getHeadSha throws immediately on any non-2xx, with no retry of its own (it's a shared helper,
+// also used by production code where a retry isn't this script's call to make). A transient
+// rate-limit/ref-consistency hiccup right after this script creates a scratch branch has produced
+// a false "ERROR" on an otherwise-fine turn - one retry with a short fixed backoff, same
+// one-retry-cap pattern as the OpenRouter/Gemini adapters' own retries, fixes that without
+// masking a real, persistent failure (which still throws on the second attempt).
+async function getHeadShaWithRetry(repo: string, token: string, branch?: string): Promise<string> {
+  try {
+    return await getHeadSha(repo, token, branch);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return await getHeadSha(repo, token, branch);
+  }
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  // Set before any handle() call so askGemini (geminiClient.ts) picks it up on every turn, not
+  // just the first - see this script's header comment. Never set outside a --debug/DEBUG=1 run,
+  // so this can't leak into a normal invocation's output.
+  if (args.debug) {
+    process.env.COACH_CHAT_DEBUG_PROMPT = "1";
+    console.log("--debug: dumping the full assembled prompt for every turn.");
+  }
 
   let repo: string;
   let localPath: string;
@@ -197,7 +241,7 @@ async function main() {
     { headers: ghHeaders },
   );
   if (branchRefRes.status === 404) {
-    const defaultHeadSha = await getHeadSha(repo, token, repoInfo.default_branch);
+    const defaultHeadSha = await getHeadShaWithRetry(repo, token, repoInfo.default_branch);
     const createRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/refs`, {
       method: "POST",
       headers: { ...ghHeaders, "Content-Type": "application/json" },
@@ -229,6 +273,16 @@ async function main() {
   if (args.greet) {
     turns = [{ message: "", greet: true }];
   } else if (args.message != null) {
+    // Easy to miss even though the header comment covers it (this is exactly the OpenRouter K1
+    // retest finding that motivated this warning) - --message is a one-shot: this run's threadId
+    // is minted fresh below, so a second --message call right after this one starts a brand new
+    // thread rather than continuing this conversation. --turns turns.json is what gives real
+    // multi-turn continuity in one thread.
+    console.error(
+      "run-manual-coach-chat-test: --message starts a NEW thread every invocation - it does " +
+        "NOT continue a conversation from a previous --message call. Use --turns turns.json " +
+        "for real multi-turn continuity.",
+    );
     turns = [{ message: args.message }];
   } else {
     turns = JSON.parse(fs.readFileSync(args.turnsPath!, "utf8")) as ManualTurn[];
@@ -279,7 +333,7 @@ async function main() {
       // tell what the branch looked like at this point - track that explicitly rather than
       // silently treating it the same as "checked, and it's null."
       let shaBeforeFailed = false;
-      const shaBefore = await getHeadSha(repo, token).catch(() => {
+      const shaBefore = await getHeadShaWithRetry(repo, token).catch(() => {
         shaBeforeFailed = true;
         return null;
       });
@@ -329,7 +383,7 @@ async function main() {
       const failures: string[] = [];
 
       let shaAfterFailed = false;
-      const shaAfter = await getHeadSha(repo, token).catch(() => {
+      const shaAfter = await getHeadShaWithRetry(repo, token).catch(() => {
         shaAfterFailed = true;
         return null;
       });
@@ -407,7 +461,13 @@ async function main() {
     }
   }
 
-  const logWritten = writeTestLog("manual", "manual-coach-chat", entries);
+  // Tags the log filename with which repo this run hit - the bare timestamp alone made it hard
+  // to tell apart several test sessions run against different athlete repos around the same time.
+  const repoSlug = repo
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const logWritten = writeTestLog("manual", `manual-coach-chat-${repoSlug}`, entries);
 
   const passed = entries.filter((e) => e.result === "PASS").length;
   console.log(`\n${passed}/${entries.length} passed.`);

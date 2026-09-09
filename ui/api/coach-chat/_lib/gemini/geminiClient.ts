@@ -58,13 +58,22 @@ export async function askGemini(
   };
   const messages: LlmMessage[] = [...buildHistoryContents(history), finalTurn];
 
-  // Doesn't log the full prompt (the static prefix alone is ~13K tokens) - mode and the
-  // athlete's message are what actually vary call to call. userMessage stays on console: a
+  // Doesn't log the full prompt by default (the static prefix alone is ~13K tokens) - mode and
+  // the athlete's message are what actually vary call to call. userMessage stays on console: a
   // breadcrumb would ride any later error on this request, past ADR 0032's Gemini-failure
   // boundary. Whether this call is actually cached is now the adapter's own business, not
   // something this layer observes.
   console.log("[coach-chat] request:", { mode, userMessage, traceId });
   log("coach-chat", "request", { mode, traceId });
+
+  // Full-prompt dump for run-manual-coach-chat-test.ts's --debug flag. Gated on an env var
+  // nothing sets in a real deployment, so this never fires in production - it exists so a live
+  // testing session can see exactly what got sent (cachePrefix + system + messages) without
+  // editing this file by hand every time, which is what kept happening during the OpenRouter K1
+  // retest.
+  if (process.env.COACH_CHAT_DEBUG_PROMPT === "1") {
+    console.log("[coach-chat] debug prompt:", { cachePrefix, system, messages, traceId });
+  }
 
   const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
   const generateRequest = {

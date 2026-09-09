@@ -230,4 +230,30 @@ describe("coach turn stages", () => {
       droppedActions: [],
     });
   });
+
+  // OpenRouter K1 retest finding: the turn-committed log line's droppedFacts counter only ever
+  // counted commit failures, never a validation drop (buildTurnWrites' bad-reference drops) - a
+  // reader who saw droppedFacts: 0 on a turn that actually dropped a reference had no way to
+  // tell. The two counts must stay distinct in the log line, not collapsed into one name.
+  it("logs commit-failure and validation drop counts as two distinct fields, not one", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await commitTurn({
+      ...baseTurn(),
+      validUpdates: [{ path: "user_data/coach/profile.json", content: "{}" }],
+      chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
+      optionalWrites: [],
+      latestThreads: [],
+      finalThreadId: "thread-1",
+      computedTitle: "Felt strong",
+      droppedActions: [{ field: "quest_event", reason: "no match on file", kind: "validation" }],
+    } as never);
+    const committedCall = logSpy.mock.calls.find(
+      (call) => call[0] === "[coach-chat] turn committed",
+    );
+    expect(committedCall).toBeDefined();
+    const logged = JSON.parse(committedCall![1] as string);
+    expect(logged.droppedFactsCommitFailures).toBe(0);
+    expect(logged.droppedActionsValidation).toBe(1);
+    logSpy.mockRestore();
+  });
 });
