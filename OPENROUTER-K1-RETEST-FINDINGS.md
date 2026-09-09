@@ -84,26 +84,33 @@ the two existing content-violation reprompts in `coachTurn.ts`), naming exactly 
 Chosen over a keyword-heuristic alternative because dense messages use too much wording variety for
 a fixed keyword list to reliably tell "a new fact" from "a reference to something already on file."
 
-**Live numbers, small sample (5-7 trials each, real numbers not rounded up):**
-- OpenRouter flash, 5 trials with the fix: **3/5 full success, 2/5 partial-but-honest** (injuries
-  captured, goal/habits explicitly and transparently deferred - "holding off until intake is
-  confirmed" - never falsely claimed as saved), **0/5 total silent omission** (down from 7/8
-  baseline) and **0/5 false-success claims** (down from the core original problem). One partial
-  case involved the safety net directly working as designed: first pass had `unrecorded_facts`
-  correctly flagging the gap, one reprompt fired, second pass captured everything.
-- Direct Gemini flash, 2 trials with the fix: 1/2 full success, 1/2 partial - `season_start` and
-  habits captured correctly, but `injury_flag` silently missing despite the reply/coach_note
-  narrating it **and the self-audit itself reporting `unrecorded_facts: []`** - a real false
-  negative in the self-audit, worth knowing about before trusting it fully.
+**UPDATED with a much larger sample (32 trials: 18 OpenRouter, 14 direct flash) - the small-sample
+read above was optimistic, not representative. Real numbers:**
 
-**Honest read:** this is a real, measurable improvement over the 0/8 and 4/9 baselines - the two
-most dangerous failure modes (silent total omission, false success claims) dropped to zero in this
-sample, and the safety net demonstrably converted at least one would-be failure into a full success
-live. It is not a complete fix - partial omissions still happen, and the self-audit field is itself
-sometimes wrong (as the direct-flash injury_flag miss shows). Sample size is small (5-7 per
-provider, not the 10+ originally planned) - treat this as a strong positive signal, not a final
-verified number. Recommend: land this now (it's a strict improvement, unit-tested, and doesn't
-regress anything), keep gathering live data before flipping any production default.
+| Leg | n | Full success | Partial-but-honest | Total silent omission | False-success-claim |
+|---|---|---|---|---|---|
+| OpenRouter `google/gemini-3.8-flash` | 18 | 0 | 17 | 1 | 0 |
+| Direct `gemini-flash-latest` (after the token-budget fix below) | 6 | 0 | 3 | 1 | 2 |
+
+**Full success is rare on either provider at this sample size, not common as the earlier 5-7-trial
+read suggested.** Habits get honestly deferred in every single trial across all 32 runs (100%) -
+the model consistently wants more intake before committing them, and the reprompt doesn't override
+that. Total silent omission still happens on OpenRouter (1/18) - the self-audit missed it, a second
+confirmed false negative. Direct flash produces false-success-claims at 2/6 (33%) even after its own
+crash bug (below) was fixed - the self-audit missed both.
+
+**A genuine, unrelated crash bug was found and fixed in the same pass, unconditionally worth
+keeping regardless of the provider decision:** direct Gemini flash was truncating with `MAX_TOKENS`
+on 8/8 baseline trials - dense-message thinking alone was landing at ~3930 of the 4096-token
+`CHAT_MAX_OUTPUT_TOKENS` budget, leaving almost no room for the JSON output. Raised to 8192,
+live-verified clean (0/8 → 6/6). This is a plain crash fix, not a reliability judgment call.
+
+**Honest read, updated:** the reprompt safety net is real and worth keeping (it's a strict
+improvement with no downside), but at this sample size it is clearly not reliable enough on its own
+to justify moving off `gemini-pro-latest`. The self-audit itself is wrong often enough (3 confirmed
+false negatives across 32+ trials, on both providers) that a false-success-claim or a silent
+omission can still reach a real athlete. **This firmer data points more strongly toward keeping M3
+blocked, not less.**
 
 ---
 
@@ -145,6 +152,11 @@ regress anything), keep gathering live data before flipping any production defau
 no longer crashes the whole atomic commit) — 0/3 crashes on the exact field-crowding load that used
 to crash 4/5 times, live-verified. The `new_habits` P0 guard — happy path live-confirmed, crash-guard
 unit-tested. Template generation at onboarding through the OpenRouter seam — live-verified clean.
+
+**Also fixed, unconditionally, found during Finding D's larger verification pass:** direct Gemini
+flash was truncating with `MAX_TOKENS` on 8/8 baseline trials of the dense-message scenario -
+thinking alone landed at ~3930 of the 4096-token `CHAT_MAX_OUTPUT_TOKENS` budget. Raised to 8192,
+live-verified 0/8 → 6/6 clean. A plain crash fix, no provider/model judgment call involved.
 
 ---
 
