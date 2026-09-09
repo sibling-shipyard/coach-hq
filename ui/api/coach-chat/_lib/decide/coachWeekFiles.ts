@@ -303,6 +303,26 @@ function qualifyActivityId(id: string): string {
   return id.includes(":") ? id : `chat:${id}`;
 }
 
+// Same session_id set applySessionReconcile/applyPlanEdit derive internally, but callable before
+// either applier runs and non-throwing on a malformed file - coachTurn.ts uses this to validate
+// session_reconcile/plan_edit events up front (validateSessionReconcile/validatePlanEdit in
+// validateActions.ts), same "drop the one bad reference, don't let the whole atomic commit abort"
+// discipline as validTemplateIdsFromManifest in coachWorkoutFiles.ts. A malformed or unreadable
+// file just yields an empty set - every referenced session_id gets dropped as invalid, which is
+// the right outcome either way.
+export function validSessionIdsFromCurrentWeek(content: string | null): ReadonlySet<string> {
+  const parsed = parseJsonOrNull<CurrentWeek>(content);
+  if (!Array.isArray(parsed?.days)) return new Set();
+  const ids = new Set<string>();
+  for (const day of parsed.days) {
+    if (!Array.isArray(day?.sessions)) continue;
+    for (const session of day.sessions) {
+      if (session?.id) ids.add(session.id);
+    }
+  }
+  return ids;
+}
+
 /**
  * Applies a session_reconcile action field: loads the current current_week.json, finds each
  * event's session by id across all 7 days (throws on a hallucinated/stale session_id - same

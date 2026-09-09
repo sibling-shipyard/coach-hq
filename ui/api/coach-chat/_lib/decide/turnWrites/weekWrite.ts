@@ -23,6 +23,11 @@ export function buildCurrentWeekWrite(
   sessionReconcileEvents: SessionReconcileEvent[],
   planEditEvents: PlanEditEvent[],
   validTemplateIds: ReadonlySet<string>,
+  // coachTurn.ts already fetches current_week.json once to build the session_id set
+  // validateSessionReconcile/validatePlanEdit check events against before we get here - reusing
+  // that same read here (instead of fetching it again) means what got validated is exactly what
+  // gets patched, no race window between the two reads.
+  prefetchedContent?: string | null,
 ): FileEntry | undefined {
   const weekPlanRequested = Boolean(
     weekPlan?.headline?.trim() && weekPlan.body?.trim() && weekPlan.days?.length === 7,
@@ -48,7 +53,10 @@ export function buildCurrentWeekWrite(
   return {
     path: CURRENT_WEEK_PATH,
     resolve: async () => {
-      let working = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+      let working =
+        prefetchedContent !== undefined
+          ? prefetchedContent
+          : await getFileRaw(repo, CURRENT_WEEK_PATH, token);
       if (sessionReconcileEvents.length > 0) {
         working = applySessionReconcile(
           working,

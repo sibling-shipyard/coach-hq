@@ -8,7 +8,13 @@ const { commitFilesAtomic } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-const { getFileRaw } = vi.hoisted(() => ({ getFileRaw: vi.fn(async () => null) }));
+// Templates manifest gets a real answer (tpl-1 valid) so a template_edit referencing it survives
+// validateTemplateEdit's pre-check - every other path stays null, unchanged from before.
+const { getFileRaw } = vi.hoisted(() => ({
+  getFileRaw: vi.fn(async (_repo: string, path: string) =>
+    path.endsWith("_manifest.json") ? JSON.stringify({ template_ids: ["tpl-1"] }) : null,
+  ),
+}));
 vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
   return {
