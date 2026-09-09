@@ -145,6 +145,11 @@ export interface TurnWrites extends RepliedTurn {
   finalThreadId: string;
   computedTitle: string;
   trimmedCoachNote?: string;
+  /** akash retest finding: reply.reply is the model's raw, pre-validation text - this is what
+   * actually gets committed to chat history and returned to the athlete, with a dropped-action
+   * correction appended when one applies (formatDroppedActionsCorrection). commitTurn must use
+   * this, not turn.reply.reply, or the athlete sees the stale claim for a whole turn. */
+  finalReplyText: string;
   optionalWrites: FileEntry[];
   validUpdates: FileEntry[];
   wasProfileComplete: boolean;
@@ -584,31 +589,22 @@ function formatDroppedActionsNote(droppedActions: DroppedAction[]): string | und
   return `[System note: couldn't save an update this turn (${fields}) - the reference didn't match anything on file. If it's still relevant, check back in with the athlete and redo it.]`;
 }
 
+// akash retest finding: formatDroppedActionsNote above only reaches the athlete on the *next*
+// turn (folded into coach_log.json context), by design - so a reply generated before validation
+// ran could tell the athlete something was saved when it wasn't, for one whole turn. This is the
+// same-turn fix: a short, plainly-system-authored correction appended to the reply actually sent
+// back this turn, not a rewrite of the model's own prose (that's fragile string surgery on
+// generated text) - just an honest addendum naming what didn't stick. Undefined when nothing was
+// dropped, same as formatDroppedActionsNote.
+function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string | undefined {
+  if (droppedActions.length === 0) return undefined;
+  const fields = droppedActions.map((dropped) => dropped.field).join(", ");
+  return `(Note: couldn't save ${fields} - it didn't match anything on file.)`;
+}
+
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons } = turn.context;
-  const coachMsg: ChatMessage = {
-    id: `c-${turn.now}`,
-    role: "coach",
-    paragraphs: [reply.reply],
-  };
-  const allMessages = appendConversationTurn(turn.priorMessages, turn.userMsg, coachMsg, {
-    id: `d-${turn.now}`,
-    role: "divider",
-    label: todayDividerLabel(timezone),
-  });
-
-  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
-    repo,
-    token,
-    traceId,
-    now: turn.now,
-    threadId: turn.threadId,
-    trimmed: turn.trimmed,
-    allMessages,
-    replyText: reply.reply,
-  });
-
   const trimmedCoachNote = reply.coach_note?.trim();
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
@@ -772,6 +768,35 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     [trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") || undefined,
   );
 
+  // akash retest finding: the athlete-facing correction has to land in the reply actually sent
+  // this turn, not just next turn's coach_log context above - so this builds the chat message
+  // (and the reply text commitTurn returns) only now, after droppedActions is fully known, instead
+  // of at the top of this function using the model's raw, pre-validation reply.reply.
+  const droppedActionsCorrection = formatDroppedActionsCorrection(droppedActions);
+  const finalReplyText = droppedActionsCorrection
+    ? `${reply.reply}\n\n${droppedActionsCorrection}`
+    : reply.reply;
+  const coachMsg: ChatMessage = {
+    id: `c-${turn.now}`,
+    role: "coach",
+    paragraphs: [finalReplyText],
+  };
+  const allMessages = appendConversationTurn(turn.priorMessages, turn.userMsg, coachMsg, {
+    id: `d-${turn.now}`,
+    role: "divider",
+    label: todayDividerLabel(timezone),
+  });
+  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
+    repo,
+    token,
+    traceId,
+    now: turn.now,
+    threadId: turn.threadId,
+    trimmed: turn.trimmed,
+    allMessages,
+    replyText: finalReplyText,
+  });
+
   const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
   const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
@@ -868,6 +893,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     finalThreadId,
     computedTitle,
     trimmedCoachNote,
+    finalReplyText,
     optionalWrites,
     validUpdates,
     wasProfileComplete,
@@ -983,7 +1009,7 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
       {
         error: `Coach replied but saving failed: ${message}`,
         traceId: turn.traceId,
-        reply: turn.reply.reply,
+        reply: turn.finalReplyText,
       },
       { status: 502 },
     );
@@ -991,7 +1017,7 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
 
   await generateTemplatesAfterCompletion(turn);
   return Response.json({
-    reply: turn.reply.reply,
+    reply: turn.finalReplyText,
     threadId: turn.finalThreadId,
     threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
     repoSha,

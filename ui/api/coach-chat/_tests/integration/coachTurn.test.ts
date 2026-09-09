@@ -63,6 +63,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     now: Date.now(),
     traceId: "trace-1",
     reply: { reply: "Good work." },
+    finalReplyText: "Good work.",
     ...overrides,
   };
 }
@@ -103,6 +104,42 @@ describe("coach turn stages", () => {
     expect(turn.chatWrite.path).toBe("user_data/coach/chat_history.json");
     await turn.chatWrite.resolve?.();
     expect(turn.latestThreads).toHaveLength(1);
+  });
+
+  // akash retest finding: a dropped action's reply text used to only get corrected in next
+  // turn's coach_log context (formatDroppedActionsNote) - the athlete would see a false success
+  // claim for one whole turn. finalReplyText is the fix: this same turn's reply (and the chat
+  // message actually persisted to chat_history.json) both carry the correction.
+  it("appends a same-turn correction to the reply when an action is dropped, not just coach_note", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        validQuestIds: new Set<string>(),
+        reply: {
+          reply: "Marked that quest complete.",
+          coach_note: "Quest completion reported.",
+          quest_event: [{ quest_id: "q99", status: "completed" }],
+        },
+      }) as never,
+    );
+    expect(turn.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+    // The reply commitTurn actually returns to the athlete this turn.
+    expect(turn.finalReplyText).toBe(
+      "Marked that quest complete.\n\n(Note: couldn't save quest_event - it didn't match anything on file.)",
+    );
+    // The persisted chat transcript carries the same correction, not the model's raw claim -
+    // otherwise reopening this thread later would still show the uncorrected message.
+    await turn.chatWrite.resolve?.();
+    const coachMessage = turn.latestThreads[0]?.messages.find((m) => m.role === "coach");
+    expect(coachMessage && "paragraphs" in coachMessage ? coachMessage.paragraphs : undefined).toEqual([
+      turn.finalReplyText,
+    ]);
+    // coach_note (next turn's context) still gets its own, differently-worded system note too -
+    // this fix is additive, not a replacement for the existing next-turn mechanism.
+    const coachNoteWrite = turn.optionalWrites.find(
+      (write) => write.path === "user_data/coach/coach_log.json",
+    );
+    expect(coachNoteWrite).toBeDefined();
   });
 
   // C1: template_edit/session_plan/week_plan/session_reconcile/plan_edit are available on any
