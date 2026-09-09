@@ -168,6 +168,25 @@ function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
   return [{ mode: t.mode!, userMessage: t.userMessage!, expect: t.expect! }];
 }
 
+// A transcript testing "swap tomorrow's session" needs its embedded session date to actually be
+// tomorrow relative to whatever "today" the real live call resolves to - askGemini's own
+// todayContextLine reads real wall-clock time (this script never threads a fixed date through
+// AskParams/askGemini, and askGemini's timezone parameter defaults to UTC when omitted, as it is
+// here). A hardcoded date in extraContext rots the moment the calendar moves past it - #807 hit
+// this once, and the exact same transcript (19-plan-edit-vs-template-edit-disambiguation) rotted
+// again within five weeks of that fix landing, exactly as the original fix's own comment warned it
+// would. Rather than trust a human to keep re-editing a date by hand, any transcript that needs
+// "tomorrow" writes the literal token `{{TOMORROW}}` in its extraContext string; this substitutes
+// the real UTC date one day ahead of the moment this script runs, every run, so the transcript
+// can't go stale on a wall-clock basis again. Scoped to extraContext only (not a generic
+// templating system across every field) since that's the one place this class of bug has actually
+// shown up.
+function resolveRelativeDates(text: string): string {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10); // YYYY-MM-DD, matches UTC "today"
+  return text.replaceAll("{{TOMORROW}}", tomorrowDate);
+}
+
 const SAVE_CLAIM_PHRASES = [
   "saved",
   "logged it",
@@ -445,6 +464,11 @@ async function main() {
   for (const file of files) {
     const raw = fs.readFileSync(path.join(dir, file), "utf8");
     const t = JSON.parse(raw) as Transcript;
+    if (t.extraContext) t.extraContext = resolveRelativeDates(t.extraContext);
+    // Cache key stays on `raw` (the literal file bytes, `{{TOMORROW}}` token and all) rather than
+    // the substituted text - a transcript's date-agnostic *shape* is what earns a cached PASS, not
+    // one specific day's resolved date, so a fresh run tomorrow correctly reuses today's pass
+    // instead of re-paying to prove the same mechanism works with a different date string.
     const key = transcriptKey(raw, fingerprint);
 
     if (cache[file]?.key === key) {
