@@ -67,16 +67,35 @@ export async function askGemini(
   log("coach-chat", "request", { mode, traceId });
 
   const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
-  const result = await adapter.generate({
+  const generateRequest = {
     system,
     cachePrefix,
     messages,
     maxOutputTokens: CHAT_MAX_OUTPUT_TOKENS,
     responseSchema: chatResponseSchema(mode, firstSession, referenceIds),
     timeoutMs: GEMINI_GENERATE_TIMEOUT_MS,
-  });
+  };
+  let result = await adapter.generate(generateRequest);
 
-  const parsed = JSON.parse(result.text) as GeminiReply;
+  // A retry on top of (not instead of) the adapter's own truncation retry. OpenRouter's
+  // finish_reason doesn't always come back "length" on a truncated call (the adapter's own
+  // check misses it then), so what reaches here can be text that reads as a successful
+  // response but is still cut-off/malformed JSON - a SyntaxError on JSON.parse below.
+  // One retry, same cap this codebase already uses everywhere for a transient model failure.
+  // If Gemini's own adapter ever produced a live case of this (it hasn't in practice - its
+  // finishReason === "MAX_TOKENS" check throws before result.text is ever set), this retry
+  // would catch that too, since it lives at the shared call site both adapters flow through.
+  let parsed: GeminiReply;
+  try {
+    parsed = JSON.parse(result.text) as GeminiReply;
+  } catch (err) {
+    console.warn("[coach-chat] reply text failed to parse as JSON, retrying once:", {
+      error: err instanceof Error ? err.message : String(err),
+      traceId,
+    });
+    result = await adapter.generate(generateRequest);
+    parsed = JSON.parse(result.text) as GeminiReply;
+  }
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. Nested
   // under log() data it prints as [Object]. traceId correlates with the commit-trace line logged
   // downstream in the POST handler. The reply stays off the breadcrumb.
