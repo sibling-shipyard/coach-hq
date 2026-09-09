@@ -329,7 +329,9 @@ describe("applyInjuryFlag", () => {
         },
       ],
     });
-    const result = JSON.parse(applyInjuryFlag(resolved, [{ text: "Left hip soreness" }], "2026-08-18"));
+    const result = JSON.parse(
+      applyInjuryFlag(resolved, [{ text: "Left hip soreness" }], "2026-08-18"),
+    );
     expect(result.flags).toHaveLength(2);
     expect(result.flags[1].status).toBe("active");
   });

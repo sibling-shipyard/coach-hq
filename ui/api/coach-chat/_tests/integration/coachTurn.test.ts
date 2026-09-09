@@ -131,9 +131,9 @@ describe("coach turn stages", () => {
     // otherwise reopening this thread later would still show the uncorrected message.
     await turn.chatWrite.resolve?.();
     const coachMessage = turn.latestThreads[0]?.messages.find((m) => m.role === "coach");
-    expect(coachMessage && "paragraphs" in coachMessage ? coachMessage.paragraphs : undefined).toEqual([
-      turn.finalReplyText,
-    ]);
+    expect(
+      coachMessage && "paragraphs" in coachMessage ? coachMessage.paragraphs : undefined,
+    ).toEqual([turn.finalReplyText]);
     // coach_note (next turn's context) still gets its own, differently-worded system note too -
     // this fix is additive, not a replacement for the existing next-turn mechanism.
     const coachNoteWrite = turn.optionalWrites.find(

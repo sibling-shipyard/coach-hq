@@ -127,7 +127,8 @@ export function createOpenRouterAdapter(
           // truncated attempt so both the retry-triggering throw and the eventual give-up throw
           // can report it without a second parse.
           const attempt = async (): Promise<
-            { truncated: true; reasoningTokens: number | string } | { truncated: false; text: string }
+            | { truncated: true; reasoningTokens: number | string }
+            | { truncated: false; text: string }
           > => {
             const response = await fetcher(
               OPENROUTER_URL,
@@ -215,7 +216,8 @@ export function createOpenRouterAdapter(
               // geminiAdapter.ts retries its own MAX_TOKENS/503/504 cases once before giving up.
               return {
                 truncated: true,
-                reasoningTokens: payload.usage?.completion_tokens_details?.reasoning_tokens ?? "unknown",
+                reasoningTokens:
+                  payload.usage?.completion_tokens_details?.reasoning_tokens ?? "unknown",
               };
             }
             const responseText = payload.choices?.[0]?.message?.content;
