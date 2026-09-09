@@ -81,7 +81,7 @@ struct WorkoutOverviewView: View {
     private var coachingNote: some View {
         Text(workout.coachingNote)
             .font(WarmInstrument.coachVoice(14.5))
-            .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+            .foregroundColor(WorkoutTimerWarm.ink)
             .padding(.leading, 14)
             .overlay(alignment: .leading) {
                 Rectangle().fill(accent).frame(width: 2)
@@ -98,7 +98,7 @@ struct WorkoutOverviewView: View {
                     .foregroundColor(WarmInstrument.inkFaint)
                 Text(workout.equipment.joined(separator: " · "))
                     .font(WarmInstrument.figures(12.5, weight: .regular))
-                    .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                    .foregroundColor(WorkoutTimerWarm.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,7 +153,7 @@ private struct WarmPhaseBlock: View {
                 HStack(alignment: .top, spacing: 14) {
                     Text("\(ex.num)")
                         .font(WarmInstrument.figures(11))
-                        .foregroundColor(Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
+                        .foregroundColor(WorkoutTimerWarm.numberFaint)
                         .frame(width: 14, alignment: .trailing)
                         .padding(.top, 2)
 
@@ -166,7 +166,7 @@ private struct WarmPhaseBlock: View {
                                 Text("OPTIONAL")
                                     .font(WarmInstrument.monoLabel(8))
                                     .kerning(1)
-                                    .foregroundColor(Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255))
+                                    .foregroundColor(WorkoutTimerWarm.labelFaint)
                             }
                         }
                         Text(ex.formCue)
@@ -179,7 +179,7 @@ private struct WarmPhaseBlock: View {
 
                     Text(WorkoutTimerWarm.doseFor(ex))
                         .font(WarmInstrument.figures(12))
-                        .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                        .foregroundColor(WorkoutTimerWarm.ink)
                         .padding(.top, 2)
                 }
                 .padding(.horizontal, 18)
@@ -187,7 +187,7 @@ private struct WarmPhaseBlock: View {
                 .overlay(alignment: .bottom) {
                     if ex.num != phase.exercises.last?.num {
                         Rectangle()
-                            .fill(Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255))
+                            .fill(WorkoutTimerWarm.divider)
                             .frame(height: 1)
                     }
                 }

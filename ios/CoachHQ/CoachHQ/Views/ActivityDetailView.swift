@@ -4,8 +4,8 @@ import SwiftUI
 /// scores on a score-entry sport, a free-text note on every other sport.
 /// Layout: headerBar → Beat 01 hero → Beat 02 ribbon → Beat 03 vs-usual → Beat 04 description
 
-private let matchWinColor  = Color(red: 0x1A/255, green: 0x47/255, blue: 0x31/255) // deep green
-private let matchLossColor = Color(red: 0xa3/255, green: 0x46/255, blue: 0x2c/255) // warm red
+private let matchWinColor  = WarmInstrument.matchWin // deep green
+private let matchLossColor = WarmInstrument.matchLoss // warm red
 
 struct ActivityDetailView: View {
     let entry: SyncCacheEntry
@@ -166,32 +166,44 @@ struct ActivityDetailView: View {
 
                 HStack(spacing: 0) {
                     if isLoading && activity == nil {
-                        SupportingStatCell(value: "—", label: "KCAL")
-                        SupportingStatCell(value: "—", label: "AVG BPM")
-                        SupportingStatCell(value: "—", label: "PEAK BPM")
+                        StatCell(value: "—", label: "KCAL", valueFont: WarmInstrument.figures(17, weight: .bold), labelSize: 8.5, spacing: 3)
+                        StatCell(value: "—", label: "AVG BPM", valueFont: WarmInstrument.figures(17, weight: .bold), labelSize: 8.5, spacing: 3)
+                        StatCell(value: "—", label: "PEAK BPM", valueFont: WarmInstrument.figures(17, weight: .bold), labelSize: 8.5, spacing: 3)
                     } else {
                         if let cal = activity?.calories {
-                            SupportingStatCell(
+                            StatCell(
                                 value: "\(Int(Double(cal) * statsProgress))",
-                                label: "KCAL"
+                                label: "KCAL",
+                                valueFont: WarmInstrument.figures(17, weight: .bold),
+                                labelSize: 8.5,
+                                spacing: 3
                             )
                         }
                         if let hr = activity?.averageHeartrate {
-                            SupportingStatCell(
+                            StatCell(
                                 value: "\(Int(hr * statsProgress))",
-                                label: "AVG BPM"
+                                label: "AVG BPM",
+                                valueFont: WarmInstrument.figures(17, weight: .bold),
+                                labelSize: 8.5,
+                                spacing: 3
                             )
                         }
                         if let peak = activity?.maxHeartrate {
-                            SupportingStatCell(
+                            StatCell(
                                 value: "\(Int(peak * statsProgress))",
-                                label: "PEAK BPM"
+                                label: "PEAK BPM",
+                                valueFont: WarmInstrument.figures(17, weight: .bold),
+                                labelSize: 8.5,
+                                spacing: 3
                             )
                         }
                         if let dist = activity?.distance, dist > 0 {
-                            SupportingStatCell(
+                            StatCell(
                                 value: String(format: "%.1f", (dist / 1000) * statsProgress),
-                                label: "KM"
+                                label: "KM",
+                                valueFont: WarmInstrument.figures(17, weight: .bold),
+                                labelSize: 8.5,
+                                spacing: 3
                             )
                         }
                     }
@@ -792,6 +804,9 @@ struct ActivityDetailView: View {
         let f = DateFormatter(); f.dateFormat = "H:mm"; return f
     }()
 
+    /// Deliberately not folded onto `Format.duration` (W4) — this hero stat reads "3h05", a
+    /// different displayed format (no space, always 2-digit minutes, never drops the "h") from
+    /// the "3h 05m"/"45m" family `Format.duration` standardizes elsewhere.
     private var durationString: String {
         let h = entry.elapsedTime / 3600
         let m = (entry.elapsedTime % 3600) / 60
@@ -1291,7 +1306,7 @@ private struct UsualComparisonRow: View {
 
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(Color(red: 84/255, green: 76/255, blue: 65/255).opacity(0.13))
+                        .fill(WarmInstrument.borderTintBase.opacity(0.13))
                         .frame(height: 5)
 
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
@@ -1322,20 +1337,3 @@ private struct UsualComparisonRow: View {
     }
 }
 
-// MARK: - Supporting stat cell
-
-private struct SupportingStatCell: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(WarmInstrument.figures(17, weight: .bold))
-                .foregroundColor(Theme.ink)
-                .contentTransition(.numericText())
-            MonoLabel(label, size: 8.5)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}

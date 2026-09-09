@@ -137,7 +137,7 @@ struct EngineWidgetView: View {
 
     private func readout(load: Double, verdict: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(EngineGraphics.numberString(load))
+            Text(Format.number(load))
                 .font(.system(size: 32, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
             Text(verdict)

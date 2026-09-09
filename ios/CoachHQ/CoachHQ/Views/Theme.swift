@@ -222,6 +222,47 @@ enum WarmInstrument {
     /// `radius.cardIosPt` — same value as `Theme.cornerRadius`, named here to match the JSON key.
     static let cardRadius: CGFloat = Theme.cornerRadius
 
+    // MARK: - W4 tokenization (docs/plans/ios-widget-modules.md) — one-off surface colors
+    // that were hardcoded inline at their single (or few) call sites.
+
+    /// Badminton match result — `ActivityDetailView`'s score ribbon.
+    static let matchWin = Color(red: 0x1A / 255, green: 0x47 / 255, blue: 0x31 / 255)
+    static let matchLoss = Color(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255)
+
+    /// Same warm-grey base `cardBorder`/`borderDashed`/`cardShadow` above already use at
+    /// different opacities — named so a caller needing a different opacity doesn't re-type
+    /// the raw triple (`ActivityDetailView`'s ribbon-tick background).
+    static let borderTintBase = Color(red: 84 / 255, green: 76 / 255, blue: 65 / 255)
+
+    /// Yoga's accent — `OnboardingRevealFlow.sportDisplayInfo`. Not in `WITokens.Sports`
+    /// (that table has no Yoga entry); kept as a standalone token rather than widening the
+    /// generated sport palette for one caller.
+    static let yoga = Color(red: 0.53, green: 0.40, blue: 0.62)
+
+    /// Build-phase rail segments — `Views/Widgets/BuildPhaseCard.swift`.
+    static let buildPhaseDeload = Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255)
+    static let buildPhaseUpcoming = Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255)
+
+    /// Recent-sessions swipe-to-edit action background — `Views/Widgets/RecentSessionsCard.swift`.
+    static let editAction = Color(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255)
+
+    /// Coach Chat surface — `CoachChatWarmUI.swift`'s own palette, 12 colors that were each
+    /// hardcoded inline at 1-3 call sites.
+    enum Chat {
+        static let ink = Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255)
+        static let inkMuted = Color(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255)
+        static let inkFaint = Color(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255)
+        static let border = Color(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255)
+        static let borderLight = Color(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255)
+        static let borderMuted = Color(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255)
+        static let borderFocus = Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255)
+        static let goldAccent = Color(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255)
+        static let goldMuted = Color(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255)
+        static let surfaceBright = Color(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255)
+        static let surfaceMuted = Color(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255)
+        static let fillMuted = Color(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255)
+    }
+
     // MARK: Typography — Space Grotesk → SF Pro, Space Mono → SF Mono, Newsreader → serif italic
     // (bundling Newsreader is an open decision per ios/DESIGN.md; system serif italic for now).
 

@@ -82,6 +82,7 @@
 				Views/Widgets/CommitmentCard.swift,
 				Views/Widgets/EngineCard.swift,
 				Views/Widgets/EngineGraphics.swift,
+				Views/Widgets/Format.swift,
 				Views/Widgets/QuestCard.swift,
 				Views/Widgets/WidgetSize.swift,
 			);

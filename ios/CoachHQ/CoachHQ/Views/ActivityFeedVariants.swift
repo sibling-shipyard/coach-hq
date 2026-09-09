@@ -81,10 +81,7 @@ struct WeekSummaryWidget: View {
         return days.count
     }
 
-    private var timeString: String {
-        let h = totalSeconds / 3600, m = (totalSeconds % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
+    private var timeString: String { Format.duration(seconds: totalSeconds) }
 
     private struct DayDot {
         let color: Color; let isToday: Bool; let isEmpty: Bool; let isFuture: Bool
@@ -127,26 +124,12 @@ struct WeekSummaryWidget: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 0) {
-                    WeekStatCell(value: "\(sessionCount)", label: "SESSIONS")
-                    WeekStatCell(value: timeString, label: "ACTIVE")
-                    WeekStatCell(value: "\(activeDayCount) / 7", label: "DAYS")
+                    StatCell(value: "\(sessionCount)", label: "SESSIONS", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
+                    StatCell(value: timeString, label: "ACTIVE", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
+                    StatCell(value: "\(activeDayCount) / 7", label: "DAYS", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
                 }
             }
         }
-    }
-}
-
-private struct WeekStatCell: View {
-    let value: String; let label: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(Theme.ink)
-                .contentTransition(.numericText())
-            MonoLabel(label, size: 9)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -208,8 +191,7 @@ struct ActivityLedgerRow: View {
     private var trailingText: String {
         if let load = vm.load { return "+\(load)" }
         if let cal = vm.calories { return "\(cal)" }
-        let h = vm.elapsedTime / 3600, m = (vm.elapsedTime % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+        return Format.duration(seconds: vm.elapsedTime)
     }
 
     private var trailingColor: Color {
@@ -269,7 +251,7 @@ struct ActivityLedgerRow: View {
     }
 
     private var metaLine: String {
-        [Self.timeLabel(vm.startDateLocal), Self.durationLabel(vm.elapsedTime)]
+        [Self.timeLabel(vm.startDateLocal), Format.duration(seconds: vm.elapsedTime)]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
     }
@@ -283,12 +265,6 @@ struct ActivityLedgerRow: View {
         let out = DateFormatter()
         out.dateFormat = "h:mm a"
         return out.string(from: date)
-    }
-
-    private static func durationLabel(_ seconds: Int) -> String {
-        let minutes = max(0, seconds) / 60
-        if minutes < 60 { return "\(minutes)m" }
-        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 

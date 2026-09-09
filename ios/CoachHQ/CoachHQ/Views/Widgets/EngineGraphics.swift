@@ -113,8 +113,4 @@ enum EngineGraphics {
             .clipShape(outerClip)
         }
     }
-
-    static func numberString(_ value: Double) -> String {
-        value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
-    }
 }

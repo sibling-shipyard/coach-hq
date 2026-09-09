@@ -196,17 +196,13 @@ struct SportStripCell: View {
         return commitment.status
     }
 
-    private func number(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: WarmInstrument.sfSymbol(for: commitment.glyph))
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(isAlarm ? WarmInstrument.alarmFg : accent)
 
-            Text(number(commitment.value))
+            Text(Format.number(commitment.value))
                 .font(WarmInstrument.figures(22, weight: .bold))
                 .foregroundColor(isAlarm ? WarmInstrument.alarmFg : WarmInstrument.ink)
                 .contentTransition(.numericText())
@@ -261,7 +257,7 @@ struct SportStripCell: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(onToggle != nil ? .isButton : [])
-        .accessibilityLabel("\(commitment.label): \(number(commitment.value))")
+        .accessibilityLabel("\(commitment.label): \(Format.number(commitment.value))")
     }
 }
 
@@ -283,9 +279,6 @@ struct SportCube: View {
         return commitment.value > 0 ? 1 : 0
     }
 
-    private func number(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -295,11 +288,11 @@ struct SportCube: View {
                     .foregroundColor(accent)
                 Spacer()
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text(number(commitment.value))
+                    Text(Format.number(commitment.value))
                         .font(WarmInstrument.figures(20, weight: .bold))
                         .foregroundColor(WarmInstrument.ink)
                     if let target = commitment.target {
-                        Text("/\(number(target))")
+                        Text("/\(Format.number(target))")
                             .font(WarmInstrument.figures(12, weight: .semibold))
                             .foregroundColor(WarmInstrument.inkFaint)
                     }
@@ -334,7 +327,7 @@ struct SportCube: View {
                 .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(commitment.label): \(number(commitment.value))\(commitment.target.map { "/\(number($0))" } ?? "")\(isAlarm ? ", the bar is cold" : "")")
+        .accessibilityLabel("\(commitment.label): \(Format.number(commitment.value))\(commitment.target.map { "/\(Format.number($0))" } ?? "")\(isAlarm ? ", the bar is cold" : "")")
     }
 }
 

@@ -23,7 +23,7 @@ struct CoachChatHeaderBar: View {
             Text(context.formatted)
                 .font(WarmInstrument.monoLabel(11))
                 .tracking(1.4)
-                .foregroundStyle(Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255))
+                .foregroundStyle(WarmInstrument.Chat.ink)
                 .frame(maxWidth: .infinity, alignment: showsBack ? .leading : .leading)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -38,7 +38,7 @@ struct CoachChatHeaderBar: View {
                         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .strokeBorder(Color(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255), lineWidth: 1)
+                                .strokeBorder(WarmInstrument.Chat.border, lineWidth: 1)
                         )
                 }
                 .accessibilityLabel("Conversation history")
@@ -65,7 +65,7 @@ struct CoachChatDayDivider: View {
         Text(label.uppercased())
             .font(WarmInstrument.monoLabel(9))
             .tracking(1.2)
-            .foregroundStyle(Color(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255))
+            .foregroundStyle(WarmInstrument.Chat.inkMuted)
             .frame(maxWidth: .infinity)
     }
 }
@@ -94,7 +94,7 @@ struct CoachChatCoachBubble: View {
                 Text(CoachChatPreviewData.morningReadSignature)
                     .font(WarmInstrument.monoLabel(8.5))
                     .tracking(1.4)
-                    .foregroundStyle(Color(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255))
+                    .foregroundStyle(WarmInstrument.Chat.goldAccent)
             }
         }
         .padding(.horizontal, 15)
@@ -118,7 +118,7 @@ struct CoachChatCoachBubble: View {
                 topTrailingRadius: 4,
                 style: .continuous
             )
-            .strokeBorder(Color(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255), lineWidth: 1)
+            .strokeBorder(WarmInstrument.Chat.borderLight, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
@@ -130,7 +130,7 @@ struct CoachChatUserBubble: View {
     var body: some View {
         Text(text)
             .font(.system(size: 14))
-            .foregroundStyle(Color(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255))
+            .foregroundStyle(WarmInstrument.Chat.surfaceBright)
             .padding(.horizontal, 15)
             .padding(.vertical, 12)
             .background(WarmInstrument.ink)
@@ -186,7 +186,7 @@ struct CoachChatInlineChipView: View {
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255), lineWidth: 1)
+                    .strokeBorder(WarmInstrument.Chat.borderMuted, lineWidth: 1)
             )
         }
     }
@@ -202,24 +202,24 @@ struct CoachChatPickUpRow: View {
             HStack(spacing: 9) {
                 Text(dayLabel)
                     .font(WarmInstrument.monoLabel(9.5))
-                    .foregroundStyle(Color(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255))
+                    .foregroundStyle(WarmInstrument.Chat.goldMuted)
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255))
+                    .foregroundStyle(WarmInstrument.Chat.ink)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255))
+                    .foregroundStyle(WarmInstrument.Chat.inkFaint)
             }
             .padding(.horizontal, 13)
             .padding(.vertical, 11)
-            .background(Color(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255))
+            .background(WarmInstrument.Chat.surfaceMuted)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255), lineWidth: 1)
+                    .strokeBorder(WarmInstrument.Chat.border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -422,7 +422,7 @@ struct CoachChatStarterChips: View {
                             .clipShape(Capsule())
                             .overlay(
                                 Capsule()
-                                    .strokeBorder(Color(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255), lineWidth: 1)
+                                    .strokeBorder(WarmInstrument.Chat.border, lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -480,7 +480,7 @@ struct CoachChatComposer: View {
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
-                    isFocused ? WarmInstrument.accent.opacity(0.55) : Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255),
+                    isFocused ? WarmInstrument.accent.opacity(0.55) : WarmInstrument.Chat.borderFocus,
                     lineWidth: 1
                 )
         )
@@ -661,7 +661,7 @@ struct CoachChatHistorySheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255))
+                .fill(WarmInstrument.Chat.fillMuted)
                 .frame(width: 34, height: 4)
                 .padding(.top, 9)
                 .padding(.bottom, 10)
@@ -706,7 +706,7 @@ struct CoachChatHistorySheet: View {
                     Text("COACH KEEPS YOUR 7 MOST RECENT CONVERSATIONS.\nOLDER ONES CLEAR AUTOMATICALLY.")
                         .font(WarmInstrument.monoLabel(8.5))
                         .tracking(0.6)
-                        .foregroundStyle(Color(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255))
+                        .foregroundStyle(WarmInstrument.Chat.inkMuted)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 10)
@@ -748,7 +748,7 @@ struct CoachChatHistorySheet: View {
         Text(title)
             .font(WarmInstrument.monoLabel(9))
             .tracking(1.2)
-            .foregroundStyle(Color(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255))
+            .foregroundStyle(WarmInstrument.Chat.inkFaint)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.top, 10)
@@ -764,7 +764,7 @@ struct CoachChatHistorySheet: View {
                 HStack(spacing: 8) {
                     Text(headerContext.dayLabel(offset: thread.dayOffset))
                         .font(WarmInstrument.monoLabel(9.5))
-                        .foregroundStyle(isToday ? WarmInstrument.accent : Color(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255))
+                        .foregroundStyle(isToday ? WarmInstrument.accent : WarmInstrument.Chat.goldMuted)
                     Text(thread.title)
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(WarmInstrument.ink)
@@ -783,7 +783,7 @@ struct CoachChatHistorySheet: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isToday ? Color(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255) : Color.clear)
+            .background(isToday ? WarmInstrument.Chat.surfaceMuted : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)

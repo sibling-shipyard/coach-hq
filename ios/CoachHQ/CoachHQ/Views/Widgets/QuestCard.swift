@@ -27,10 +27,10 @@ struct QuestCard: View {
                         .padding(.top, 8)
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(size == .s ? "\(Int(small.completed))" : questNumber(home.completed))
+                        Text(size == .s ? "\(Int(small.completed))" : Format.number(home.completed))
                             .font(WarmInstrument.figures(26, weight: .bold))
                             .foregroundColor(WarmInstrument.accent)
-                        Text(size == .s ? " / \(Int(small.target))" : " / \(questNumber(home.target))")
+                        Text(size == .s ? " / \(Int(small.target))" : " / \(Format.number(home.target))")
                             .font(WarmInstrument.figures(11, weight: .semibold))
                             .foregroundColor(WarmInstrument.inkFaint)
                     }
@@ -42,7 +42,7 @@ struct QuestCard: View {
                         .padding(.top, 14)
 
                     HStack {
-                        Text("LOADED \(questNumber(home.loaded))")
+                        Text("LOADED \(Format.number(home.loaded))")
                             .font(.system(size: 8, weight: .regular, design: .monospaced))
                             .foregroundColor(WarmInstrument.inkMuted)
                         Spacer()
@@ -59,9 +59,9 @@ struct QuestCard: View {
                             .lineLimit(1)
                         Spacer()
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
-                            Text(size == .s ? "\(Int(small.completed))" : questNumber(home.completed))
+                            Text(size == .s ? "\(Int(small.completed))" : Format.number(home.completed))
                                 .font(WarmInstrument.figures(18, weight: .bold))
-                            Text(size == .s ? " / \(Int(small.target))" : " / \(questNumber(home.target))")
+                            Text(size == .s ? " / \(Int(small.target))" : " / \(Format.number(home.target))")
                                 .font(WarmInstrument.figures(12, weight: .semibold))
                                 .foregroundColor(WarmInstrument.inkFaint)
                         }
@@ -99,9 +99,5 @@ struct QuestCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: compact ? 148 : nil, alignment: .leading)
         }
-    }
-
-    private func questNumber(_ value: Double) -> String {
-        value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
 }

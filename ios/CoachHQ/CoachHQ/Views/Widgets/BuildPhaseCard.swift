@@ -1,8 +1,10 @@
 import SwiftUI
 
 /// In-app build-phase rail card. Moved here in W2 of docs/plans/ios-widget-modules.md —
-/// renamed from `BuildPhaseWidget` to match the `…Card` convention (§4 of the LLD). The two
-/// `Color(red:...)` literals below are pre-existing hardcoded colours; W4 tokenizes them.
+/// renamed from `BuildPhaseWidget` to match the `…Card` convention (§4 of the LLD). Its rail
+/// colors are `WarmInstrument.buildPhaseDeload`/`buildPhaseUpcoming` (W4) — the still-live
+/// WidgetKit `CoachHQWidget/BuildPhaseWidget.swift` had the identical two hex literals hardcoded
+/// too; both now point at the same tokens.
 struct BuildPhaseCard: View {
     let phase: BuildPhaseSnapshot
 
@@ -82,10 +84,10 @@ struct BuildPhaseCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         case 1:
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255))
+                .fill(WarmInstrument.buildPhaseDeload)
         case 2:
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .strokeBorder(Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .strokeBorder(WarmInstrument.buildPhaseUpcoming, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         default:
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .strokeBorder(WarmInstrument.accent.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))

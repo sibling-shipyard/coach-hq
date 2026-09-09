@@ -247,7 +247,7 @@ struct WarmWorkoutListCard: View {
                     Spacer()
                     Text("→")
                         .font(.system(size: 15))
-                        .foregroundColor(Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
+                        .foregroundColor(WorkoutTimerWarm.numberFaint)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -313,7 +313,7 @@ struct WarmWorkoutListCard: View {
             .padding(.vertical, 3)
             .overlay(
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color(red: 0xDC / 255, green: 0xD5 / 255, blue: 0xC6 / 255), lineWidth: 1)
+                    .stroke(WorkoutTimerWarm.listItemBorder, lineWidth: 1)
             )
     }
 }
