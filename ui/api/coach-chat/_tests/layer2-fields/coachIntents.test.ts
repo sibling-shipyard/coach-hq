@@ -998,6 +998,20 @@ describe("applySeasonStart", () => {
     expect(quests.quests[0].id).toMatch(/^q_morning_mobility_/);
   });
 
+  it("does not throw when new_habits is absent from the reply, despite being required in the schema - Gemini drops required fields (#808)", () => {
+    const { new_habits: _omitted, ...withoutNewHabits } = SEASON_INPUT;
+    const result = applySeasonStart(
+      null,
+      null,
+      withoutNewHabits as typeof SEASON_INPUT,
+      "2026-08-18",
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
+    );
+    const quests = JSON.parse(result.questsContent);
+    expect(quests.quests).toHaveLength(0);
+  });
+
   it("never invents a phase field - Season has none", () => {
     const result = applySeasonStart(
       null,

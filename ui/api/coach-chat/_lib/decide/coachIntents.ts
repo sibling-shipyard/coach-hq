@@ -558,7 +558,9 @@ export function applySeasonStart(
     ...(input.main_quest.count_pattern ? { count_pattern: input.main_quest.count_pattern } : {}),
   };
 
-  const newHabits = buildNewQuests(input.new_habits, today);
+  // new_habits is required in the schema, but Gemini demonstrably drops fields it's told are
+  // required (the whole reason #808 exists) - trust the type, not the runtime value.
+  const newHabits = buildNewQuests(input.new_habits ?? [], today);
 
   const questsResult: QuestsJson = {
     version: 1,
