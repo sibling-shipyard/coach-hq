@@ -35,7 +35,7 @@ import {
 } from "./warmHomeModel";
 import type { CurrentWeekContract } from "./currentWeek.fixture";
 import { sessionDisciplineToSnapshotSport, trainingCategoryToWarmSport } from "./trainingMappings";
-import { sportHex, sportMixHex } from "@/lib/wiTokens";
+import { sportHex, sportMixHex, tokens } from "@/lib/wiTokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -249,7 +249,7 @@ function eligibleDaysSince(startDate: string, endDate: string | undefined, today
 }
 
 export function buildQuestSnapshot(ledger: any, quest: WarmHomeModel["quest"]): QuestSnapshot {
-  const palette = ["#7c6f9e", "#a8702c"];
+  const palette = [tokens.web.questSide, sportHex("cycling")];
   const today = new Date();
   const isSplit = ledger && "seasons" in ledger;
   const questsArray = isSplit ? ledger.quests.quests : ledger.quests;

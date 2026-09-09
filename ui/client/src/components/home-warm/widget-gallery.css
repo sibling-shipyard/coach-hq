@@ -131,7 +131,7 @@
 }
 
 .wg-note--ios .wg-note__label {
-  color: #a8702c;
+  color: var(--wi-cycling);
 }
 
 .wg-section__body {
