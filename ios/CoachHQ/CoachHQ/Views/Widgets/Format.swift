@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// W4 of docs/plans/ios-widget-modules.md — the shared number formatter, the "Xh Ym"/"Xm"
-/// duration formatter, and the parameterized stat-cell view that five to four different files
-/// each hand-rolled their own copy of.
+/// The shared number formatter, the "Xh Ym"/"Xm" duration formatter, and the parameterized
+/// stat-cell view — one definition each, called from every surface that needs one.
 enum Format {
     /// "int if whole, else 1dp" — was written 5 times (`numberString`, `questNumber`, `loadLabel`,
     /// and one each in `SportStripCell`/`SportCube`). Every call site had the identical body.

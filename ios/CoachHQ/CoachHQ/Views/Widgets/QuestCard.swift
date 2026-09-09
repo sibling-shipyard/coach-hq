@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// In-app main/side quest card. Moved here in W2 of docs/plans/ios-widget-modules.md —
-/// renamed from `QuestWidget` to match the `…Card` convention (§4 of the LLD).
+/// In-app main/side quest card — one file per widget, per ADR 0037.
 struct QuestCard: View {
     let size: WidgetSize
     let home: QuestSnapshot

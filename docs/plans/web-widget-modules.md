@@ -8,7 +8,7 @@
 ## Context
 
 `coach-conversation-widgets-roadmap.md` M3 wants Coach to attach an allowlisted widget inline in
-Chat. iOS's equivalent audit (#928, `ios-widget-modules.md`) found real forks: the same widget
+Chat. iOS's equivalent audit (#928) found real forks: the same widget
 hand-copied into three renderers, 44 stray colours, 984 lines of dead views. Web does not have
 that problem.
 

@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// In-app monthly calories card. Moved here in W3b of docs/plans/ios-widget-modules.md —
-/// renamed from `CaloriesWidget` to match the `…Card` convention (ADR 0037).
+/// In-app monthly calories card — one file per widget, per ADR 0037.
 struct CaloriesCard: View {
     let calories: CaloriesSnapshot
     var compact: Bool = false

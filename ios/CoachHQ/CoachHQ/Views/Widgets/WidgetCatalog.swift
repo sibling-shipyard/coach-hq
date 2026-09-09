@@ -1,12 +1,12 @@
 import Foundation
 
-/// Which Home widgets exist, and the default order they render in. W6 of
-/// docs/plans/ios-widget-modules.md: Home's column becomes stored data (`WarmInstrumentHomeView
-/// .homeOrder`) keyed through this catalog, instead of a hardcoded sequence of view calls.
+/// Which Home widgets exist, and the default order they render in. Home's column
+/// (`WarmInstrumentHomeView.homeOrder`) is stored data keyed through this catalog, not a
+/// hardcoded sequence of view calls.
 ///
-/// Local-only today — a future server-provided order (P2 in the plan's LLD) would just replace
-/// what populates the stored order, not this type. `RawRepresentable` on `String` means an
-/// unrecognized key (one this build doesn't know yet) fails to match and is silently dropped by
+/// Local-only today — a future server-provided order would just replace what populates the
+/// stored order, not this type. `RawRepresentable` on `String` means an unrecognized key (one
+/// this build doesn't know yet) fails to match and is silently dropped by
 /// `WarmInstrumentHomeView.homeOrder`'s `compactMap`, never a crash.
 enum WidgetCatalogKey: String, CaseIterable {
     case engine

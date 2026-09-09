@@ -6,8 +6,8 @@ import SwiftUI
 /// `shared/warm-instrument/tokens.json`). Warm Instrument surface tokens below — warm paper background, warm ink foreground, 18pt card radius,
 /// 10pt bold uppercase tracked section headers, sport-colored left bars, and a green accent
 /// for progress/active states. The old neo-brutalist tokens (white cards, 12pt radius,
-/// `brandRed`) are retired; see `WarmInstrument` for the load-only terracotta accent and the
-/// rest of the Warm Instrument palette.
+/// `brandRed`) are retired; see `WarmInstrument` for the terracotta load/primary-action accent
+/// (ADR 0038) and the rest of the Warm Instrument palette.
 enum Theme {
     // MARK: - Appearance
 
@@ -199,8 +199,9 @@ enum WarmInstrument {
             : UIColor(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255, alpha: 1)
     })
 
-    /// Terracotta — reserved for LOAD only (Engine hero, commitment cube fills tied to load).
-    /// Never use as a generic accent, CTA, or brand color.
+    /// Terracotta — load and primary action (ADR 0038): Engine hero, commitment cube fills
+    /// tied to load, and primary CTAs (timer actions, Sync Now). Never decorative, never a
+    /// status color.
     static let accent = Color(red: 0x7f / 255, green: 0x37 / 255, blue: 0x28 / 255)
     static let accentDark = Color(red: 0x65 / 255, green: 0x2b / 255, blue: 0x20 / 255)
 
@@ -222,8 +223,7 @@ enum WarmInstrument {
     /// `radius.cardIosPt` — same value as `Theme.cornerRadius`, named here to match the JSON key.
     static let cardRadius: CGFloat = Theme.cornerRadius
 
-    // MARK: - W4 tokenization (docs/plans/ios-widget-modules.md) — one-off surface colors
-    // that were hardcoded inline at their single (or few) call sites.
+    // MARK: - One-off surface colors, each named for its single (or few) call sites.
     //
     // ios/DESIGN.md:76 requires every color use adaptive tokens. None of these had a dark-mode
     // value designed yet, so each dark branch below is a placeholder equal to light — a design

@@ -6,7 +6,7 @@ For the implementing agent. Pairs with the live demos in `Widget Interactions.dc
 
 ## The system in one paragraph
 
-Warm Instrument treats training data like a well-loved analog instrument panel: warm paper surfaces (#fbf8f1 on #e8e2d7), one terracotta accent (#7f3728) reserved for the thing that matters most (load), monospace figures (Space Mono) for anything counted, and an italic serif (Newsreader) for the coach's human voice. Numbers are never decoration — every figure is earned from logged sessions. The feeling we want: *a calm, competent coach's desk*, not a gamified dashboard. The athlete should feel watched over, not surveilled; informed, not judged.
+Warm Instrument treats training data like a well-loved analog instrument panel: warm paper surfaces (#fbf8f1 on #e8e2d7), one terracotta accent (#7f3728) reserved for load and primary action (ADR 0041) — never decorative, never a status color — monospace figures (Space Mono) for anything counted, and an italic serif (Newsreader) for the coach's human voice. Numbers are never decoration — every figure is earned from logged sessions. The feeling we want: *a calm, competent coach's desk*, not a gamified dashboard. The athlete should feel watched over, not surveilled; informed, not judged.
 
 ## Global interaction principles (v1 — final)
 
@@ -40,7 +40,7 @@ Warm Instrument treats training data like a well-loved analog instrument panel: 
 ### 04 · Weekly plan
 - **Meaning:** the coach's draft week, held with a dashed border because it is *provisional* — nothing here has been earned yet. Projected load (`≈640 — upper band`) is the plan's consequence, always visible.
 - **Feeling:** a pencil sketch on the desk, movable and negotiable.
-- **Interaction:** drag a sport chip between days (web drag / iOS long-press-drag); empty days accept, occupied days swap; projection recomputes instantly and turns terracotta when it leaves the band. *Proposed:* tap COACH DRAFT chip → accept/edit; haptic on chip drop.
+- **Interaction:** drag a sport chip between days (web drag / iOS long-press-drag); empty days accept, occupied days swap; projection recomputes instantly and turns alarm-colored when it leaves the band (ADR 0041 — terracotta is load and primary action, never a status color). *Proposed:* tap COACH DRAFT chip → accept/edit; haptic on chip drop.
 - **Reuse:** M = icon chip row; L = list with per-day loads; iOS S = "Next up" single session. The chip (sport icon in sport color on 10% tint) is shared with the heatmap legend and cubes.
 
 ### 05 · Recent sessions
