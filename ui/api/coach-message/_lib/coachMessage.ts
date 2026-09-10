@@ -24,7 +24,7 @@ const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
 
 /**
  * The proactive turn's timeout, unchanged from the value both adapters hardcoded before #713's
- * seam grew a per-request `timeoutMs` — this is pure plumbing, not a behavior change.
+ * seam grew a per-request `timeoutMs` - this is pure plumbing, not a behavior change.
  */
 const PROACTIVE_TIMEOUT_MS = 45_000;
 
@@ -790,12 +790,12 @@ export function buildProactivePrompt(soul: string, context: ProactiveContext): s
 
 /**
  * Ask the selected adapter for a proactive message body. HTTP, auth, the provider's schema
- * shape, and the truncation guard all live in the adapter (`llmAdapters/`, #713) — this function
+ * shape, and the truncation guard all live in the adapter (`llmAdapters/`, #713) - this function
  * owns only what's specific to coach-message: the shared output-token ceiling, parsing the
  * adapter's raw JSON text against the `{body}` contract, and the Sentry failure capture.
  *
  * `prompt` has no natural system/user split, so it goes through as a single user turn with an
- * empty system — same text, same position on the wire, as before the seam grew turns (#713).
+ * empty system - same text, same position on the wire, as before the seam grew turns (#713).
  */
 export async function generateProactiveBody(adapter: LlmAdapter, prompt: string): Promise<string> {
   try {
@@ -823,7 +823,7 @@ export async function generateProactiveBody(adapter: LlmAdapter, prompt: string)
       model: adapter.model,
       upstreamStatus: status,
       turnMode: "proactive_message",
-      // The proactive message is generated from activity/context data, not athlete-typed text —
+      // The proactive message is generated from activity/context data, not athlete-typed text -
       // there is nothing to record here, same reasoning as the greeting path in coach-chat.ts.
       athleteMessage: "",
     });
