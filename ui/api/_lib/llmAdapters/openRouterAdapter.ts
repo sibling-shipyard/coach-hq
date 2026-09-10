@@ -76,6 +76,17 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
 }
 
 /**
+ * Adds two optional counts the same absent-vs-zero-safe way cachedPromptTokens above does:
+ * undefined only when neither side ever reported a value, otherwise a real sum. Used to
+ * accumulate usage across a truncation retry (below) without a missing/zero wire value on one
+ * attempt silently zeroing out a real number the other attempt already reported.
+ */
+function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+/**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
  * request shape for both providers. OpenAI-style chat completions calls the same turn
  * `"assistant"`, and puts a system turn ahead of the conversation as its own message rather than
@@ -84,7 +95,7 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
  * user message, nothing else.
  *
  * `cachePrefix`, when present, is concatenated ahead of `system` into that same one leading
- * message — OpenRouter never has an active cache (locked decision: it owns its own caching, this
+ * message - OpenRouter never has an active cache (locked decision: it owns its own caching, this
  * adapter does not emulate Gemini cache names), so there is no second wire shape to build here,
  * unlike the Gemini adapter's cache-active/cache-inactive split.
  */
@@ -179,15 +190,19 @@ export function createOpenRouterAdapter(
             // sums, so a naive recordUsage() call per attempt would report only the last
             // attempt's numbers and undercount what OpenRouter actually billed for the retry.
             cumulativeUsage = {
-              promptTokens: (cumulativeUsage.promptTokens ?? 0) + (payload.usage?.prompt_tokens ?? 0),
-              completionTokens:
-                (cumulativeUsage.completionTokens ?? 0) + (visibleOutputTokens(payload.usage) ?? 0),
-              totalTokens: (cumulativeUsage.totalTokens ?? 0) + (payload.usage?.total_tokens ?? 0),
-              cachedPromptTokens: cachedPromptTokens(payload.usage) ?? cumulativeUsage.cachedPromptTokens,
-              thinkingTokens:
-                (cumulativeUsage.thinkingTokens ?? 0) +
-                (payload.usage?.completion_tokens_details?.reasoning_tokens ?? 0),
-              costUsd: (cumulativeUsage.costUsd ?? 0) + (payload.usage?.cost ?? 0),
+              promptTokens: sumDefined(cumulativeUsage.promptTokens, payload.usage?.prompt_tokens),
+              completionTokens: sumDefined(
+                cumulativeUsage.completionTokens,
+                visibleOutputTokens(payload.usage),
+              ),
+              totalTokens: sumDefined(cumulativeUsage.totalTokens, payload.usage?.total_tokens),
+              cachedPromptTokens:
+                cachedPromptTokens(payload.usage) ?? cumulativeUsage.cachedPromptTokens,
+              thinkingTokens: sumDefined(
+                cumulativeUsage.thinkingTokens,
+                payload.usage?.completion_tokens_details?.reasoning_tokens,
+              ),
+              costUsd: sumDefined(cumulativeUsage.costUsd, payload.usage?.cost),
             };
             recordUsage({ ...cumulativeUsage, resolvedProvider, resolvedModel });
             if (payload.error) {

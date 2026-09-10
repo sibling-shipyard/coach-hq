@@ -172,7 +172,20 @@ export interface InjuryFlagInput {
 // injuries that happen to share one body-part word (e.g. "hip") stay well under threshold. Not a
 // general fuzzy-match library on purpose (per the athlete's own steer, don't over-engineer this) -
 // just enough to catch a same-turn-class restatement.
+// Laterality words name genuinely different injuries no matter how much of the rest of the
+// sentence overlaps ("Left hip pain" vs "Right hip pain" share "hip"/"pain", 2 of 3 words each,
+// clearing the 0.5 threshold below on body-part overlap alone) - checked first, before the
+// word-overlap ratio ever runs, so a short/generic-word text can't dilute this contradiction away.
+const LATERALITY_WORDS = ["left", "right"] as const;
+
 function injuryTextsLikelySame(a: string, b: string): boolean {
+  const lowerA = a.toLowerCase();
+  const lowerB = b.toLowerCase();
+  const sideOf = (text: string) => LATERALITY_WORDS.find((word) => text.includes(word));
+  const sideA = sideOf(lowerA);
+  const sideB = sideOf(lowerB);
+  if (sideA && sideB && sideA !== sideB) return false;
+
   const wordsOf = (text: string) =>
     new Set(
       text

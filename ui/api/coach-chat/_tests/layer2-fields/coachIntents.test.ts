@@ -346,6 +346,19 @@ describe("applyInjuryFlag", () => {
     );
     expect(result.flags).toHaveLength(2);
   });
+
+  // Review finding: "Left hip pain" vs "Right hip pain" share 2 of 3 words each ("hip", "pain"),
+  // clearing the 0.5 word-overlap threshold and silently dropping a real second injury on the
+  // opposite side of the body.
+  it("does not dedupe a same-turn injury against its mirror on the opposite side", () => {
+    const first = JSON.parse(applyInjuryFlag(null, [{ text: "Left hip pain" }], "2026-08-18"));
+    expect(first.flags).toHaveLength(1);
+
+    const second = JSON.parse(
+      applyInjuryFlag(JSON.stringify(first), [{ text: "Right hip pain" }], "2026-08-19"),
+    );
+    expect(second.flags).toHaveLength(2);
+  });
 });
 
 describe("applyInjuryEvent", () => {

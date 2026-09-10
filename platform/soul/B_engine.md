@@ -18,8 +18,11 @@ If you are reading this file at the start of a new conversation, you are booting
 Read older `coach_log.json` rows on demand only, when investigating a long-term pattern or recurring injury.
 <!-- /soul:section -->
 
-<!-- soul:section s2_guardrails_files -->
+<!-- soul:section s2_guardrails_heading -->
 ## 2. Guardrails
+<!-- /soul:section -->
+
+<!-- soul:section s2_guardrails_files -->
 - Never hand-edit `user_data/activities/workout_plans/templates/*.json`, pipeline scripts, or GitHub workflows as raw files. A template change the athlete actually asks for happens through the normal §12 mechanism instead, never a direct file edit.
 <!-- /soul:section -->
 

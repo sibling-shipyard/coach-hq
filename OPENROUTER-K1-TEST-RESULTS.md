@@ -1,4 +1,4 @@
-# OpenRouter K1 re-test — structured results
+# OpenRouter K1 re-test - structured results
 
 Testing PR #921's tip (`feat/713-template-adjustment-onto-llmclient`, the full stack: 769 through 921,
 rebased onto current main) with `LLM_PROVIDER=openrouter`, model `google/gemini-3.8-flash` (pinned
@@ -18,7 +18,7 @@ action list this feeds.
 
 ---
 
-## Track A — fixture eval harness, full 23-transcript suite, OpenRouter
+## Track A - fixture eval harness, full 23-transcript suite, OpenRouter
 
 Command: `LLM_PROVIDER=openrouter npm run eval:coach-chat -- --fresh`, run 2026-09-09, model
 `google/gemini-3.8-flash` via `google-vertex`. Log: `tests/2026-09-09/eval/eval-coach-chat-log-09-58-04.json`
@@ -56,9 +56,9 @@ below - see findings doc for detail).
 | week-plan-kickoff-ritual | **ERROR** | "OpenRouter truncated its response before finishing (finish=length, reasoningTokens=0)" - the known 4096-token ceiling finding from the original M2 session, confirmed still reproducing |
 | session-reconcile-actual-differs | PASS | |
 
-## Track B — real athlete repos
+## Track B - real athlete repos
 
-### coach-shreyas (`shreyas-95-cyber/coach-shreyas-95-cyber`) — 5/5 PASS
+### coach-shreyas (`shreyas-95-cyber/coach-shreyas-95-cyber`) - 5/5 PASS
 
 All verified via `git fetch` + `git diff` against real commits, not just harness self-report.
 
@@ -70,7 +70,7 @@ All verified via `git fetch` + `git diff` against real commits, not just harness
 | 4 | greeting | `test/retest-greeting` | No commit, reply only | Confirmed empty diff, no write | PASS |
 | 5 | Finding-4 check (3 trials) | `test/retest-finding4-{a,b,c}` | No `season_start`/`week_plan`/`template_edit` on plain turns | None fired across all 3 trials | PASS (N=3, see findings doc for confidence caveat) |
 
-### coach-date2022 (`date2022/coach-date2022`) — 6/6 PASS
+### coach-date2022 (`date2022/coach-date2022`) - 6/6 PASS
 
 Verified via `git diff`/`git log` on the real repo, not just harness self-report.
 
@@ -86,7 +86,7 @@ harness's own GitHub API polling, root-caused to a likely rate-limit/ref-consist
 concurrent agents sharing one GitHub token. The underlying commit was fine on independent check -
 not a real bug, a testing-concurrency artifact.
 
-### coach-akash (`akash-suresh/coach-akash-suresh`) — 5/5 PASS
+### coach-akash (`akash-suresh/coach-akash-suresh`) - 5/5 PASS
 
 Verified via independent `git diff` on every scratch branch, not just harness self-report.
 
@@ -102,7 +102,7 @@ Verified via independent `git diff` on every scratch branch, not just harness se
 `reply` text falsely states the dropped session "is marked done" - see findings doc for root cause
 and proposed directions.
 
-### coach-prateek (`prateekdevaraju/coach-prateekdevaraju`) — 2 PASS, 2 FAIL, 1 not testable
+### coach-prateek (`prateekdevaraju/coach-prateekdevaraju`) - 2 PASS, 2 FAIL, 1 not testable
 
 **A real bug was found and root-caused here** - see findings doc "MOST IMPORTANT FINDING." Not
 specific to OpenRouter or this stack; pre-existing, provider-agnostic. One continuous conversation
@@ -116,7 +116,7 @@ branch `test/retest-921-week-flow`, verified via `git diff` at every step.
 | 5 | template_edit (PR #921 new scope) | Real template edit lands | Fired and verified via diff: warm-up phase removed, exercises renumbered, `coaching_note` updated - clean | PASS (worked only because the athlete stated the exact real template id themselves - see findings doc) |
 | 2 | activity-sync | - | **Not testable** - the manual harness has no way to reach `mode: "activity_sync"`, hardcoded to `"ordinary"` | N/A |
 
-### coach-skanda (`skanda-2003/coach-skanda-2003`) — 3/5 live-verified PASS, 1 live FAIL, 1 code-verified-only
+### coach-skanda (`skanda-2003/coach-skanda-2003`) - 3/5 live-verified PASS, 1 live FAIL, 1 code-verified-only
 
 Verified via independent `git diff` on every fetched branch.
 
@@ -132,7 +132,7 @@ Verified via independent `git diff` on every fetched branch.
 Code-level check confirms it shares the same `LlmAdapter` seam as coach-chat, so it should pick up
 `LLM_PROVIDER=openrouter` the same way - inferred from source, not observed live.
 
-### coach-skanda-testing — FSP, THE critical scenario — 5/6 clean PASS, 1 partial-omission on one of three field-crowding runs
+### coach-skanda-testing - FSP, THE critical scenario - 5/6 clean PASS, 1 partial-omission on one of three field-crowding runs
 
 Fresh, genuinely-reset FSP state for every branch (`main` already had a completed onboarding from a
 prior session, so this athlete's data was reset to blank on each scratch branch before testing).
