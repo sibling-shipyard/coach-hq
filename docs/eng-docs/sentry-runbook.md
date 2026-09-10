@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-08 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-10 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -292,15 +292,18 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 
 - **Outbound HTTP from the API, deliberately.** Both Node instrumentations copy the full request URL
-  onto the span. Template adjustment's own Gemini call (`coachWorkoutFiles.ts`) still passes the key
-  in the query string. Coach-message and chat moved to header auth (`x-goog-api-key`) via
-  `_lib/llmAdapters/geminiAdapter.ts` (#713 M2 PR 1/PR 2); template adjustment is the one caller left
-  on the old query-string auth, pending M2 PR 3. An `http.client` span would therefore still be a
-  credential in Sentry for that one caller, and `beforeSend` never catches it — that hook fires for
-  error events only. `ui/api/_lib/sentry.ts` gives `httpIntegration` and `nativeNodeFetchIntegration` an
-  `ignoreOutgoingRequests` returning true for everything, dropping span and breadcrumb before either
-  is built. The cost: GitHub call durations never reach a trace. Gemini is the one outbound call we
-  time, by opening a span ourselves.
+  onto the span. Every direct-Gemini caller — chat, coach-message, and template adjustment alike —
+  now reaches the model through `_lib/llmAdapters/geminiAdapter.ts` (#713 M2, all three PRs landed).
+  It authenticates with the `x-goog-api-key` header, not a URL query param. No caller is left on
+  the old query-string auth, so the original credential-leak reason for excluding an `http.client`
+  span no longer applies to Gemini specifically. `ui/api/_lib/sentry.ts` still gives
+  `httpIntegration` and `nativeNodeFetchIntegration` an `ignoreOutgoingRequests` returning true for
+  everything, dropping span and breadcrumb before either is built — GitHub calls carry a token in a
+  header too. Narrowing this blanket rule to let Gemini/OpenRouter's own span through is worth
+  doing, since no credential is at risk on that path any more, but it has not been done - the rule
+  as written still drops everything. The cost as things stand: GitHub call durations never reach a
+  trace either. Gemini/OpenRouter is the one outbound call we time, by opening a span ourselves
+  (`withGeminiSpan`).
 - **GitHub success totals**, for the same reason.
 - **iOS dSYM upload**, still parked.
 - **Chat text on a successful turn.** It reaches Sentry only when a Gemini call fails; a turn that

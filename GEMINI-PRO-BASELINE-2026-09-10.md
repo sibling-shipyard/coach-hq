@@ -230,9 +230,19 @@ their own worst scenarios, just with a different symptom (false-success claim in
 omission or wild hallucination). Combined with Finding E's confabulation and the smaller findings
 above (the DOB hallucination, the filler-turn restraint miss), the honest picture is: **every model
 tested in this whole investigation, including pro, has a real, repeatable, self-audit-invisible
-reliability gap.** A same-day fix closed the specific 3/8 injury-drop failure (PR #953); Finding
-E's confabulation was investigated live but no working fix was found (see
-`OPENROUTER-K1-RETEST-FINDINGS.md`'s "Still open" section for the full detail).
+reliability gap.** A same-day fix closed the specific 3/8 injury-drop failure (PR #953).
+
+**Update, later the same day (PR #955):** Finding E's confabulation, which this doc originally
+logged as investigated with no working fix found, got a deterministic fix that doesn't depend on
+the model's compliance - see `OPENROUTER-K1-RETEST-FINDINGS.md`'s closing section for the full
+mechanism and live verification. A P0 correctness bug in that fix's first version (found in a
+same-day review pass, also PR #955) has since been closed: the original "single remaining active
+quest" fallback completed that quest on *any* completion-language fact, even one unrelated to it.
+It now requires a real name match unconditionally, which narrows the mechanism's coverage
+slightly (it no longer auto-completes an athlete's sole active quest on a vague "finished that"
+with zero name overlap) in exchange for closing a real false-positive risk. The live verification
+run that confirmed the fix (a real `sleep` quest, real matching name text) is unaffected by this
+narrowing - it went through the name-match path either way.
 
 The question for the next phase is no longer "does pro work and nothing else does" - it's which
 failure rate and which failure shape is acceptable, at what cost, and whether the

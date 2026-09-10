@@ -45,6 +45,16 @@ Finding D's blind spot beyond injuries, the silent-assumption bug) - determinist
 Gemini-verified for the first two, unit-verified for the third. See "Finding E, Finding D, and the
 silent-assumption bug all closed" below.
 
+**2026-09-10, later still - a structured review pass on the whole stack (now 11 PRs: #917, #920,
+#921, plus #948-#955) found and fixed real bugs in six of them**, including four P0s in PR #955
+itself. Every fix landed same-day, full check gate green on every branch, whole stack re-verified
+as a clean linear chain from `main`. See "independent review pass on PR #955 found four P0s"
+below for the #955 detail; the rest are one-line summaries in each PR's own commit message. A
+companion docs pass (stacked as its own PR on top of #955) brought `gemini-flow.md`,
+`llm-provider-current.md`, `sentry-runbook.md`, and `ops-observability.md` up to date with the
+llmClient seam migration, and added `chat-llm-seam.md` as the one reference for the seam itself.
+Nothing in the whole stack has merged - it is staged for the athlete's own review and merge.
+
 ---
 
 ## Bugs found and fixed
@@ -250,6 +260,38 @@ fix works end-to-end against the original failure mode, only that the mechanism 
 against its own unit fixtures and that pro is not reliably reproducing the underlying bad behavior
 on demand. Worth retrying with a scripted `--turns` file that hardcodes the model's first-turn reply
 if a live end-to-end confirmation is needed later.
+
+### 2026-09-10 (same day, later still) - independent review pass on PR #955 found four P0s
+
+A structured review of the full 11-PR stack (#917, #920, #921, #948-#955) turned up four
+correctness bugs in PR #955's own fixes above, all fixed same-day, before any PR merged. None of
+them invalidate the live verification already recorded above - the fixes narrow or harden the
+mechanisms, they don't reverse what was already confirmed working:
+
+- **Finding E's synthesis had a real false-positive path.** The "exactly one active quest exists"
+  fallback (described above as requiring "no genuine ambiguity") actually fired on *any*
+  completion-language fact when only one active quest remained, with no check that the fact was
+  about that quest at all - "finished packing my bags for the trip" would have completed an
+  unrelated "Daily Stretching" quest. Now a real name match is required unconditionally. The live
+  verification above is unaffected: the `sleep` quest fact matched by name either way.
+- **The silent-assumption bug's confirmation-cue check had no negation handling.** `"I'm not sure,
+  don't drop the football"` contains the phrase `"drop the"`, which the pattern treated as an
+  affirmative confirmation - the opposite of what was said. Fixed with a same-clause negation
+  check ahead of the cue match.
+- **A malformed/legacy `current_week.json` row could crash the turn.** The content-diff guard read
+  `discipline`/`kind` as always-present strings per their TypeScript type, but the reader
+  (`weekSessionsFromCurrentWeek`) never actually validates against the schema - a real row missing
+  either field would throw inside `.trim()`. Now defaults to `""`.
+- **A quest name with regex metacharacters could crash the turn.** Defensive fix only - the
+  existing word-extraction step already stripped them before this bug could fire in practice, but
+  the regex construction now escapes explicitly rather than relying on that as an implicit
+  guarantee.
+
+Five smaller P1s (a pending-clarification marker that could be silently truncated or dropped
+across a busy same-day coach_log row, a marker parser that broke on a question containing a
+literal `]`, a duplicated schedule-field list, and two validator params that failed open by
+default with no signal) were also closed in the same pass - see PR #955's own commit history for
+the full detail. Full unit suite after all fixes: 578/578.
 
 ### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
 
