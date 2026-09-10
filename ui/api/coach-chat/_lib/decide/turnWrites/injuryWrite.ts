@@ -37,7 +37,13 @@ export function buildInjuryWrites(
       const now = new Date();
       const today = todayDateString(timezone, now);
       const current = await getFileRaw(repo, INJURIES_PATH, token);
-      const afterNew = applyInjuryFlag(current, cappedNewInjuries, today, now.toISOString(), traceId);
+      const afterNew = applyInjuryFlag(
+        current,
+        cappedNewInjuries,
+        today,
+        now.toISOString(),
+        traceId,
+      );
       return applyInjuryEvent(afterNew, cappedEvents, today, now.toISOString(), traceId);
     },
   };
