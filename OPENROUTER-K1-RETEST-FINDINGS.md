@@ -14,9 +14,12 @@ are three siblings on #949, not a linear chain. Testing workflow for local athle
 documented in `docs/eng-docs/coach-chat-testing.md` (added on #951).
 
 **Open, as of 2026-09-10:** Finding D (structured-output omission on dense messages, see "Still
-open" below) and direct pro's `GEMINI_API_KEY` billing credits, which ran out mid-investigation and
-block a planned re-verification of Findings A/B/E directly on pro (see "Model & provider
-comparison" for what that blocked and what was tried instead).
+open" below), and a new pro-specific finding - **Finding E's fix does not hold on direct pro,
+0/3, and pro's own failure mode there is confabulation, not omission** (see "Still open" below).
+**"Pro is 12/12 clean" in this doc refers specifically to the Finding D dense-message scenario -
+it is not a blanket claim that pro is failure-free on every scenario.** Direct pro's billing
+credits were topped up 2026-09-10, unblocking the Findings A/B/E re-verification that was stuck
+the day before - A and B both held on pro; E did not.
 
 ---
 
@@ -30,7 +33,7 @@ below is a real diff on a real athlete repo, not the test harness's own PASS/FAI
 | **Finding A** - `plan_edit`/`session_reconcile` silently no-op'd while the reply claimed success | `requestCoachReply` never gave the model real template/session ids to reference on an ordinary turn | Fetch that context before asking the model, not just after to validate a guess | Live-re-verified 3/3 on `coach-prateek`, varied phrasing, every diff confirmed against real `current_week.json`. Pre-existing, provider-agnostic - not an OpenRouter bug |
 | **Finding B** - `template_edit` refused 100% of the time (6/6) | A Claude-Code-only SOUL guardrail ("never modify template files") was composing into the hosted chat build too, where it had nothing to do with the separate, validated `template_edit` action but read as a ban on it | Scoped the guardrail correctly (Claude-Code layer vs shared layer) | Live-verified on `coach-akash`: fires and commits for real |
 | **Finding C** - OpenRouter had no retry on `finish_reason: "length"` truncation (~37% of first-turn calls failed outright) | Missing retry, plus a second distinct bug: malformed JSON with a finish reason that isn't `"length"`, so the first retry never engaged | One retry mirroring the Gemini adapter's pattern (#948); second bug fixed on #950 | First fix dropped the rate to ~20%, not zero. Full fix live-verified 10/10 clean afterward |
-| **Finding E** - `quest_event` had no reprompt safety net if the model just skipped it (3/3 misses) | Weaker prompt instruction than `season_start`'s equivalent | Strengthened the instruction to match | Live-verified 3/3 on `coach-skanda`, real `progress.json` writes confirmed via diff |
+| **Finding E** - `quest_event` had no reprompt safety net if the model just skipped it (3/3 misses) | Weaker prompt instruction than `season_start`'s equivalent | Strengthened the instruction to match | Live-verified 3/3 on `coach-skanda` via OpenRouter/flash. **Does not hold on direct pro - 0/3, a distinct and worse failure mode, see "Still open" below. Not actually closed.** |
 | `injury_flag` duplication - a re-stated injury on a filler turn could mint a genuine duplicate flag | No dedup existed at all | Word-overlap dedup check plus a matching prompt restraint instruction | Unit-verified, fixture assertion added |
 | Dropped-action reply dishonesty - athlete's `reply` claimed a dropped action worked | Correction only reached next turn's context, not the same turn's reply | Same-turn reply now carries the correction | Unit-verified |
 | Eval transcript date rot - transcript 19 hardcoded a session date that rotted twice (same #807 bug class) | Hardcoded date | Resolves its date at run time instead | Can't rot the same way again |
@@ -104,17 +107,60 @@ reach a real athlete. **This firmer data points more strongly toward keeping M3 
 (flipping `LLM_PROVIDER=openrouter` in production), until flash's reliability on this scenario
 improves upstream or a stronger mitigation is found.**
 
-### Direct pro's `GEMINI_API_KEY` ran out of billing credits (2026-09-10)
+### Direct pro's `GEMINI_API_KEY` billing credits (resolved 2026-09-10)
 
-Every call, direct or via `soulCache`'s context-caching path, returns `429 RESOURCE_EXHAUSTED -
-"Your prepayment credits are depleted"`. Confirmed independently by 3 separate live-verification
-attempts (Finding A on `coach-prateek`, Finding B on `coach-akash`, Finding E on `coach-skanda`),
-all hitting the identical error with correct config (`LLM_PROVIDER` unset, `gemini-pro-latest`
-resolved correctly). This is the same key production's real current default provider uses - while
-this key has no credit, direct pro cannot serve any request at all, test or production. Needs a
-human to top up at ai.studio before the pending direct-pro re-verification (confirming Findings
-A/B/E hold on pro specifically, not just on OpenRouter/flash where they were originally found) can
-run. See "Model & provider comparison" for what was tried as a same-day substitute.
+Ran out mid-investigation - every call, direct or via `soulCache`'s context-caching path, returned
+`429 RESOURCE_EXHAUSTED - "Your prepayment credits are depleted"`. Confirmed independently by 3
+separate live-verification attempts before the top-up. Topped up same day; unblocked the pro
+re-verification below.
+
+### Finding E's fix does not hold on direct pro - a new, worse failure mode (2026-09-10)
+
+Re-verified Findings A/B/E directly against `gemini-pro-latest` once billing was restored, same
+worktree/method as prior pro trials (`origin/fix/finding-d-more-verification`, real `selectLlmAdapter`
+wiring). **A and B both held cleanly on pro** (A: `plan_edit` and `session_reconcile` both fired
+correctly with real diffs matching the reply text, 2/2; B: `template_edit` fired and committed a
+real phase removal, 1/1). **E did not: 0/3.**
+
+All 3 attempts on `coach-skanda` (quest `6am_wakeup`, a returning-athlete turn): `coach_note` fired
+every time, `quest_event` never did. Real diffs confirm `quests.json`/`progress.json` were
+byte-identical to `main` on all 3 branches. The `unrecorded_facts` self-audit correctly caught the
+miss and fired the reprompt on every attempt - the safety net itself worked as designed. But instead
+of complying on the reprompt, the model **confabulated a false technical excuse**, verbatim variants
+of "quest_event isn't in the schema" / "the system isn't letting me log quest progress today,"
+across all 3 runs. **Confirmed false**, not a real gap on our side: `quest_event` is declared in
+`RETURNING_ACTIONS` (`coachReplySchema.ts`), available on every returning-athlete turn, and this was
+one.
+
+**Why this matters more than a normal miss:** every other model's failure on this class of scenario
+has been silent omission (flash) or unprompted hallucination on a *different* field (DeepSeek). This
+is the first observed case of a model, when explicitly told "you missed this, add it now," inventing
+a specific false reason for refusing instead of complying or admitting uncertainty - a more
+convincing, more athlete-misleading failure than either. **This directly narrows the "production is
+safe today" claim made in the Finding D section below: that claim is scoped to the Finding D
+dense-message scenario specifically, not a blanket guarantee across every action type.** `quest_event`
+completion (a very common, ordinary turn) has its own live, real, unresolved reliability gap on
+production's actual current model.
+
+### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
+
+Every model tested so far gets the exact same shape of task in one call: read a dense message,
+decide across a dozen-plus possible action types, get real ids right, self-check its own output,
+and write the final athlete-facing reply - all in one shot. Pro (`gemini-pro-latest`) handles that
+load cleanly (12/12 on the flagship dense-message scenario). Every cheaper model tested so far fails
+the same load in one of two distinct ways: it either quietly drops most of the work (flash, both
+providers) or it "helpfully" invents content to look complete (DeepSeek's fabricated injury
+resolutions and invented season, see "DeepSeek v4 pro" above). That is a classic too-much-in-one-call
+failure pattern, not obviously a fact that only pro is capable enough to ever get this right.
+
+Everything tried so far has been a patch around the single-call shape - prompt wording, reasoning
+effort, the `unrecorded_facts` self-audit reprompt. None of it has restructured the call itself.
+**Not yet tested: splitting the turn into two smaller steps** (e.g. extract raw facts from the
+message first, then map extracted facts to the response schema second) so a cheaper model only has
+to do one simpler thing per call, instead of the whole decision surface at once. Worth testing
+against a cheap model once the pro baseline (below) is in, before concluding "no cheap model can do
+this" - the model choice and the call architecture are two separate variables, and only the first
+has been tested so far.
 
 ---
 
@@ -155,9 +201,12 @@ by the existing reprompt in 2 of 3 cases), and one run where the model spent its
 200+ item garbage `sports_update` array instead of the real fields (a runaway generation, not a
 clean omission).
 
-**Practical read:** production is safe today (`gemini-pro-latest`, 12/12 clean) as long as it stays
-pinned there. Reverting to `gemini-flash-latest` for cost/speed reasons, independent of any
-OpenRouter decision, would reintroduce this exact omission risk.
+**Practical read:** production is safe from *this specific dense-message omission scenario* today
+(`gemini-pro-latest`, 12/12 clean) as long as it stays pinned there. Reverting to
+`gemini-flash-latest` for cost/speed reasons, independent of any OpenRouter decision, would
+reintroduce this exact omission risk. **This does not mean pro is failure-free on every scenario -
+see "Finding E's fix does not hold on direct pro" under "Still open" for a real, unrelated pro
+failure mode found on an ordinary `quest_event` turn.**
 
 ### Why is OpenRouter's flash worse than direct Gemini's flash?
 
