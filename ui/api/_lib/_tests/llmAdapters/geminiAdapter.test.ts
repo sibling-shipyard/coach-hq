@@ -259,6 +259,21 @@ describe("createGeminiAdapter", () => {
     );
     await expect(adapter.generate(REQUEST)).rejects.toMatchObject({ status: 503 });
   });
+
+  it.each([400, 403, 500])(
+    "preserves a %i upstream status too, not just 429/503/504 (review finding)",
+    async (status) => {
+      // Found in review: an earlier version of this adapter collapsed anything outside
+      // {429,503,504} to a generic 502, losing the real upstream status pre-#713 code preserved
+      // and showing the athlete the wrong message.
+      const fetcher = vi.fn(async () => new Response("bad request", { status }));
+      const adapter = createGeminiAdapter(
+        { GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+        fetcher,
+      );
+      await expect(adapter.generate(REQUEST)).rejects.toMatchObject({ status });
+    },
+  );
 });
 
 // #713 M2 PR 2: the explicit soul cache and its retry logic, moved here from coach-chat's

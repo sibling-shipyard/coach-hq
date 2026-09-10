@@ -196,9 +196,12 @@ export function createGeminiAdapter(
             // (400/403/500) to a generic 502 was a real regression found in review: the athlete
             // saw the wrong message and callers lost the ability to distinguish a bad request
             // from a real server error.
-            throw Object.assign(new Error(`Gemini request failed (${response.status}): ${detail}`), {
-              status: response.status,
-            });
+            throw Object.assign(
+              new Error(`Gemini request failed (${response.status}): ${detail}`),
+              {
+                status: response.status,
+              },
+            );
           }
           const payload = (await response.json()) as GeminiGenerateResponse;
           if (payload.usageMetadata) {

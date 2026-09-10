@@ -109,6 +109,15 @@ describe("cache safety", () => {
     expect(staticSystemText(SOUL)).not.toContain("<first_session>");
   });
 
+  // Review finding (#713 M2 PR 2): the useCache ternary that used to gate a leading blank line
+  // got dropped along with the cache-active wrapper it guarded, silently losing the blank line
+  // on the no-cache path too even though the comment above buildDynamicText claims parity with
+  // pre-#713's shape.
+  it("leads with a blank line before <state>, matching pre-#713's no-cache shape", () => {
+    const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined);
+    expect(dynamic.startsWith("\n<state>")).toBe(true);
+  });
+
   it("the protocol reaches the model through the dynamic half", () => {
     const dynamic = buildDynamicText(
       "state",

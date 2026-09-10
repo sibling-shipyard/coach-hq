@@ -70,6 +70,11 @@ export function buildDynamicText(
   timezone = "UTC",
 ): string {
   return [
+    // Leading empty element - the joined text must open with a blank line before <state> to match
+    // the cache-agnostic shape this function's own header comment promises. Keep this the only
+    // place that shape is set; a cache-active call's different leading text is geminiAdapter.ts's
+    // wrapper to add, not this function's.
+    "",
     "<state>",
     "\nCurrent athlete context:\n" + athleteContext,
     "\nCurrent quests (seasons.json/quests.json/progress.json, read-only - use these exact " +
