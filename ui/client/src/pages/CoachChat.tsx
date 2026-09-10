@@ -622,9 +622,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
           currentRoute="/coach-chat"
         />
 
-        {threadsError ? (
-          <div className="auth-card-shell">
-            <div className="auth-card">
+        <main>
+          {threadsError ? (
+            <div className="auth-card-shell">
+              <div className="auth-card" role="alert">
               <h2 className="auth-card__heading">Couldn't load Coach Chat</h2>
               <p className="auth-card__body auth-card__body--error">{threadsError}</p>
               <div className="auth-card__buttons">
@@ -643,7 +644,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
             <div className="cc-frame">
               <div className="cc-desktop-chat">
                 {threadsLoading ? (
-                  <aside className="cc-sidebar cc-loading" aria-label="Conversations">
+                  <aside className="cc-sidebar cc-loading" aria-label="Conversations" role="status">
                     <span className="cc-loading__spinner" aria-hidden="true" />
                     Loading conversations…
                   </aside>
@@ -678,6 +679,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   <section
                     className="cc-pane cc-pane--empty cc-loading"
                     aria-label="Starting conversation"
+                    role="status"
                   >
                     {greeting || threadsLoading ? (
                       <>
@@ -697,7 +699,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
               <div className="cc-mobile-chat">
                 {mobileView === "list" && threadsLoading ? (
-                  <section className="cc-mobile-list cc-loading" aria-label="Conversations">
+                  <section className="cc-mobile-list cc-loading" aria-label="Conversations" role="status">
                     <span className="cc-loading__spinner" aria-hidden="true" />
                     Loading conversations…
                   </section>
@@ -733,7 +735,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   />
                 ) : null}
                 {mobileView === "new" || (mobileView === "thread" && !activeThread) ? (
-                  <section className="cc-mobile-list cc-loading" aria-label="Starting conversation">
+                  <section className="cc-mobile-list cc-loading" aria-label="Starting conversation" role="status">
                     {greeting || threadsLoading ? (
                       <>
                         <span className="cc-loading__spinner" aria-hidden="true" />
@@ -749,7 +751,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
               </div>
             </div>
           </div>
-        )}
+          )}
+        </main>
       </div>
     </div>
   );

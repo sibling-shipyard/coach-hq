@@ -75,103 +75,105 @@ export function WelcomePage() {
         </div>
       </header>
 
-      <section className="welcome-hero">
-        <div className="welcome-hero__inner">
-          <div className="welcome-hero__copy" data-reveal>
-            <span className="welcome-kicker">AI PERSONAL TRAINER</span>
-            <h1 className="welcome-hero__title">Everyone deserves someone in their corner.</h1>
-            <p className="welcome-hero__lede">
-              A coach that remembers you — your history, your injuries, your wins, what worked last
-              week. Undeniably focused on one thing: watching you get better.
-            </p>
-            <div className="welcome-hero__actions">
-              <a href="#invite" className="welcome-btn welcome-btn--primary">
-                Get early access
-              </a>
-              <a href="#highlights" className="welcome-btn welcome-btn--ghost">
-                See the widgets ↓
-              </a>
+      <main>
+        <section className="welcome-hero">
+          <div className="welcome-hero__inner">
+            <div className="welcome-hero__copy" data-reveal>
+              <span className="welcome-kicker">AI PERSONAL TRAINER</span>
+              <h1 className="welcome-hero__title">Everyone deserves someone in their corner.</h1>
+              <p className="welcome-hero__lede">
+                A coach that remembers you — your history, your injuries, your wins, what worked
+                last week. Undeniably focused on one thing: watching you get better.
+              </p>
+              <div className="welcome-hero__actions">
+                <a href="#invite" className="welcome-btn welcome-btn--primary">
+                  Get early access
+                </a>
+                <a href="#highlights" className="welcome-btn welcome-btn--ghost">
+                  See the widgets ↓
+                </a>
+              </div>
+              <div className="welcome-hero__platforms welcome-hero__platforms--single">
+                <span className="welcome-hero__platforms-dot" aria-hidden="true" />
+                <span>WORKS WITH WHAT YOU ALREADY WEAR · APPLE HEALTH · NO NEW DEVICE</span>
+              </div>
             </div>
-            <div className="welcome-hero__platforms welcome-hero__platforms--single">
-              <span className="welcome-hero__platforms-dot" aria-hidden="true" />
-              <span>WORKS WITH WHAT YOU ALREADY WEAR · APPLE HEALTH · NO NEW DEVICE</span>
+            <div data-reveal>
+              <WelcomeEngineHero engine={GOLDEN_HOME.engine} />
             </div>
           </div>
-          <div data-reveal>
-            <WelcomeEngineHero engine={GOLDEN_HOME.engine} />
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="welcome-section welcome-section--paper" id="does">
-        <div className="welcome-section__intro welcome-section__intro--compact" data-reveal>
-          <span className="welcome-kicker">WHAT COACH DOES</span>
-          <h2 className="welcome-section__title">
-            Anybody can hand you a workout. This one remembers you.
-          </h2>
-        </div>
+        <section className="welcome-section welcome-section--paper" id="does">
+          <div className="welcome-section__intro welcome-section__intro--compact" data-reveal>
+            <span className="welcome-kicker">WHAT COACH DOES</span>
+            <h2 className="welcome-section__title">
+              Anybody can hand you a workout. This one remembers you.
+            </h2>
+          </div>
 
-        <div className="welcome-feature">
-          <div className="welcome-feature__copy" data-reveal>
-            <span className="welcome-feature__index">01 · IT READS EVERYTHING</span>
-            <h3>It reads what you already do — no manual logging.</h3>
-            <p>
-              Coach pulls sessions straight from Apple Health, reads your match scores, and watches
-              heart-rate trends. Every figure on the page is earned from real activity — nothing
-              invented.
-            </p>
-          </div>
-          <div className="welcome-feature__card welcome-feature__card--wi">
-            <RecentSessionsCard sessions={GOLDEN_HOME.sessions} staggerRows />
-          </div>
-        </div>
-
-        <div className="welcome-feature welcome-feature--reverse">
-          <div className="welcome-feature__copy" data-reveal>
-            <span className="welcome-feature__index">02 · IT REMEMBERS</span>
-            <h3>The patterns you&apos;re too close to notice.</h3>
-            <p>
-              Your left-knee history. The goal you set in January. The habit of skipping strength
-              when matches get busy. It watches patterns across months, not just today.
-            </p>
-          </div>
-          <div className="welcome-feature__card welcome-feature__card--coach" data-reveal>
-            <span className="welcome-feature__card-label">COACH REMEMBERS</span>
-            <div className="welcome-memory-tags">
-              <span className="welcome-memory-tags__alarm">⚠ LEFT KNEE · 2023 MENISCUS</span>
-              <span>GOAL · FULL FRONT LEVER</span>
-              <span>HABIT · SKIPS STRENGTH IN SEASON</span>
+          <div className="welcome-feature">
+            <div className="welcome-feature__copy" data-reveal>
+              <span className="welcome-feature__index">01 · IT READS EVERYTHING</span>
+              <h3>It reads what you already do — no manual logging.</h3>
+              <p>
+                Coach pulls sessions straight from Apple Health, reads your match scores, and
+                watches heart-rate trends. Every figure on the page is earned from real activity —
+                nothing invented.
+              </p>
             </div>
-            <blockquote>
-              &ldquo;You told me the knee flares on back-to-back match days. I moved your bar
-              session to Wednesday — give it the gap.&rdquo;
-            </blockquote>
+            <div className="welcome-feature__card welcome-feature__card--wi">
+              <RecentSessionsCard sessions={GOLDEN_HOME.sessions} staggerRows />
+            </div>
           </div>
-        </div>
 
-        <WelcomeAdaptDemo />
-      </section>
+          <div className="welcome-feature welcome-feature--reverse">
+            <div className="welcome-feature__copy" data-reveal>
+              <span className="welcome-feature__index">02 · IT REMEMBERS</span>
+              <h3>The patterns you&apos;re too close to notice.</h3>
+              <p>
+                Your left-knee history. The goal you set in January. The habit of skipping strength
+                when matches get busy. It watches patterns across months, not just today.
+              </p>
+            </div>
+            <div className="welcome-feature__card welcome-feature__card--coach" data-reveal>
+              <span className="welcome-feature__card-label">COACH REMEMBERS</span>
+              <div className="welcome-memory-tags">
+                <span className="welcome-memory-tags__alarm">⚠ LEFT KNEE · 2023 MENISCUS</span>
+                <span>GOAL · FULL FRONT LEVER</span>
+                <span>HABIT · SKIPS STRENGTH IN SEASON</span>
+              </div>
+              <blockquote>
+                &ldquo;You told me the knee flares on back-to-back match days. I moved your bar
+                session to Wednesday — give it the gap.&rdquo;
+              </blockquote>
+            </div>
+          </div>
 
-      <WelcomeHighlightsCarousel />
+          <WelcomeAdaptDemo />
+        </section>
 
-      <WelcomeCoachVoice />
+        <WelcomeHighlightsCarousel />
 
-      <section className="welcome-section welcome-section--paper">
-        <div className="welcome-section__intro welcome-section__intro--compact" data-reveal>
-          <span className="welcome-kicker">WHEN IT&apos;S TIME TO MOVE</span>
-          <h2 className="welcome-section__title">The plan becomes a follow-along.</h2>
-          <p className="welcome-section__lede">
-            Every workout Coach writes runs as a live timer — on your desk or in your hand. Big
-            countdown, the form cue that matters, and why you&apos;re doing it. It&apos;s counting
-            down right now.
-          </p>
-        </div>
-        <WelcomeTimerDemo />
-      </section>
+        <WelcomeCoachVoice />
 
-      <WelcomePhilosophy />
+        <section className="welcome-section welcome-section--paper">
+          <div className="welcome-section__intro welcome-section__intro--compact" data-reveal>
+            <span className="welcome-kicker">WHEN IT&apos;S TIME TO MOVE</span>
+            <h2 className="welcome-section__title">The plan becomes a follow-along.</h2>
+            <p className="welcome-section__lede">
+              Every workout Coach writes runs as a live timer — on your desk or in your hand. Big
+              countdown, the form cue that matters, and why you&apos;re doing it. It&apos;s counting
+              down right now.
+            </p>
+          </div>
+          <WelcomeTimerDemo />
+        </section>
 
-      <WelcomeInviteCta />
+        <WelcomePhilosophy />
+
+        <WelcomeInviteCta />
+      </main>
     </div>
   );
 }

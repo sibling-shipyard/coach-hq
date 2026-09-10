@@ -4,7 +4,7 @@ import { Workout, countExercises, countSets, formatTimer } from "@/lib/workouts"
 export function WarmWorkoutComplete({ workout, elapsed }: { workout: Workout; elapsed: number }) {
   return (
     <div className="wi-shell">
-      <div className="wtx-complete-shell">
+      <main className="wtx-complete-shell">
         <div className="wtx-complete-card">
           <span className="wtx-complete-badge">WORKOUT COMPLETE</span>
           <div className="wtx-complete-title">
@@ -43,7 +43,7 @@ export function WarmWorkoutComplete({ workout, elapsed }: { workout: Workout; el
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

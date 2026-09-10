@@ -23,7 +23,7 @@ export function WarmWorkoutOverview({
       <div className="wi-board" style={{ maxWidth: 760 }}>
         <TimerTopBar backHref="/workouts" title={workout.title} />
 
-        <div className="wtx-ov-page">
+        <main className="wtx-ov-page">
           <div className="wtx-ov-meta">
             <SportBadge label={workout.workout_type.toUpperCase()} accent={accent} />
             <p className="wtx-ov-subtitle">{workout.subtitle}</p>
@@ -81,7 +81,7 @@ export function WarmWorkoutOverview({
           <button type="button" className="wtx-ov-start" onClick={onStart}>
             ▶ Start workout
           </button>
-        </div>
+        </main>
       </div>
     </div>
   );
