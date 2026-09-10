@@ -82,9 +82,16 @@ export async function askGemini(
   // check misses it then), so what reaches here can be text that reads as a successful
   // response but is still cut-off/malformed JSON - a SyntaxError on JSON.parse below.
   // One retry, same cap this codebase already uses everywhere for a transient model failure.
-  // If Gemini's own adapter ever produced a live case of this (it hasn't in practice - its
-  // finishReason === "MAX_TOKENS" check throws before result.text is ever set), this retry
-  // would catch that too, since it lives at the shared call site both adapters flow through.
+  // A MAX_TOKENS throw from the adapter never reaches this catch - adapter.generate() above is
+  // not itself inside this try block, so that failure propagates straight past this function to
+  // whatever calls askGemini, same as any other adapter-level throw.
+  //
+  // This retry, coachTurn.ts's up to two reprompt calls, and each adapter's own 503/504/
+  // truncation retry all stack independently of one another and of the 300s Vercel budget - none
+  // of the four layers knows how much time the others have already spent. Bounding this retry's
+  // own timeout, rather than reusing the full budget again, keeps its worst-case addition small
+  // instead of letting a fifth 45s call stack on top of four others that already ran.
+  const jsonParseRetryTimeoutMs = Math.min(GEMINI_GENERATE_TIMEOUT_MS, 20_000);
   let parsed: GeminiReply;
   try {
     parsed = JSON.parse(result.text) as GeminiReply;
@@ -93,7 +100,7 @@ export async function askGemini(
       error: err instanceof Error ? err.message : String(err),
       traceId,
     });
-    result = await adapter.generate(generateRequest);
+    result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
     parsed = JSON.parse(result.text) as GeminiReply;
   }
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. Nested

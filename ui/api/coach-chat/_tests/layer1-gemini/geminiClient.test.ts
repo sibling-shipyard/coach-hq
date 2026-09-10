@@ -132,6 +132,33 @@ describe("askGemini", () => {
     expect(generateCalls).toHaveLength(2);
   });
 
+  // Review finding: this retry stacks with the adapter's own 503/504/truncation retry and
+  // coachTurn.ts's up to two reprompt calls, none of which know how much of the 300s Vercel
+  // budget the others have already spent - the retry must not reuse the full 45s timeout again.
+  it("bounds the parse-failure retry to a shorter timeout than the initial call (review finding)", async () => {
+    let call = 0;
+    fetchWithTimeout.mockImplementation(async (url: string) => {
+      if (url.includes("cachedContents")) return jsonResponse(500, {});
+      call += 1;
+      if (call === 1) {
+        return jsonResponse(200, {
+          candidates: [{ content: { parts: [{ text: '{"reply": "unterminated' }] } }],
+        });
+      }
+      return geminiEnvelope({ reply: "Recovered after malformed JSON." });
+    });
+
+    await askGemini(...args);
+
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
+    expect(generateCalls).toHaveLength(2);
+    const [, , initialTimeoutMs] = generateCalls[0];
+    const [, , retryTimeoutMs] = generateCalls[1];
+    expect(retryTimeoutMs).toBeLessThan(initialTimeoutMs as number);
+  });
+
   it("throws a 429-tagged error on rate limit", async () => {
     routeByUrl(jsonResponse(500, {}), jsonResponse(429, { error: "rate limited" }));
 
