@@ -23,8 +23,14 @@ export { GEMINI_MODEL };
 
 // A turn with a long conversation history carries a larger prompt than the shared
 // UPSTREAM_TIMEOUT_MS (25s, sized for file reads) can comfortably fit - give generateContent its
-// own longer budget. Matches pre-#713's GEMINI_GENERATE_TIMEOUT_MS.
-const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
+// own longer budget. 60s, not the pre-CHAT_MAX_OUTPUT_TOKENS-bump 45s: the live evidence behind
+// doubling that ceiling to 8192 (coachReplySchema.ts) measured ~3930 thinking tokens alone on the
+// dense-message scenario it was raised for, so a call that legitimately needs the fuller budget
+// must have time to actually finish generating it - trading a MAX_TOKENS truncation for a 45s
+// timeout on the exact same scenario would not be a fix. Kept well under the shared 300s Vercel
+// budget alongside the other retry layers geminiClient.ts's JSON-parse retry and coachTurn.ts's
+// reprompts already account for.
+const GEMINI_GENERATE_TIMEOUT_MS = 60_000;
 
 export async function askGemini(
   apiKey: string,
