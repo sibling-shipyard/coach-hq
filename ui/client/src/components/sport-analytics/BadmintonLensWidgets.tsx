@@ -539,7 +539,9 @@ export function HeadToHeadCard({ headToHead }: { headToHead: HeadToHeadSnapshot 
       </div>
       {visible.map((row) => (
         <div className="sa-h2h__row" key={row.name}>
-          <span className="sa-h2h__name">{row.name}</span>
+          <span className="sa-h2h__name" title={row.name}>
+            {row.name}
+          </span>
           <span className="sa-h2h__record">{row.fiftyTwoWeekRecord}</span>
           <span className={`sa-h2h__record is-${row.tone}`}>{row.recentRecord}</span>
           <span className={`sa-h2h__direction is-${row.tone}`}>{row.direction}</span>
