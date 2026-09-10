@@ -40,6 +40,11 @@ one new real finding (a silent-assumption bug on an unresolved conversational am
 reproduced Finding E's confabulation again on a different repo/quest - see "Direct pro's own
 reliability gaps" below.
 
+**PR #955, stacked on #954, closes all three items still open after that pass** (Finding E,
+Finding D's blind spot beyond injuries, the silent-assumption bug) - deterministic fixes, live
+Gemini-verified for the first two, unit-verified for the third. See "Finding E, Finding D, and the
+silent-assumption bug all closed" below.
+
 ---
 
 ## Bugs found and fixed
@@ -160,8 +165,9 @@ fixed" above and PR #953.
    reprompt already fired - the problem is compliance, not detection, so an identical-shaped
    trigger would add nothing to a reprompt that's already proven not to work here.
 
-**No fix found for Finding E's confabulation. It is an accepted, open, unresolved gap on direct
-pro** - not something prompt engineering or detection heuristics have closed.
+**No fix found for Finding E's confabulation via prompt engineering or detection heuristics alone.**
+A deterministic fix that doesn't depend on the model complying was shipped later the same day - see
+"Finding E, Finding D, and the silent-assumption bug all closed" below.
 
 **Reproduced again, independently, in the multi-turn pass (PR #954):** a 5-turn conversation on
 coach-date2022 hit the same pattern on its very first turn ("keeps the streak going" - a plain
@@ -190,6 +196,60 @@ This doesn't mean the bug is fixed (nothing changed) or that it can't happen - o
 reproduce naturally on pro in 4 real attempts today, unlike its original discovery via
 OpenRouter/flash. Worth retrying with a scripted, hardcoded-bad-id `--turns` file rather than
 natural phrasing if this needs a definitive answer later.
+
+### 2026-09-10 (later same day) - Finding E, Finding D, and the silent-assumption bug all closed (PR #955)
+
+All three of the open items above (Finding E's confabulation, Finding D's blind spot beyond
+injuries, the silent-assumption bug) got a deterministic fix - primary mechanism plus a reserved
+fallback for each, per the athlete's request not to depend on a single approach working. Stacked as
+PR #955 on top of #954. Full unit suite: 760/760. Each fix was then live-verified against real
+`gemini-pro-latest`, real athlete repos, real diffs - never trusting the harness's own PASS/FAIL:
+
+**Finding E (confabulation) - fixed via deterministic post-hoc synthesis, live-verified.**
+`synthesizeQuestEventFromUnrecordedFacts` (`validateActions.ts`) runs in `buildTurnWrites` after the
+model's own reprompt has already failed - if exactly one active, not-yet-handled quest's name is
+referenced in a still-unrecorded completion fact, it writes the `quest_event` itself, zero extra
+model calls. On genuine ambiguity (multiple matching quests) it does nothing, same as before.
+- First live attempt (`coach-skanda`, "7hrs Sleep" quest) exposed a real bug in the wiring: the
+  synthesis trigger was reading the *second*-pass reply's own `unrecorded_facts`, and the model
+  stops self-flagging the miss on retry once it believes its own confabulated excuse resolved
+  things - so the signal came back empty even though the field was still uncaptured. Fixed by
+  reading the *first*-pass detection instead (reliable throughout this whole investigation),
+  relying on `buildTurnWrites`'s own already-handled check to no-op safely if the second pass had,
+  in fact, genuinely complied.
+- Re-run after the fix, same repo/quest, fresh branch: confabulation reproduced exactly as before
+  in the reply text ("I don't have the system tool to officially check off that quest..."), but this
+  time `user_data/ledger/progress.json` was actually committed - confirmed via `gh api` content
+  read, a real new row (`pr_sleep_2026-09-10`, `source: "model"`, today's date, `trace_id` matching
+  the run) landed correctly despite the model's own non-compliance.
+
+**Finding D (self-audit blind spot beyond injuries) - fixed via a habit-language keyword net, live-verified.**
+`findMissedHabitLanguage` extends the same scoped pattern `findMissedInjuryLanguage` already
+proved on #953 (first-session turns, zero pre-existing quests, no matching field already set) to
+habit/routine language, wired into the same one-shot reprompt - no new cost beyond what the
+mechanism already costs today.
+- A dense first-session message on a freshly-reset FSP scratch branch
+  (`skanda-testing/coach-skanda-testing`), burying two habits ("stretching every night before bed",
+  "journal my mood every day") among goal/injury/equipment/diet content, triggered the reprompt
+  (`missedHabitLanguage: 'daily'`) - the model had genuinely missed at least one habit on the first
+  pass. After the reprompt, both habits landed in `quests.json`, confirmed via `gh api` content read.
+
+**Silent-assumption bug - both layers built, unit-verified; live reproduction of the original race
+condition proved difficult to force on demand.** Primary (`pending_clarification` schema field +
+cross-turn persistence via `coach_log.json` + `findUnconfirmedAssumption`) and Fallback (a
+content-diff guard in `validateSessionReconcile`/`validatePlanEdit` that drops a category-changing
+edit with no matching confirmation cue in the raw message, independent of any cross-turn state) are
+both shipped and covered by real-fixture unit tests (`coachTurn.test.ts`,
+`validateActions.test.ts`). Three separate live attempts to recreate the original repro's exact
+shape (coach asks a genuine either/or scheduling question, gets a non-answer, then unilaterally
+commits an assumption) on `coach-prateek`'s real branch and fresh variants of it did not reproduce
+the race: in every attempt, direct pro either deferred without committing any schedule change at
+all, or offered conditional guidance without setting `pending_clarification` - it simply didn't
+walk into the specific bad behavior this fix targets, in three tries today. This is not proof the
+fix works end-to-end against the original failure mode, only that the mechanism itself is sound
+against its own unit fixtures and that pro is not reliably reproducing the underlying bad behavior
+on demand. Worth retrying with a scripted `--turns` file that hardcodes the model's first-turn reply
+if a live end-to-end confirmation is needed later.
 
 ### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
 
