@@ -108,7 +108,7 @@
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.2em;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   text-transform: uppercase;
 }
 
