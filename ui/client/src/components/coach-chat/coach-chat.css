@@ -513,6 +513,10 @@
   border-radius: 22px;
 }
 
+.cc-composer:focus-within {
+  border-color: var(--wi-rust);
+}
+
 .wi-shell .cc-composer textarea.cc-composer__input {
   flex: 1;
   min-height: 38px;

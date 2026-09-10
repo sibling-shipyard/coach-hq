@@ -267,6 +267,7 @@ export function MonthStepper({
         type="button"
         className="ma-stepper__arrow"
         title="Previous month"
+        aria-label="Previous month"
         disabled={!canGoPrev}
         onClick={onPrev}
       >
@@ -291,6 +292,7 @@ export function MonthStepper({
         type="button"
         className="ma-stepper__arrow"
         title="Next month"
+        aria-label="Next month"
         disabled={!canGoNext}
         onClick={onNext}
       >

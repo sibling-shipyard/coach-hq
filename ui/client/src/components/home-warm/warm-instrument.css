@@ -2742,6 +2742,7 @@ div.wi-trend-scrub__chip {
 }
 
 .wi-training-card__paging > button {
+  position: relative;
   display: grid;
   width: 19px;
   height: 19px;
@@ -2768,6 +2769,15 @@ div.wi-trend-scrub__chip {
 .wi-training-card__paging > button:disabled {
   opacity: 0.28;
   cursor: default;
+}
+
+/* The visible glyph stays 19px (Widget Design Philosophy's glance-only scale); this
+   pads the tap/click target toward the WCAG 2.5.8 24px baseline without growing past
+   the 3px inter-button gap, so the two extended targets meet but never overlap. */
+.wi-training-card__paging > button::before {
+  content: "";
+  position: absolute;
+  inset: -2.5px -1.5px;
 }
 
 .wi-vo2-scrub > line {

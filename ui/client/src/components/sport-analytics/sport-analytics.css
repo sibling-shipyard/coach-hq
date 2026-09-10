@@ -143,10 +143,12 @@
   color: var(--wi-surface);
 }
 
-.sa-toggle button:not(.is-active):hover,
+.sa-toggle button:not(.is-active):hover {
+  color: var(--wi-ink);
+}
+
 .sa-toggle button:not(.is-active):focus-visible {
   color: var(--wi-ink);
-  outline: none;
 }
 
 .sa-toggle button:focus-visible {
