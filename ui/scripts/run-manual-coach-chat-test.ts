@@ -71,6 +71,9 @@ import { fileURLToPath } from "node:url";
 
 import { fetchWithTimeout } from "../api/_lib/httpTimeout.js";
 import { getHeadSha } from "../api/coach-chat/_lib/decide/coachChatFiles.js";
+import { isTransient } from "../api/_lib/githubGitData.js";
+import { resolveProviderName } from "../api/_lib/llmClient.js";
+import { slugify } from "../api/_lib/slugify.js";
 import { handle } from "../api/coach-chat.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
@@ -84,10 +87,10 @@ try {
   // fine if it doesn't exist - GEMINI_API_KEY may already be in the environment
 }
 
-// Which key is actually required depends on which provider will run the call -
-// selectLlmAdapter() (llmClient.ts) picks OpenRouter only on the exact value "openrouter", so
-// mirror that here rather than always demanding GEMINI_API_KEY even on a pure OpenRouter run.
-const usingOpenRouter = process.env.LLM_PROVIDER === "openrouter";
+// Which key is actually required depends on which provider will run the call - reuse
+// resolveProviderName (llmClient.ts) rather than a second hand-rolled copy of the same
+// LLM_PROVIDER check, so this can never drift from what selectLlmAdapter itself picks.
+const usingOpenRouter = resolveProviderName(process.env) === "openrouter";
 const requiredKeyName = usingOpenRouter ? "OPENROUTER_API_KEY" : "GEMINI_API_KEY";
 if (!process.env[requiredKeyName]) {
   console.error(
@@ -146,11 +149,14 @@ function parseArgs(argv: string[]) {
 // rate-limit/ref-consistency hiccup right after this script creates a scratch branch has produced
 // a false "ERROR" on an otherwise-fine turn - one retry with a short fixed backoff, same
 // one-retry-cap pattern as the OpenRouter/Gemini adapters' own retries, fixes that without
-// masking a real, persistent failure (which still throws on the second attempt).
+// masking a real, persistent failure. Reuses githubGitData.ts's own isTransient check (a 4xx that
+// isn't 403/409/429 - a real bad request/auth/not-found - must still throw immediately, not burn
+// a retry and a 1.5s wait on a failure a second attempt can never fix).
 async function getHeadShaWithRetry(repo: string, token: string, branch?: string): Promise<string> {
   try {
     return await getHeadSha(repo, token, branch);
-  } catch {
+  } catch (err) {
+    if (!isTransient(err)) throw err;
     await new Promise((resolve) => setTimeout(resolve, 1500));
     return await getHeadSha(repo, token, branch);
   }
@@ -463,10 +469,7 @@ async function main() {
 
   // Tags the log filename with which repo this run hit - the bare timestamp alone made it hard
   // to tell apart several test sessions run against different athlete repos around the same time.
-  const repoSlug = repo
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const repoSlug = slugify(repo, "-");
   const logWritten = writeTestLog("manual", `manual-coach-chat-${repoSlug}`, entries);
 
   const passed = entries.filter((e) => e.result === "PASS").length;

@@ -20,6 +20,7 @@ import {
   type QuestsJson,
 } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
+import { slugify } from "../../../_lib/slugify.js";
 
 // coach_note: writes one row per calendar day to coach_log.json, the single merged continuity
 // log. Day-keyed, mirroring applyQuestEvent's (quest_id, date) pattern below: a turn on a day
@@ -226,11 +227,7 @@ export function applyInjuryFlag(
     );
     if (alreadyActive) continue;
 
-    const slug = injury.text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 24);
+    const slug = slugify(injury.text, "_", 24);
     const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
     const newFlag: InjuryFlag = {
       id,
@@ -475,11 +472,7 @@ export function applyProfileUpdate(content: string | null, updates: ProfileUpdat
 // for flag ids above (there via today's date instead of a slug prefix, but the same idea: a
 // short, readable, collision-resistant id minted server-side, never left to Gemini).
 function mintId(prefix: string, name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 24);
+  const slug = slugify(name, "_", 24);
   return `${prefix}_${slug || "x"}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
