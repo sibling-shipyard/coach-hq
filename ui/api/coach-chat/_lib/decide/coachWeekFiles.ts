@@ -334,7 +334,7 @@ export function validSessionIdsFromCurrentWeek(content: string | null): Readonly
  */
 export function weekSessionsFromCurrentWeek(
   content: string | null,
-): { id: string; date: string; title: string; status: string }[] {
+): { id: string; date: string; title: string; status: string; discipline: string; kind: string }[] {
   const parsed = parseJsonOrNull<CurrentWeek>(content);
   if (!Array.isArray(parsed?.days)) return [];
   return parsed.days.flatMap((day) =>
@@ -346,6 +346,12 @@ export function weekSessionsFromCurrentWeek(
             date: day.date,
             title: session.title,
             status: session.status,
+            // Added for the Bug 3 content-diff guard (validateActions.ts) - discipline/kind are
+            // the fields that matter for detecting a plan_edit/session_reconcile that changes a
+            // session's real category, not just a title tweak. Every existing caller
+            // (activeWeekSessionsContext) already ignores unused fields, so this is additive.
+            discipline: session.discipline,
+            kind: session.kind,
           }))
       : [],
   );

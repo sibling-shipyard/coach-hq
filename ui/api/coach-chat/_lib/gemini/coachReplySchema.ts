@@ -101,6 +101,16 @@ export interface GeminiReply {
   // above, empty array when there's nothing to flag. See coachTurn.ts's findUnrecordedFacts for
   // the reprompt this triggers, and responsePropertiesFor below for why it's declared after reply.
   unrecorded_facts?: string[];
+  // Bug 3 (2026-09-10 pro baseline, real diff-confirmed) - a genuinely different self-report than
+  // unrecorded_facts above: not "did I drop a fact," but the much narrower "did I just leave an
+  // open either/or question in this reply that needs an answer before I act on it." A real
+  // conversation showed the coach ask a real clarifying question, never get an answer, then
+  // unilaterally overwrite a real scheduled session anyway - this is the state that was missing.
+  // A short plain-language restatement of the open question, absent/empty when the reply doesn't
+  // leave one open. Persisted via coach_log.json (buildCoachNoteWrite) the same way coach_note
+  // already is, so next turn's real context naturally surfaces it - see coachContext.ts and
+  // coachTurn.ts's findUnconfirmedAssumption for how it's read back and enforced.
+  pending_clarification?: string;
 }
 
 // Every turn commits whatever it produces - there is no separate mode for a turn that closes a
@@ -403,6 +413,10 @@ const RESPONSE_PROPERTIES = {
     additionalProperties: false,
   },
   reply: { type: "string" },
+  // Bug 3 - see the GeminiReply.pending_clarification comment above. Declared right after reply,
+  // same reasoning as unrecorded_facts below: it needs reply's own text already generated to
+  // judge against ("did I just leave a question open in what I wrote").
+  pending_clarification: { type: "string" },
   // Finding D (OpenRouter K1 retest) mitigation - see the GeminiReply.unrecorded_facts comment
   // above. Declared last in responsePropertiesFor, after reply, on purpose: it's a self-audit of
   // everything else in this same response including reply's own text, so it needs those already
@@ -470,9 +484,11 @@ function responsePropertiesFor(
   // unrecorded_facts (Finding D mitigation) only makes sense when there's at least one action
   // field to audit against - skipped for greeting/activity_sync, which have none. Declared after
   // reply, not with the other action fields above, since it audits reply's own text too.
+  // pending_clarification (Bug 3) shares the same gate - only ordinary turns can have a next-turn
+  // action field (plan_edit/session_reconcile/etc) worth guarding against an unresolved question.
   const fields: ResponseField[] =
     actionFields.length > 0
-      ? [...actionFields, "reply", "unrecorded_facts"]
+      ? [...actionFields, "reply", "pending_clarification", "unrecorded_facts"]
       : [...actionFields, "reply"];
   return Object.fromEntries(
     fields.map((key): [string, LlmJsonSchemaNode] => [key, RESPONSE_PROPERTIES[key]]),
