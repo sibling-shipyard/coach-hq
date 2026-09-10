@@ -1,0 +1,38 @@
+[
+  {
+    "kind": "manual",
+    "name": "coach-message",
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/pro-coachmessage-fresh",
+    "shaBefore": "dc8cb587e68a163706aebfda7b78356e8f8a9bc3",
+    "shaAfter": "94454ec295fe2f41dfee05b6cdf1c553e08a052e",
+    "input": {
+      "activity_ids": [
+        "healthkit:3C1D679E-3335-4BA2-A2CA-15D6BDC0EE64"
+      ]
+    },
+    "output": {
+      "message": {
+        "id": "cm-62cf822a-cd72-4af8-bff9-c9e993ee7131",
+        "created_at": "2026-09-10T11:08:31.330Z",
+        "activity_ids": [
+          "healthkit:3C1D679E-3335-4BA2-A2CA-15D6BDC0EE64"
+        ],
+        "body": "Look, I see the short ride. You kept the effort low and didn't force anything. That quiet work counts.",
+        "conversation_seed_id": "local-proactive-cm-62cf822a-cd72-4af8-bff9-c9e993ee7131"
+      },
+      "delivered": true,
+      "idempotent": false,
+      "should_notify": true,
+      "repoSha": "94454ec295fe2f41dfee05b6cdf1c553e08a052e"
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/latest_message.json"
+      ],
+      "diff": "dc8cb587e68a163706aebfda7b78356e8f8a9bc3..94454ec295fe2f41dfee05b6cdf1c553e08a052e"
+    }
+  }
+]
