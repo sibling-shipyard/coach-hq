@@ -26,15 +26,23 @@ own (false-success claims, confabulated excuses), distinct in shape but not in s
 flash's omission or DeepSeek's hallucination. The model/provider decision above should be revisited
 with this fuller picture before any further action is taken on it.
 
+**PR #953, stacked on #952, fixes the two real bugs found in that pass** (the FSP injury-drop and
+`injuries.json`'s `_meta`/`version` loss) and adds `activity_sync` support to the manual test
+harness. Finding E's confabulation and coach-akash's false-success reply were both investigated
+deeper the same day - see "Direct pro's own reliability gaps" below for what was tried and why
+neither has a fix yet.
+
 ---
 
 ## Bugs found and fixed
 
-Across #948-#952, full check gate green (9/9) after every commit. Every "live-verified" claim
+Across #948-#953, full check gate green (9/9) after every commit. Every "live-verified" claim
 below is a real diff on a real athlete repo, not the test harness's own PASS/FAIL guess.
 
 | Bug | Root cause | Fix | Verification |
 |---|---|---|---|
+| FSP dense-message scenario silently dropped injuries 3/8 times (2026-09-10 pro baseline) even with `unrecorded_facts` live | Same-generation self-audit blind spot - see "Direct pro's own reliability gaps" below | `findMissedInjuryLanguage`: a deterministic keyword safety net, scoped to a first-session turn with zero existing injury flags so it can't hit the "new vs already on file" ambiguity a general version was rejected for | Fixed on #953, live-verified 3/3 (1 real catch, 2 clean passes, no false-positive interference) |
+| `injuries.json` was the only file writer that didn't re-stamp `version`/`_meta` on every write, unlike every sibling writer | `applyInjuryFlag`/`applyInjuryEvent` just emitted `{flags}`, dropping whatever existed | Stamp a fresh `version`/`_meta` on every write, matching the established pattern | Found on `coach-akash` during Track B, fixed on #953, live-verified |
 | **Finding A** - `plan_edit`/`session_reconcile` silently no-op'd while the reply claimed success | `requestCoachReply` never gave the model real template/session ids to reference on an ordinary turn | Fetch that context before asking the model, not just after to validate a guess | Live-re-verified 3/3 on `coach-prateek`, varied phrasing, every diff confirmed against real `current_week.json`. Pre-existing, provider-agnostic - not an OpenRouter bug |
 | **Finding B** - `template_edit` refused 100% of the time (6/6) | A Claude-Code-only SOUL guardrail ("never modify template files") was composing into the hosted chat build too, where it had nothing to do with the separate, validated `template_edit` action but read as a ban on it | Scoped the guardrail correctly (Claude-Code layer vs shared layer) | Live-verified on `coach-akash`: fires and commits for real |
 | **Finding C** - OpenRouter had no retry on `finish_reason: "length"` truncation (~37% of first-turn calls failed outright) | Missing retry, plus a second distinct bug: malformed JSON with a finish reason that isn't `"length"`, so the first retry never engaged | One retry mirroring the Gemini adapter's pattern (#948); second bug fixed on #950 | First fix dropped the rate to ~20%, not zero. Full fix live-verified 10/10 clean afterward |
@@ -124,6 +132,41 @@ scenario - the one number this doc's "stay on pro" decision was built on - came 
 fail) at a larger sample, not 12/12.** Every pro failure across the whole pass shares one shape: a
 false-success claim or confabulated excuse the `unrecorded_facts` self-audit does not catch - same
 blind spot already documented for flash and DeepSeek, now confirmed on pro too.
+
+**The FSP injury-drop (3/8) was fixed same-day** - `findMissedInjuryLanguage`, see "Bugs found and
+fixed" above and PR #953.
+
+**Finding E's confabulation was investigated deeper, live, with no working fix found:**
+1. Reproduced the base failure again, live: 0/1, the same false "not in schema" excuse.
+2. Tried a maximally explicit escalated correction as a follow-up turn - the exact field shape,
+   the real quest id, and a direct pre-emption of the false claim ("do not state or imply that
+   quest_event is missing"). **The model still didn't comply - it hallucinated something else
+   instead** (a fabricated season, "Load Bearing Season," never discussed). This rules out
+   "better prompt wording" as a fix.
+3. Confirmed via code (not guessed) that the schema itself is correctly enum-constrained with the
+   real quest ids on both the original call and the reprompt - not a code bug, a genuine model
+   reliability limit on this exact scenario.
+4. Drafted a detection-side mechanical trigger mirroring `findMissedInjuryLanguage` (matching
+   quest-completion language against a real active quest name) and deliberately did not ship it:
+   in every observed failure, `unrecorded_facts` already correctly detected the miss and the
+   reprompt already fired - the problem is compliance, not detection, so an identical-shaped
+   trigger would add nothing to a reprompt that's already proven not to work here.
+
+**No fix found for Finding E's confabulation. It is an accepted, open, unresolved gap on direct
+pro** - not something prompt engineering or detection heuristics have closed.
+
+**coach-akash's false-success-reply on a dropped `session_reconcile` was investigated deeper too,
+with an inconclusive result - not a fix, not a ruled-out bug.** The fix mechanism
+(`formatDroppedActionsCorrection`) exists in code, is correctly wired (confirmed by reading it),
+and was purpose-built for exactly this case. But 4 live attempts across 3 different methods -
+natural ambiguous phrasing, referencing a date outside the current week, and a literal fabricated
+session id handed to the model directly - could not reproduce the original false-success trigger
+on direct pro. Every time, pro either picked a real, correct session or honestly told the athlete
+it didn't recognize the reference and asked for clarification - no hallucination, no false claim.
+This doesn't mean the bug is fixed (nothing changed) or that it can't happen - only that it did not
+reproduce naturally on pro in 4 real attempts today, unlike its original discovery via
+OpenRouter/flash. Worth retrying with a scripted, hardcoded-bad-id `--turns` file rather than
+natural phrasing if this needs a definitive answer later.
 
 ### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
 
@@ -303,8 +346,10 @@ failure severity, and cost, not "pro is clean, everything else isn't."
    Plan-file deletion correctly not done yet (K1 hasn't merged).
 4. **DONE.** All 7 test-infra gaps fixed on #951, plus a real `GEMINI_API_KEY` production bug found
    and fixed in the same pass, plus the local-athlete-repo testing workflow now documented in
-   `docs/eng-docs/coach-chat-testing.md`. `activity_sync` mode testing intentionally left out per
-   explicit instruction (deferred, not forgotten).
+   `docs/eng-docs/coach-chat-testing.md`. `activity_sync` mode testing was fixed on #953
+   (`--activity-ids`, live-verified against a real repo). `coach-message` (a genuinely separate
+   endpoint, not reachable through `coach-chat.ts`) still has no harness - needs its own script,
+   sized but not built.
 5. **F1 (athlete repo migration/backfill)** - still the hard production blocker, unrelated to
    everything above. Merging triggers an immediate production deploy (confirmed via `vercel.json`);
    without F1's `coaching_style` backfill, every real athlete's onboarding resets on their next
@@ -332,8 +377,13 @@ failure severity, and cost, not "pro is clean, everything else isn't."
 - **Fixed:** the harness's own startup check, and `coach-chat.ts`'s real `handle()` (a genuine
   production bug, not just a test-harness one), now require the right API key for the actual
   selected provider instead of always requiring `GEMINI_API_KEY`.
-- **Still not fixed, deferred on purpose:** the manual harness has no way to reach
-  `mode: "activity_sync"` at all - explicitly left for later per instruction, not forgotten.
+- **Fixed on #953:** `--activity-ids` gives the manual harness a way to reach `mode: "activity_sync"`
+  for the first time - live-verified against a real repo with a real HealthKit activity id, correct
+  mode, correct contextual reply, real commit.
+- **Still no harness, sized but not built:** `coach-message` (the separate post-sync generator
+  endpoint) is not reachable through `coach-chat.ts`'s `handle()` at all - it's a genuinely
+  different handler (`ui/api/coach-message.ts`), and testing it needs its own script, not a flag
+  on the existing one. Moderate effort, not attempted yet.
 - **Documented, not code:** the local-athlete-repo testing workflow (recreating a conversation,
   verifying via real diffs, resetting to blank FSP state via the GitHub API) is now written up in
   `docs/eng-docs/coach-chat-testing.md` instead of living only in agent transcripts.
