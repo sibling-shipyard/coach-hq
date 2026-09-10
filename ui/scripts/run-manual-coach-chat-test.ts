@@ -24,6 +24,7 @@
  *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --turns turns.json
  *   npm run test:coach-chat-manual -- --athlete skanda --branch test/reuse-me --message "..."
  *   npm run test:coach-chat-manual -- --athlete skanda --greet --debug   # dump the raw prompt too
+ *   npm run test:coach-chat-manual -- --athlete skanda --activity-ids "hk:UUID1,hk:UUID2"
  *
  * **--message starts a new thread every invocation.** It's a one-shot: there is no state carried
  * between two separate `--message` runs, so calling it twice in a row does NOT continue one
@@ -35,6 +36,13 @@
  * every turn - alongside the parsed JSON reply, which already logs unconditionally. This was the
  * single most-requested addition across the OpenRouter K1 retest's root-cause sessions: without
  * it, seeing the real prompt meant editing geminiClient.ts by hand and remembering to revert it.
+ *
+ * `--activity-ids` drives a real activity_sync turn (mode: "activity_sync" in coach-chat.ts) -
+ * comma-separated real ids, format "hk:<uuid>", the uuid segment of a real
+ * user_data/activities/hist/hk_<date>_<uuid>.json filename in the target repo. This was the one
+ * mode the harness had no way to reach at all before (2026-09-10) - `coach-message` (the
+ * separate post-sync generator endpoint) now has its own harness too, see
+ * run-manual-coach-message-test.ts.
  *
  * turns.json is an array of { message }. Set `greet: true` on turns[0] to open the run with a
  * real greet turn first - its real threadId carries into every turn after it, so the whole run
@@ -116,6 +124,10 @@ interface ManualTurn {
   // every turn that follows, instead of minting a synthetic one - see the threadId handling
   // below for why this matters.
   greet?: true;
+  // Drives an activity_sync turn instead of an ordinary message - real HealthKit activity ids
+  // from the athlete's own user_data/activities/hist/ (format "hk:<uuid>", the uuid segment of
+  // hk_<date>_<uuid>.json). `message` is ignored when this is set.
+  activityIds?: string[];
 }
 
 interface ManualLogEntry extends TestLogEntry {
@@ -141,6 +153,7 @@ function parseArgs(argv: string[]) {
     message: get("--message"),
     turnsPath: get("--turns"),
     debug: argv.includes("--debug") || process.env.DEBUG === "1",
+    activityIds: get("--activity-ids"),
   };
 }
 
@@ -204,11 +217,16 @@ async function main() {
     return;
   }
 
-  const modeFlags = [args.greet, args.message != null, args.turnsPath != null].filter(
-    Boolean,
-  ).length;
+  const modeFlags = [
+    args.greet,
+    args.message != null,
+    args.turnsPath != null,
+    args.activityIds != null,
+  ].filter(Boolean).length;
   if (modeFlags !== 1) {
-    console.error("run-manual-coach-chat-test: pass exactly one of --greet, --message, --turns.");
+    console.error(
+      "run-manual-coach-chat-test: pass exactly one of --greet, --message, --turns, --activity-ids.",
+    );
     process.exit(1);
     return;
   }
@@ -290,6 +308,8 @@ async function main() {
         "for real multi-turn continuity.",
     );
     turns = [{ message: args.message }];
+  } else if (args.activityIds != null) {
+    turns = [{ message: "", activityIds: args.activityIds.split(",").map((id) => id.trim()) }];
   } else {
     turns = JSON.parse(fs.readFileSync(args.turnsPath!, "utf8")) as ManualTurn[];
   }
@@ -346,11 +366,13 @@ async function main() {
 
       body = turn.greet
         ? { action: "greet" as const }
-        : {
-            threadId,
-            messages,
-            message: turn.message,
-          };
+        : turn.activityIds
+          ? { action: "activity_sync" as const, activity_ids: turn.activityIds }
+          : {
+              threadId,
+              messages,
+              message: turn.message,
+            };
 
       const res = await handle(
         new Request("http://localhost/api/coach-chat", {
@@ -367,7 +389,7 @@ async function main() {
       // greet's thread and the follow-ups' synthetic one silently diverging.
       if (typeof json.threadId === "string") threadId = json.threadId;
 
-      if (!turn.greet) {
+      if (!turn.greet && !turn.activityIds) {
         const now = Date.now();
         const userMessage = { id: `u-${now}`, role: "user" as const, text: turn.message };
         const coachMessage = {

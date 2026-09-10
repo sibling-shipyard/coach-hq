@@ -45,7 +45,14 @@ describe("turnWrites text-cap backstop", () => {
 
   it("buildInjuryWrites caps oversized injury_flag[].text entries", async () => {
     const oversized = "i".repeat(INJURY_FLAG_TEXT_CAP + 400);
-    const write = buildInjuryWrites("owner/repo", "token", "UTC", [{ text: oversized }], []);
+    const write = buildInjuryWrites(
+      "owner/repo",
+      "token",
+      "UTC",
+      [{ text: oversized }],
+      [],
+      "test-trace",
+    );
     expect(write).toBeDefined();
     const content = await write!.resolve();
     const parsed = JSON.parse(content) as { flags: { text: string }[] };
@@ -60,6 +67,7 @@ describe("turnWrites text-cap backstop", () => {
       "UTC",
       [],
       [{ status: "active", flag_id: "inj_test", text: oversized }],
+      "test-trace",
     );
     expect(write).toBeDefined();
     // getFileRaw is mocked to null, so this event's flag_id will not exist in flags - it should

@@ -263,7 +263,15 @@ describe("applyMemoryUpdate", () => {
 
 describe("applyInjuryFlag", () => {
   it("opens a new flag with a server-minted id and no resolved_at", () => {
-    const result = JSON.parse(applyInjuryFlag(null, [{ text: "Left ankle tweak" }], "2026-08-18"));
+    const result = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "Left ankle tweak" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
+    );
     expect(result.flags).toHaveLength(1);
     const newFlag = result.flags[0];
     expect(newFlag.text).toBe("Left ankle tweak");
@@ -274,24 +282,52 @@ describe("applyInjuryFlag", () => {
   });
 
   it("starts a fresh flags array when content is null", () => {
-    const result = JSON.parse(applyInjuryFlag(null, [{ text: "First injury" }], "2026-08-18"));
+    const result = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "First injury" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
+    );
     expect(result.flags).toHaveLength(1);
     expect(result.flags[0].text).toBe("First injury");
   });
 
   it("treats malformed JSON as an empty flags array rather than throwing", () => {
     const result = JSON.parse(
-      applyInjuryFlag("{not valid json", [{ text: "New injury" }], "2026-08-18"),
+      applyInjuryFlag(
+        "{not valid json",
+        [{ text: "New injury" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     expect(result.flags).toHaveLength(1);
   });
 
   it("applies every new injury in the batch, not just the first", () => {
-    const result = JSON.parse(applyInjuryFlag(null, [{ text: "New wrist tweak" }], "2026-08-18"));
+    const result = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "New wrist tweak" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
+    );
     // Confirms new-flag events accumulate correctly across calls (a second new flag doesn't
     // clobber the first).
     const second = JSON.parse(
-      applyInjuryFlag(JSON.stringify(result), [{ text: "Separate shoulder niggle" }], "2026-08-18"),
+      applyInjuryFlag(
+        JSON.stringify(result),
+        [{ text: "Separate shoulder niggle" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     expect(second.flags).toHaveLength(2);
   });
@@ -303,7 +339,13 @@ describe("applyInjuryFlag", () => {
   // would mint a second, genuinely duplicate active flag for the same real injury.
   it("does not mint a second flag when a near-identical injury is already active (K1 fixture eval)", () => {
     const first = JSON.parse(
-      applyInjuryFlag(null, [{ text: "Left hip soreness persisting for 3 days" }], "2026-08-18"),
+      applyInjuryFlag(
+        null,
+        [{ text: "Left hip soreness persisting for 3 days" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     expect(first.flags).toHaveLength(1);
 
@@ -312,6 +354,8 @@ describe("applyInjuryFlag", () => {
         JSON.stringify(first),
         [{ text: "Left hip soreness for the past 3 days, noticed during runs" }],
         "2026-08-19",
+        "2026-08-19T00:00:00.000Z",
+        "test-trace",
       ),
     );
     expect(second.flags).toHaveLength(1);
@@ -330,7 +374,13 @@ describe("applyInjuryFlag", () => {
       ],
     });
     const result = JSON.parse(
-      applyInjuryFlag(resolved, [{ text: "Left hip soreness" }], "2026-08-18"),
+      applyInjuryFlag(
+        resolved,
+        [{ text: "Left hip soreness" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     expect(result.flags).toHaveLength(2);
     expect(result.flags[1].status).toBe("active");
@@ -342,6 +392,8 @@ describe("applyInjuryFlag", () => {
         null,
         [{ text: "Left hip soreness for 3 days" }, { text: "Right shoulder ache after lifting" }],
         "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
       ),
     );
     expect(result.flags).toHaveLength(2);
@@ -387,6 +439,8 @@ describe("applyInjuryEvent", () => {
         EXISTING,
         [{ status: "active", flag_id: "inj_elbow", text: "Worse today" }],
         "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
       ),
     );
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
@@ -397,7 +451,13 @@ describe("applyInjuryEvent", () => {
 
   it("resolves a flag, stamping resolved_at and leaving text as-is when no new text given", () => {
     const result = JSON.parse(
-      applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"),
+      applyInjuryEvent(
+        EXISTING,
+        [{ status: "resolved", flag_id: "inj_elbow" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
     expect(flag.status).toBe("resolved");
@@ -411,6 +471,8 @@ describe("applyInjuryEvent", () => {
         EXISTING,
         [{ status: "active", flag_id: "inj_knee", text: "Flared up again" }],
         "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
       ),
     );
     const flag = result.flags.find((f: any) => f.id === "inj_knee");
@@ -421,7 +483,13 @@ describe("applyInjuryEvent", () => {
 
   it("leaves other flags untouched", () => {
     const result = JSON.parse(
-      applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"),
+      applyInjuryEvent(
+        EXISTING,
+        [{ status: "resolved", flag_id: "inj_elbow" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     const untouched = result.flags.find((f: any) => f.id === "inj_knee");
     expect(untouched).toEqual({
@@ -442,6 +510,8 @@ describe("applyInjuryEvent", () => {
         EXISTING,
         [{ status: "resolved", flag_id: "inj_nonexistent" }],
         "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
       ),
     ).toThrow('no flag with id "inj_nonexistent"');
   });
@@ -450,7 +520,13 @@ describe("applyInjuryEvent", () => {
   // coachReplySchema.ts's injury_event.status already constrains on the Gemini path.
   it("throws on an invalid status instead of silently writing it", () => {
     expect(() =>
-      applyInjuryEvent(EXISTING, [{ status: "cured" as any, flag_id: "inj_elbow" }], "2026-08-18"),
+      applyInjuryEvent(
+        EXISTING,
+        [{ status: "cured" as any, flag_id: "inj_elbow" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
     ).toThrow('"cured" is not a valid status');
   });
 
@@ -466,6 +542,8 @@ describe("applyInjuryEvent", () => {
           { status: "active", flag_id: "inj_knee", text: "Flared up again" },
         ],
         "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
       ),
     );
     const elbow = result.flags.find((f: any) => f.id === "inj_elbow");

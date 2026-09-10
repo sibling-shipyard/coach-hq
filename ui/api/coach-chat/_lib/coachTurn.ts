@@ -378,6 +378,26 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
   return facts.length > 0 ? facts : null;
 }
 
+// Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
+// injuries 3/8 times even with unrecorded_facts live - the same same-generation blind spot as
+// everywhere else it's missed a real omission. A general keyword heuristic across every turn was
+// rejected above for exactly the reason still true on a returning turn: it can't tell "a new
+// injury" from "one already on file." That ambiguity doesn't exist here - scoped to a
+// first-session turn with zero injury flags on record yet, there is nothing yet to be
+// referencing, so any injury language in the raw message is necessarily new. A false positive
+// (injury-sounding word, no real injury meant) costs one extra reprompt the model can answer
+// "no injury, disregard" to - bounded downside, unlike the unbounded false-fire risk on every
+// other turn shape that got this idea rejected the first time.
+const INJURY_LANGUAGE_PATTERN =
+  /\b(strain(?:ed)?|sprain(?:ed)?|tweak(?:ed)?|sore(?:ness)?|ach(?:e|ing)|pain(?:ful)?|hurt(?:s|ing)?|injur(?:y|ed)|discomfort|tender(?:ness)?|pulled|niggle|twinge|flare(?:d)?)\b/i;
+
+function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.firstSession) return null;
+  if (turn.validInjuryFlagIds.size > 0) return null;
+  if ((reply.injury_flag ?? []).length > 0) return null;
+  return turn.geminiMessage.match(INJURY_LANGUAGE_PATTERN)?.[0] ?? null;
+}
+
 // D1 layer 2 (#736): schema constraints (layer 1) are strong but not formally airtight - this
 // codebase's own experience already shows maxLength is "a real constraint Gemini receives, not a
 // guarantee it honors" (docs/eng-docs/gemini-flow.md:154-155). Same shape as
@@ -484,11 +504,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const violation = findOversizedTextField(reply);
     const missingNote = missingRequiredCoachNote(reply);
     const unrecordedFacts = findUnrecordedFacts(reply);
-    if (violation || missingNote || unrecordedFacts) {
+    const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
+    if (violation || missingNote || unrecordedFacts || missedInjuryLanguage) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
         missingNote,
         unrecordedFacts,
+        missedInjuryLanguage,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -510,6 +532,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             ` captured in an action field this turn: ${unrecordedFacts.join("; ")} - add each as` +
             " a real action field now, or if one genuinely doesn't apply, say so plainly instead" +
             " of implying it was saved",
+        );
+      }
+      if (missedInjuryLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedInjuryLanguage}" but no injury_flag was set` +
+            " this turn - if a real injury was stated, add it now as injury_flag; if it genuinely" +
+            " doesn't describe a real injury, disregard this note",
         );
       }
       const repromptMessage = [
@@ -537,10 +566,11 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillOversized = findOversizedTextField(reply);
       const stillMissingNote = missingRequiredCoachNote(reply);
       const stillUnrecordedFacts = findUnrecordedFacts(reply);
-      if (stillOversized || stillMissingNote || stillUnrecordedFacts) {
+      const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
+      if (stillOversized || stillMissingNote || stillUnrecordedFacts || stillMissedInjuryLanguage) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
-          { stillOversized, stillMissingNote, stillUnrecordedFacts },
+          { stillOversized, stillMissingNote, stillUnrecordedFacts, stillMissedInjuryLanguage },
           { traceId: turn.traceId },
         );
       }
@@ -662,7 +692,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const newInjuries = (reply.injury_flag ?? []).filter(
     (injury) => (injury.text?.trim().length ?? 0) > 0,
   );
-  const injuryWrite = buildInjuryWrites(repo, token, timezone, newInjuries, injuryEvents);
+  const injuryWrite = buildInjuryWrites(repo, token, timezone, newInjuries, injuryEvents, traceId);
 
   const { valid: questEvents, dropped: droppedQuestEvents } = validateQuestEvents(
     reply.quest_event ?? [],

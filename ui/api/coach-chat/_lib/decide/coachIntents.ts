@@ -216,6 +216,8 @@ export function applyInjuryFlag(
   content: string | null,
   newInjuries: InjuryFlagInput[],
   today: string,
+  updatedAt: string,
+  traceId: string,
 ): string {
   const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
@@ -239,7 +241,16 @@ export function applyInjuryFlag(
     flags = [...flags, newFlag];
   }
 
-  return JSON.stringify({ flags }, null, 2);
+  // Every sibling writer (profile, memory, quests, seasons) re-stamps version/_meta fresh on
+  // every write - this one used to just emit {flags}, silently dropping both whenever they
+  // existed (found live, 2026-09-10 pro baseline: a real athlete repo's injuries.json lost its
+  // version/_meta on every touch). Matches the established pattern now instead of being the one
+  // exception to it.
+  return JSON.stringify(
+    { version: 1, _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId }, flags },
+    null,
+    2,
+  );
 }
 
 // injury_event { status, text?, flag_id }: update or resolve a flag already on file. Server owns
@@ -268,6 +279,8 @@ export function applyInjuryEvent(
   content: string | null,
   events: InjuryEvent[],
   today: string,
+  updatedAt: string,
+  traceId: string,
 ): string {
   const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
@@ -313,7 +326,12 @@ export function applyInjuryEvent(
     });
   }
 
-  return JSON.stringify({ flags }, null, 2);
+  // Same version/_meta re-stamp as applyInjuryFlag above - see its comment.
+  return JSON.stringify(
+    { version: 1, _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId }, flags },
+    null,
+    2,
+  );
 }
 
 // quest_event { quest_id, status, value? }[]: Part 2 ledger split. Server owns date/id/ts/
