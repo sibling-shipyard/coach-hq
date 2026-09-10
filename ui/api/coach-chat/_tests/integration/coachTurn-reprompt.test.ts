@@ -327,6 +327,29 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores a non-string entry in unrecorded_facts instead of throwing (review finding)", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "ok",
+        coach_note: "note",
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        // The schema declares string[], but Gemini's actual output is not runtime-checked here -
+        // a non-string element must not crash .trim() and turn a usable reply into a false 500.
+        unrecorded_facts: [null, 42, "a real fact"] as unknown as string[],
+      })
+      .mockResolvedValueOnce({
+        reply: "ok",
+        coach_note: "note",
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        unrecorded_facts: [],
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(result).not.toBeInstanceOf(Response);
+  });
+
   it("does not reprompt when unrecorded_facts is empty or absent", async () => {
     askGemini.mockResolvedValueOnce({
       reply: "ok",

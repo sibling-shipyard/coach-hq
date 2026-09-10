@@ -368,7 +368,13 @@ function missingRequiredCoachNote(reply: GeminiReply): boolean {
 // unreliable - but it's the strongest single signal available without a second full extraction
 // pass.
 function findUnrecordedFacts(reply: GeminiReply): string[] | null {
-  const facts = (reply.unrecorded_facts ?? []).map((fact) => fact.trim()).filter(Boolean);
+  // Same null/type guard as findOversizedTextField's injury_flag/memory_update checks above -
+  // the schema declares this as string[], but that's a request to Gemini, not a runtime
+  // guarantee; a non-string element here must not throw and turn a usable reply into a false 500.
+  const facts = (reply.unrecorded_facts ?? [])
+    .filter((fact): fact is string => typeof fact === "string")
+    .map((fact) => fact.trim())
+    .filter(Boolean);
   return facts.length > 0 ? facts : null;
 }
 
