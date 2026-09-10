@@ -3,14 +3,20 @@
 Narrative log for the OpenRouter re-test of PR #921's tip. See `OPENROUTER-K1-TEST-RESULTS.md` for
 the structured per-scenario pass/fail results this feeds from.
 
-**Status: COMPLETE. All 8 findings addressed, real production decision made, whole 26-PR stack
-rebased and mergeable (not merged).** Five PRs stacked on `main`: #948 (the 7 original findings) →
-#949 (Finding D's reprompt safety net) → #950 (Finding C's residual bug) / #951 (test-infra +
-a real `GEMINI_API_KEY` bug) / #952 (a genuine crash-fix found during Finding D's larger pass) -
-950/951/952 are three siblings on #949, not a linear chain. **Decision: stay on `gemini-pro-latest`
-for now** - see "WHY flash underperforms" below for the full reasoning and real numbers. Testing
-workflow for local athlete repos is now documented in `docs/eng-docs/coach-chat-testing.md`
-(added on #951).
+**Status: investigation itself is COMPLETE and its conclusion (stay on `gemini-pro-latest`) stands
+on real data. Whole 26-PR stack rebased and mergeable (not merged).** Five PRs stacked on `main`:
+#948 (the 7 original findings) → #949 (Finding D's reprompt safety net) → #950 (Finding C's
+residual bug) / #951 (test-infra + a real `GEMINI_API_KEY` bug) / #952 (a genuine crash-fix found
+during Finding D's larger pass) - 950/951/952 are three siblings on #949, not a linear chain.
+**Decision: stay on `gemini-pro-latest` for now** - see "WHY flash underperforms" below for the
+full reasoning and real numbers. Testing workflow for local athlete repos is now documented in
+`docs/eng-docs/coach-chat-testing.md` (added on #951).
+
+**Open as of 2026-09-10: direct pro's `GEMINI_API_KEY` ran out of billing credits**, blocking a
+planned re-verification of Findings A/B/E directly on pro (they were only ever live-verified via
+OpenRouter/flash). See "direct pro's own `GEMINI_API_KEY` ran out of billing credits" below for the
+full picture, and the OpenRouter-pro (`google/gemini-3.1-pro-preview`) trials run as a same-day
+substitute while blocked - real data, but explicitly not equivalent to direct pro.
 
 ---
 
@@ -206,6 +212,40 @@ existing code comment is accurate and complete - this really is unknowable from 
 variant showed - **hallucination** (invented `profile_update` values never stated, e.g. a fabricated
 name and timezone). The self-audit missed both of DeepSeek's worst trials too - same blind spot
 already seen once on direct Gemini flash, now seen twice across two different models.
+
+**2026-09-10 - direct pro's own `GEMINI_API_KEY` ran out of billing credits mid-investigation.**
+Every call, direct or via `soulCache`'s context-caching path, returns `429 RESOURCE_EXHAUSTED -
+"Your prepayment credits are depleted"`. Confirmed independently by 3 separate live-verification
+attempts (Finding A on coach-prateek, Finding B on coach-akash, Finding E on coach-skanda), all
+hitting the identical error with correct config (`LLM_PROVIDER` unset, `gemini-pro-latest`
+resolved correctly). This is the same key production's real current default provider uses - while
+this key has no credit, direct pro cannot serve any request at all, test or production. Needs a
+human to top up at ai.studio before the pending direct-pro re-verification (confirming Findings
+A/B/E hold on pro specifically, not just on OpenRouter/flash where they were originally found) can
+run.
+
+**OpenRouter-pro (`google/gemini-3.1-pro-preview` via `google-vertex`) explored as a same-day
+fallback route while direct pro's key is dead.** Not a stand-in for direct pro - it's a different
+model id behind a different routing path - but real, live-tested data on it is worth keeping
+regardless. All 3 trials below ran from a worktree with the actual `selectLlmAdapter` wiring
+(`origin/fix/finding-d-more-verification`, PR #952's tip - HQ's own `main` checkout does **not**
+have this wiring yet, `coachTurn.ts` there still calls `askGemini`/direct-Gemini unconditionally;
+confirmed the hard way after an initial test run against `main` silently no-op'd). `OPENROUTER_MODEL`
+was locally overridden from `google/gemini-3.8-flash` to `google/gemini-3.1-pro-preview` for these
+runs only - not committed, not shipped.
+
+| # | Scenario | Repo | Result | Evidence |
+|---|---|---|---|---|
+| 1 | Finding E (`quest_event`, mark `cold_shower` complete) | coach-skanda | **FAIL** - 1st attempt hit a hard OpenRouter 502 (real infra failure, not our code); retry ran clean but the model never emitted `quest_event`, only a `coach_note` - and falsely claimed *"cannot log as `quest_event` is missing from the provided schema"* (it is not). The `unrecorded_facts` self-audit correctly flagged it, the reprompt fired, but the model repeated the same false claim on the second pass too. | Real diff: only `chat_history.json` changed, `quests.json` untouched |
+| 2 | Finding B (`template_edit`, drop `workout_a`'s wrist warm-up phase) | coach-akash | **FAIL, false-success claim** - `template_edit` fired with `skip_phases: ["wrist warm-up"]`, but the template's real phase is named `"Warm-up — Wrist Prep"` - a string mismatch. The app correctly logged `no phase named "wrist warm-up" in this template - ignoring` and dropped the edit, but `coach_note`/`reply` both still claimed success ("I've stripped the wrist warm-up out of Workout A") | Real diff: `workout_a.json`'s `phases` array unchanged, `"Warm-up — Wrist Prep"` still present |
+| 3 | Finding A (`plan_edit`, swap a real session to a rest day) | coach-prateek | **PASS** - real session `sess_20260911_1` swapped from "Easy Mobility & Recovery" to a `Rest Day`, correct id picked out of 5 real sessions in the week | Real diff: `current_week.json`'s `sess_20260911_1` entry confirmed changed (`title`, `discipline` both updated) |
+
+**Read:** small sample (n=3), but two new failure shapes neither direct-pro nor OpenRouter-flash
+testing has shown before - a false "not in the schema" claim, and a phase-name string mismatch
+silently swallowed while the reply still claims success. Both are self-audit blind spots, same
+class of gap Finding D's mitigation already isn't fully closing. Not enough data to characterize
+OpenRouter-pro's real reliability, but enough to say it is not a clean drop-in either - do not treat
+"OpenRouter can reach a pro-tier model" as equivalent to "direct pro's reliability, just cheaper."
 
 **Overall recommendation, with all data now in: stay on `gemini-pro-latest` direct for now.** It
 remains the only 12/12-clean option found anywhere in this whole investigation. Nothing tested -
