@@ -358,13 +358,24 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
   ].join("\n");
 
   const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
-  const result = await adapter.generate({
-    system: "",
-    messages: [{ role: "user", text: prompt }],
-    maxOutputTokens: 1024,
-    responseSchema: TEMPLATE_ADJUSTMENT_RESPONSE_SCHEMA,
-    timeoutMs: 20_000,
-  });
+  let result;
+  try {
+    result = await adapter.generate({
+      system: "",
+      messages: [{ role: "user", text: prompt }],
+      maxOutputTokens: 1024,
+      responseSchema: TEMPLATE_ADJUSTMENT_RESPONSE_SCHEMA,
+      timeoutMs: 20_000,
+    });
+  } catch (err) {
+    // Tags the resolved adapter's real model onto the throw, same as geminiClient.ts's askGemini -
+    // generateInitialTemplates's own catch reports this to Sentry and must not always claim
+    // direct Gemini ran when LLM_PROVIDER=openrouter picked a different adapter.
+    if (err && typeof err === "object" && !("model" in err)) {
+      Object.assign(err, { model: adapter.model });
+    }
+    throw err;
+  }
 
   const parsed = JSON.parse(result.text) as { adjustments?: TemplateAdjustment[] };
   return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
@@ -405,7 +416,9 @@ export async function generateInitialTemplates(
     // library templates below so onboarding always produces something.
     await captureGeminiFailure(err, {
       traceId,
-      model: GEMINI_MODEL,
+      // adjustTemplatesWithGemini tags the resolved adapter's real model onto the error before it
+      // propagates here - falls back to the direct-Gemini constant only if that never ran.
+      model: (err as { model?: string }).model ?? GEMINI_MODEL,
       upstreamStatus: (err as { status?: number }).status ?? 500,
       turnMode: "template_adjust",
       // The adjustment pass personalizes library templates from athlete memory, not from

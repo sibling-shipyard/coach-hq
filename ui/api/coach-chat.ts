@@ -141,7 +141,10 @@ async function handleGreet(
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] greet askGemini failed:", err);
     await captureGeminiFailure(err, {
-      model: GEMINI_MODEL,
+      // geminiClient.ts tags the resolved adapter's real model onto the error before it
+      // propagates here - falls back to the direct-Gemini constant only if that never ran (e.g.
+      // a failure before the adapter was even selected).
+      model: (err as { model?: string }).model ?? GEMINI_MODEL,
       upstreamStatus: status,
       turnMode: "greeting",
       // Coach opens a greeting turn, so there is no athlete text to record.
