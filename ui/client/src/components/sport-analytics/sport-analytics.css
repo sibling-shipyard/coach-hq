@@ -786,17 +786,17 @@ button.sa-h2h__toggle {
 
 .sa-badminton-heatmap__legend i.is-ranked,
 .sa-badminton-heatmap__grid i.is-ranked {
-  background: #315a4a;
+  background: var(--wi-match-ranked, #315a4a);
 }
 
 .sa-badminton-heatmap__legend i.is-league,
 .sa-badminton-heatmap__grid i.is-league {
-  background: #a8702c;
+  background: var(--wi-match-league, #a8702c);
 }
 
 .sa-badminton-heatmap__legend i.is-friendly,
 .sa-badminton-heatmap__grid i.is-friendly {
-  background: #adc2b7;
+  background: var(--wi-match-friendly, #adc2b7);
 }
 
 .sa-badminton-heatmap__legend i.is-casual,
