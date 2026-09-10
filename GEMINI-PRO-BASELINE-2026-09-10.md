@@ -34,25 +34,42 @@ but when it fails, it fails the same misleading way they do.
 | Track B - coach-akash | 5/5, one already-known bug reproduces |
 | Track B - coach-prateek | 2/2, clean |
 | Track B - coach-skanda-testing FSP flagship scenario | **5/8 (37.5% fail)** |
+| Multi-turn continuity pass (3 real conversations, 4-6 turns each) | 2/3 clean, 1 new silent-assumption finding, Finding E confabulation reproduced again |
+| `coach-message` harness | Built, live-verified both real paths (idempotent-return, real-commit) |
 
 ---
 
 ## Multi-turn coverage
 
-Most of today's pass is deliberately single-message (fastest way to sample many scenarios in a
-one-day pro-only budget), but real multi-turn conversations were run too, not zero:
+Most of the original Track A/B pass was deliberately single-message (fastest way to sample many
+scenarios in a one-day pro-only budget). That gap was closed same-day with a dedicated multi-turn
+pass (PR #954), using the repo's own pre-built example turn files:
 
-| Scenario | Turns | Repo |
-|---|---|---|
-| Several Track A fixture transcripts (`incremental-injury-disclosure`, `fsp-quest-create-after-profile-complete`, others) | 2-3, built into the fixture format | fixture-only, no real repo |
-| `new_habits` P0 guard proof | 5, one continuous conversation | coach-date2022 |
-| `incremental-injury-disclosure` | 3 | coach-akash |
-| `week-plan-kickoff-ritual` | 2 | coach-prateek |
-| `fsp-quest-create-after-profile-complete` | 2 | coach-skanda-testing |
+| Scenario | Turns | Repo | Verdict |
+|---|---|---|---|
+| Several Track A fixture transcripts (`incremental-injury-disclosure`, `fsp-quest-create-after-profile-complete`, others) | 2-3, built into the fixture format | fixture-only, no real repo | PASS |
+| `new_habits` P0 guard proof | 5, one continuous conversation | coach-date2022 | PASS |
+| `incremental-injury-disclosure` | 3 | coach-akash | PASS |
+| `week-plan-kickoff-ritual` | 2 | coach-prateek | PASS |
+| `fsp-quest-create-after-profile-complete` | 2 | coach-skanda-testing | PASS |
+| FSP onboarding (`manual-coach-chat-turns-fsp.json`) | **6** | coach-skanda-testing | PASS - height/weight/timezone from turn 1 held correctly through turn 5's season creation; name/DOB correctly stayed empty since the athlete genuinely declined, no fabrication |
+| Quest-and-injury disclosure (`manual-coach-chat-turns-quest-and-injury.example.json`) | **5** | coach-date2022 | PASS on injury continuity (same flag correctly updated in place, not duplicated, across an escalating disclosure) - but reproduced Finding E's `quest_event` confabulation again on turn 1, see below |
+| Plan adjustment (`manual-coach-chat-turns-plan-adjustment.example.json`) | **4** | coach-prateek | **New finding** - see below |
 
-**Everything else in Track B below is a single message** - real, but not testing conversational
-continuity (memory across turns, a fact stated earlier still holding on turn 3, etc.). That's a
-real, honest gap in today's pass, not something to read into the tables below as covered.
+**New finding from the plan-adjustment conversation:** on turn 3, the coach itself asked a direct
+clarifying question ("Are we dropping football to do the recovery walk instead, or are you trying
+to do both?"). Turn 4's message ("That covers it, wrap this up") never actually answered it. The
+model unilaterally overwrote the real scheduled football match with a recovery walk anyway -
+confirmed via diff, `sess_20260912_1` went from "Football Training / Match" to "Easy Recovery
+Walk" with no explicit confirmation. Not a crash or hallucination - a real silent-assumption
+pattern on an unresolved ambiguity. Worth watching for, not yet mitigated.
+
+**Additional Finding E evidence:** the quest-and-injury conversation's turn 1 ("Got today's run
+done... keeps the streak going") triggered the same confabulation pattern as Finding E, on a
+different repo (coach-date2022, not coach-skanda) and a different, more generalized false claim
+("no session logging or quest event tools available in this specific schema"). The reprompt fired
+correctly and still didn't fix it. This is now confirmed as a repeatable, cross-repo pattern, not
+an isolated one-off tied to one quest or one athlete's data.
 
 ---
 

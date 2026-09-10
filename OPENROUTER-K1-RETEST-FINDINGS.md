@@ -32,6 +32,14 @@ harness. Finding E's confabulation and coach-akash's false-success reply were bo
 deeper the same day - see "Direct pro's own reliability gaps" below for what was tried and why
 neither has a fix yet.
 
+**PR #954, stacked on #953, closes the two remaining test-coverage gaps from that pass:** a real
+`coach-message` harness (the endpoint had zero test coverage before this - live-verified both the
+idempotent-return and real-commit paths) and a dedicated multi-turn continuity pass (3 real 4-6
+turn conversations, since most of the original pro baseline was single-message). That pass found
+one new real finding (a silent-assumption bug on an unresolved conversational ambiguity) and
+reproduced Finding E's confabulation again on a different repo/quest - see "Direct pro's own
+reliability gaps" below.
+
 ---
 
 ## Bugs found and fixed
@@ -154,6 +162,21 @@ fixed" above and PR #953.
 
 **No fix found for Finding E's confabulation. It is an accepted, open, unresolved gap on direct
 pro** - not something prompt engineering or detection heuristics have closed.
+
+**Reproduced again, independently, in the multi-turn pass (PR #954):** a 5-turn conversation on
+coach-date2022 hit the same pattern on its very first turn ("keeps the streak going" - a plain
+quest-completion statement) - `quest_event` never fired, and the model claimed "no session
+logging or quest event tools available in this specific schema," a generalized version of the
+same false claim, on a different repo, different quest, different phrasing. The reprompt fired
+correctly and still didn't fix it. This confirms Finding E is a repeatable, cross-repo pattern,
+not tied to one athlete's data or one specific quest.
+
+**A new, distinct finding from the same multi-turn pass:** a 4-turn plan-adjustment conversation
+on coach-prateek showed the model asking a direct clarifying question about an ambiguous request
+("dropping football or doing both?"), never getting an answer, and then unilaterally acting on one
+interpretation anyway - overwriting a real scheduled football match with a recovery walk, no
+explicit confirmation. Confirmed via diff. Distinct from Finding E: not a false claim about
+capability, a genuine silent assumption on an unresolved ambiguity in the conversation itself.
 
 **coach-akash's false-success-reply on a dropped `session_reconcile` was investigated deeper too,
 with an inconclusive result - not a fix, not a ruled-out bug.** The fix mechanism
@@ -358,10 +381,11 @@ failure severity, and cost, not "pro is clean, everything else isn't."
    on `pro`), not currently planned. Revisit "Model & provider comparison" above if that changes.
 7. **Real athlete repo scratch branches have accumulated well past 157** across this whole
    investigation. None touch any athlete's real `main`, none are PRs. Cleanup owed once the
-   investigation is fully done, not urgent - explicitly deferred per instruction, same as
-   `activity_sync` and `coach-message` testing.
-8. **Git mechanics are not blocking anything** - the whole 26-PR stack (`769`->...->`921`->`948`->
-   `949`->{`950`,`951`,`952`}) is rebased onto current `main`, green CI, mergeable. Nothing merged.
+   investigation is fully done - explicitly deferred per instruction, the one remaining item on
+   this list not yet closed.
+8. **Git mechanics are not blocking anything** - the whole 28-PR stack (`769`->...->`921`->`948`->
+   `949`->{`950`,`951`,`952`}->`953`->`954`) is rebased onto current `main`, green CI, mergeable.
+   Nothing merged.
 
 ---
 
@@ -380,10 +404,15 @@ failure severity, and cost, not "pro is clean, everything else isn't."
 - **Fixed on #953:** `--activity-ids` gives the manual harness a way to reach `mode: "activity_sync"`
   for the first time - live-verified against a real repo with a real HealthKit activity id, correct
   mode, correct contextual reply, real commit.
-- **Still no harness, sized but not built:** `coach-message` (the separate post-sync generator
-  endpoint) is not reachable through `coach-chat.ts`'s `handle()` at all - it's a genuinely
-  different handler (`ui/api/coach-message.ts`), and testing it needs its own script, not a flag
-  on the existing one. Moderate effort, not attempted yet.
+- **Fixed on #954:** `coach-message` (the separate post-sync generator endpoint, not reachable
+  through `coach-chat.ts`'s `handle()`) now has its own harness -
+  `run-manual-coach-message-test.ts` / `npm run test:coach-message-manual`. Exported `handle()`
+  from `coach-message.ts` (same pattern `coach-chat.ts` already uses). Live-verified both real
+  paths: idempotent-return (a real already-processed production activity, byte-identical response)
+  and real-commit (a fresh activity, real diff on `latest_message.json`).
+- **Fixed on #954:** multi-turn conversational continuity, previously untested in this whole
+  pass (everything before was single-message) - 3 real 4-6 turn conversations run against direct
+  pro, see `GEMINI-PRO-BASELINE-2026-09-10.md`'s "Multi-turn coverage" section for full results.
 - **Documented, not code:** the local-athlete-repo testing workflow (recreating a conversation,
   verifying via real diffs, resetting to blank FSP state via the GitHub API) is now written up in
   `docs/eng-docs/coach-chat-testing.md` instead of living only in agent transcripts.
