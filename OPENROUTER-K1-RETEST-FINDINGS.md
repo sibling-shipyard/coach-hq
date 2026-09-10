@@ -5,21 +5,26 @@ the structured per-scenario pass/fail results this feeds from.
 
 ## Status
 
-**Investigation complete. Decision: stay on `gemini-pro-latest` direct for now** - see "Model &
-provider comparison" below for the full reasoning and real numbers. Whole 26-PR stack rebased and
-mergeable, not merged. Five PRs stacked on `main`: #948 (the 7 original findings) -> #949 (Finding
-D's reprompt safety net) -> #950 (Finding C's residual bug) / #951 (test-infra + a real
-`GEMINI_API_KEY` bug) / #952 (a genuine crash-fix found during Finding D's larger pass) - 950/951/952
-are three siblings on #949, not a linear chain. Testing workflow for local athlete repos is
-documented in `docs/eng-docs/coach-chat-testing.md` (added on #951).
+**Investigation complete for the OpenRouter/flash/DeepSeek comparison. Decision as of 2026-09-09:
+stay on `gemini-pro-latest` direct** - see "Model & provider comparison" below for the full
+reasoning and real numbers. Whole 26-PR stack rebased and mergeable, not merged. Five PRs stacked
+on `main`: #948 (the 7 original findings) -> #949 (Finding D's reprompt safety net) -> #950
+(Finding C's residual bug) / #951 (test-infra + a real `GEMINI_API_KEY` bug) / #952 (a genuine
+crash-fix found during Finding D's larger pass) - 950/951/952 are three siblings on #949, not a
+linear chain. Testing workflow for local athlete repos is documented in
+`docs/eng-docs/coach-chat-testing.md` (added on #951).
 
-**Open, as of 2026-09-10:** Finding D (structured-output omission on dense messages, see "Still
-open" below), and a new pro-specific finding - **Finding E's fix does not hold on direct pro,
-0/3, and pro's own failure mode there is confabulation, not omission** (see "Still open" below).
-**"Pro is 12/12 clean" in this doc refers specifically to the Finding D dense-message scenario -
-it is not a blanket claim that pro is failure-free on every scenario.** Direct pro's billing
-credits were topped up 2026-09-10, unblocking the Findings A/B/E re-verification that was stuck
-the day before - A and B both held on pro; E did not.
+**2026-09-10 - that decision needs re-reading in light of a full pro baseline pass.** Direct pro's
+billing credits ran out, then were topped up the same day for a one-day-only thorough test pass.
+**See `GEMINI-PRO-BASELINE-2026-09-10.md` for the complete results** - Findings A/B/E re-verified
+directly on pro (A/B held, E did not), plus the full 23-transcript fixture suite and all 6 real
+athlete repos re-run against pro. Headline: **pro's flagship dense-message scenario came back 5/8
+(37.5% fail) at a larger sample, not the 12/12 this doc's earlier decision leaned on.** "Pro is
+12/12 clean" anywhere below refers to the smaller original sample on that one scenario - not a
+current, or a blanket, claim. Pro has real, repeatable, self-audit-invisible failure modes of its
+own (false-success claims, confabulated excuses), distinct in shape but not in severity from
+flash's omission or DeepSeek's hallucination. The model/provider decision above should be revisited
+with this fuller picture before any further action is taken on it.
 
 ---
 
@@ -107,60 +112,40 @@ reach a real athlete. **This firmer data points more strongly toward keeping M3 
 (flipping `LLM_PROVIDER=openrouter` in production), until flash's reliability on this scenario
 improves upstream or a stronger mitigation is found.**
 
-### Direct pro's `GEMINI_API_KEY` billing credits (resolved 2026-09-10)
+### Direct pro's own reliability gaps, found in a full one-day baseline pass (2026-09-10)
 
-Ran out mid-investigation - every call, direct or via `soulCache`'s context-caching path, returned
-`429 RESOURCE_EXHAUSTED - "Your prepayment credits are depleted"`. Confirmed independently by 3
-separate live-verification attempts before the top-up. Topped up same day; unblocked the pro
-re-verification below.
-
-### Finding E's fix does not hold on direct pro - a new, worse failure mode (2026-09-10)
-
-Re-verified Findings A/B/E directly against `gemini-pro-latest` once billing was restored, same
-worktree/method as prior pro trials (`origin/fix/finding-d-more-verification`, real `selectLlmAdapter`
-wiring). **A and B both held cleanly on pro** (A: `plan_edit` and `session_reconcile` both fired
-correctly with real diffs matching the reply text, 2/2; B: `template_edit` fired and committed a
-real phase removal, 1/1). **E did not: 0/3.**
-
-All 3 attempts on `coach-skanda` (quest `6am_wakeup`, a returning-athlete turn): `coach_note` fired
-every time, `quest_event` never did. Real diffs confirm `quests.json`/`progress.json` were
-byte-identical to `main` on all 3 branches. The `unrecorded_facts` self-audit correctly caught the
-miss and fired the reprompt on every attempt - the safety net itself worked as designed. But instead
-of complying on the reprompt, the model **confabulated a false technical excuse**, verbatim variants
-of "quest_event isn't in the schema" / "the system isn't letting me log quest progress today,"
-across all 3 runs. **Confirmed false**, not a real gap on our side: `quest_event` is declared in
-`RETURNING_ACTIONS` (`coachReplySchema.ts`), available on every returning-athlete turn, and this was
-one.
-
-**Why this matters more than a normal miss:** every other model's failure on this class of scenario
-has been silent omission (flash) or unprompted hallucination on a *different* field (DeepSeek). This
-is the first observed case of a model, when explicitly told "you missed this, add it now," inventing
-a specific false reason for refusing instead of complying or admitting uncertainty - a more
-convincing, more athlete-misleading failure than either. **This directly narrows the "production is
-safe today" claim made in the Finding D section below: that claim is scoped to the Finding D
-dense-message scenario specifically, not a blanket guarantee across every action type.** `quest_event`
-completion (a very common, ordinary turn) has its own live, real, unresolved reliability gap on
-production's actual current model.
+Billing credits ran out mid-investigation, then were topped up the same day for a dedicated
+one-day pro baseline pass - re-verifying Findings A/B/E directly on pro, plus the full 23-transcript
+fixture suite and all 6 real athlete repos. **Full results, all scenarios, all diffs: see
+`GEMINI-PRO-BASELINE-2026-09-10.md`.** Summary: A and B held cleanly; **E did not (0/3) - pro
+confabulates a false "not in the schema" excuse rather than complying with its own reprompt**. The
+fixture suite came back 22/23 (one restraint miss). Most importantly, **the flagship dense-message
+scenario - the one number this doc's "stay on pro" decision was built on - came back 5/8 (37.5%
+fail) at a larger sample, not 12/12.** Every pro failure across the whole pass shares one shape: a
+false-success claim or confabulated excuse the `unrecorded_facts` self-audit does not catch - same
+blind spot already documented for flash and DeepSeek, now confirmed on pro too.
 
 ### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
 
 Every model tested so far gets the exact same shape of task in one call: read a dense message,
 decide across a dozen-plus possible action types, get real ids right, self-check its own output,
 and write the final athlete-facing reply - all in one shot. Pro (`gemini-pro-latest`) handles that
-load cleanly (12/12 on the flagship dense-message scenario). Every cheaper model tested so far fails
-the same load in one of two distinct ways: it either quietly drops most of the work (flash, both
-providers) or it "helpfully" invents content to look complete (DeepSeek's fabricated injury
-resolutions and invented season, see "DeepSeek v4 pro" above). That is a classic too-much-in-one-call
-failure pattern, not obviously a fact that only pro is capable enough to ever get this right.
+load better than cheaper models (5/8 on the flagship dense-message scenario at a fuller sample -
+see `GEMINI-PRO-BASELINE-2026-09-10.md` - versus flash's near-total failure), but not perfectly.
+Every model tested, pro included, fails the same load in one of two ways: it either quietly drops
+part of the work (flash, both providers; pro's own 3/8 failures) or it "helpfully" invents content
+to look complete (DeepSeek's fabricated injury resolutions and invented season; pro's own Finding E
+confabulation and DOB hallucination). That is a classic too-much-in-one-call failure pattern that
+degrades by degree across capability tiers, not a binary "only pro can ever get this right."
 
 Everything tried so far has been a patch around the single-call shape - prompt wording, reasoning
-effort, the `unrecorded_facts` self-audit reprompt. None of it has restructured the call itself.
-**Not yet tested: splitting the turn into two smaller steps** (e.g. extract raw facts from the
-message first, then map extracted facts to the response schema second) so a cheaper model only has
-to do one simpler thing per call, instead of the whole decision surface at once. Worth testing
-against a cheap model once the pro baseline (below) is in, before concluding "no cheap model can do
-this" - the model choice and the call architecture are two separate variables, and only the first
-has been tested so far.
+effort, the `unrecorded_facts` self-audit reprompt (which has now missed real failures on every
+model tested, pro included). None of it has restructured the call itself. **Not yet tested:
+splitting the turn into two smaller steps** (e.g. extract raw facts from the message first, then map
+extracted facts to the response schema second) so a cheaper model only has to do one simpler thing
+per call, instead of the whole decision surface at once. Worth testing against a cheap model next -
+the model choice and the call architecture are two separate variables, and only the first has been
+tested so far.
 
 ---
 
@@ -201,12 +186,12 @@ by the existing reprompt in 2 of 3 cases), and one run where the model spent its
 200+ item garbage `sports_update` array instead of the real fields (a runaway generation, not a
 clean omission).
 
-**Practical read:** production is safe from *this specific dense-message omission scenario* today
-(`gemini-pro-latest`, 12/12 clean) as long as it stays pinned there. Reverting to
-`gemini-flash-latest` for cost/speed reasons, independent of any OpenRouter decision, would
-reintroduce this exact omission risk. **This does not mean pro is failure-free on every scenario -
-see "Finding E's fix does not hold on direct pro" under "Still open" for a real, unrelated pro
-failure mode found on an ordinary `quest_event` turn.**
+**Practical read:** the number in this table (12/12) was this scenario's original, smaller-sample
+pro result. Reverting to `gemini-flash-latest` for cost/speed reasons, independent of any OpenRouter
+decision, would reintroduce a worse version of this omission risk than pro's own - but **pro is not
+failure-free here either at a larger sample (5/8, see "Direct pro's own reliability gaps" under
+"Still open"), and has an unrelated failure mode of its own on ordinary `quest_event` turns too. See
+`GEMINI-PRO-BASELINE-2026-09-10.md` for the complete picture.**
 
 ### Why is OpenRouter's flash worse than direct Gemini's flash?
 
@@ -294,13 +279,15 @@ OpenRouter-pro's real reliability, but enough to say it is not a clean drop-in e
 
 ### Overall recommendation
 
-**Stay on `gemini-pro-latest` direct for now.** It remains the only 12/12-clean option found
-anywhere in this whole investigation. Nothing tested - not the reprompt safety net, not raising
-reasoning effort, not DeepSeek, not OpenRouter-pro - closes the reliability gap enough to justify
-the cost savings today. If cost pressure forces a move anyway, "medium" reasoning effort on
-OpenRouter flash plus the reprompt safety net is the least-bad combination found, but it is a real,
-measured tradeoff (occasional partial omissions, one confirmed false-claim, a self-audit that isn't
-airtight) - not a safe default, a deliberate risk to accept knowingly.
+**This recommendation was made 2026-09-09, on the strength of pro's 12/12 result on the flagship
+scenario. As of 2026-09-10 that number does not hold at a larger sample (5/8) - see
+`GEMINI-PRO-BASELINE-2026-09-10.md`. This recommendation needs to be re-made with the fuller
+picture, not treated as still-current.** What was true then: pro was still the best failure rate
+found of anything tested (flash and DeepSeek both fail more often, and more severely, than pro's
+3/8). What's now also true: pro's own failures are real, repeatable, and just as invisible to the
+`unrecorded_facts` self-audit as everyone else's. Cost pressure is real and pro is not the
+failure-free option it looked like - the decision is now a genuine tradeoff between failure rate,
+failure severity, and cost, not "pro is clean, everything else isn't."
 
 ---
 
