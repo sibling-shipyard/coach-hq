@@ -29,12 +29,12 @@ flowchart LR
 ```
 
 `resolveProviderName(env)` is the single source of truth for which adapter runs: exactly
-`"openrouter"` picks OpenRouter, anything else (unset, `"gemini"`, a typo) picks direct Gemini -
-production stays on direct Gemini unless a deployment sets the env var on purpose. Every caller
-that needs to know which provider will run a call (the manual test harness's required-API-key
-check, `coach-chat.ts`'s own key-configured gate) must call this function rather than re-checking
-`process.env.LLM_PROVIDER` by hand - a second, possibly-drifting copy of the same check was a real
-review finding on the harness (2026-09-10).
+`"openrouter"` picks OpenRouter, anything else (unset, `"gemini"`, a typo) picks direct Gemini.
+Production stays on direct Gemini unless a deployment sets the env var on purpose. Any caller that
+needs to know which provider will run a call must call this function, not re-check
+`process.env.LLM_PROVIDER` by hand. The manual test harness's required-API-key check and
+`coach-chat.ts`'s own key-configured gate both need this. A second, possibly-drifting copy of the
+same check was a real review finding on the harness (2026-09-10).
 
 ## The two adapters
 
@@ -49,23 +49,24 @@ review finding on the harness (2026-09-10).
 
 Both adapters call `withGeminiSpan` (`_lib/sentry.ts`) with `{"llm.adapter": "gemini" | "openrouter"}`,
 so a Sentry trace always names which one ran. `captureGeminiFailure`'s `model` field is filled from
-`adapter.model` at every call site (or tagged onto the thrown error by the caller and read back on
-the way to `captureGeminiFailure`, for callers like `askGemini` that resolve their own adapter
-internally) - never a hardcoded model constant, which would silently mislabel an OpenRouter failure
-as a direct-Gemini one.
+`adapter.model` at every call site - never a hardcoded model constant, which would silently
+mislabel an OpenRouter failure as a direct-Gemini one. A caller like `askGemini` that resolves its
+own adapter internally instead tags the model onto the thrown error, and reads it back at the
+`captureGeminiFailure` call site.
 
 ### Usage accumulation across a retry
 
 `span.setAttributes` (the mechanism `withGeminiSpan`'s `recordUsage` callback writes through)
-overwrites per key, it does not sum. A naive "call `recordUsage` once per attempt" implementation
-on a retried call reports only the *last* attempt's numbers, silently losing whatever the first,
+overwrites per key. It does not sum. A naive "call `recordUsage` once per attempt" implementation
+on a retried call reports only the *last* attempt's numbers. It silently loses whatever the first,
 retried-away attempt actually burned - a real bug found in review on `openRouterAdapter.ts`'s
-truncation retry (2026-09-10), since a truncated call still bills real tokens. The fix pattern,
-now established here for any adapter that retries: accumulate a running `GeminiUsage` object
-across attempts (summing each numeric field, preserving `undefined` when neither attempt ever
-reported a value - `usageAttributes` treats absent and zero as different facts, see
-`cachedPromptTokens`'s own comment in `openRouterAdapter.ts`), and call `recordUsage` with the
-running total after every attempt, not once per attempt with just that attempt's own numbers.
+truncation retry (2026-09-10), since a truncated call still bills real tokens.
+
+The fix pattern, now established here for any adapter that retries: accumulate a running
+`GeminiUsage` object across attempts, summing each numeric field. Preserve `undefined` when
+neither attempt ever reported a value - `usageAttributes` treats absent and zero as different
+facts, see `cachedPromptTokens`'s own comment in `openRouterAdapter.ts`. Call `recordUsage` with
+the running total after every attempt, not once per attempt with just that attempt's own numbers.
 
 ## Callers, in migration order
 
