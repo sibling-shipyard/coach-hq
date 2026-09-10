@@ -364,6 +364,54 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
   });
 });
 
+// Review finding: `\bach(?:e|ing)\b` only ever matches at a word's own start, but
+// "headache"/"backache"/"stomachache"/"toothache" have no word boundary before "ach" at all -
+// it sits mid-word - so the safety net silently never fired on exactly this phrasing.
+describe("requestCoachReply missed-injury-language reprompt, compound ache words (review finding)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it.each(["I have a bad headache", "my back has a dull backache", "stomachache since lunch"])(
+    "reprompts on %j (a first-session turn with no injury_flag set)",
+    async (message) => {
+      askGemini
+        .mockResolvedValueOnce({ reply: "noted", coach_note: "note" })
+        .mockResolvedValueOnce({
+          reply: "noted",
+          coach_note: "note",
+          injury_flag: [{ text: "headache" }],
+        });
+
+      await requestCoachReply(
+        baseTurnState({
+          firstSession: true,
+          validInjuryFlagIds: new Set<string>(),
+          trimmed: message,
+          geminiMessage: message,
+        }),
+      );
+
+      expect(askGemini).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('does not false-positive on a word that merely contains "ach" mid-word', async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      baseTurnState({
+        firstSession: true,
+        validInjuryFlagIds: new Set<string>(),
+        trimmed: "still reaching my weekly mileage target",
+        geminiMessage: "still reaching my weekly mileage target",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd
 // while the reply still claimed success, because this prompt never told the model any real
 // template_id/session_id to work from on an ordinary turn - activeTemplatesContext/

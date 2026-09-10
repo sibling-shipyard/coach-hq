@@ -281,6 +281,49 @@ describe("applyInjuryFlag", () => {
     expect(newFlag.id).toMatch(/^inj_/);
   });
 
+  // Review finding: every sibling writer (profile, memory, quests, seasons) re-stamps
+  // version/_meta on every write; this one used to just emit {flags}, silently dropping both.
+  // No existing test asserted on the stamp, which is the whole point of the fix.
+  it("stamps version and _meta on every write, not just the flags array", () => {
+    const result = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "Left ankle tweak" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
+    );
+    expect(result.version).toBe(1);
+    expect(result._meta).toEqual({
+      updated_at: "2026-08-18T00:00:00.000Z",
+      updated_by: "model",
+      trace_id: "test-trace",
+    });
+  });
+
+  it("re-stamps version and _meta fresh even when writing against existing content", () => {
+    const existing = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-07-01T00:00:00.000Z", updated_by: "model", trace_id: "old-trace" },
+      flags: [],
+    });
+    const result = JSON.parse(
+      applyInjuryFlag(
+        existing,
+        [{ text: "New wrist tweak" }],
+        "2026-08-19",
+        "2026-08-19T12:00:00.000Z",
+        "new-trace",
+      ),
+    );
+    expect(result._meta).toEqual({
+      updated_at: "2026-08-19T12:00:00.000Z",
+      updated_by: "model",
+      trace_id: "new-trace",
+    });
+  });
+
   it("starts a fresh flags array when content is null", () => {
     const result = JSON.parse(
       applyInjuryFlag(
@@ -403,11 +446,25 @@ describe("applyInjuryFlag", () => {
   // clearing the 0.5 word-overlap threshold and silently dropping a real second injury on the
   // opposite side of the body.
   it("does not dedupe a same-turn injury against its mirror on the opposite side", () => {
-    const first = JSON.parse(applyInjuryFlag(null, [{ text: "Left hip pain" }], "2026-08-18"));
+    const first = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "Left hip pain" }],
+        "2026-08-18",
+        "2026-08-18T00:00:00.000Z",
+        "test-trace",
+      ),
+    );
     expect(first.flags).toHaveLength(1);
 
     const second = JSON.parse(
-      applyInjuryFlag(JSON.stringify(first), [{ text: "Right hip pain" }], "2026-08-19"),
+      applyInjuryFlag(
+        JSON.stringify(first),
+        [{ text: "Right hip pain" }],
+        "2026-08-19",
+        "2026-08-19T00:00:00.000Z",
+        "test-trace",
+      ),
     );
     expect(second.flags).toHaveLength(2);
   });

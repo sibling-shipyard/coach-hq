@@ -388,8 +388,13 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
 // (injury-sounding word, no real injury meant) costs one extra reprompt the model can answer
 // "no injury, disregard" to - bounded downside, unlike the unbounded false-fire risk on every
 // other turn shape that got this idea rejected the first time.
+// The bare `ach(?:e|ing)` alternative only ever matches at the START of a word (\b requires a
+// boundary immediately before it) - "headache"/"backache"/"stomachache"/"toothache" have no
+// boundary there at all, since "ach" sits mid-word, so the whole match silently never fires on
+// exactly the phrasing an athlete reporting a headache would use. Named compound forms are listed
+// explicitly, each still properly `\b`-anchored at its own real word start.
 const INJURY_LANGUAGE_PATTERN =
-  /\b(strain(?:ed)?|sprain(?:ed)?|tweak(?:ed)?|sore(?:ness)?|ach(?:e|ing)|pain(?:ful)?|hurt(?:s|ing)?|injur(?:y|ed)|discomfort|tender(?:ness)?|pulled|niggle|twinge|flare(?:d)?)\b/i;
+  /\b(strain(?:ed)?|sprain(?:ed)?|tweak(?:ed)?|sore(?:ness)?|(?:head|back|stomach|tooth)?ach(?:e|ing)|pain(?:ful)?|hurt(?:s|ing)?|injur(?:y|ed)|discomfort|tender(?:ness)?|pulled|niggle|twinge|flare(?:d)?)\b/i;
 
 function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
   if (!turn.firstSession) return null;

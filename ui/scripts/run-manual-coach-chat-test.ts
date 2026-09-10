@@ -41,8 +41,8 @@
  * comma-separated real ids, format "hk:<uuid>", the uuid segment of a real
  * user_data/activities/hist/hk_<date>_<uuid>.json filename in the target repo. This was the one
  * mode the harness had no way to reach at all before (2026-09-10) - `coach-message` (the
- * separate post-sync generator endpoint) now has its own harness too, see
- * run-manual-coach-message-test.ts.
+ * separate post-sync generator endpoint) has no equivalent harness yet; it is reached only
+ * through the real sync pipeline today.
  *
  * turns.json is an array of { message }. Set `greet: true` on turns[0] to open the run with a
  * real greet turn first - its real threadId carries into every turn after it, so the whole run
