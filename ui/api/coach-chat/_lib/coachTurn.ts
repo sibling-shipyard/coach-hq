@@ -708,7 +708,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
-      stillUnrecordedFactsForSynthesis = stillUnrecordedFacts;
+      // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
+      // - the model stops self-flagging the miss on retry (it now believes its confabulated
+      // excuse resolved it), even though the field still isn't captured. Carry forward the
+      // FIRST pass's unrecordedFacts instead, unconditionally - it was the reliable detection,
+      // and buildTurnWrites' own alreadyHandledQuestIds check already no-ops the synthesis safely
+      // if the reprompt's second pass did, in fact, add a real quest_event.
+      stillUnrecordedFactsForSynthesis = unrecordedFacts;
       stillUnconfirmedAssumptionForDrop = stillUnconfirmedAssumption;
       if (
         stillOversized ||
