@@ -123,13 +123,26 @@ export interface ExistingSessionForDiff {
 // assumption and drop it, same as a bad id. A same-day title/kind tweak within the same discipline
 // is not gated - only a category swap needs confirming.
 const CONFIRMATION_CUE_PATTERN =
-  /\b(yes|yeah|yep|yup|confirm(?:ed)?|sounds good|go ahead|do it|that works|works for me|sure|drop (?:the|it)|swap (?:it|that|for)|instead of|correct)\b/i;
+  /\b(yes|yeah|yep|yup|confirm(?:ed)?|sounds good|go ahead|do it|that works|works for me|sure|drop (?:the|it)|swap (?:it|that|for)|instead of|correct)\b/gi;
+
+// A negation shortly before a matched cue flips it into a refusal, not a confirmation - "I'm not
+// sure, don't drop the football" matches "drop the" above but is explicitly saying the opposite.
+// Checked against a short window right before the cue (same clause), not the whole message, so an
+// unrelated negation earlier in a longer message can't falsely cancel out a real, later "yes".
+const NEGATION_PATTERN =
+  /\b(not|no|never|don'?t|doesn'?t|didn'?t|won'?t|wouldn'?t|isn'?t|wasn'?t)\b/i;
+const NEGATION_LOOKBACK_CHARS = 20;
 
 // Exported so coachTurn.ts's findUnconfirmedAssumption (Bug 3 Primary - pending-clarification
 // tracking) can reuse the exact same "does the athlete's raw message read as an answer" judgment
 // this content-diff guard already uses, rather than a second, possibly-drifting keyword list.
 export function hasConfirmationCue(athleteMessage: string): boolean {
-  return CONFIRMATION_CUE_PATTERN.test(athleteMessage);
+  for (const match of athleteMessage.matchAll(CONFIRMATION_CUE_PATTERN)) {
+    const start = match.index ?? 0;
+    const precedingText = athleteMessage.slice(Math.max(0, start - NEGATION_LOOKBACK_CHARS), start);
+    if (!NEGATION_PATTERN.test(precedingText)) return true;
+  }
+  return false;
 }
 
 function categoryChangeIsConfirmed(
@@ -141,19 +154,26 @@ function categoryChangeIsConfirmed(
   const existing = existingSessions.get(sessionId);
   // No existing record to compare against (shouldn't happen once the id-existence check above
   // already passed, but fail open here - this guard's whole job is comparing content, not
-  // re-deciding existence) or the category is unchanged - nothing to confirm either way.
-  if (!existing) return true;
+  // re-deciding existence) or the category is unchanged - nothing to confirm either way. Same
+  // null/type guard discipline as findUnrecordedFacts (coachTurn.ts) - the schema declares
+  // discipline as a required string, but that's a request to Gemini, not a runtime guarantee.
+  if (!existing || typeof proposedDiscipline !== "string") return true;
   if (existing.discipline.trim().toLowerCase() === proposedDiscipline.trim().toLowerCase()) {
     return true;
   }
-  return CONFIRMATION_CUE_PATTERN.test(athleteMessage);
+  return hasConfirmationCue(athleteMessage);
 }
 
+// existingSessions/athleteMessage take no default value on purpose - an empty map and empty
+// string both make categoryChangeIsConfirmed fail open (nothing to compare against, or no message
+// text to find a cue in), so a caller must pass `new Map()`/`""` explicitly to opt out of the
+// whole Bug 3 content-diff guard rather than disabling it by omission. Every real caller
+// (buildTurnWrites) always has both.
 export function validateSessionReconcile(
   events: SessionReconcileEvent[],
   validSessionIds: ReadonlySet<string>,
-  existingSessions: ReadonlyMap<string, ExistingSessionForDiff> = new Map(),
-  athleteMessage = "",
+  existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
+  athleteMessage: string,
 ): { valid: SessionReconcileEvent[]; dropped: DroppedAction[] } {
   const valid: SessionReconcileEvent[] = [];
   const dropped: DroppedAction[] = [];
@@ -188,11 +208,12 @@ export function validateSessionReconcile(
   return { valid, dropped };
 }
 
+// Same no-default reasoning as validateSessionReconcile above.
 export function validatePlanEdit(
   events: PlanEditEvent[],
   validSessionIds: ReadonlySet<string>,
-  existingSessions: ReadonlyMap<string, ExistingSessionForDiff> = new Map(),
-  athleteMessage = "",
+  existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
+  athleteMessage: string,
 ): { valid: PlanEditEvent[]; dropped: DroppedAction[] } {
   const valid: PlanEditEvent[] = [];
   const dropped: DroppedAction[] = [];
@@ -241,13 +262,22 @@ export interface QuestForSynthesis {
 // follow-up was already tried live and still failed the same way - this is a compliance failure,
 // not a detection one, so a third model call is not a promising next step. Deterministically
 // synthesize the completion instead, but only when the match is genuinely unambiguous: the
-// unrecorded fact reads as a completion claim, and either exactly one active quest exists (nothing
-// else it could logically refer to) or exactly one active quest's name is actually referenced in
-// the fact text. Real ambiguity (several plausible quests, no name match) is left alone
-// deliberately - the athlete's next turn can clarify - rather than guessing and risking a wrong
-// completion written to a real file.
+// unrecorded fact reads as a completion claim, AND exactly one active quest's name is actually
+// referenced in the fact text. A single remaining active quest with no name match at all is not
+// treated as unambiguous by elimination - the fact could be about something else entirely (a
+// completed chore, an unrelated task) that happens to use completion language, and writing that
+// quest complete anyway would be a wrong completion in a real file, not a safe guess. Real
+// ambiguity (several plausible quests, no name match) is left alone deliberately - the athlete's
+// next turn can clarify - rather than guessing.
 const QUEST_COMPLETION_LANGUAGE_PATTERN =
   /\b(complet(?:ed|ing)|done|finish(?:ed)?|hit|nailed|crushed|logged|achiev(?:ed|ing)|knocked out|wrapped up)\b/i;
+
+// Escapes every regex metacharacter, not just the ones today's callers happen to strip first -
+// this function must stay regex-safe against any string on its own, not only because a caller
+// upstream currently sanitizes what it passes in.
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function questNameReferencedIn(questName: string, factText: string): boolean {
   const words = questName
@@ -257,7 +287,7 @@ function questNameReferencedIn(questName: string, factText: string): boolean {
     .filter((word) => word.length > 2);
   if (words.length === 0) return false;
   const lowerFact = factText.toLowerCase();
-  return words.every((word) => new RegExp(`\\b${word}\\b`).test(lowerFact));
+  return words.every((word) => new RegExp(`\\b${escapeRegExp(word)}\\b`).test(lowerFact));
 }
 
 export function synthesizeQuestEventFromUnrecordedFacts(
@@ -280,9 +310,11 @@ export function synthesizeQuestEventFromUnrecordedFacts(
     completionFacts.some((fact) => questNameReferencedIn(quest.name, fact)),
   );
 
-  const winner =
-    nameMatches.length === 1 ? nameMatches[0] : candidates.length === 1 ? candidates[0] : null;
-  if (!winner) return null;
+  // A real name match is required unconditionally - see this function's header comment. A single
+  // remaining active quest with no name match is not treated as the winner by elimination: the
+  // fact could be about something else entirely ("finished packing my bags") that happens to use
+  // completion language, and that quest is not the only thing it could plausibly be about.
+  if (nameMatches.length !== 1) return null;
 
-  return { quest_id: winner.id, status: "completed" };
+  return { quest_id: nameMatches[0].id, status: "completed" };
 }

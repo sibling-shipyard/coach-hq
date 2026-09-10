@@ -95,7 +95,7 @@ describe("validateSessionPlan", () => {
 describe("validateSessionReconcile", () => {
   it("keeps events whose session_id is in the valid set", () => {
     const events = [{ session_id: "s1", status: "done" as const }];
-    const { valid, dropped } = validateSessionReconcile(events, new Set(["s1"]));
+    const { valid, dropped } = validateSessionReconcile(events, new Set(["s1"]), new Map(), "");
     expect(valid).toEqual(events);
     expect(dropped).toEqual([]);
   });
@@ -103,7 +103,12 @@ describe("validateSessionReconcile", () => {
   it("drops events whose session_id is not in the valid set, keeping the rest", () => {
     const good = { session_id: "s1", status: "done" as const };
     const bad = { session_id: "s_bogus", status: "skipped" as const };
-    const { valid, dropped } = validateSessionReconcile([good, bad], new Set(["s1"]));
+    const { valid, dropped } = validateSessionReconcile(
+      [good, bad],
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
     expect(valid).toEqual([good]);
     expect(dropped).toEqual([
       { field: "session_reconcile", reason: expect.stringContaining('"s_bogus"') },
@@ -114,7 +119,7 @@ describe("validateSessionReconcile", () => {
 describe("validatePlanEdit", () => {
   it("keeps events whose session_id is in the valid set", () => {
     const events = [{ session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" }];
-    const { valid, dropped } = validatePlanEdit(events, new Set(["s1"]));
+    const { valid, dropped } = validatePlanEdit(events, new Set(["s1"]), new Map(), "");
     expect(valid).toEqual(events);
     expect(dropped).toEqual([]);
   });
@@ -127,7 +132,7 @@ describe("validatePlanEdit", () => {
       kind: "full_body",
       title: "Full body",
     };
-    const { valid, dropped } = validatePlanEdit([good, bad], new Set(["s1"]));
+    const { valid, dropped } = validatePlanEdit([good, bad], new Set(["s1"]), new Map(), "");
     expect(valid).toEqual([good]);
     expect(dropped).toEqual([{ field: "plan_edit", reason: expect.stringContaining('"s_bogus"') }]);
   });
@@ -160,10 +165,19 @@ describe("synthesizeQuestEventFromUnrecordedFacts", () => {
     expect(synthesizeQuestEventFromUnrecordedFacts(facts, [proteinQuest], new Set())).toBeNull();
   });
 
-  it("synthesizes when exactly one active quest exists and a completion fact is present", () => {
+  it("synthesizes when the sole active quest's own name is referenced in the fact", () => {
     const facts = ["Completed protein target for today, but quest_event wasn't set."];
     const result = synthesizeQuestEventFromUnrecordedFacts(facts, [proteinQuest], new Set());
     expect(result).toEqual({ quest_id: "protein", status: "completed" });
+  });
+
+  // A single remaining active quest is not the winner by elimination on its own - a real name
+  // match is required regardless of how many candidates exist, since the fact could plausibly be
+  // about something else entirely that happens to use completion language.
+  it("does not synthesize against the sole active quest when the fact never names it", () => {
+    const facts = ["Finished packing my bags for the trip tomorrow."];
+    const result = synthesizeQuestEventFromUnrecordedFacts(facts, [proteinQuest], new Set());
+    expect(result).toBeNull();
   });
 
   it("synthesizes when multiple quests exist but exactly one name-matches the fact", () => {
@@ -200,6 +214,22 @@ describe("synthesizeQuestEventFromUnrecordedFacts", () => {
     const facts = ["Completed the old quest again today."];
     const result = synthesizeQuestEventFromUnrecordedFacts(facts, [retiredQuest], new Set());
     expect(result).toBeNull();
+  });
+
+  // Review finding (P0): a quest name carrying regex metacharacters must not crash the whole
+  // turn - defensive even though the current word-extraction step already strips them first.
+  it("does not throw on a quest name containing regex metacharacters", () => {
+    const weirdQuest: QuestForSynthesis = {
+      id: "weird",
+      name: "7hrs (Sleep) [target]+.*?",
+      status: "active",
+    };
+    const facts = ["Hit my 7hrs sleep target again, but quest_event wasn't set."];
+    expect(() =>
+      synthesizeQuestEventFromUnrecordedFacts(facts, [weirdQuest], new Set()),
+    ).not.toThrow();
+    const result = synthesizeQuestEventFromUnrecordedFacts(facts, [weirdQuest], new Set());
+    expect(result).toEqual({ quest_id: "weird", status: "completed" });
   });
 });
 
@@ -251,6 +281,27 @@ describe("validatePlanEdit content-diff guard (Bug 3)", () => {
     expect(dropped).toEqual([]);
   });
 
+  // "drop the" alone is one of the confirmation phrases, so an explicit refusal containing those
+  // words must still read as unconfirmed, not as agreement with the opposite of what was said.
+  it("still drops the edit when the message negates the very phrase that would otherwise confirm it", () => {
+    const event = {
+      session_id: "s_saturday",
+      discipline: "walk",
+      kind: "recovery",
+      title: "Easy Recovery Walk",
+    };
+    const { valid, dropped } = validatePlanEdit(
+      [event],
+      new Set(["s_saturday"]),
+      existingSessions,
+      "I'm not sure, don't drop the football.",
+    );
+    expect(valid).toEqual([]);
+    expect(dropped).toEqual([
+      { field: "plan_edit", reason: expect.stringContaining("unconfirmed assumption") },
+    ]);
+  });
+
   it("keeps an edit that doesn't change the session's category, confirmation or not", () => {
     const event = {
       session_id: "s_saturday",
@@ -268,9 +319,9 @@ describe("validatePlanEdit content-diff guard (Bug 3)", () => {
     expect(dropped).toEqual([]);
   });
 
-  it("keeps working with no existing-session data supplied (default empty map, backward compatible)", () => {
+  it("keeps an edit when no existing-session data is supplied - nothing to compare against, so nothing to gate", () => {
     const event = { session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" };
-    const { valid, dropped } = validatePlanEdit([event], new Set(["s1"]));
+    const { valid, dropped } = validatePlanEdit([event], new Set(["s1"]), new Map(), "");
     expect(valid).toEqual([event]);
     expect(dropped).toEqual([]);
   });

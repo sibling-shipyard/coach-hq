@@ -51,11 +51,7 @@ import {
   type DroppedAction,
   type ExistingSessionForDiff,
 } from "./decide/turnWrites/validateActions.js";
-import {
-  CURRENT_WEEK_PATH,
-  validSessionIdsFromCurrentWeek,
-  weekSessionsFromCurrentWeek,
-} from "./decide/coachWeekFiles.js";
+import { CURRENT_WEEK_PATH, weekSessionsFromCurrentWeek } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
   activeWeekSessionsContext,
@@ -68,6 +64,7 @@ import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
+  capText,
 } from "./text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import { buildChatWrite } from "./decide/turnWrites/chatWrite.js";
@@ -249,11 +246,23 @@ function parsePendingClarification(coachLog: CoachLogJson | null | undefined): s
   const start = latestText.indexOf(PENDING_CLARIFICATION_MARKER);
   if (start === -1) return null;
   const afterMarker = latestText.slice(start + PENDING_CLARIFICATION_MARKER.length);
-  const end = afterMarker.indexOf("]");
+  // The marker always sits on its own line (joined first, with "\n" separating it from anything
+  // after) and always closes with "]" as that line's very last character - taking the line's LAST
+  // "]" rather than its first is what lets a question that legitimately contains one ("should I
+  // do a [tempo] run?") come through intact instead of truncating at the wrong bracket.
+  const newlineIndex = afterMarker.indexOf("\n");
+  const markerLine = newlineIndex === -1 ? afterMarker : afterMarker.slice(0, newlineIndex);
+  const end = markerLine.lastIndexOf("]");
   if (end === -1) return null;
-  const question = afterMarker.slice(0, end).trim();
+  const question = markerLine.slice(0, end).trim();
   return question.length > 0 ? question : null;
 }
+
+// Bounded well under COACH_LOG_TEXT_CAP so the marker's own contribution to buildCoachNoteWrite's
+// budget is small and predictable - a real open question is a short sentence, never anywhere near
+// this, and capText's own truncation marker text is reserved for the free-text note portion, not
+// this one.
+const PENDING_CLARIFICATION_TEXT_CAP = 200;
 
 // Write side of parsePendingClarification above - wraps the model's self-reported open question
 // in the same recognizable marker. Undefined (folds into nothing) when the reply didn't leave one
@@ -263,7 +272,7 @@ function formatPendingClarificationMarker(
 ): string | undefined {
   const trimmed = pendingClarification?.trim();
   if (!trimmed) return undefined;
-  return `${PENDING_CLARIFICATION_MARKER} ${trimmed}]`;
+  return `${PENDING_CLARIFICATION_MARKER} ${capText(trimmed, PENDING_CLARIFICATION_TEXT_CAP)}]`;
 }
 
 export async function loadTurnState(
@@ -452,11 +461,17 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
 const INJURY_LANGUAGE_PATTERN =
   /\b(strain(?:ed)?|sprain(?:ed)?|tweak(?:ed)?|sore(?:ness)?|(?:head|back|stomach|tooth)?ach(?:e|ing)|pain(?:ful)?|hurt(?:s|ing)?|injur(?:y|ed)|discomfort|tender(?:ness)?|pulled|niggle|twinge|flare(?:d)?)\b/i;
 
+// Shared by every findMissed*Language check below - each one needs exactly this "return the
+// matched keyword, or null" idiom against its own pattern.
+function firstMatch(text: string, pattern: RegExp): string | null {
+  return text.match(pattern)?.[0] ?? null;
+}
+
 function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
   if (!turn.firstSession) return null;
   if (turn.validInjuryFlagIds.size > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
-  return turn.geminiMessage.match(INJURY_LANGUAGE_PATTERN)?.[0] ?? null;
+  return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
 }
 
 // Finding D (2026-09-10 pro baseline): findMissedInjuryLanguage above closes the dense-message
@@ -478,7 +493,21 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
   if (turn.validQuestIds.size > 0) return null;
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
-  return turn.geminiMessage.match(HABIT_LANGUAGE_PATTERN)?.[0] ?? null;
+  return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+}
+
+// Single source of truth for "which fields count as schedule-changing" - both this function and
+// buildTurnWrites's blockedFields computation need the exact same list, and drift between two
+// separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
+// Named fields, not just a boolean, since buildTurnWrites also needs to report which ones it held
+// back.
+function scheduleChangingFieldNames(reply: GeminiReply): string[] {
+  return [
+    reply.template_edit != null && "template_edit",
+    reply.session_plan != null && "session_plan",
+    (reply.session_reconcile?.length ?? 0) > 0 && "session_reconcile",
+    (reply.plan_edit?.length ?? 0) > 0 && "plan_edit",
+  ].filter((field): field is string => Boolean(field));
 }
 
 // Bug 3 Primary (2026-09-10 pro baseline): the reprompt-side enforcement of pending_clarification
@@ -493,12 +522,7 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
 // content-diff guard (validateActions.ts) as the final backstop.
 function findUnconfirmedAssumption(turn: TurnState, reply: GeminiReply): string | null {
   if (!turn.pendingClarification) return null;
-  const touchesSchedule =
-    (reply.plan_edit?.length ?? 0) > 0 ||
-    (reply.session_reconcile?.length ?? 0) > 0 ||
-    reply.template_edit != null ||
-    reply.session_plan != null;
-  if (!touchesSchedule) return null;
+  if (scheduleChangingFieldNames(reply).length === 0) return null;
   if (hasConfirmationCue(turn.geminiMessage)) return null;
   return turn.pendingClarification;
 }
@@ -933,12 +957,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // (a full week rewrite, not tied to one disputed session) is deliberately not gated here.
   const blockScheduleChangesThisTurn = Boolean(turn.stillUnconfirmedAssumption);
   if (blockScheduleChangesThisTurn) {
-    const blockedFields = [
-      reply.template_edit != null && "template_edit",
-      reply.session_plan != null && "session_plan",
-      (reply.session_reconcile?.length ?? 0) > 0 && "session_reconcile",
-      (reply.plan_edit?.length ?? 0) > 0 && "plan_edit",
-    ].filter((field): field is string => Boolean(field));
+    const blockedFields = scheduleChangingFieldNames(reply);
     if (blockedFields.length > 0) {
       droppedActions.push({
         field: blockedFields.join(", "),
@@ -1011,22 +1030,22 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       ? turn.prefetchedCurrentWeekContent
       : await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
     : undefined;
-  const validSessionIds = needsCurrentWeekContext
-    ? validSessionIdsFromCurrentWeek(currentWeekContent ?? null)
-    : new Set<string>();
+  // Single parse of currentWeekContent, with both the id set and the discipline/kind map derived
+  // from it - two independent parseJsonOrNull calls over the same raw string would be redundant
+  // work on every turn that touches session_reconcile/plan_edit.
+  const weekSessions = needsCurrentWeekContext
+    ? weekSessionsFromCurrentWeek(currentWeekContent ?? null)
+    : [];
+  const validSessionIds = new Set(weekSessions.map((session) => session.id));
   // Bug 3 content-diff guard: existing session content, keyed by id, so
   // validateSessionReconcile/validatePlanEdit can tell a category-changing edit from a same-turn
-  // confirmation. Only built when it's actually needed, reusing the same currentWeekContent read
-  // above rather than fetching again.
-  const existingSessionsForDiff: ReadonlyMap<string, ExistingSessionForDiff> =
-    needsCurrentWeekContext
-      ? new Map(
-          weekSessionsFromCurrentWeek(currentWeekContent ?? null).map((session) => [
-            session.id,
-            { id: session.id, discipline: session.discipline, kind: session.kind },
-          ]),
-        )
-      : new Map();
+  // confirmation.
+  const existingSessionsForDiff: ReadonlyMap<string, ExistingSessionForDiff> = new Map(
+    weekSessions.map((session) => [
+      session.id,
+      { id: session.id, discipline: session.discipline, kind: session.kind },
+    ]),
+  );
 
   const { valid: sessionReconcileEvents, dropped: droppedSessionReconcile } =
     validateSessionReconcile(
@@ -1084,13 +1103,29 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const synthesizedQuestEventNote = synthesizedQuestEvent
     ? formatSynthesizedQuestEventNote(synthesizedQuest?.name)
     : undefined;
-  const pendingClarificationMarker = formatPendingClarificationMarker(reply.pending_clarification);
+  // coach_note is one row per calendar day, overwritten in place - a later same-day turn that
+  // writes anything to it but doesn't itself restate pending_clarification (the model only
+  // reports this per-turn; it has no reason to keep echoing an old one) would otherwise drop a
+  // still-open marker the moment that day's row gets overwritten. Carry the prior marker forward
+  // whenever this turn didn't produce a fresh one, unless the athlete's own message this turn
+  // reads as an answer to it.
+  const carriedPendingClarification =
+    turn.pendingClarification && !hasConfirmationCue(turn.geminiMessage)
+      ? turn.pendingClarification
+      : undefined;
+  const pendingClarificationMarker = formatPendingClarificationMarker(
+    reply.pending_clarification ?? carriedPendingClarification,
+  );
+  // buildCoachNoteWrite's capText caps the whole joined string from the tail, so the marker must
+  // go first, not last, to survive a long coach_note/droppedActionsNote ahead of it -
+  // formatPendingClarificationMarker also bounds its own length so it always fits intact
+  // regardless of how long the free-text portion behind it runs.
   const coachNoteWrite = buildCoachNoteWrite(
     repo,
     token,
     turn.today,
     traceId,
-    [trimmedCoachNote, droppedActionsNote, pendingClarificationMarker].filter(Boolean).join("\n") ||
+    [pendingClarificationMarker, trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") ||
       undefined,
   );
 

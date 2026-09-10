@@ -346,12 +346,13 @@ export function weekSessionsFromCurrentWeek(
             date: day.date,
             title: session.title,
             status: session.status,
-            // Added for the Bug 3 content-diff guard (validateActions.ts) - discipline/kind are
-            // the fields that matter for detecting a plan_edit/session_reconcile that changes a
-            // session's real category, not just a title tweak. Every existing caller
-            // (activeWeekSessionsContext) already ignores unused fields, so this is additive.
-            discipline: session.discipline,
-            kind: session.kind,
+            // discipline/kind are what the Bug 3 content-diff guard (validateActions.ts) needs to
+            // tell a category-changing plan_edit/session_reconcile from a title tweak. This reader
+            // deliberately skips parseCurrentWeek's schema validation (see this file's header
+            // comment), so a session object here is only as trustworthy as the raw JSON - default
+            // to "" rather than hand a caller `undefined` typed as `string`.
+            discipline: session.discipline ?? "",
+            kind: session.kind ?? "",
           }))
       : [],
   );
