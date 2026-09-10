@@ -242,6 +242,7 @@
 }
 
 .sa-winrate-hero__pager button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid rgba(251, 248, 241, 0.3);
@@ -251,6 +252,14 @@
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Visible glyph stays 22px; pads the tap/click target toward the WCAG 2.5.8 24px
+   baseline without exceeding the 4px inter-button gap, so targets meet but never overlap. */
+.sa-winrate-hero__pager button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-winrate-hero__pager button:hover:not(:disabled) {
@@ -814,6 +823,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-badminton-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -833,6 +843,12 @@ button.sa-h2h__toggle {
 .sa-badminton-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-badminton-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-badminton-heatmap__body {
@@ -1345,6 +1361,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-running-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -1364,6 +1381,12 @@ button.sa-h2h__toggle {
 .sa-running-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-running-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-running-heatmap__body {
@@ -2008,6 +2031,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-cal-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -2027,6 +2051,12 @@ button.sa-h2h__toggle {
 .sa-cal-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-cal-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-cal-heatmap__body {
