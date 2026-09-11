@@ -33,6 +33,8 @@ describe("mode-specific response schemas", () => {
       "injury_event",
       "quest_event",
       "profile_update",
+      "season_start",
+      "quest_create",
       "session_closed",
       "reply",
     ]);
@@ -61,13 +63,15 @@ describe("mode-specific response schemas", () => {
     expect(fields).not.toContain("week_plan");
   });
 
-  it("allows operational actions at returning close but excludes intake creation", () => {
+  it("allows operational actions and season/quest access at returning close (B3)", () => {
     const fields = schemaFields("closing", false);
     expect(fields).toContain("quest_event");
     expect(fields).toContain("template_edit");
     expect(fields).toContain("week_plan");
-    expect(fields).not.toContain("season_start");
-    expect(fields).not.toContain("quest_create");
+    // B3: a returning athlete can start a new season with its goal, or add a habit quest, the
+    // same as during First Session, on any turn - closing included.
+    expect(fields).toContain("season_start");
+    expect(fields).toContain("quest_create");
   });
 });
 
@@ -147,8 +151,10 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
-    expect(dynamic).toContain("season_start as");
-    expect(dynamic).toContain("soon as the first season is agreed");
+    expect(dynamic).toContain(
+      "season_start (with the main goal bundled into its main_quest field)",
+    );
+    expect(dynamic).toContain("soon as the first season and goal are agreed");
     expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
   });
 
@@ -169,9 +175,8 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).toContain("LAST CHANCE");
-    expect(dynamic).toContain(
-      "Their main goal AND any daily habits or routines they want to track",
-    );
+    expect(dynamic).toContain("Their season (name, start/end dates) AND their main goal");
+    expect(dynamic).toContain("Any daily habits or routines they want to track");
     expect(dynamic).toContain("quest_create's quests[]");
     expect(dynamic).not.toContain("Weekly Kick-off Ritual");
     expect(dynamic).not.toContain("the phase's plain-language name");

@@ -29,7 +29,13 @@ describe("renderQuestContext", () => {
     version: 1,
     _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "t0" },
     weekly_targets: {},
-    main_quest: { id: "main", name: "20 Strength Sessions", type: "count_target", target: 20 },
+    main_quest: {
+      id: "main",
+      name: "20 Strength Sessions",
+      type: "count_target",
+      target: 20,
+      season_id: "s1",
+    },
     quests: [
       {
         id: "cold_shower",
@@ -138,7 +144,13 @@ describe("renderQuestContext", () => {
   it("uses latestValue for a progress-type main quest, not completed-count - the numerator bug found in review", () => {
     const progressMainQuest: QuestsJson = {
       ...quests,
-      main_quest: { id: "main", name: "Read the Book", type: "progress", target: 20 },
+      main_quest: {
+        id: "main",
+        name: "Read the Book",
+        type: "progress",
+        target: 20,
+        season_id: "s1",
+      },
     };
     const text = renderQuestContext({
       seasons,

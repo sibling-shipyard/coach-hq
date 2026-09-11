@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
 
 ## Context
 
@@ -100,8 +100,10 @@ Activity Detail by `id`.
 
 ### `user_data/ledger/seasons.json`
 
-Written by `turnWrites/seasonWrite.ts` (`buildSeasonStartWrite`) — First Session Protocol only,
-via the `season_start` action field. No returning-athlete season-change path exists.
+Written by `turnWrites/seasonWrite.ts` (`buildSeasonStartWrite`) via the `season_start` action
+field — available to every athlete, first session or returning (B3), always bundled with its
+`main_quest`. A prior "active" current season resolves to `"retired"` (started early) or
+`"completed"` (started after its own `end_date`) in the same call.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -114,18 +116,24 @@ via the `season_start` action field. No returning-athlete season-change path exi
 
 ### `user_data/ledger/quests.json`
 
-Written by `turnWrites/questWrite.ts` (`buildQuestEventWrite`, `buildQuestCreateWrite`) —
-`quest_create` is First Session Protocol only.
+Written by `turnWrites/questWrite.ts` (`buildQuestEventWrite`, `buildQuestCreateWrite`) and
+`turnWrites/seasonWrite.ts` (`buildSeasonStartWrite`) — `quest_create` (habit quests only) and
+`season_start` (goal only, via its `main_quest`) are both available to every athlete now (B3), not
+just First Session. `main_quest` only ever changes together with a season change; there is no
+standalone way to set it. The outgoing season's own `main_quest` moves into `quests[]` as
+`"retired"` in the same commit that starts the new season.
 
 | Field | Type | Notes |
 |---|---|---|
 | `version` | `1` | |
 | `_meta` | `{updated_at, updated_by, trace_id}` | |
 | `weekly_targets` | `Record<string, WeeklyTarget>` | |
-| `main_quest` | `MainQuest` | set exactly once per athlete |
-| `quests` | `Quest[]` | side quests |
+| `main_quest` | `MainQuest \| null` | set only via `season_start`, never `quest_create` |
+| `quests` | `Quest[]` | side quests, plus any retired former `main_quest` entries |
 
 **`QuestType` enum:** `"daily_streak" \| "progress" \| "count_target" \| "weekly_frequency"`.
+**`MainQuest` shape:** `{ id, name, type, target, count_pattern?, season_id }` — `season_id` links
+it to the season it belongs to.
 
 **`MainQuest` shape:** `{ id, name, type: QuestType, target, count_pattern? }`.
 
@@ -253,10 +261,10 @@ mode/session-state combination shouldn't expose, rather than just discouraging i
 |---|---|
 | Greeting | none (plus always `reply`, `session_closed`) |
 | Activity sync | none |
-| Returning ordinary | none |
+| Returning ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session close | the same, plus `coach_note` |
-| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| Returning close | `coach_note`, plus the returning-ordinary set above, plus `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
