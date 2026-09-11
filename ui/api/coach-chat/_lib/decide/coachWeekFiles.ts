@@ -213,7 +213,7 @@ export function isFullWeekKickoff(update: WeekUpdate | undefined): boolean {
  *   badminton match, is valid). Lenient here, strict everywhere else in this pipeline, because the
  *   failure mode this session belongs to is different in kind.
  * - `data_status` is always written "live" - "draft" was dropped from the enum entirely (ADR
- *   0039). It was structurally unreachable: by the time Gemini reports a kickoff the conversation
+ *   0042). It was structurally unreachable: by the time Gemini reports a kickoff the conversation
  *   already happened, and there was never a second "confirm" turn to leave a week parked in.
  * - `updated_by` is "model" (matches _meta.updated_by across every other Gemini-driven applier in
  *   this pipeline - coachIntents.ts, coachWorkoutFiles.ts), not the contract doc's own example
