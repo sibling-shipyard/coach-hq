@@ -498,14 +498,17 @@ profile change, injury, or quest update outside a formal close. Fixing that casc
   dropped any backtick token without its own `/`, so they read fine to a human but were invisible
   to the check - rewrote every path in full), plus this doc sweep.
 
-**F1** (propagate the final shape to `sibling-shipyard/coach-skeleton` and all 5 athlete repos,
-closes #760) runs after this whole stack merges to `main`, not staged alongside the rest - its
-own Step 0 stamps the skeleton from HQ `main` itself, so an unmerged stack means an intermediate
-shape. **K1** (one consolidated live-Gemini + live-scratch-repo pass against the fully integrated
-stack) is the actual gate before that merge - see this doc's own future entries for its outcome.
+**2026-09-11 - the whole stack merged to `main`.** K1's live-Gemini + live-scratch-repo pass went
+green (`OPENROUTER-K1-RETEST-FINDINGS.md`/`GEMINI-PRO-BASELINE-2026-09-10.md`), and PR #956 (docs
++ Sentry consistency, the tip of the full 29-PR stack from A1 through the llmClient seam work)
+merged. Per `AGENTS.md`'s plan-delete-on-last-PR rule, `docs/plans/chat-commit-redesign.md` and
+every `ccr-*-lld.md` file are deleted in this same PR - this entry, `coach-data-schema.md`,
+`coach-chat-daily.md`, `coach-chat-fsp.md`, and `coach-chat-testing.md` already carry whatever
+from them is durable. Remaining real open items (F1's repo-by-repo propagation, one unresolved
+eval-suite finding, two items deferred to the workouts redesign) are tracked in
+`docs/plans/coach-chat-redesign-followups.md`, not lost with the deleted plan docs. F1's most
+urgent piece - backfilling `coaching_style` onto all 5 real athlete repos, since production now
+requires it for `isAthleteProfileComplete()` - shipped the same day, ahead of F1's own Step 0/1/2.
 
 No single ADR covers the whole redesign; individual locked decisions from it are ADR 0037
-(retention) and ADR 0038 (coaching-style restored). `docs/plans/chat-commit-redesign.md` and its
-`ccr-*-lld.md` files stay in place for now - K1 deletes them once its live pass is green, not
-this PR - but this entry, `coach-data-schema.md`, and `coach-chat-testing.md` already carry
-whatever from them is durable.
+(retention) and ADR 0038 (coaching-style restored).

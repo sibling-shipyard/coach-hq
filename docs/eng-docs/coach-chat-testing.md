@@ -74,8 +74,9 @@ transcripts directory for the current list (none currently - every flagged gap b
 
 `#27`'s `injury_flag` drop on a dense multi-fact FSP turn has a real fix now too, in two stages.
 It was reframed and partly fixed on 2026-09-09: the actual shape was a hallucinated
-`template_edit.template_id` crash, not a plain drop (`docs/plans/ccr-k1-final-test-pass-lld.md`).
-It then resurfaced the next day as a genuine 5/8 fail rate on a larger live sample
+`template_edit.template_id` crash, not a plain drop - `validateTemplateEdit`/`validateSessionPlan`/
+`validateSessionReconcile`/`validatePlanEdit` added to `validateActions.ts`. It then resurfaced
+the next day as a genuine 5/8 fail rate on a larger live sample
 (`GEMINI-PRO-BASELINE-2026-09-10.md`'s FSP flagship scenario). PR #953 closed that with
 `findMissedInjuryLanguage`, a deterministic keyword safety net scoped to first-session turns with
 zero existing injury flags, verified 3/3 on a fresh live sample. The dynamic-enum/hallucination
