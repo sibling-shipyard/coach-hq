@@ -701,6 +701,13 @@ button.wi-engine-card {
   font-size: 14px;
 }
 
+.wi-quest-card__empty {
+  margin-top: 14px;
+  color: var(--wi-ink-muted);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 14px;
+}
+
 .wi-coach-read-card {
   display: flex;
   min-height: 0;
