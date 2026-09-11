@@ -26,16 +26,24 @@ Finding 7 is also why Home widgets are not sport-agnostic (#314).
 
 ## Reconciliation rules (adapted from Akash's workouts plan, §5, for this file)
 
+**Correction:** the original draft here proposed a fourth session status, `missed`, distinct from
+`skipped` on the reasoning that skipping is a decision. Checked against the real schema
+(`engine/lib/current-week.mts`) and it only has three: `planned`, `done`, `skipped` - a fourth,
+`cancelled`, was deliberately dropped in a recent, explicit simplification pass, the opposite
+direction from adding one back. `skipped` is what the reconciler writes below.
+
 | Situation | Result |
 |---|---|
-| Activity on a planned day, type matches | `done`, completion id appended |
-| Planned day passes, no matching activity | `missed` - not `skipped`, skipping is a decision |
+| Activity on a planned day, discipline matches | `done`, completion id appended |
+| Planned day passes, no matching activity | `skipped` |
 | Activity with no planned match | attached to the day as unplanned |
 | Two candidates, or an activity a day either side | stays `planned`, flagged to Coach |
 
-Coach sees only the flagged rows. A self-adjustment (athlete moves Tuesday to Thursday without
-saying so) reads as a missed anchor plus an orphan unless Coach sets `original_date` on the one
-real moved session.
+Coach sees only the flagged rows, via that session's own `coach_note` - no new file, no new
+schema field. A self-adjustment (athlete moves Tuesday to Thursday without saying so) reads as a
+skipped anchor plus an orphan session unless something sets `original_date`. That happens either
+when Coach catches it, or when the athlete confirms the move in chat via `week_update`'s
+`move_to_date`.
 
 ## Consumer audit (gates the field drops in ADR 0042)
 
@@ -59,16 +67,17 @@ changes no stored value, only what future writes are allowed to contain.
 | `engine/lib/current-week.mts` | Strict parser and availability machine. Becomes the single schema authority. |
 | `docs/ref-docs/current-week-contract.md` | The second authority today. Generate it from the type, or delete it. |
 | `engine/scripts/validate-current-week` | The coach-write gate. |
-| `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | The three week actions collapse into `week_update`. |
-| `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | The routing prose that teaches the two-action combo. |
-| `ui/api/coach-chat/_lib/decide/coachWeekFiles.ts` | `applyWeekPlan`, `applySessionReconcile`, `applyPlanEdit` merge into one applier. |
-| `ui/api/coach-chat/_lib/decide/turnWrites/weekWrite.ts` | The silent-drop collision. |
-| `ui/api/coach-chat/_lib/decide/turnWrites/validateActions.ts` | The established home for pre-write invariant checks, reuse it. |
+| `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | Done - the three week actions collapsed into `week_update`. |
+| `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | Done - the routing prose that taught the two-action combo is rewritten. |
+| `ui/api/coach-chat/_lib/decide/coachWeekFiles.ts` | Done - `applyWeekUpdate` replaces the old three appliers. |
+| `ui/api/coach-chat/_lib/decide/turnWrites/weekWrite.ts` | Done - the silent-drop collision is gone, one action means nothing to collide with. |
+| `ui/api/coach-chat/_lib/decide/turnWrites/validateActions.ts` | Done - `validateWeekUpdate` reuses the established pre-write invariant checks. |
 | `platform/soul/B_engine.md` | Weekly Kick-off Ritual, Weekly Contract Safety, the `draft`/`live` instruction. Compose with `platform/scripts/compose-soul.mjs`, commit the layer and both builds, add a `SOUL_HISTORY.md` entry. Never hand-edit a composed build. |
 | `ui/client/src/components/home-warm/currentWeekAdapter.ts` | The substring ladder. |
 | `ui/client/src/components/home-warm/liveWeekContract.ts`, `warmHomeModel.ts` | Consumers of the adapter output. |
 | `platform/scripts/carve-skeleton.mjs` | Already in contract (finding 9 correction); drop `coach_comments` from `CURRENT_WEEK_TEMPLATE` to match the trimmed schema. |
-| new: a sync-pipeline job | The scheduled rollover. |
+| `engine/scripts/reconcile-current-week.mjs` (new) | The deterministic reconciler - done, wired into `sync.user.yml` after the existing pipeline. |
+| new: a sync-pipeline job | The scheduled rollover, still to build (next PR in the stack). |
 
 ## Validation
 
