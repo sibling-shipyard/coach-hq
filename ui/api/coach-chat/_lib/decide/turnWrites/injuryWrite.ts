@@ -4,7 +4,7 @@
 // both act on the same file and commitFilesAtomic does not merge duplicate paths (same
 // constraint as the profile_update + coach_since merge in coachTurn.ts) - two separate
 // ResolvedFileWrite objects for INJURIES_PATH in the same turn would silently drop one.
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import {
@@ -14,7 +14,7 @@ import {
   type InjuryEvent,
 } from "../coachIntents.js";
 import { INJURIES_PATH } from "../coachMemoryFiles.js";
-import { capText, INJURY_FLAG_TEXT_CAP } from "../text-caps.bundle.js";
+import { capText, INJURY_FLAG_TEXT_CAP } from "../../text-caps.bundle.js";
 
 export function buildInjuryWrites(
   repo: string,

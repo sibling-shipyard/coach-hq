@@ -1,10 +1,10 @@
 // coach_note: the continuity log write (coach_log.json). One usecase, one file - see
 // coachIntents.ts's applyCoachNote for the pure merge logic this wraps with I/O.
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { applyCoachNote } from "../coachIntents.js";
 import { COACH_LOG_PATH } from "../coachMemoryFiles.js";
-import { capText, COACH_LOG_TEXT_CAP } from "../text-caps.bundle.js";
+import { capText, COACH_LOG_TEXT_CAP } from "../../text-caps.bundle.js";
 
 export function buildCoachNoteWrite(
   repo: string,

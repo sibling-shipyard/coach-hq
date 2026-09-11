@@ -1,5 +1,5 @@
 /** Server-owned coach_since stamping at the First Session completion boundary. */
-import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
+import { applyJsonMergePatch } from "../../../_lib/fileEdits.js";
 import { getFileRaw } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 import { PROFILE_PATH } from "./coachMemoryFiles.js";

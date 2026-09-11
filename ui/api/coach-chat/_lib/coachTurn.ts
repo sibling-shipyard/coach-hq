@@ -11,8 +11,8 @@ import {
   isFirstSessionRitualDone,
   loadCoachContext,
   resolveCoachChatBranch,
-} from "./coachChatFiles.js";
-import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coachDay.js";
+} from "./decide/coachChatFiles.js";
+import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./decide/coachDay.js";
 import {
   appendConversationTurn,
   loadChatHistory,
@@ -24,45 +24,48 @@ import {
   loadClosingFileContext,
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
-} from "./coachSinceStamp.js";
+} from "./decide/coachSinceStamp.js";
 import {
   generateInitialTemplates,
   validTemplateIdsFromManifest,
   TEMPLATES_MANIFEST_PATH,
-} from "./coachWorkoutFiles.js";
-import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
-import { renderCoachContext, renderQuestContext } from "./coachContext.js";
-import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
+} from "./decide/coachWorkoutFiles.js";
+import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./decide/coachMemoryFiles.js";
+import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
+import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
 import { captureGeminiFailure, captureValidationFailure } from "../../_lib/sentry.js";
 import {
   validateQuestEvents,
   validateInjuryEvents,
   type DroppedAction,
-} from "./turnWrites/validateActions.js";
+} from "./decide/turnWrites/validateActions.js";
 import {
   combineExtraContext,
   firstSessionContext,
   type OnboardingHints,
-} from "./coachPromptText.js";
-import type { GeminiReply, TurnMode } from "./coachReplySchema.js";
+} from "./gemini/coachPromptText.js";
+import type { GeminiReply, TurnMode } from "./gemini/coachReplySchema.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
 } from "./text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
-import { buildChatWrite } from "./turnWrites/chatWrite.js";
-import { buildCoachNoteWrite } from "./turnWrites/coachNoteWrite.js";
-import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
-import { buildInjuryWrites } from "./turnWrites/injuryWrite.js";
-import { buildQuestEventWrite, buildQuestCreateWrite } from "./turnWrites/questWrite.js";
-import { buildSeasonStartWrite } from "./turnWrites/seasonWrite.js";
-import { applyQuestCreate } from "./coachIntents.js";
-import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/profileWrite.js";
-import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
-import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
+import { buildChatWrite } from "./decide/turnWrites/chatWrite.js";
+import { buildCoachNoteWrite } from "./decide/turnWrites/coachNoteWrite.js";
+import { buildMemoryFileWrite } from "./decide/turnWrites/memoryWrite.js";
+import { buildInjuryWrites } from "./decide/turnWrites/injuryWrite.js";
+import { buildQuestEventWrite, buildQuestCreateWrite } from "./decide/turnWrites/questWrite.js";
+import { buildSeasonStartWrite } from "./decide/turnWrites/seasonWrite.js";
+import { applyQuestCreate } from "./decide/coachIntents.js";
+import {
+  buildProfileUpdateWrite,
+  projectProfileCompletion,
+} from "./decide/turnWrites/profileWrite.js";
+import { buildTemplateEditWrite, buildSessionPlanWrite } from "./decide/turnWrites/workoutWrite.js";
+import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
 
-import { parseActivityIds, type ActivitySyncRequest } from "./activitySync.js";
+import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
 
 interface PostBody {
   threadId?: string;

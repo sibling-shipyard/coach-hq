@@ -61,9 +61,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { GEMINI_MODEL } from "../api/_lib/geminiModel.js";
-import { askGemini } from "../api/coach-chat/_lib/geminiClient.js";
+import { askGemini } from "../api/coach-chat/_lib/gemini/geminiClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
-import type { TurnMode } from "../api/coach-chat/_lib/coachReplySchema.js";
+import type { TurnMode } from "../api/coach-chat/_lib/gemini/coachReplySchema.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -273,7 +273,7 @@ function isSet(record: Record<string, unknown>, field: string): boolean {
 
 /**
  * Derives which real repo files a reply's action fields would touch, per
- * ui/api/coach-chat/_lib/turnWrites/README.md's field-to-file table. This harness never commits
+ * ui/api/coach-chat/_lib/decide/turnWrites/README.md's field-to-file table. This harness never commits
  * anything - askGemini() runs in memory only - so this is a projection for audit reading, not an
  * observation of actual writes. Kept as a pure function so the table can be unit-tested without
  * a live Gemini call; re-check against the README if a new turnWrites file appears.

@@ -1,7 +1,7 @@
 // week_plan / session_reconcile / plan_edit: the current_week.json write - see coachWeekFiles.ts
 // for the appliers this wraps with I/O. One FileEntry because all three target the same file and
 // (per the console.warn below) are mutually exclusive within a single turn.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { FileEntry } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import {
   applyWeekPlan,

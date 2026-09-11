@@ -1,10 +1,10 @@
 /** Gemini request construction, explicit-cache use, one retry, and response parsing. */
-import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { withGeminiSpan, type GeminiUsage } from "../../_lib/sentry.js";
-import { log } from "../../_lib/log.js";
-import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
+import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
+import { withGeminiSpan, type GeminiUsage } from "../../../_lib/sentry.js";
+import { log } from "../../../_lib/log.js";
+import { GEMINI_MODEL } from "../../../_lib/geminiModel.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
-import type { ChatMessage } from "./chatThreads.js";
+import type { ChatMessage } from "../chatThreads.js";
 import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coachPromptText.js";
 import {
   generationConfigFor,

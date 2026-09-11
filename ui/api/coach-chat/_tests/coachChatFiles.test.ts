@@ -5,9 +5,9 @@ import {
   isAthleteProfileComplete,
   isFirstSessionRitualDone,
   loadCoachContext,
-} from "../_lib/coachChatFiles.js";
-import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
-import type { QuestsJson, SeasonsJson } from "../_lib/coachQuestFiles.js";
+} from "../_lib/decide/coachChatFiles.js";
+import type { ProfileJson, MemoryJson } from "../_lib/decide/coachMemoryFiles.js";
+import type { QuestsJson, SeasonsJson } from "../_lib/decide/coachQuestFiles.js";
 
 // coach-redesign-part1-memory.md, Step 3: replaces the old regex/section-matching read of
 // state.md's Athlete Profile with a simple field-presence check against profile.json/memory.json,

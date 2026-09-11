@@ -59,7 +59,7 @@ stable comes before anything that varies per call, so a byte-identical prefix ex
 first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md alone clears
 that ~6x over.
 
-**Explicit caching** (`ui/api/coach-chat/_lib/soulCache.ts`) is the primary path: the static prefix is
+**Explicit caching** (`ui/api/coach-chat/_lib/gemini/soulCache.ts`) is the primary path: the static prefix is
 uploaded once via `POST /v1beta/cachedContents`, returning a `cachedContents/...` name. Every
 subsequent call passes `cachedContent: <name>` instead of resending the text at all — cached
 reads are billed at 10% of standard input rate, *guaranteed*, not best-effort. The cache is not

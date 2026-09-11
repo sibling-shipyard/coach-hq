@@ -145,7 +145,7 @@ message until the sending device's request resolves and its commit lands.
 
 ### 5. Completion signal
 
-`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) requires non-blank
+`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/decide/coachChatFiles.ts`) requires non-blank
 `profile.json` values for name, date of birth, timezone, height, and weight; at least one sport;
 and a `seasons.json.current_season_id` that names an existing season. Quests are optional.
 `coachTurn.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
@@ -173,8 +173,8 @@ Session thread on relaunch, never re-asked what they already answered.
 |---|---|
 | `platform/soul/B_engine.md` §10 | First Session Protocol prompt content (`s10_first_session_body`) |
 | `platform/horcruxes/first-session.md` | Same section, hosted-chat build |
-| `ui/api/coach-chat/_lib/onboardingWrites.ts` | Normalizes native onboarding hints, suppresses duplicate greet commits |
-| `ui/api/coach-chat/_lib/turnWrites/profileWrite.ts` | `projectProfileCompletion` — the false→true completion projection |
+| `ui/api/coach-chat/_lib/decide/onboardingWrites.ts` | Normalizes native onboarding hints, suppresses duplicate greet commits |
+| `ui/api/coach-chat/_lib/decide/turnWrites/profileWrite.ts` | `projectProfileCompletion` — the false→true completion projection |
 | `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | Locally cached native name/sports handoff |
 | `ios/CoachHQ/CoachHQ/Services/CoachSetupState.swift` | Keychain flag + `shouldOpenChatFirst()` |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift` | UserDefaults resumability cache, orphaned-local-thread restore |
