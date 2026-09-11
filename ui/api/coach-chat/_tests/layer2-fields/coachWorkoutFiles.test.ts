@@ -1,11 +1,27 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// adjustTemplatesWithGemini reaches the model through selectLlmAdapter (#713 M2 PR 3) instead of
+// opening its own socket, so its own tests stub the adapter seam directly rather than mocking
+// fetch two layers down - mocked at its own physical module path (matching this file's other
+// imports' relative depth from ui/api/), same idiom coach-message's fakeAdapter uses.
+const { generateMock } = vi.hoisted(() => ({ generateMock: vi.fn() }));
+vi.mock("../../../_lib/llmClient.js", () => ({
+  selectLlmAdapter: () => ({
+    name: "gemini",
+    model: "gemini-pro-latest",
+    generate: generateMock,
+  }),
+}));
+
 import {
   selectTemplates,
   generateInitialTemplates,
   loadWorkoutLibraryIndex,
+  adjustTemplatesWithGemini,
   type WorkoutLibraryIndexEntry,
 } from "../../_lib/decide/coachWorkoutFiles.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "../../_lib/decide/coachMemoryFiles.js";
+import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 // coach-redesign workout-backend-wiring §2: unit coverage for selectTemplates's deterministic
 // tag-matching logic (especially the injury-filtering case, since a wrong pick here could
@@ -358,5 +374,69 @@ describe("generateInitialTemplates", () => {
     for (const entry of templates) {
       expect("content" in entry).toBe(true);
     }
+  });
+});
+
+describe("adjustTemplatesWithGemini", () => {
+  beforeEach(() => {
+    generateMock.mockReset();
+  });
+
+  function fakeTemplate(overrides: Partial<Workout> = {}): Workout {
+    return {
+      id: "foundation_bodyweight_beginner",
+      coaching_note: "orig note",
+      progression_notes: "orig progression",
+      ...overrides,
+    } as Workout;
+  }
+
+  it("sends a strict-mode schema through the adapter and parses adjustments back", async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        adjustments: [
+          { template_id: "foundation_bodyweight_beginner", coaching_note: "Tuned for you." },
+        ],
+      }),
+      telemetry: { adapter: "gemini", model: "gemini-pro-latest" },
+    });
+
+    const result = await adjustTemplatesWithGemini(
+      "fake-api-key",
+      [fakeTemplate()],
+      memory({ sports: ["general_fitness"] }),
+    );
+
+    expect(result).toEqual([
+      { template_id: "foundation_bodyweight_beginner", coaching_note: "Tuned for you." },
+    ]);
+    expect(generateMock).toHaveBeenCalledTimes(1);
+    const request = generateMock.mock.calls[0][0];
+    expect(request.system).toBe("");
+    expect(request.maxOutputTokens).toBe(1024);
+    expect(request.timeoutMs).toBe(20_000);
+    expect(request.responseSchema.schema.additionalProperties).toBe(false);
+    expect(request.responseSchema.schema.properties.adjustments.items.additionalProperties).toBe(
+      false,
+    );
+  });
+
+  it("returns an empty array when the adapter's response has no adjustments field", async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({}),
+      telemetry: { adapter: "gemini", model: "gemini-pro-latest" },
+    });
+
+    const result = await adjustTemplatesWithGemini("fake-api-key", [fakeTemplate()], memory());
+
+    expect(result).toEqual([]);
+  });
+
+  it("propagates an adapter failure (generateInitialTemplates's fallback is what catches it)", async () => {
+    generateMock.mockRejectedValue(Object.assign(new Error("upstream 503"), { status: 503 }));
+
+    await expect(
+      adjustTemplatesWithGemini("fake-api-key", [fakeTemplate()], memory()),
+    ).rejects.toThrow("upstream 503");
   });
 });
