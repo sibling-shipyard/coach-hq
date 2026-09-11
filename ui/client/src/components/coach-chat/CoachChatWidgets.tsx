@@ -251,13 +251,46 @@ function ActivityDetailSheet({
   );
 }
 
+// I1 (#767's simpler predecessor): every turn really does go through these three stages in
+// order (ask Gemini, parse the reply into structured writes, commit to the repo - the same
+// shape docs/eng-docs/coach-chat-testing.md's layer1/layer2/layer3 split already tests
+// separately). This cycles on a fixed timer, not any real backend signal - true stage-by-stage
+// progress reflecting actual server state is #767, deliberately not built here.
+export const THINKING_STAGE_LABELS = [
+  "Coach is thinking…",
+  "Parsing Coach's thoughts…",
+  "Updating your log…",
+] as const;
+
+// Tuned to a guess at typical turn latency, not measured yet - re-tune once D3's Sentry spans
+// give real per-stage numbers (see the LLD). Holds on the last label rather than looping if a
+// turn runs long, since "updating your log" stays true for however much longer the commit takes.
+export const THINKING_STAGE_INTERVAL_MS = 2600;
+
 function ThinkingBubble() {
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    setStageIndex(0);
+    const id = setInterval(() => {
+      setStageIndex((current) =>
+        current < THINKING_STAGE_LABELS.length - 1 ? current + 1 : current,
+      );
+    }, THINKING_STAGE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="cc-coach-wrap" aria-label="Coach is thinking">
       <div className="cc-bubble cc-bubble--coach cc-bubble--thinking">
         <span className="cc-thinking-dot" />
         <span className="cc-thinking-dot" />
         <span className="cc-thinking-dot" />
+        {/* `key` forces a remount on every stage change so the CSS fade-in animation replays
+            instead of only firing once on mount. */}
+        <span className="cc-thinking-label" key={stageIndex} data-stage-index={stageIndex}>
+          {THINKING_STAGE_LABELS[stageIndex]}
+        </span>
       </div>
     </div>
   );

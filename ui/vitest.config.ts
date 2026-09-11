@@ -20,5 +20,9 @@ export default defineConfig({
       "api/**/_tests/**/*.{test,spec}.{ts,tsx}",
       "observability/**/*.{test,spec}.{ts,tsx}",
     ],
+    // Stays node by default - the api/ suites (e.g. sentry-trace.test.ts) use real Node crypto
+    // (jose) that breaks under jsdom's globals. A test file that needs a DOM (CoachChatWidgets
+    // renders via @testing-library/react) opts in per-file with a
+    // `// @vitest-environment jsdom` docblock instead of flipping this project-wide.
   },
 });
