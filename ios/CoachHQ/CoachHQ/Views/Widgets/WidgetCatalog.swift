@@ -21,10 +21,18 @@ enum WidgetCatalogKey: String, CaseIterable {
     ]
 
     /// `@AppStorage` (`WarmInstrumentHomeView.homeOrderRaw`) can't hold `[WidgetCatalogKey]`
-    /// directly, so the stored form is this comma-joined raw-value string. Pure, so the "unknown
-    /// key is dropped, not a crash" behaviour is directly testable.
+    /// directly, so the stored form is this comma-joined raw-value string. Pure, so both the
+    /// "unknown key is dropped, not a crash" and "missing key is appended" behaviours below are
+    /// directly testable.
+    ///
+    /// A `defaultOrder` key absent from `raw` — added to the catalog after this device last
+    /// wrote its stored order — is appended at the end, in `defaultOrder`'s relative order. Ships
+    /// with local-only storage, `parseOrder` runs on the athlete's own device on every load: with
+    /// no rewrite step, a newly cataloged widget would otherwise never reach an existing install.
     static func parseOrder(_ raw: String) -> [WidgetCatalogKey] {
-        raw.split(separator: ",").compactMap { WidgetCatalogKey(rawValue: String($0)) }
+        let stored = raw.split(separator: ",").compactMap { WidgetCatalogKey(rawValue: String($0)) }
+        let missing = defaultOrder.filter { !stored.contains($0) }
+        return stored + missing
     }
 
     static func encodeOrder(_ order: [WidgetCatalogKey]) -> String {
