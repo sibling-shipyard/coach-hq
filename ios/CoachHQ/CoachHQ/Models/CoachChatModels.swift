@@ -323,9 +323,22 @@ struct ChatThreadsResponse: Decodable {
     let threads: [ChatThread]
 }
 
+/// D1 (#736): one structured-fact write layer 3's corrective retry couldn't save, dropped
+/// rather than aborting the whole turn. Mirrors coachChatModel.ts's DroppedAction.
+struct DroppedAction: Codable, Equatable {
+    let field: String
+    let reason: String
+    /// "commit_failure" means the data never landed at all (an infra failure, not a bad
+    /// reference) - mirrors the server's DroppedAction.kind.
+    let kind: String?
+}
+
 /// POST /api/coach-chat response. Every turn commits fully now (C1) - `threadId`/`threads` are
 /// always the fresh committed state, no more `closed` flag to check. `repoSha`/`stale` are A5
 /// (cross-device staleness detection). `profileComplete` is refreshed after every turn.
+/// `droppedActions` is D1 (#736): non-empty whenever layer 3's corrective retry gave up on a
+/// field and dropped it rather than failing the whole turn - a firm signal, not left to Coach's
+/// own reply happening to mention it.
 struct ChatSendResponse: Decodable {
     let reply: String
     let threadId: String
@@ -333,10 +346,30 @@ struct ChatSendResponse: Decodable {
     let repoSha: String?
     let stale: Bool?
     let profileComplete: Bool?
+    let droppedActions: [DroppedAction]?
 }
 
+/// D1 (#736): `reply`/`traceId` are present alongside `error` only when Gemini generated a
+/// reply but the write that would have saved it failed after commitFilesAtomic's own retries -
+/// see CoachChatSaveFailedError below.
 struct ChatAPIErrorBody: Decodable {
     let error: String?
+    let reply: String?
+    let traceId: String?
+}
+
+/// D1 (#736): thrown instead of a plain GitHubAPIError when sendMessage's error response
+/// carries a `reply` alongside `error` - Gemini generated a reply but the write that would have
+/// saved it failed after commitFilesAtomic's own retries. Distinguished from GitHubAPIError
+/// (which means Coach never got to reply at all) so CoachChatView can show Coach's actual words
+/// plus a distinct "couldn't save that" indicator instead of discarding the reply along with the
+/// failed write - parity with web's CoachChatSaveFailedError (coachChatModel.ts).
+struct CoachChatSaveFailedError: Error, LocalizedError {
+    let message: String
+    let reply: String
+    let traceId: String?
+
+    var errorDescription: String? { message }
 }
 
 /// POST {action: "activity_sync"} — always includes `threads` and `duplicate`.

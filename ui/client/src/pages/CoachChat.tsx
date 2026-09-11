@@ -10,12 +10,15 @@ import {
   MobileThreadList,
   ThreadSidebar,
 } from "@/components/coach-chat/CoachChatWidgets";
+import * as Sentry from "@sentry/react";
 import {
   clearThreadLocally,
   CoachChatAccessRevokedError,
+  CoachChatSaveFailedError,
   activitySync,
   challengeDayNumber,
   computeLocalDayOffset,
+  droppedActionToastMessage,
   epochMsFromMessageId,
   fetchProactiveCoachMessage,
   fetchThreads,
@@ -525,7 +528,41 @@ function CoachChatContent({ data }: { data: RepoData }) {
       if (result.stale) {
         toast.info("Coach caught up on changes from your other device");
       }
+
+      // D1 (#736): a firm requirement, not left to Coach's own reply happening to mention it -
+      // an explicit, honest indicator whenever something was dropped, and a client-side Sentry
+      // capture so the pattern is visible from both ends, not just the backend's. Nothing else
+      // needed here - result.threads (trusted above) already carries the committed reply.
+      if (result.droppedActions && result.droppedActions.length > 0) {
+        toast.info(droppedActionToastMessage(result.droppedActions));
+        Sentry.captureMessage("coach-chat: droppedActions in turn response", {
+          level: "warning",
+          tags: { dropped_count: result.droppedActions.length },
+          contexts: { coach_turn: { dropped_actions: result.droppedActions } },
+        });
+      }
     } catch (err: unknown) {
+      // D1 (#736): a save failure that still carries Coach's reply is not "Coach didn't reply" -
+      // Gemini did its job, only the write failed. Keep the optimistic user message and the
+      // reply text (rather than rolling everything back like every other failure below) and show
+      // a clear, distinct "couldn't save that" indicator instead.
+      if (err instanceof CoachChatSaveFailedError) {
+        const activeThreadId = targetId ?? newThreadId;
+        const coachMsg: ChatMessage = {
+          id: `c-${Date.now()}`,
+          role: "coach",
+          paragraphs: [err.reply],
+        };
+        const updatedMessages = [...messagesBeforeReply, coachMsg];
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === activeThreadId ? { ...thread, messages: updatedMessages } : thread,
+          ),
+        );
+        if (activeThreadId) saveThreadLocally(activeThreadId, updatedMessages);
+        toast.error("Coach replied, but I couldn't save it — try again?");
+        return;
+      }
       // Roll back the optimistic echo - either drop the message from an existing thread, or
       // drop the whole thread if this send was what created it. Only clear activeId if the
       // athlete is still looking at the thread that just failed - same "don't hijack navigation"
@@ -548,7 +585,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setThreadsAccessRevoked(true);
       } else {
         // CoachChatRateLimitedError falls through here too - its own message already explains
-        // what happened, same toast treatment (including duration) as any other error.
+        // what happened, same toast treatment (including duration) as any other error. This is
+        // Coach never getting to reply at all - distinct from the CoachChatSaveFailedError case
+        // above, which keeps the reply on screen.
         toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
       }
       setDraft(trimmed);

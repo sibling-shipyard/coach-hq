@@ -170,17 +170,21 @@ describe("coach turn stages", () => {
       wasProfileComplete: true,
       profileComplete: true,
     } as never);
+    // D1 (#736): chat history commits independently of the structured-fact writes now - two
+    // separate commitFilesAtomic calls, not one combined atomic commit, so a bad fact never
+    // costs the chat message (and vice versa).
+    expect(commitFilesAtomic).toHaveBeenCalledTimes(2);
     expect(
       commitFilesAtomic.mock.calls[0]?.[0].map((write) => (write as { path: string }).path),
-    ).toEqual([
-      "user_data/coach/profile.json",
-      "user_data/coach/chat_history.json",
-      "user_data/coach/injuries.json",
-    ]);
+    ).toEqual(["user_data/coach/profile.json", "user_data/coach/injuries.json"]);
+    expect(
+      commitFilesAtomic.mock.calls[1]?.[0].map((write) => (write as { path: string }).path),
+    ).toEqual(["user_data/coach/chat_history.json"]);
     expect(await response.json()).toMatchObject({
       reply: "Good work.",
       threadId: "thread-1",
       repoSha: "commit-sha",
+      droppedActions: [],
     });
   });
 });
