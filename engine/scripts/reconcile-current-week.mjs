@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * reconcile-current-week.mjs — deterministic reconciliation, ADR 0039's near-term stack.
+ * reconcile-current-week.mjs — deterministic reconciliation, ADR 0042's near-term stack.
  *
  * Matches synced activities to this week's planned sessions without a model call: a match marks
  * a session done, a planned day that's passed with nothing logged marks it skipped, and anything
