@@ -1,6 +1,6 @@
 # Current Week Contract
 
-**Status:** Accepted schema v1 (ADR 0039 revision)
+**Status:** Accepted schema v1 (ADR 0042 revision)
 
 **Owner:** Coach Phelps
 
@@ -23,7 +23,7 @@ The live weekly plan and short-lived coaching commentary live in `user_data/ledg
 
 The weekly snapshot contains **semantic coaching content**, not component names or layout instructions. Products choose where and how to render a topic.
 
-## How the week gets written (ADR 0039)
+## How the week gets written (ADR 0042)
 
 One action writes this file: `week_update`, sent as either a full seven-day kickoff (headline,
 body, and all seven days) or a sparse patch naming only the day(s)/session(s) that changed. There
@@ -44,11 +44,11 @@ Two things write the file with no chat turn at all, both running in the sync pip
 
 | Revision | Decision | Rationale |
 |---|---|---|
-| Lifecycle | `data_status` is `placeholder` or `live` | `draft` was dropped (ADR 0039) - no writer in this pipeline has a multi-turn confirm flow to put a week in it |
+| Lifecycle | `data_status` is `placeholder` or `live` | `draft` was dropped (ADR 0042) - no writer in this pipeline has a multi-turn confirm flow to put a week in it |
 | Calendar | An IANA `timezone`; seven consecutive dates matching the week bounds | Makes freshness deterministic without UTC/local-date drift |
-| Discipline | Closed enum, not free text (ADR 0039) | Removes the client-side substring guessing a free string used to need, and unblocks sport-agnostic Home widgets |
-| Training load | `planned_load` dropped from the schema (ADR 0039) | No writer ever set it to a real value - see the consumer audit in `docs/plans/current-week-redesign-lld.md` |
-| `coach_comments` | Dropped from the schema (ADR 0039) | Written `[]` on every plan, never touched again by any writer |
+| Discipline | Closed enum, not free text (ADR 0042) | Removes the client-side substring guessing a free string used to need, and unblocks sport-agnostic Home widgets |
+| Training load | `planned_load` dropped from the schema (ADR 0042) | No writer ever set it to a real value - see the consumer audit in `docs/plans/current-week-redesign-lld.md` |
+| `coach_comments` | Dropped from the schema (ADR 0042) | Written `[]` on every plan, never touched again by any writer |
 | Session provenance | `origin: planned \| unplanned` | Supports completed sessions that were not in the original plan |
 | Moves | `week_update`'s `move_to_date` relocates a session to its new day, keeps its stable `id`, and records `original_date` | Avoids duplicate IDs and preserves the current schedule plus provenance |
 | Completion IDs | Source-qualified strings such as `healthkit:<uuid>`, or `chat:<id>` for an athlete-reported one | Prevents collisions between data providers |

@@ -10,7 +10,7 @@
 ## Why this exists
 
 Every athlete repo, and the `sibling-shipyard/coach-skeleton` template they're forked from, was
-carved before the #973 stack (ADR 0039) landed. Four things changed that a carve, not a chat
+carved before the #973 stack (ADR 0042) landed. Four things changed that a carve, not a chat
 turn, has to carry into each repo:
 
 1. `current_week.json`'s schema dropped `coach_comments` and `planned_load`, and closed

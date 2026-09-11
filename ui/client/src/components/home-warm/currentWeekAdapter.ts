@@ -94,7 +94,7 @@ function mapCoachRead(read: RuntimeCoachRead): CurrentWeekContract["coach_read"]
 function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
   return {
     id: session.id,
-    // ADR 0039: discipline is a closed enum end to end now, so the runtime value is already a
+    // ADR 0042: discipline is a closed enum end to end now, so the runtime value is already a
     // real SessionDiscipline member - no substring guessing needed to collapse it onto one.
     discipline: session.discipline,
     kind: session.kind,
