@@ -1,6 +1,16 @@
 # Coach commit MVP — one file, append-only
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-21 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — shipped since via the full #378 redesign rather than as a direct continuation of this doc's plan; see `coach-data-schema.md`)
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-21 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — shipped since via the full #378 redesign rather than as a direct continuation of this doc's plan; see `coach-data-schema.md`)
+
+This is a dated build record, not current reference — the shape it describes (`coach_notes.md`,
+append-only `coach_note: string`, `resolveFileUpdate()`) was itself superseded by the #378 redesign
+this doc's own header note already flags. `ui/api/coach-chat.ts` no longer has a
+`resolveFileUpdate`, and no live athlete repo has a `coach_notes.md` file (real schema today is
+`coach_log.json`, see `coach-data-schema.md`). Kept here (not deleted) because
+`docs/eng-docs/README.md` cites it as reference from `coach-chat-design-history.md`; flipped to
+`Historical` (2026-09-11) since `Current` on a doc naming paths this stale is exactly what
+`kdb/scripts/validate_kdb.py`'s path-check is supposed to catch, and `Historical` is the load-bearing
+way to tell that check the paths below are intentionally from a retired tree.
 
 ## Context
 

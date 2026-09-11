@@ -1,6 +1,6 @@
 # F1 — Propagate to skeleton and all athlete repos — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-03
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
 
 Execution detail for F1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Closes #760
 (child of the #703 batched-migration epic). Runs **after this whole redesign has merged to `main`**,
@@ -40,20 +40,33 @@ Once Step 0 lands, diff each athlete repo's fixed-schema files (the exact set
 under `user_data/coach/` and `user_data/ledger/` plus `user_data/activities/sync_state.json`)
 against the same paths in the freshly-stamped skeleton. Two directions matter:
 
-- **Missing**: a fixed-schema file the skeleton has that an athlete repo doesn't. Confirmed real
-  example, found before Step 0 (re-verify after, in case the skeleton itself changes). 4 of the 5
-  athlete repos (`coach-skanda-2003`, `coach-akash-suresh`, `coach-prateekdevaraju`,
-  `coach-date2022`) are missing `user_data/coach/latest_message.json` entirely — only the newest
-  athlete (`coach-shreyas-95-cyber`, carved most recently) has it. It was added to the skeleton
-  template at some point after the first 4 were carved and never backfilled. Currently harmless
-  functionally (`parseLatestMessageFile` in `ui/api/coach-message/_lib/coachMessage.ts:450-451`
-  treats a missing file identically to `{schema_version: 1, message: null}`) — but exactly the class
-  of drift this step exists to catch and close.
-- **Extra**: a file an athlete repo has that the skeleton doesn't. A preliminary pass, against a
-  since-superseded skeleton clone before Step 0's importance was clear, suggested
-  `coach-skanda-2003` and `coach-akash-suresh` may carry extra files under `user_data/coach/`
-  beyond the fixed set. Treat that as a lead, not a finding - re-run this comparison for real
-  against the freshly-stamped skeleton from Step 0, don't trust the preliminary numbers.
+- **Missing**: a fixed-schema file the skeleton has that an athlete repo doesn't. Re-checked
+  directly against all 5 local clones, `git pull`ed fresh, 2026-09-11: this has narrowed since the
+  first pass. `coach-skanda-2003`, `coach-akash-suresh`, `coach-prateekdevaraju`, and
+  `coach-shreyas-95-cyber` now all carry `user_data/coach/latest_message.json` - only
+  `coach-date2022` still doesn't. Whoever backfilled the other 4 didn't touch this one; still
+  harmless functionally (`parseLatestMessageFile` in
+  `ui/api/coach-message/_lib/coachMessage.ts` treats a missing file identically to
+  `{schema_version: 1, message: null}`), still worth closing in this pass so the file set is
+  actually uniform.
+- **Extra**: a file an athlete repo has that the skeleton doesn't. Confirmed real, no longer just a
+  lead. Checked directly against all 5 clones 2026-09-11, still without a freshly-stamped skeleton
+  to diff against since Step 0 hasn't run. Compared instead against `carve-skeleton.mjs`'s own
+  `writeJson`/`writeText` call list, the same source of truth Step 0 would stamp from.
+  - `coach-skanda-2003`: `user_data/coach/leftover_coach_notes.md`, `user_data/coach/sleep_log.json`,
+    `gen/aggregate.json`, `gen/quest_log.md`.
+  - `coach-akash-suresh`: the same four plus `user_data/coach/opponent_notes.md`,
+    `gen/badminton_analytics_snapshot.json`, and a whole extra `user_data/ledger/seasons/`
+    directory sitting alongside the real `user_data/ledger/seasons.json` file.
+  - `coach-prateekdevaraju`, `coach-date2022`, `coach-shreyas-95-cyber`: none - each matches the
+    fixed set exactly.
+  - `leftover_coach_notes.md` and `sleep_log.json` are named directly in a `carve-skeleton.mjs`
+    comment (next to `PROFILE_TEMPLATE`). It says they "no longer exist in a fresh carve, per
+    #407/#413's split." These two are confirmed dead leftovers pre-dating that split, not
+    per-athlete content the athlete chose to keep. `opponent_notes.md`,
+    `badminton_analytics_snapshot.json`, and the extra `ledger/seasons/` directory are different -
+    Akash-specific additions with no matching `carve-skeleton.mjs` entry at all, real Step 2
+    decisions rather than an inherited leftover.
 
 Exclude naturally-per-athlete content from this diff — `user_data/activities/hist/*`,
 `user_data/activities/streams/*`, `user_data/activities/workout_plans/sessions/*` are expected to
@@ -66,12 +79,12 @@ athlete's, not assumed here** — bring the list, wait for the decision, then ac
 
 ## Step 3 — this redesign's own field-specific backfill
 
-Real current state, checked directly against each repo (2026-09-01) — read straight from each
-repo's `quests.json`/`memory.json`/`profile.json` rather than assumed:
+Real current state, re-checked directly against each repo (2026-09-11, `git pull`ed fresh) — read
+straight from each repo's `quests.json`/`memory.json`/`profile.json` rather than assumed:
 
 | Repo | `main_quest` | `current_season_id` | `coaching_style` | `equipment` note | Notes |
 |---|---|---|---|---|---|
-| `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | absent | populated (real gear list) | **`profile.json` is `{}` — empty.** This repo looks mid-reset, not a normal backfill case — confirm with the athlete before treating this like the others. |
+| `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | absent | populated (real gear list) | `profile.json`'s earlier empty `{}` is resolved - it now carries real `name`/`dob`/`timezone`/`height_cm`/`weight_kg`. No longer a mid-reset case; drop from the "info needed" checklist below. |
 | `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | `s_the_transformation_v2` (real, active) | **already present: `"accountability"`** | empty | Leftover from before the feature was removed (#513/#515) — the field was deleted from the schema, but this repo's data was never cleaned up. Confirm with Akash this value is still accurate before keeping it as-is; don't silently trust stale data. |
 | `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | `season_strength_weight_gain_sea_o1jd` (real, active) | absent | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. |
 | `coach-date2022` | `"First Unassisted Pull-Up"` (real) | `chin-over-the-bar` (real, active) | absent | populated (real gear list) | |
@@ -107,10 +120,8 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    whether these 3 already said their equipment somewhere recoverable (check `chat_history.json` if
    any old threads survived, or just ask them directly) before assuming it's genuinely never been
    discussed.
-5. **`coach-skanda-2003`'s empty `profile.json`** — not a normal backfill case, flagging separately.
-   **Info needed from the athlete:** confirm whether this repo is intentionally mid-reset (matches
-   the recent "clear stale onboarding-complete Keychain flag on repo recreate" fix) and should just
-   go through FSP fresh, or whether real prior data needs restoring from somewhere.
+5. **`coach-skanda-2003`'s `profile.json`** — resolved as of this re-check (2026-09-11): it now
+   carries real values, not the empty `{}` the first pass found. No action needed here anymore.
 6. **`Season.status`'s widened enum** (B3) — no data change needed, existing `"active"` values stay
    valid on all 5 repos.
 7. **Anything D2's full audit surfaces** beyond what's listed above — check once D2 lands, before
@@ -134,12 +145,19 @@ Checklist, not to be left blank at execution time:
 - [ ] Prateek's real current main quest/goal.
 - [ ] Whether Akash's, Prateek's, and Shreyas's equipment was ever actually stated and lost, or
   genuinely never discussed — and if stated, what it was.
-- [ ] Skanda's repo: intentional reset (go through FSP fresh) or real data to restore.
-- [ ] Step 2's per-item keep-or-remove decisions, once Step 1's real diff is in hand.
+- [x] Skanda's repo: resolved on its own as of 2026-09-11's re-check - `profile.json` now has real
+  data, no athlete decision needed.
+- [ ] Step 2's per-item keep-or-remove decisions, now that Step 1's real diff is in hand (see the
+  Missing/Extra lists above, re-verified 2026-09-11) - specifically Akash's leftover files/directory
+  and `coach-date2022`'s missing `latest_message.json`.
 - [ ] Flag here immediately if any other field this redesign adds turns out to need a real answer
   the same way — don't assume this list is exhaustive once D2's audit lands.
 - [x] `timezone` (B1) and `coach_log.json` shape (C2) — checked 2026-09-03, no backfill/migration
   needed for either, see Step 3 items 8 and 9 above.
+- [ ] This whole plan is still blocked on the redesign stack itself: as of 2026-09-11, B1/B2/B3,
+  D1/D2/D3, E1, and everything through K1 are still open, unmerged PRs (`#773`-`#822` and later),
+  stacked under `main`. F1 cannot execute (Step 0 stamps the skeleton from HQ `main`, not a branch)
+  until that stack actually merges.
 
 ## Execution, per repo
 
