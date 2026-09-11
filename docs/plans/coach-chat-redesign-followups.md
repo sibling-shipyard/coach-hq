@@ -9,31 +9,39 @@ Per `AGENTS.md`'s plan-delete-on-last-PR rule, `docs/plans/chat-commit-redesign.
 `coach-chat-testing.md`, and `coach-chat-design-history.md`. This file holds the handful of real
 items still open, so nothing gets silently dropped with the plan docs.
 
-## F1 — repo migration (closes #760)
+## F1 — repo migration (closes #760) — done, except two explicitly non-blocking items
 
-Step 3's urgent field backfill (`coaching_style`, `main_quest.season_id`, `coach-date2022`'s
-missing `latest_message.json`) shipped same-day as the merge. One PR per athlete repo, all 5
-merged 2026-09-11 (`coach-skanda-2003` #5, `coach-akash-suresh` #7, `coach-prateekdevaraju` #1,
-`coach-date2022` #3, `coach-shreyas-95-cyber` #1). That was urgent because production's
+**Step 3.** Field backfill (`coaching_style`, `main_quest.season_id`, `coach-date2022`'s missing
+`latest_message.json`) shipped same-day as the merge. One PR per athlete repo, all 5 merged
+2026-09-11 (`coach-skanda-2003` #5, `coach-akash-suresh` #7, `coach-prateekdevaraju` #1,
+`coach-date2022` #3, `coach-shreyas-95-cyber` #1). Urgent because production's
 `isAthleteProfileComplete()` now requires `coaching_style`.
 
-Still open:
+**Step 0.** `node platform/scripts/carve-skeleton.mjs --push` run for real 2026-09-11, from HQ
+`main` pulled fresh (it had been 31 commits behind). `sibling-shipyard/coach-skeleton` confirmed
+live via the GitHub API - `coaching_style`, `main_quest: null`, no placeholder data, matches the
+final shape.
 
-1. **Step 0 — stamp the skeleton.** Run `node platform/scripts/carve-skeleton.mjs --push` now
-   that `main` actually has the final shape. `sibling-shipyard/coach-skeleton` is still stale
-   (last pushed 2026-08-30, predates this whole redesign).
-2. **Step 1/Step 2 — full structural diff against the freshly-stamped skeleton, then the
-   athlete's own keep/remove call per item.** Not yet run for real against a live skeleton stamp
-   (only checked by hand against `carve-skeleton.mjs`'s own template list so far). The known
-   leftover files on `coach-skanda-2003`/`coach-akash-suresh` are already tracked in #966 — this
-   step should confirm nothing else turns up once Step 0 gives a real skeleton to diff against.
-3. **Equipment** — empty in `memory.json.notes.equipment` on `coach-akash-suresh`,
+**Step 1.** Full structural diff of all 5 real repos against the freshly-stamped skeleton, run
+2026-09-11 (`git pull`ed fresh, `git ls-files` on each repo's `user_data/coach/`,
+`user_data/ledger/`, `user_data/activities/sync_state.json`). **Missing: none** -
+`coach-date2022`'s prior gap is closed, all 5 repos have exactly the 13 expected files. **Extra:**
+`coach-skanda-2003` (`leftover_coach_notes.md`, `sleep_log.json`) and `coach-akash-suresh` (those
+two plus `opponent_notes.md`) - both already tracked in #966. `coach-prateekdevaraju`,
+`coach-date2022`, `coach-shreyas-95-cyber` match exactly.
+
+**Step 2.** The athlete's call on #966's items: file them, don't remove them now - not harmful
+today. Nothing further to do here.
+
+Two items still genuinely open, both explicitly non-blocking:
+
+1. **Equipment** — empty in `memory.json.notes.equipment` on `coach-akash-suresh`,
    `coach-prateekdevaraju`, `coach-shreyas-95-cyber`. Not blocking anything (confirmed:
    `isAthleteProfileComplete()` doesn't check it, unlike `coaching_style`). Worth checking whether
    any of the three already stated it in a past conversation and had it lost to #616's old
    write-loss bug, rather than assuming it was never discussed. Check `chat_history.json` where old
    threads survived, or just ask directly.
-4. **Prateek's season `end_date`.** His season (`season_strength_weight_gain_sea_o1jd`) runs
+2. **Prateek's season `end_date`.** His season (`season_strength_weight_gain_sea_o1jd`) runs
    through `2026-11-25`, which doesn't literally read as "end of year" (his stated goal framing).
    The athlete's call was to leave it as originally given — closed, not a to-do, noted here only
    so the discrepancy isn't mysterious later.
