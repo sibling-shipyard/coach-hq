@@ -202,6 +202,24 @@ describe("applyWeekUpdate - full-week kickoff", () => {
     expect(JSON.parse(content).days[0].sessions[0].discipline).toBe("other");
   });
 
+  // Review finding, live-verified: Gemini sent "hiking" for the real enum value "hike" before
+  // the schema enum landed. This is the defense-in-depth layer's own coverage of the same class
+  // of near-miss, for every sport - not just the one that happened to show up live.
+  it.each([
+    ["running", "run"],
+    ["hiking", "hike"],
+    ["walking", "walk"],
+    ["swimming", "swim"],
+    ["soccer", "football"],
+    ["WeightTraining", "weight_training"],
+    ["Ride", "cycling"],
+  ])("coerces the near-miss %s to the real enum value %s", (input, expected) => {
+    const kickoff = validKickoff();
+    kickoff.days[0].sessions![0].discipline = input;
+    const content = applyWeekUpdate(null, kickoff, validTemplateIds, "America/New_York", "t1", now);
+    expect(JSON.parse(content).days[0].sessions[0].discipline).toBe(expected);
+  });
+
   it("throws when days isn't exactly 7", () => {
     const kickoff = validKickoff();
     kickoff.days = kickoff.days.slice(0, 6);

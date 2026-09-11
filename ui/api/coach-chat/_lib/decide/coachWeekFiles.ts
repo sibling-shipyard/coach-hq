@@ -35,9 +35,30 @@ export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 // gets below, not a thrown error. "other" is a real, pickable enum member, so a genuinely
 // unrecognized string reads as a deliberate "none of the above," not a bug.
 const DISCIPLINE_SET = new Set<string>(SESSION_DISCIPLINES);
+// A near-miss (gerund, plural, a bare sport_type-style name) reads as a real intent worth
+// recovering, not a genuine "none of the above" - "other" should mean the athlete's activity
+// truly isn't one of these fifteen, not that Gemini phrased a real match slightly differently.
+// Covers every sport in the enum on the same principle, not case-by-case: this is the same
+// synonym set docs/plans/athlete-repo-migration-973.md's own migration transform uses for
+// existing repo data, kept in sync with it by hand since one's Python and one's TypeScript.
+const DISCIPLINE_SYNONYMS: Record<string, CurrentWeekSessionDiscipline> = {
+  weighttraining: "weight_training",
+  running: "run",
+  ride: "cycling",
+  bike: "cycling",
+  realign: "recovery",
+  mobility: "recovery",
+  hiking: "hike",
+  walking: "walk",
+  soccer: "football",
+  swimming: "swim",
+  calisthenic: "calisthenics",
+};
 function coerceDiscipline(raw: string, traceId: string): CurrentWeekSessionDiscipline {
   const normalized = raw.trim().toLowerCase();
   if (DISCIPLINE_SET.has(normalized)) return normalized as CurrentWeekSessionDiscipline;
+  const synonym = DISCIPLINE_SYNONYMS[normalized];
+  if (synonym) return synonym;
   console.warn(`[coach-chat] discipline "${raw}" is not in the closed set - writing "other"`, {
     traceId,
   });
