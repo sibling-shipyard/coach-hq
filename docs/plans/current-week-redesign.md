@@ -41,7 +41,7 @@ states.
 **One schema authority.** `engine/lib/current-week.mts` becomes the only source of truth. The
 separate contract doc is generated from it or retired - the two have already drifted once.
 
-This is a locked-decision change, so it's recorded as ADR 0039, not just this plan.
+This is a locked-decision change, so it's recorded as ADR 0042, not just this plan.
 
 ## Done when
 

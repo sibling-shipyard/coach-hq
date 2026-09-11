@@ -37,7 +37,7 @@ Coach sees only the flagged rows. A self-adjustment (athlete moves Tuesday to Th
 saying so) reads as a missed anchor plus an orphan unless Coach sets `original_date` on the one
 real moved session.
 
-## Consumer audit (gates the field drops in ADR 0039)
+## Consumer audit (gates the field drops in ADR 0042)
 
 Checked against `main` at 94f0965, real consumers only (`node_modules` excluded).
 
@@ -73,7 +73,7 @@ changes no stored value, only what future writes are allowed to contain.
 
 ## Validation
 
-- Consumer audit: done, see above, ADR 0039.
+- Consumer audit: done, see above, ADR 0042.
 - Unit tests on `current-week.mts` for the merged `week_update` applier and the closed enum.
 - Reconciliation: every row of the table above covered by a test that fails when violated.
 - Replay one athlete's real kick-off, sync, and a missed day through the new path offline; check

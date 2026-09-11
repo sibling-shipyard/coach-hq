@@ -1,4 +1,4 @@
-# 0039 — `current_week.json` collapses to one write action, code owns reconciliation and rollover
+# 0042 — `current_week.json` collapses to one write action, code owns reconciliation and rollover
 
 - **Status:** Accepted · 2026-09-11 · Tech Lead
 - **Area:** cross-cutting (coach-chat backend, SOUL, web)
