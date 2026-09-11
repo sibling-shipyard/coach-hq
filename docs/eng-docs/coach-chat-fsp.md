@@ -173,7 +173,6 @@ Session thread on relaunch, never re-asked what they already answered.
 |---|---|
 | `platform/soul/B_engine.md` §10 | First Session Protocol prompt content (`s10_first_session_body`) |
 | `platform/horcruxes/first-session.md` | Same section, hosted-chat build |
-| `ui/api/coach-chat/_lib/fspWrites.ts` | Restricts ordinary-turn persistence to incremental FSP writes |
 | `ui/api/coach-chat/_lib/onboardingWrites.ts` | Normalizes native onboarding hints, suppresses duplicate greet commits |
 | `ui/api/coach-chat/_lib/turnWrites/profileWrite.ts` | `projectProfileCompletion` — the false→true completion projection |
 | `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | Locally cached native name/sports handoff |
