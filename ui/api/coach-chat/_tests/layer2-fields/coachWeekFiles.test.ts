@@ -8,7 +8,7 @@ import {
 } from "../../_lib/decide/coachWeekFiles.js";
 import { parseCurrentWeek } from "../../../../../engine/lib/current-week.mts";
 
-// ADR 0039: week_update replaces week_plan/session_reconcile/plan_edit. Covers the bookkeeping a
+// ADR 0042: week_update replaces week_plan/session_reconcile/plan_edit. Covers the bookkeeping a
 // full-week-kickoff computes (week id/bounds, session ids, coach_read window), the Monday/7-day
 // guards, the lenient template_id/discipline-nulling judgment calls, and a patch's upsert-by-id
 // behavior plus its throw-on-hallucinated-id discipline (mirrors applyQuestEvent).
@@ -478,7 +478,7 @@ describe("applyWeekUpdate - patch (status, content, moves)", () => {
   });
 
   // actual-differs-from-plan: relabels a session to what really happened, alongside the status
-  // patch - one entry, not two, is the whole point of ADR 0039's collapse.
+  // patch - one entry, not two, is the whole point of ADR 0042's collapse.
   it("relabels discipline/kind/title alongside the status patch, in one entry", () => {
     const content = applyWeekUpdate(
       EXISTING,
@@ -637,7 +637,7 @@ describe("applyWeekUpdate - patch (status, content, moves)", () => {
     ).toThrow("needs discipline, kind, and title");
   });
 
-  // The finding this move_to_date field fixes (ADR 0039): a move used to need two separate
+  // The finding this move_to_date field fixes (ADR 0042): a move used to need two separate
   // action-field entries (mark the old day's session done as "actually X", plan a new session on
   // the new day) with no way to express "this session simply relocated."
   it("moves a session to a different day, stamping original_date on the target", () => {

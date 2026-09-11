@@ -170,7 +170,7 @@ function categoryChangeIsConfirmed(
 // whole Bug 3 content-diff guard rather than disabling it by omission. Every real caller
 // (buildTurnWrites) always has both.
 //
-// ADR 0039 replaces session_reconcile/plan_edit with one week_update field, sent as a sparse
+// ADR 0042 replaces session_reconcile/plan_edit with one week_update field, sent as a sparse
 // per-day/per-session patch. A full-week-kickoff-shaped update (isFullWeekKickoff) is the old
 // week_plan case - it never references an existing session_id, so it passes through untouched; a
 // patch-shaped update gets every day.date and move_to_date checked against validDayDates, and

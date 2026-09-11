@@ -54,7 +54,7 @@ export interface GeminiReply {
     skip_phases?: string[];
     note?: string;
   };
-  // See responseSchema's week_update and coachWeekFiles.ts's applyWeekUpdate (ADR 0039). One
+  // See responseSchema's week_update and coachWeekFiles.ts's applyWeekUpdate (ADR 0042). One
   // field replaces the old week_plan/session_reconcile/plan_edit trio - a full headline/body/
   // 7-day payload commits a fresh week, anything else is a sparse per-day/per-session patch.
   week_update?: WeekUpdate;
@@ -241,7 +241,7 @@ const RESPONSE_PROPERTIES = {
     required: ["template_id"],
     additionalProperties: false,
   },
-  // ADR 0039 - one action field replaces week_plan/session_reconcile/plan_edit. A full
+  // ADR 0042 - one action field replaces week_plan/session_reconcile/plan_edit. A full
   // headline/body/exactly-7-days payload commits a fresh week (the old Weekly Kick-off Ritual
   // rewrite); anything else is a sparse per-day patch - only the day(s) and session(s) that
   // changed, not the whole week. Every session entry inside days is either a brand-new planned

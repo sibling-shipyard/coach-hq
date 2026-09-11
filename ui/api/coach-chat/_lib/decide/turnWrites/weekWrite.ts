@@ -1,5 +1,5 @@
 // week_update: the current_week.json write - see coachWeekFiles.ts for applyWeekUpdate, the one
-// applier this wraps with I/O (ADR 0039 replaced week_plan/session_reconcile/plan_edit with this
+// applier this wraps with I/O (ADR 0042 replaced week_plan/session_reconcile/plan_edit with this
 // single sparse-patch action).
 import type { FileEntry } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";

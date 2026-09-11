@@ -369,7 +369,7 @@ describe("synthesizeQuestEventFromUnrecordedFacts", () => {
 // an unanswered clarifying question, then silently overwrite a real scheduled football match with
 // a recovery walk anyway - a real session_id, so the plain existence check never caught it. These
 // tests exercise the content-diff guard, now shared by every patch entry that sets discipline -
-// whether it's a plain content edit or a status change with actual differing from plan (ADR 0039
+// whether it's a plain content edit or a status change with actual differing from plan (ADR 0042
 // collapsed both into the same session entry).
 describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
   const footballSession: ExistingSessionForDiff = {
