@@ -26,3 +26,8 @@ Branch: `feat/<N>-<brief>` · mid-stack PR: `Refs: #N` · finishing PR: `Fixes: 
 Tech Lead writes issues this way. Workers implement **Done when** only; **P2/P3** goes to backlog, not the PR.
 For M3/M4 work, assign GitHub's native parent chain up to one same-milestone `epic` before linking
 an implementation PR. Only the root epic receives the `epic` label.
+
+Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing else runs it until a
+PR links the issue. It wants the bare milestone code (`M3`), not the full title `gh issue create`
+needs (`M3: Scale to 10 users`). No epic yet in this milestone? File as `Later` or create the epic
+first.
