@@ -7,11 +7,18 @@ import SwiftUI
 /// surrounding content — see docs/plans/ios-widget-modules-lld.md §2 for what varies and why,
 /// and §1 for the scale decision this consolidation carries out.
 enum EngineGraphics {
+    /// Raw "usual band" bounds before scale padding — the single source both `localScale` (pads
+    /// this into an axis range) and `bandStrip` (draws the capsule at these exact bounds) build on.
+    private static func bandBounds(load: Double, bandLow: Double?, bandHigh: Double?) -> (low: Double, high: Double) {
+        let low = bandLow ?? load * 0.8
+        let high = max(bandHigh ?? load * 1.2, low + 1)
+        return (low, high)
+    }
+
     /// Local scale heuristic for sizes with no pipeline-computed scale (`EngineSnapshotS` —
     /// LLD §1). M/L callers should pass `engine.scaleLow`/`engine.scaleHigh` instead of this.
     static func localScale(load: Double, bandLow: Double?, bandHigh: Double?) -> (low: Double, high: Double) {
-        let low = bandLow ?? load * 0.8
-        let high = max(bandHigh ?? load * 1.2, low + 1)
+        let (low, high) = bandBounds(load: load, bandLow: bandLow, bandHigh: bandHigh)
         return (min(low, load) * 0.85, max(high, load) * 1.15 + 1)
     }
 
@@ -34,8 +41,7 @@ enum EngineGraphics {
         dotColor: Color
     ) -> some View {
         GeometryReader { geo in
-            let low = bandLow ?? load * 0.8
-            let high = max(bandHigh ?? load * 1.2, low + 1)
+            let (low, high) = bandBounds(load: load, bandLow: bandLow, bandHigh: bandHigh)
             let range = max(1, scaleHigh - scaleLow)
             let xLow = CGFloat((low - scaleLow) / range) * geo.size.width
             let xHigh = CGFloat((high - scaleLow) / range) * geo.size.width

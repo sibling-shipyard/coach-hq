@@ -5,9 +5,11 @@ import SwiftUI
 /// distinct names because this one moved here (W2 of docs/plans/ios-widget-modules.md).
 ///
 /// Shares its band strip / trend / mix-bar maths with WidgetKit via `EngineGraphics` (W3) — see
-/// docs/plans/ios-widget-modules-lld.md §1 for the scale decision: M/L now draw against the
-/// pipeline's `scaleLow`/`scaleHigh` instead of a locally-recomputed range, which is what moves
-/// the load marker to agree with `EngineDetailView`'s gauge for the same week.
+/// docs/plans/ios-widget-modules-lld.md §1 for the scale decision: `.l` draws its band marker
+/// against the pipeline's `scaleLow`/`scaleHigh` instead of a locally-recomputed range, which is
+/// what moves the marker to agree with `EngineDetailView`'s gauge for the same week. `.s` still
+/// falls back to `EngineGraphics.localScale` (no pipeline scale for that size — see its doc
+/// comment); `.m` renders no band marker at all.
 struct EngineCard: View {
     let size: WidgetSize
     let sizes: EngineSizes
