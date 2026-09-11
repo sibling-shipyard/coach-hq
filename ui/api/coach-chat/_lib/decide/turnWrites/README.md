@@ -19,7 +19,7 @@ pure; this layer is where fetch-then-apply happens.
 | `seasonWrite.ts`    | `season_start` (main_quest bundled in)                    | `seasons.json`, `quests.json`                            |
 | `profileWrite.ts`   | `profile_update`                                          | `profile.json`, plus the profile-completeness projection |
 | `workoutWrite.ts`   | `template_edit`, `session_plan`                           | template / session snapshot files                        |
-| `weekWrite.ts`      | `week_plan`, `session_reconcile`, `plan_edit`             | `current_week.json`                                      |
+| `weekWrite.ts`      | `week_update`                                             | `current_week.json`                                      |
 
 `coachTurn.ts`'s `buildTurnWrites` calls these in sequence and assembles the results - it owns
 turn-level bookkeeping (thread merge, the `profile_update`/`coach_since` resolver merge,

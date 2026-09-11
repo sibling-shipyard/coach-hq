@@ -176,19 +176,34 @@ Tracked progression values (e.g. strength benchmarks). Rendered into the prompt 
 
 ### `user_data/ledger/current_week.json`
 
-The dated week plan. Written by `turnWrites/weekWrite.ts` (`buildCurrentWeekWrite`), which wraps
-`coachWeekFiles.ts`'s `applyWeekPlan`/`applySessionReconcile`/`applyPlanEdit`. Strict schema
-owned by `engine/lib/current-week.mts` (`parseCurrentWeek`) — every write here is validated
-against it before being committed; a violation throws rather than commits.
+The dated week plan. ADR 0042 collapsed the write side to one action field, `week_update`, sent
+as either a full seven-day kickoff or a sparse per-day/per-session patch — see
+`docs/ref-docs/current-week-contract.md` for the full wire contract. Written by
+`turnWrites/weekWrite.ts` (`buildCurrentWeekWrite`), which wraps `coachWeekFiles.ts`'s
+`applyWeekUpdate`. Two more writers exist outside chat entirely, both in the sync pipeline, not
+chat-triggered: `engine/scripts/reconcile-current-week.mjs` (matches synced activities to planned
+sessions, no model call) and `engine/scripts/rollover-current-week.mjs` (replaces an aged-out
+week with a fresh placeholder frame). Strict schema owned by `engine/lib/current-week.mts`
+(`parseCurrentWeek`) — every write here is validated against it before being committed; a
+violation throws rather than commits.
 
 Top-level shape: `{ schema_version: 1, data_status: "live", timezone, week: {id, start_date,
 end_date, focus, guardrails[]}, coach_read: {headline, body, valid_from, valid_until}, days:
-CurrentWeekDay[], coach_comments: [], updated_at, updated_by, trace_id }`.
+CurrentWeekDay[], updated_at, updated_by, trace_id }`.
 
-**`CurrentWeekSession.priority` enum:** `"anchor" \| "support" \| "optional"`.
-**`CurrentWeekSession.status`:** `"planned" \| "done" \| "skipped" \| "unplanned"` (`week_plan`
-never writes `"unplanned"` — that only comes from a real completed-but-not-planned workout).
-**`CurrentWeekSession.origin`:** `"planned"` for anything `week_plan` writes.
+`data_status` is `"placeholder"` or `"live"` only — `"draft"` and the root `coach_comments` field
+were both dropped (ADR 0042), and each session's `planned_load` was dropped with it. `updated_by`
+is `"model"` (hosted chat), `"coach"` (BYOB Claude Code), `"reconciler"`, or `"rollover"`.
+
+**`CurrentWeekSession.discipline` enum (ADR 0042):** `"badminton" \| "calisthenics" \| "cycling" \|
+"foundation" \| "recovery" \| "run" \| "strength" \| "weight_training" \| "hike" \| "walk" \|
+"cricket" \| "football" \| "workout" \| "swim" \| "other"` — closed, not free text.
+**`CurrentWeekSession.priority` enum:** `"anchor" \| "support" \| "optional"`, `null` only for an
+`unplanned`-origin session.
+**`CurrentWeekSession.status` enum:** `"planned" \| "done" \| "skipped"`.
+**`CurrentWeekSession.origin` enum:** `"planned" \| "unplanned"` — `"unplanned"` only ever comes
+from a real completed-but-not-planned workout (a `week_update` kickoff always writes `"planned"`;
+the reconciler is what writes `"unplanned"`, for a logged activity with no planned match).
 
 ### Workout templates and sessions (`user_data/activities/workout_plans/`)
 
@@ -273,7 +288,7 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit`, plus `pending_clarification`/`unrecorded_facts` (see below) |
+| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_update`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 | First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 
 `coach_note` (C2) is a day-keyed row, not the old closing-only append — see the

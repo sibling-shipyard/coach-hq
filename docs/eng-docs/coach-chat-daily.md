@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
 
 ## Context
 
@@ -191,15 +191,14 @@ turns, and every one of them commits whatever it produced. This replaced the old
 On every returning-athlete turn:
 - The response schema carries every action field at once. Data-fact fields (`profile_update`,
   `memory_update`, `injury_flag`/`injury_event`, `quest_event`, `sports_update`, `season_start`,
-  `quest_create`) and session-artifact fields (`template_edit`, `session_plan`, `week_plan`,
-  `session_reconcile`, `plan_edit`) sit together. See `coach-data-schema.md`'s "What Gemini can
-  write" table for the full list.
+  `quest_create`) and session-artifact fields (`template_edit`, `session_plan`, `week_update`)
+  sit together. See `coach-data-schema.md`'s "What Gemini can write" table for the full list.
 - The templates manifest and `current_week.json` are **not** fetched up front any more. Gemini's
   prompt carries no pre-fetched template/session id list — that fetch is lazy now, triggered in
   `buildTurnWrites()` (`coachTurn.ts`) only when the reply actually contains `template_edit`,
-  `session_plan`, `week_plan`, `session_reconcile`, or `plan_edit`. Most ordinary turns never
-  touch those fields and never pay for the extra GitHub reads. A wrong or invented template/session
-  id just fails validation and drops that one write; it doesn't corrupt anything.
+  `session_plan`, or `week_update`. Most ordinary turns never touch those fields and never pay
+  for the extra GitHub reads. A wrong or invented template/session id just fails validation and
+  drops that one write; it doesn't corrupt anything.
 - If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
   back over its length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that
   field before proceeding — one extra `askGemini()` round trip on this turn only. See
@@ -209,7 +208,7 @@ On every returning-athlete turn:
   sets another structured field but leaves `coach_note` unset (C2's `missingRequiredCoachNote`
   check), combined into one system-note message if both trip at once. `coach_note` is day-keyed
   now (see `coach-data-schema.md`'s `coach_log.json` section), not the old closing-only append.
-- A `week_plan`/`plan_edit` write to `current_week.json` is checked by
+- A `week_update` write to `current_week.json` is checked by
   `assertCurrentWeekCommitReady()` (`coachWeekFiles.ts`) — the same pass/fail rule as
   `validate-current-week` — right before the content is handed to `commitFilesAtomic()`. A
   write that fails parsing or comes back with `availability: "invalid"` throws instead of
@@ -224,8 +223,7 @@ On every returning-athlete turn:
   lets a real turn be tested end to end on a scratch branch instead of a live athlete's `main`.
 
 **Write strategy.** Gemini never edits files or supplies patches. It returns constrained semantic
-actions such as `profile_update`, `injury_flag`, `injury_event`, `quest_event`, `week_plan`, or
-`plan_edit`.
+actions such as `profile_update`, `injury_flag`, `injury_event`, `quest_event`, or `week_update`.
 Each server-side applier validates the action against real context, preserves server-owned
 bookkeeping, and produces the next full JSON content. Thread titles are derived server-side from
 the athlete's first message and sanitized to the display limit; Gemini does not generate them.
