@@ -96,11 +96,11 @@ A fresh carve seeds `{ "schema_version": 1, "message": null }`.
 `home.coachMessage` widget-snapshot projection carries `id`, `created_at`, `body`, and
 `conversation_seed_id`; this file remains canonical.
 
-`conversation_seed_id` is `local-proactive-<id>` only when no `chat_history.json` thread exists
-yet for this batch (a genuinely backgrounded sync). When one does — the common case, since
-activity-sync turns persist immediately (#918) — it is that thread's real id (`t-<epoch ms>`)
-instead, so notification/Home/chat all open the exact same conversation. Both shapes are valid;
-a reader must accept either, not assume the `local-proactive-` prefix.
+`conversation_seed_id` is always that batch's real, persisted thread id (`t-<epoch ms>`). Both
+the reuse path and the mint-a-new-thread fallback (a genuinely backgrounded sync) resolve to
+it, so notification/Home/chat all open the exact same conversation. `local-proactive-<id>` is a
+legacy shape only: older `latest_message.json` records may still carry it, so readers must
+still accept it, but nothing in this pipeline emits it anymore.
 
 ### `user_data/coach/chat_history.json`
 
