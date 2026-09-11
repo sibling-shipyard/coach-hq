@@ -121,7 +121,7 @@ function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
     priority: mapPriority(session.priority),
     status: mapStatus(session),
     planned_duration_min: session.planned_duration_min,
-    // ADR 0039 drops planned_load from the schema - no writer ever set it to a real value
+    // ADR 0042 drops planned_load from the schema - no writer ever set it to a real value
     // (docs/plans/current-week-redesign-lld.md's consumer audit). The widget contract still
     // carries the field; hardcode null rather than widen the contract in this PR.
     planned_load: null,
@@ -227,7 +227,7 @@ export function adaptCurrentWeek(
           valid_until: runtime.week.end_date,
         },
     days,
-    // ADR 0039 drops coach_comments from the schema - Gemini never populated it (see the
+    // ADR 0042 drops coach_comments from the schema - Gemini never populated it (see the
     // consumer audit). Hardcode empty rather than widen the widget contract in this PR.
     coach_comments: [],
     updated_at: runtime.updated_at,

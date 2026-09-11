@@ -26,7 +26,7 @@ import { todayDateString } from "./coachDay.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 
-// ADR 0039: discipline is a closed enum now (SESSION_DISCIPLINES), but Gemini's structured-output
+// ADR 0042: discipline is a closed enum now (SESSION_DISCIPLINES), but Gemini's structured-output
 // schema still declares it a free string pending the prompt/schema work in the next PR of this
 // stack - so a value arriving here needs the same lenient-coerce-with-a-warning treatment
 // applyWeekPlan already gives an unrecognized template_id, not a thrown error. "other" is a real,

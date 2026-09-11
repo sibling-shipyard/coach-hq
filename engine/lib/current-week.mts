@@ -1,6 +1,6 @@
 export const CURRENT_WEEK_SCHEMA_VERSION = 1 as const;
 
-// "draft" dropped (ADR 0039): structurally unreachable, no writer in this pipeline has a
+// "draft" dropped (ADR 0042): structurally unreachable, no writer in this pipeline has a
 // multi-turn confirm flow to put it in - see the consumer audit in
 // docs/plans/current-week-redesign-lld.md.
 export type CurrentWeekDataStatus = "placeholder" | "live";
@@ -11,7 +11,7 @@ export type CurrentWeekSessionPriority = "anchor" | "support" | "optional";
 // Every prior "cancelled" use already mapped to the same UI outcome as "skipped" client-side
 // (currentWeekAdapter.ts's mapStatus), so this is a pure simplification, not a behavior change.
 export type CurrentWeekSessionStatus = "planned" | "done" | "skipped";
-// Closed set (ADR 0039), replacing free text collapsed client-side by fifteen substring
+// Closed set (ADR 0042), replacing free text collapsed client-side by fifteen substring
 // checks (currentWeekAdapter.ts). Mirrors the web widget's own SessionDiscipline union
 // (currentWeek.fixture.ts) - "other" is a real, pickable value here, not a fallback for an
 // unrecognized string.

@@ -120,7 +120,7 @@ const PLUGINS_TEMPLATE = {
 };
 
 // "unavailable" is not a legal data_status (CurrentWeekDataStatus is "placeholder" | "live" only,
-// ADR 0039 dropped "draft" - "unavailable" is an availability *result*, computed by
+// ADR 0042 dropped "draft" - "unavailable" is an availability *result*, computed by
 // parseCurrentWeek, never a value the file itself holds). This is a genuinely valid
 // current_week.json - schema_version 1, data_status "placeholder" (which short-circuits
 // parseCurrentWeek's staleness check regardless of when the repo is actually carved, per
