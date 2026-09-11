@@ -67,16 +67,42 @@ export async function askGemini(
   log("coach-chat", "request", { mode, traceId });
 
   const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
-  const result = await adapter.generate({
+  const generateRequest = {
     system,
     cachePrefix,
     messages,
     maxOutputTokens: CHAT_MAX_OUTPUT_TOKENS,
     responseSchema: chatResponseSchema(mode, firstSession, referenceIds),
     timeoutMs: GEMINI_GENERATE_TIMEOUT_MS,
-  });
+  };
+  let result = await adapter.generate(generateRequest);
 
-  const parsed = JSON.parse(result.text) as GeminiReply;
+  // A retry on top of (not instead of) the adapter's own truncation retry. OpenRouter's
+  // finish_reason doesn't always come back "length" on a truncated call (the adapter's own
+  // check misses it then), so what reaches here can be text that reads as a successful
+  // response but is still cut-off/malformed JSON - a SyntaxError on JSON.parse below.
+  // One retry, same cap this codebase already uses everywhere for a transient model failure.
+  // A MAX_TOKENS throw from the adapter never reaches this catch - adapter.generate() above is
+  // not itself inside this try block, so that failure propagates straight past this function to
+  // whatever calls askGemini, same as any other adapter-level throw.
+  //
+  // This retry, coachTurn.ts's up to two reprompt calls, and each adapter's own 503/504/
+  // truncation retry all stack independently of one another and of the 300s Vercel budget - none
+  // of the four layers knows how much time the others have already spent. Bounding this retry's
+  // own timeout, rather than reusing the full budget again, keeps its worst-case addition small
+  // instead of letting a fifth 45s call stack on top of four others that already ran.
+  const jsonParseRetryTimeoutMs = Math.min(GEMINI_GENERATE_TIMEOUT_MS, 20_000);
+  let parsed: GeminiReply;
+  try {
+    parsed = JSON.parse(result.text) as GeminiReply;
+  } catch (err) {
+    console.warn("[coach-chat] reply text failed to parse as JSON, retrying once:", {
+      error: err instanceof Error ? err.message : String(err),
+      traceId,
+    });
+    result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
+    parsed = JSON.parse(result.text) as GeminiReply;
+  }
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. Nested
   // under log() data it prints as [Object]. traceId correlates with the commit-trace line logged
   // downstream in the POST handler. The reply stays off the breadcrumb.

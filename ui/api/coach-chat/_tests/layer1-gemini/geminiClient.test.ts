@@ -92,13 +92,71 @@ describe("askGemini", () => {
     await expect(askGemini(...args)).rejects.toThrow("Gemini returned no content");
   });
 
-  it("throws when the response text isn't valid JSON", async () => {
+  it("throws when the response text isn't valid JSON on both attempts", async () => {
     routeByUrl(
       jsonResponse(500, {}),
       jsonResponse(200, { candidates: [{ content: { parts: [{ text: "not json" }] } }] }),
     );
 
     await expect(askGemini(...args)).rejects.toThrow();
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
+    // One real call plus the parse-failure retry - not endless retrying.
+    expect(generateCalls).toHaveLength(2);
+  });
+
+  it("retries once when the first response is malformed JSON, then returns the parsed retry", async () => {
+    // This is the Finding C follow-up bug: OpenRouter can return a "successful" response
+    // (no finish_reason: "length", so the adapter's own truncation retry never fires) whose
+    // text is still cut-off/garbage JSON. This retry is a separate layer, above the adapter,
+    // that catches a JSON.parse failure specifically and asks again once.
+    let call = 0;
+    fetchWithTimeout.mockImplementation(async (url: string) => {
+      if (url.includes("cachedContents")) return jsonResponse(500, {});
+      call += 1;
+      if (call === 1) {
+        return jsonResponse(200, {
+          candidates: [{ content: { parts: [{ text: '{"reply": "unterminated' }] } }],
+        });
+      }
+      return geminiEnvelope({ reply: "Recovered after malformed JSON." });
+    });
+
+    const result = await askGemini(...args);
+
+    expect(result).toEqual({ reply: "Recovered after malformed JSON." });
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
+    expect(generateCalls).toHaveLength(2);
+  });
+
+  // Review finding: this retry stacks with the adapter's own 503/504/truncation retry and
+  // coachTurn.ts's up to two reprompt calls, none of which know how much of the 300s Vercel
+  // budget the others have already spent - the retry must not reuse the full 45s timeout again.
+  it("bounds the parse-failure retry to a shorter timeout than the initial call (review finding)", async () => {
+    let call = 0;
+    fetchWithTimeout.mockImplementation(async (url: string) => {
+      if (url.includes("cachedContents")) return jsonResponse(500, {});
+      call += 1;
+      if (call === 1) {
+        return jsonResponse(200, {
+          candidates: [{ content: { parts: [{ text: '{"reply": "unterminated' }] } }],
+        });
+      }
+      return geminiEnvelope({ reply: "Recovered after malformed JSON." });
+    });
+
+    await askGemini(...args);
+
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
+    expect(generateCalls).toHaveLength(2);
+    const [, , initialTimeoutMs] = generateCalls[0];
+    const [, , retryTimeoutMs] = generateCalls[1];
+    expect(retryTimeoutMs).toBeLessThan(initialTimeoutMs as number);
   });
 
   it("throws a 429-tagged error on rate limit", async () => {
