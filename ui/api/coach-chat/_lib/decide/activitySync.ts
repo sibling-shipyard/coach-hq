@@ -153,8 +153,14 @@ export function commitActivitySyncHistory(
   };
 }
 
-export function coachReplyText(thread: ChatThread): string {
-  const coach = [...thread.messages].reverse().find((message) => message.role === "coach");
+/** The coach message carrying THIS batch's synced_activity_list attachment, not just the
+ * thread's most recent coach message - a thread can accumulate later, unrelated coach turns. */
+export function coachReplyText(thread: ChatThread, batchId: string): string {
+  const coach = thread.messages.find(
+    (message) =>
+      message.role === "coach" &&
+      message.attachments?.some((attachment) => attachmentBatchId(attachment) === batchId),
+  );
   return coach && coach.role === "coach" ? coach.paragraphs.join("\n\n") : "";
 }
 

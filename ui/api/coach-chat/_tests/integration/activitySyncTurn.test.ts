@@ -16,7 +16,7 @@ const {
   loadChatHistory,
   generate,
 } = vi.hoisted(() => ({
-  commitFilesAtomic: vi.fn(async (writes: { resolve?: () => Promise<string> }[]) => {
+  commitFilesAtomic: vi.fn(async (writes: { path: string; resolve?: () => Promise<string> }[]) => {
     for (const write of writes) await write.resolve?.();
     return { commitSha: "commit-sha" };
   }),
@@ -96,8 +96,12 @@ import {
   findThreadForActivitySyncBatch,
 } from "../../_lib/decide/activitySync.js";
 import { handleActivitySync } from "../../_lib/commit/activitySyncTurn.js";
-import type { ChatThread } from "../../_lib/chatThreads.js";
+import { CHAT_FILE_PATH, type ChatThread } from "../../_lib/chatThreads.js";
 import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/coachTurn.js";
+import {
+  LATEST_COACH_MESSAGE_PATH,
+  parseLatestMessageFile,
+} from "../../../coach-message/_lib/coachMessage.js";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";
@@ -155,7 +159,7 @@ function stubVerifiedBatch(uuid = UUID_A, overrides: Record<string, unknown> = {
   });
 }
 
-function defaultCommitImpl(writes: { resolve?: () => Promise<string> }[]) {
+function defaultCommitImpl(writes: { path: string; resolve?: () => Promise<string> }[]) {
   return (async () => {
     for (const write of writes) await write.resolve?.();
     return { commitSha: "commit-sha" };
@@ -244,6 +248,57 @@ describe("activity-sync turn contract", () => {
     });
     expect(generate).not.toHaveBeenCalled();
     expect(commitFilesAtomic).not.toHaveBeenCalled();
+  });
+
+  it("returns the coach message carrying this batch's attachment, not the thread's last coach message", async () => {
+    // A thread can accumulate later, unrelated coach turns after the sync reply that seeded it
+    // (#918/#922) - the duplicate-batch reply has to find the tagged message, not just reverse-scan
+    // for "most recent coach message", or a later unrelated reply shadows the real sync reply.
+    const batchId = activitySyncBatchId([ID_A, ID_B]);
+    loadChatHistory.mockResolvedValue({
+      threads: [
+        {
+          id: "t-existing",
+          createdAt: 1,
+          title: "2 sessions synced",
+          preview: "Already said.",
+          messages: [
+            { id: "d-1", role: "divider", label: "TODAY" },
+            {
+              id: "c-1",
+              role: "coach",
+              paragraphs: ["Already said."],
+              attachments: [
+                {
+                  version: 1,
+                  kind: "synced_activity_list",
+                  batch_id: batchId,
+                  activities: [],
+                },
+              ],
+            },
+            {
+              id: "c-2",
+              role: "coach",
+              paragraphs: ["Unrelated later reply."],
+            },
+          ],
+        },
+      ],
+    });
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_B, ID_A],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+    const response = await handleActivitySync("owner/repo", "token", parsed);
+    expect(await response.json()).toMatchObject({
+      reply: "Already said.",
+      duplicate: true,
+      threadId: "t-existing",
+    });
   });
 
   it("returns 422 when a requested activity is missing, without generating or writing", async () => {
@@ -381,7 +436,9 @@ describe("activity-sync turn contract", () => {
       timeoutMs: 45_000,
     });
     expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
-    expect(commitFilesAtomic.mock.calls[0]?.[0]).toHaveLength(1);
+    // chatWrite + latestMessageWrite, committed atomically (#918/#925) - see the dedicated
+    // "mints a new activity-sync thread" test below for the latest_message.json content itself.
+    expect(commitFilesAtomic.mock.calls[0]?.[0]).toHaveLength(2);
     const body = await response.json();
     expect(body).toMatchObject({
       reply: "Nice work on Easy Run.",
@@ -400,6 +457,36 @@ describe("activity-sync turn contract", () => {
     expect(
       body.threads[0].messages.some((message: { role: string }) => message.role === "user"),
     ).toBe(false);
+  });
+
+  it("mints a new activity-sync thread and writes latest_message.json in the same commit", async () => {
+    // Home reads latest_message.json for its coach-message card. If minting a thread here
+    // succeeds but the iOS app's separate /api/coach-message call never lands (#918/#925), Home
+    // must not go stale - so this path writes both files atomically, not just the chat thread.
+    stubVerifiedBatch();
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_A],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+    const response = await handleActivitySync("owner/repo", "token", parsed);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const newThreadId = body.threadId as string;
+
+    const writes = commitFilesAtomic.mock.calls[0]?.[0] as {
+      path: string;
+      resolve: () => Promise<string>;
+    }[];
+    expect(writes.map((write) => write.path)).toEqual(
+      expect.arrayContaining([CHAT_FILE_PATH, LATEST_COACH_MESSAGE_PATH]),
+    );
+    const latestMessageWrite = writes.find((write) => write.path === LATEST_COACH_MESSAGE_PATH);
+    const latestMessageRaw = await latestMessageWrite?.resolve();
+    const latest = parseLatestMessageFile(latestMessageRaw ?? null).message;
+    expect(latest?.conversation_seed_id).toBe(newThreadId);
   });
 
   it("commitActivitySyncHistory does not add a thread when the batch already exists", () => {
@@ -465,23 +552,28 @@ describe("activity-sync turn contract", () => {
     }));
 
     let writeChain = Promise.resolve();
-    commitFilesAtomic.mockImplementation(async (writes: { resolve?: () => Promise<string> }[]) => {
-      const run = writeChain.then(async () => {
-        for (const write of writes) {
-          const content = await write.resolve?.();
-          if (typeof content === "string") {
-            const parsed = JSON.parse(content) as { threads?: ChatThread[] };
-            storedThreads = parsed.threads ?? [];
+    commitFilesAtomic.mockImplementation(
+      async (writes: { path: string; resolve?: () => Promise<string> }[]) => {
+        const run = writeChain.then(async () => {
+          for (const write of writes) {
+            const content = await write.resolve?.();
+            // Two writes land in this array now (chatWrite + latestMessageWrite, #918/#925) -
+            // only the chat-history one is shaped like { threads }; matching on path keeps this
+            // race test's bookkeeping about the chat thread list, not the coach-message file.
+            if (write.path === CHAT_FILE_PATH && typeof content === "string") {
+              const parsed = JSON.parse(content) as { threads?: ChatThread[] };
+              storedThreads = parsed.threads ?? [];
+            }
           }
-        }
-        return { commitSha: "commit-sha" };
-      });
-      writeChain = run.then(
-        () => undefined,
-        () => undefined,
-      );
-      return run;
-    });
+          return { commitSha: "commit-sha" };
+        });
+        writeChain = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        return run;
+      },
+    );
 
     const parsed = await parseBody({
       action: "activity_sync",

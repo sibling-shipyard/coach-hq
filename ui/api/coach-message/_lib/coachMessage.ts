@@ -504,7 +504,7 @@ export function validateGeneratedBody(value: unknown): string {
 // A batch with a thread already open when the sync completed points conversation_seed_id at
 // that real chat-thread id (buildActivitySyncThread's `t-<epoch ms>`) instead of minting
 // `local-proactive-<id>` - one generator, one thread id (#918). Both shapes are valid.
-const THREAD_SEED_ID = /^t-[0-9]+$/;
+export const THREAD_SEED_ID = /^t-[0-9]+$/;
 
 function isValidConversationSeedId(seedId: string, id: string): boolean {
   return seedId === `local-proactive-${id}` || THREAD_SEED_ID.test(seedId);
@@ -900,7 +900,7 @@ export async function generateProactiveBody(adapter: LlmAdapter, prompt: string)
   }
 }
 
-function serializeLatestMessage(message: LatestCoachMessage): string {
+export function serializeLatestMessage(message: LatestCoachMessage): string {
   return `${JSON.stringify({ schema_version: 1, message }, null, 2)}\n`;
 }
 
@@ -962,7 +962,7 @@ export async function generateAndStoreCoachMessage(
   let chatOutcome: { threads: ChatThread[]; duplicate: boolean; thread: ChatThread } | undefined;
 
   if (existingThread) {
-    body = coachReplyText(existingThread);
+    body = coachReplyText(existingThread, batchId);
   } else {
     const previousProactiveMessage = initial.message
       ? {
@@ -1015,7 +1015,7 @@ export async function generateAndStoreCoachMessage(
       // array order, every retry attempt - so chatOutcome reflects the thread that actually won
       // any concurrent mint-the-same-batch race by the time this reads it.
       const seedThreadId = existingThread?.id ?? chatOutcome?.thread.id ?? fallbackSeedThreadId;
-      const seedBody = chatOutcome ? coachReplyText(chatOutcome.thread) : body;
+      const seedBody = chatOutcome ? coachReplyText(chatOutcome.thread, batchId) : body;
       if (!seedThreadId) {
         throw new CoachMessageError("Activity-sync thread id did not resolve", 500);
       }
