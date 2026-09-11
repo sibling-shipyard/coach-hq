@@ -1,18 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// In-app weekly plan strip — day slots + projection line. Moved here in W3b of
-/// docs/plans/ios-widget-modules.md — renamed from `WeeklyPlanWidget` to match the `…Card`
-/// convention (ADR 0037).
+/// In-app weekly plan strip — day slots + projection line. One file per widget, per ADR 0037.
 ///
-/// **Not done here:** the plan calls for `daySlot` to adopt `SportChip` (`WarmInstrumentAtoms.swift`)
-/// instead of redrawing its icon-on-tint square inline. `SportChip` is a fixed `size × size`
-/// square; `daySlot`'s icon box stretches to fill its share of 7 equal-width columns
-/// (`.frame(maxWidth: .infinity)` + a fixed height only) and also carries a border overlay, a
-/// rest-day fallback, and a load-delta badge that `SportChip` has no parameters for. Forcing the
-/// substitution risks a real layout regression for a cosmetic win — `SportChip` would need a
-/// stretch-width mode and an overridable corner radius first, which is a small design decision,
-/// not a mechanical move. Left as a P2 in the LLD rather than guessed at here.
+/// **Not done here:** `daySlot` still redraws its icon-on-tint square inline instead of calling
+/// `SportChip` (`WarmInstrumentAtoms.swift`) — see `ios/DESIGN.md`'s "Out of scope" for why.
 struct WeeklyPlanCard: View {
     let plan: WeeklyPlanSnapshot
     var compact: Bool = false

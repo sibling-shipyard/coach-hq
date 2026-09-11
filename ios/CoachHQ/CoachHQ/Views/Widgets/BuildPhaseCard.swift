@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// In-app build-phase rail card. Moved here in W2 of docs/plans/ios-widget-modules.md —
-/// renamed from `BuildPhaseWidget` to match the `…Card` convention (§4 of the LLD). Its rail
-/// colors are `WarmInstrument.buildPhaseDeload`/`buildPhaseUpcoming` (W4) — the still-live
-/// WidgetKit `CoachHQWidget/BuildPhaseWidget.swift` had the identical two hex literals hardcoded
-/// too; both now point at the same tokens.
+/// In-app build-phase rail card — one file per widget, per ADR 0037. Its rail colors are
+/// `WarmInstrument.buildPhaseDeload`/`buildPhaseUpcoming`; the still-live WidgetKit
+/// `CoachHQWidget/BuildPhaseWidget.swift` shares the same two tokens.
 struct BuildPhaseCard: View {
     let phase: BuildPhaseSnapshot
 

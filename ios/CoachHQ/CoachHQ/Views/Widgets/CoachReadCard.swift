@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// In-app "Coach's read" card — date-stamped commentary + signature. Moved here in W3b of
-/// docs/plans/ios-widget-modules.md, renamed from `CoachReadWidget` to match the `…Card`
-/// convention (ADR 0037). Was dead only because `EngineDetailView` redrew its own bespoke
-/// version instead of calling this one; that view now calls this card instead (see its
-/// `coachReadCard` property), which is the adoption this stack's plan calls for.
+/// In-app "Coach's read" card — date-stamped commentary + signature. One file per widget, per
+/// ADR 0037. Was dead only because `EngineDetailView` redrew its own bespoke version instead of
+/// calling this one; that view now calls this card instead (see its `coachReadCard` property).
 ///
 /// **Visible change where it lands:** `EngineDetailView`'s Coach's Read card gains the date
 /// label and signature line this version always showed, and switches off its own

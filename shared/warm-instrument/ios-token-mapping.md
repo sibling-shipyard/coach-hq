@@ -1,6 +1,6 @@
 # Warm Instrument — iOS token mapping
 
-> Status: Current · Verified: 2026-08-23
+> Status: Current · Verified: 2026-09-09
 
 Source of truth: [`tokens.json`](./tokens.json). `generate.mjs` writes both
 `ui/client/src/components/home-warm/wi-tokens.generated.css` and
@@ -14,7 +14,7 @@ those tables, or the generated CSS / Swift.
 | `palette.desk` | `--wi-page` | page / grouped background |
 | `palette.surfaceMuted` | `--wi-surface-muted` | coach-read card tint |
 | `palette.ink` | `--wi-ink` | `Theme.ink` |
-| `palette.accent` | `--wi-rust` | load-only terracotta — **not** generic accent |
+| `palette.accent` | `--wi-rust` | load and primary-action terracotta (ADR 0041) — never decorative, never a status color |
 | `palette.alarmBg` / `alarmFg` | alarm flood classes | cold indigo-grey alarm |
 | `radius.cardWebPx` | card shell (26px) | scale to `radius.cardIosPt` (16–20pt) |
 | `sports.*.hex` | `--wi-badminton`, `--wi-weights`, etc. | `WITokens.Sports` via `Theme` / `WarmInstrument.Sport` |

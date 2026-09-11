@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// In-app recent-sessions list. Moved here in W3b of docs/plans/ios-widget-modules.md —
-/// renamed from `RecentSessionsWidget` to match the `…Card` convention (ADR 0037).
+/// In-app recent-sessions list — one file per widget, per ADR 0037.
 struct RecentSessionsCard: View {
     let sessions: [RecentSessionSnapshot]
     var compact: Bool = false

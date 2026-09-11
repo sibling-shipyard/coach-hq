@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// In-app proactive Coach message teaser — taps through to Coach chat. Moved here in W3b of
-/// docs/plans/ios-widget-modules.md (already correctly named per ADR 0037's `…Card` convention).
+/// In-app proactive Coach message teaser — taps through to Coach chat. One file per widget,
+/// per ADR 0037.
 struct CoachMessageCard: View {
     let message: CoachMessageSnapshot
     let onOpen: () -> Void

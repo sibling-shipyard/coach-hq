@@ -7,13 +7,13 @@ Reference: [coach-phelps.netlify.app](https://coach-phelps.netlify.app) (specifi
 
 ## Design Language — Warm Instrument
 
-The website moved to **Warm Instrument** (canonical spec: `ui/docs/reference-interactions/Widget Design Philosophy.md`) — warm paper surfaces, one terracotta accent reserved for load, monospace figures, an italic serif for the coach's voice. This table replaces the old neo-brutalist token mapping.
+The website moved to **Warm Instrument** (canonical spec: `ui/docs/reference-interactions/Widget Design Philosophy.md`) — warm paper surfaces, one terracotta accent for load and primary action (ADR 0041), monospace figures, an italic serif for the coach's voice. This table replaces the old neo-brutalist token mapping.
 
 | Token | Warm Instrument (web) | iOS target |
 |---|---|---|
 | Border radius | 26px card shell | 16–20pt cards (scale the same shell, don't reinvent it) |
 | Borders | 1px warm border (`rgba(84,76,65,.16)`) + soft shadow (~0 10–20px, low alpha) | 1pt adaptive `Theme.cardBorder` + subtle shadow — drop the old flat/no-shadow neo-brutalist look |
-| Palette | Paper `#fbf8f1` / desk `#e8e2d7` / ink `#2b2d29` / terracotta `#7f3728` (load only) / alarm `#e4e4ec`/`#4b5578` | Same hex values via `Theme.swift` tokens — terracotta stays reserved for load, never a generic accent |
+| Palette | Paper `#fbf8f1` / desk `#e8e2d7` / ink `#2b2d29` / terracotta `#7f3728` (load + primary action, ADR 0041) / alarm `#e4e4ec`/`#4b5578` | Same hex values via `Theme.swift` tokens — terracotta stays reserved for load and primary action, never decorative or a status color |
 | Typography — UI | Space Grotesk | SF Pro (unchanged — no equivalent geometric sans needed on iOS) |
 | Typography — figures | Space Mono | SF Mono / `.design(.monospaced)` (unchanged) |
 | Typography — coach voice | Newsreader italic | **Open decision:** bundle Newsreader or use a system serif italic (e.g. New York italic) for coach-voice text (mental state notes, coaching insights copy). Not yet decided — flag in the Phase 5 PR if this needs a call. |
@@ -111,16 +111,15 @@ Mapped in `Theme.sportIcon(for:)`:
 
 ### ⛔ Phase 4 — Training Heatmap (removed)
 - `TrainingHeatmapView` was built but never wired into the app; deleted as dead code along with
-  the abandoned Phase 5 screen below (`docs/plans/ios-widget-modules.md`, #928)
+  the abandoned Phase 5 screen below (#928)
 
 ---
 
 ## Phase 5 — Coaching Insights Dashboard (dropped)
 
 `CoachingInsightsView.swift` was built but never wired into `MainTabView`, then marked DEPRECATED
-and deleted as dead code. The six existing forked widgets (Engine, Quest, BuildPhase, Vo2,
-TrainingActivity, Commitment) already cover this ground; consolidating them into one reusable
-module is the current plan — see `docs/plans/ios-widget-modules.md` (#928).
+and deleted as dead code. Every live Home widget now lives in `Views/Widgets/`, one file each
+(ADR 0037), so a future dashboard reuses those instead of forking new copies (#928).
 
 ---
 
@@ -129,3 +128,25 @@ module is the current plan — see `docs/plans/ios-widget-modules.md` (#928).
 - Map view (GPS data not in HealthKit sync)
 - Strava deep-links on iOS
 - Apple Watch companion (separate WatchKit target — future)
+- **CI check for stray `Color(red:` outside `Theme.swift`, `WarmInstrumentTokens.generated.swift`,
+  and `WorkoutTimerWarm.swift`** (that trio holds every legitimate color literal as of #928's W4).
+  Without it, this decays the way `SportChip`'s "never redesign this per surface" comment did.
+- **Sport → icon/colour lookup spans 3 keyspaces** (raw HealthKit strings, `WarmSportId`,
+  `ActivityGlyphKind`) across `Theme.sportIcon`/`sportBadge`, `WarmInstrument.sportColor`/
+  `sfSymbol`, and `OnboardingRevealFlow.sportDisplayInfo`. Picking one canonical keyspace is a
+  design decision, not a mechanical fold (#928's W4).
+- **`SessionRow` (`Views/Widgets/RecentSessionsCard.swift`) vs. `ActivityRowViewModel`+
+  `ActivityLedgerRow` (`ActivityFeedVariants.swift`)** are still two row-rendering paths.
+  Folding them needs the sport-keyspace decision above first, plus a pre-formatted-vs-raw-fields
+  adapter and a compact mode `ActivityLedgerRow` doesn't have yet (#928's W5).
+- **`SportChip` (`WarmInstrumentAtoms.swift`) has zero call sites.** `WeeklyPlanCard.daySlot`
+  redraws its icon-on-tint square inline instead, because `SportChip` is a fixed `size × size`
+  square with no stretch-width mode or overridable corner radius — what `daySlot`'s 7-equal-
+  column layout needs (#928's W3b).
+- **`ActivityDetailView`'s `heroCard`/`ribbonCard`/`usualCard`/`richScoreCard`** stay as
+  computed properties, not separate view-model-backed types. Two own animation state
+  (`statsRevealed`/`statsProgress`, `hrStream`) with no established pattern yet for how much of
+  that moves with an extracted view (#928's W5).
+- **No code repainted off terracotta** — ADR 0041 rewrites the rule (load + primary action, not
+  load-only); the 14 files already using it that way are unaffected. Repainting is a separate
+  design pass nobody has asked for.

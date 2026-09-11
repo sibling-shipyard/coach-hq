@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// In-app sport commitment strip. Moved here in W2 of docs/plans/ios-widget-modules.md —
-/// renamed from `CommitmentStripWidget` to match the `…Card` convention (§4 of the LLD).
+/// In-app sport commitment strip — one file per widget, per ADR 0037.
 struct CommitmentCard: View {
     let size: WidgetSize
     let sizes: CommitmentSizes

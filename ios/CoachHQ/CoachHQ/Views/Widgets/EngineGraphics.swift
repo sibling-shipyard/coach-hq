@@ -4,8 +4,8 @@ import SwiftUI
 /// both the in-app `EngineCard` and WidgetKit's `EngineWidgetView`
 /// (`CoachHQWidget/EngineWidget.swift`). Pure functions of primitive values: no `@State`, no
 /// `containerBackground`, no card chrome. Each surface keeps its own sizes, colors, and
-/// surrounding content — see docs/plans/ios-widget-modules-lld.md §2 for what varies and why,
-/// and §1 for the scale decision this consolidation carries out.
+/// surrounding content — see `bandStrip` below for the scale decision this consolidation
+/// carries out.
 enum EngineGraphics {
     /// Raw "usual band" bounds before scale padding — the single source both `localScale` (pads
     /// this into an axis range) and `bandStrip` (draws the capsule at these exact bounds) build on.
