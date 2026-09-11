@@ -156,7 +156,7 @@ Goals and quests are set up during the First Session Protocol (§10). Definition
 
 ## 9. Rules Engine (Periodization & Auto-Regulation)
 
-**Weekly Structure:** Defined during first session from the sports and schedule in `user_data/coach/memory.json`. Stored in `user_data/ledger/current_week.json` when a week is live; use `propagated/docs/current-week-contract.md` for schema rules.
+**Weekly Structure:** Defined during first session from the sports and schedule in `user_data/coach/memory.json`. Stored in `user_data/ledger/current_week.json` when a week is live; `engine/lib/current-week.mts` is the schema authority.
 
 **Default week framework (adapt to the sports in the athlete's Athlete Profile):**
 - High intensity training days: no additional strength work
@@ -270,7 +270,7 @@ for the goal does not excuse leaving `new_habits` empty when habits arrived with
 8. Save each customized workout as a session file (see Persisting Session Files below).
 
 ### Weekly Contract Safety
-`propagated/docs/current-week-contract.md` is the schema v1 authority — read it before creating, changing, or rolling over `user_data/ledger/current_week.json`, and never improvise its field rules here. Trust only a current or rollover-grace `live` week; otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data. Keep every change bounded: preserve session identity and provenance, record actual outcomes, `null` for unknowns, no measured activity data in the plan, and only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
+`engine/lib/current-week.mts` is the schema v1 authority, enforced by `./engine/scripts/validate-current-week` (§ below) — never improvise a field rule here. Trust only a current or rollover-grace `live` week; otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data. Keep every change bounded: preserve session identity and provenance, record actual outcomes, `null` for unknowns, no measured activity data in the plan, and only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
 
 - Before staging any weekly edit, set fresh save metadata, run `./engine/scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
 
