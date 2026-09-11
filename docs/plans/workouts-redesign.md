@@ -223,9 +223,12 @@ at the end of this section.
 | A6 | Recomposed soul and the compiler CLI, into the BYO athlete's own repo | A4 | Tech Lead | That athlete asks for an upper-body workout in their own repo and gets one |
 | ~~A7~~ | ~~Deterministic reconciler~~ - **done**, shipped as PR #978 in the #973 stack | - | - | Every row of the reconciliation table above has a test in `engine/scripts/reconcile-current-week.test.mjs` |
 | ~~A8~~ | ~~Weekly rollover with no chat required~~ - **done**, shipped as PR #979 in the #973 stack | - | - | Verified live: a stale week was replaced with a real current-week frame with no chat involved |
+| A9 | Update `athlete-repo-migration-973.md` for whatever this stack adds to the migration | A1, A2, A3, A6 | Tech Lead | The doc covers every field/script this stack introduces, not just #973's, and stays deferred until an athlete repo actually migrates |
 
-A1, A5, and A5-ios can start at the same time, since they touch disjoint files. A5 and A5-ios are
-resequenced: see "What happens to #732, #733, and #734" below before building either.
+A1, A5, and A5-ios can start at the same time, since they touch disjoint files. A5 and A5-ios no
+longer wait on anything from #732/#733/#734: see "What happened to #732, #733, and #734" below.
+A9 is last on purpose - the migration doc should describe the finished shape of both stacks
+(#973 and this one) in one pass, not get edited once per PR.
 
 ### Gated stack: periodization
 
@@ -244,16 +247,19 @@ athlete repos, and the operator's own experience is the opposite: a routine hold
 only the numbers move. Nothing here should be restructured around an unverified claim in either
 direction. Settle it with real evidence before B1 is scoped, not as part of scoping B1.
 
-## What happens to #732, #733, and #734
+## What happened to #732, #733, and #734
 
-Three PRs already exist from the original design, dated Aug 31. Each was checked directly against
-its diff and a real merge attempt against current `main`, not assumed from its title.
+Three PRs existed from the original design, dated Aug 31, each checked directly against its diff
+and a real merge attempt against `main`, not assumed from its title. All three are now **closed**,
+branches kept as reference only. A1, A5, and A5-ios each start fresh off current `main`. None
+rebase or depend on any of them: #973 has already moved the Current Week schema out from under
+#733's and #734's assumptions, and #732 predates the ADR 0042 rename.
 
-| PR | What it is | Verdict |
+| PR | What it is | Disposition |
 |---|---|---|
-| #732, the compiler | `engine/lib/compileWorkout.mts` and its tests | **Rebase and keep.** Self-contained, no dependency on the week schema or anything else this plan changes. Only a trivial conflict, a shared table row in a doc. |
-| #733, the web page | The three-band Workouts page | **Close, keep the branch as reference.** It reads Current Week fields directly in a way that will need rework once the Current Week schema changes, and it also has a real, if small, merge conflict from unrelated changes since it was opened. The layout and the page's selector logic are worth reading before rebuilding A5, not worth merging as-is. |
-| #734, the iOS tab | The same three bands on iOS | **Close, keep the branch as reference.** Same reasoning as #733, and iOS is sequenced after web regardless. |
+| #732, the compiler | `engine/lib/compileWorkout.mts` and its tests | Closed. Self-contained logic worth reading for A1, but A1 is a fresh PR against current `main`, not a rebase of this one. |
+| #733, the web page | The three-band Workouts page | Closed. It reads Current Week fields directly in a shape #973 has since changed. The layout and the page's selector logic are worth reading before building A5, not worth rebasing. |
+| #734, the iOS tab | The same three bands on iOS | Closed. Same reasoning as #733, and iOS is sequenced after web regardless. |
 
 ## Rolling out to athlete repos
 
@@ -295,6 +301,8 @@ datastore and nothing partial survives a revert.
 - An athlete with an active injury flag is never offered a routine that conflicts with it.
 - Every invariant above has a test that fails when it's violated.
 - All four live repos, BYO included, keep working throughout.
+- `docs/plans/athlete-repo-migration-973.md` describes every field and script this stack adds,
+  not just #973's. The migration itself stays deferred - no live athlete uses the app yet.
 
 ## Alternatives considered
 

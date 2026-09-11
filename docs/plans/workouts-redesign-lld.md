@@ -58,22 +58,28 @@ flowchart LR
   A2 --> A4["A4 soul + carve"]
   A4 --> A6["A6 migrate BYO repo"]
   A73["A7+A8 reconciler + rollover, shipped by #973"] -.->|already done| done
+  A1 --> A9["A9 update migration doc"]
+  A2 --> A9
+  A3 --> A9
+  A6 --> A9
   A3 --> done
   A4 --> done
   A6 --> done
+  A9 --> done
 ```
 
 | PR | Branch | Owner | Base | Files it may touch |
 |---|---|---|---|---|
 | A5 | `feat/727-workouts-day-view-v2` | UI Expert | `main` | `ui/client/` only |
 | A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | `main`, after A5 | `ios/` only |
-| A1 | `feat/727-compile-workout` (rebase #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
+| A1 | `feat/727-compile-workout` (fresh, not a rebase of closed #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
 | A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/scripts/`, `ui/package.json` |
 | A3 | `feat/727-first-session-benchmark` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts`, `shared/workout-library/` (deleted here) |
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo, a PR against it |
 | ~~A7~~ | shipped as `core/973-reconciler` (PR #978) | - | - | `engine/scripts/reconcile-current-week.mjs` |
 | ~~A8~~ | shipped as `core/973-rollover` (PR #979) | - | - | `engine/scripts/rollover-current-week.mjs`, `.github/workflows/sync.user.yml` |
+| A9 | `core/727-migration-doc` | Tech Lead | A1, A2, A3, A6 | `docs/plans/athlete-repo-migration-973.md` only |
 
 A diff outside your file column fails review. Every PR: `Refs: #727`. Nothing in the near-term
 stack closes #727 on its own. A7 and A8 no longer need a PR here - Refs: #973's stack already
@@ -91,14 +97,15 @@ git worktree remove /tmp/wt-<brief> --force
 ```
 
 Never switch branches in the primary checkout. Commit prefix per `.github/CONVENTIONS.md`: `feat:`
-for A1, A2, A3; `core:` for A4, A6; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
+for A1, A2, A3; `core:` for A4, A6, A9; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
 
 ---
 
 ## A1: `compileWorkout()` in `engine/`
 
 **Goal:** a pure function that turns a minimal exercise list into timer-ready JSON. Nothing calls
-it yet in this PR. Rebase from #732, which is already this exact PR, unmerged since Aug 31.
+it yet in this PR. #732 was this exact PR, unmerged since Aug 31 and now closed - read it for the
+compiler's shape, but open this as a fresh PR against current `main`, not a rebase of it.
 
 **Files:** `engine/lib/compileWorkout.mts` (new), `engine/lib/compileWorkout.test.mts` (new),
 `engine/scripts/compile-dryrun.mts` (new, the verification tool referenced in the rollout section
@@ -295,9 +302,9 @@ carved repo can create a routine. This PR references the issue but does not clos
 
 ## A5, A5-ios: three-band Workouts page
 
-Rebuilt fresh rather than merging #733 or #734, since both hand-parse Current Week fields in a way
-that needs rework once the Current Week schema changes. The design contract from those two PRs is
-worth reading before starting, even though neither merges as-is.
+Rebuilt fresh rather than reopening #733 or #734 (both closed), since both hand-parse Current Week
+fields in a shape #973 has already changed. The design contract from those two PRs is worth reading
+before starting, even though neither merges as-is.
 
 **Web goal:** today, this week, and library, read-only over data that already exists. No new
 storage, no schema change, no backend change.
@@ -354,37 +361,59 @@ original goals and behavior, as designed here, are unchanged - only where the wo
   `.github/workflows/sync.user.yml`. Verified live against a real athlete repo: a week that had
   gone stale was correctly replaced with a placeholder frame for the real current week.
 
-**What's left for this plan to do here:** nothing. A3 (first-week compile) can call the same
-reconciler/rollover machinery once #973 merges, but doesn't need to build any part of it. Treat
+**What's left for this plan to do here:** nothing. #973 is merged. A3 (first-week compile) can call
+the same reconciler/rollover machinery directly, and doesn't need to build any part of it. Treat
 #973 as a dependency to pull in, not a PR to open under `feat/727-*`.
 
 ---
 
-## What happens to #732, #733, #734: the evidence
+## A9: update the athlete repo migration doc
+
+**Goal:** `docs/plans/athlete-repo-migration-973.md` currently describes only what #973 changed.
+By the time this stack's near-term PRs land, athlete repos also need the workouts side migrated -
+a new `routines/`/`compiled/` layout, `seasons.json` gaining `goal`/`duration`, and whatever A1-A6
+add to the manifest or carve. Folding that into the same doc, in one pass, means an operator
+migrating a repo later reads one doc for both stacks instead of two.
+
+**Files:** `docs/plans/athlete-repo-migration-973.md` only. No code changes.
+
+**Behavior:** once A1, A2, A3, and A6 are merged, audit each one's diff for anything a
+pre-this-stack athlete repo would need. That means new files to re-carve, new manifest entries,
+and any migration transform a stored field needs - the same way #973's stack needed a `discipline`
+normalization step. Add a section to the doc per new thing found, in the same "what each repo
+needs" format #973's section already uses.
+
+**Validate:** re-check the doc's own "Repos in scope" table against all five real athlete clones,
+same as #973's pass did, so it states real findings and not assumptions.
+
+**Done when:** the doc covers every field and script both stacks introduce. The migration itself
+stays deferred - nothing forces it until an athlete actually uses the app again.
+
+---
+
+## What happened to #732, #733, #734: the evidence
 
 Checked directly with the GitHub CLI's diff and file views, and a real three-way merge attempt
 against current `main` in a scratch worktree, not assumed from titles or the original plan's own
-claims.
+claims. All three are now closed; none are rebased or built on.
 
 **#732, the compiler.** 10 files changed, roughly 812 lines added and 3 removed. Touches only the
-new compiler module and its tests, the dry-run tool, and two lines of CI path-filter wiring. The
-only conflict against current `main` is 7 lines in a documentation file's table row, both sides
-editing the same row. No dependency anywhere in the diff on the week file's schema. **Rebase and
-keep**, folded into A1 above.
+new compiler module and its tests, the dry-run tool, and two lines of CI path-filter wiring. No
+dependency anywhere in the diff on the week file's schema, and no conflict of substance against
+`main` at the time it was checked. **Closed anyway** - A1 is a fresh PR against `main` once it
+opens, not a rebase, so it never inherits whatever `main` has moved to underneath this branch by
+then. The branch is worth reading for the compiler's shape, not worth merging as-is.
 
 **#733, the web page.** 7 files changed, roughly 1390 lines added and 105 removed. Adds a new
 selector module and rewrites the Workouts page into the three-band layout. Both new files import
-the current week's runtime parser and read its session type directly. Once the Current Week schema
-changes, this data layer needs rework regardless of whether the PR merges first. The conflict
-against `main` is real: 37 lines across two spots in the page component, from unrelated changes
-that landed on `main` since this PR was opened. **Close as a merge candidate. Keep the branch as
-reference** for A5's rebuild, since the layout and selector shape are good starting points even
-though the code underneath needs to change.
+the current week's runtime parser and read its session type directly - a shape #973 has since
+changed underneath it. **Closed, kept as reference** for A5's rebuild: the layout and selector
+shape are good starting points even though the data layer needs a rewrite regardless.
 
-**#734, the iOS tab.** 3 files changed, roughly 763 lines added and 38 removed, and this one has no
-conflict at all against current `main`. Adds a hand-written parser for the week file that reads the
-same fields as #733 reads on web. **Close as a merge candidate. Keep as reference** for A5-ios,
-for the same reason as #733, and because iOS is sequenced after web regardless of this PR's state.
+**#734, the iOS tab.** 3 files changed, roughly 763 lines added and 38 removed. Adds a hand-written
+parser for the week file that reads the same fields as #733 read on web, now stale for the same
+reason. **Closed, kept as reference** for A5-ios, for the same reason as #733, and because iOS is
+sequenced after web regardless of this PR's state.
 
 ## Validation, all PRs
 
