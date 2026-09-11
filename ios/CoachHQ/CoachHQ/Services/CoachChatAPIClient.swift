@@ -200,13 +200,12 @@ final class CoachChatAPIClient {
         return threads
     }
 
-    /// Mirrors coachChatModel.ts's sendMessage(): the client owns the running thread history
-    /// until a `closed: true` response reports a real commit happened (coach-chat-flow.md).
+    /// Mirrors coachChatModel.ts's sendMessage(): every turn commits fully now (C1), so the
+    /// response always carries the fresh committed thread list - no more `closed: true` check.
     func sendMessage(
         threadId: String?,
         priorMessages: [ChatMessage],
-        message: String,
-        endConversationRequested: Bool = false
+        message: String
     ) async throws -> ChatSendResponse {
         let auth = try await requireAuth()
         let messagesJSON = try priorMessages.map { msg -> [String: Any] in
@@ -214,9 +213,6 @@ final class CoachChatAPIClient {
             return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
         }
         var body: [String: Any] = ["messages": messagesJSON, "message": message]
-        if endConversationRequested {
-            body["endConversationRequested"] = true
-        }
         if let threadId {
             body["threadId"] = threadId
             if let knownSha = await Self.shaStore.sha(for: threadId) { body["knownSha"] = knownSha }
@@ -225,9 +221,9 @@ final class CoachChatAPIClient {
         let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: data)
         await Self.shaStore.rememberAndPrune(
-            threadId: decoded.closed ? decoded.threadId : threadId,
+            threadId: decoded.threadId,
             sha: decoded.repoSha,
-            currentThreadIds: decoded.threads?.map(\.id),
+            currentThreadIds: decoded.threads.map(\.id),
         )
         return decoded
     }

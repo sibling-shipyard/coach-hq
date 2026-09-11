@@ -1,5 +1,8 @@
 [
-  { "greet": true, "message": "" },
+  {
+    "greet": true,
+    "message": ""
+  },
   {
     "message": "Run today was fine, though something felt a bit off in the back half. Nothing major."
   },
@@ -7,8 +10,6 @@
     "message": "Actually thinking about it more, my left hip has been sore for 3 days now, not just today."
   },
   {
-    "message": "That's it for today, wrap it up.",
-    "endConversationRequested": true,
-    "expect": { "sessionClosed": true }
+    "message": "That's it for today, wrap it up."
   }
 ]

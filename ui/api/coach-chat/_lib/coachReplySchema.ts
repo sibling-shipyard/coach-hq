@@ -82,15 +82,17 @@ export interface GeminiReply {
       unit?: string;
     }[];
   };
-  // See responseSchema's session_closed for the required-field rationale.
-  session_closed?: boolean;
 }
 
-export type TurnMode = "greeting" | "ordinary" | "closing" | "activity_sync";
+// Every turn commits whatever it produces - there is no separate mode for a turn that closes a
+// session, so every non-greeting, non-activity_sync turn is just "ordinary".
+export type TurnMode = "greeting" | "ordinary" | "activity_sync";
 
 const RESPONSE_PROPERTIES = {
   // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4).
-  // Closing-turn continuity note appended to coach_log.json; never shown to the athlete.
+  // Continuity note appended to coach_log.json, never shown to the athlete - declared here for
+  // its shape/cap, but responsePropertiesFor never selects it since C1 removed the closing turn
+  // that used to gate it. C2 redesigns coach_note into a day-keyed row and wires it back up.
   coach_note: { type: "string", maxLength: COACH_LOG_TEXT_CAP },
   // Replaces one of memory.json's constrained labelled note boxes in full.
   memory_update: {
@@ -163,12 +165,13 @@ const RESPONSE_PROPERTIES = {
       required: ["field", "value"],
     },
   },
-  // Permanent structural removal from an existing template. Single object: one edit per
-  // closing turn. Free-form generation was removed because its second model call doubled the
-  // failure surface; unsupported additions must not be represented as edits.
-  // template_id is free text in the schema itself (Gemini's real ids come from context, per
-  // activeTemplatesContext below); coachWorkoutFiles.ts's applyTemplateEdit is the actual
-  // enforcement point.
+  // Permanent structural removal from an existing template. Single object: one edit per turn.
+  // Free-form generation was removed because its second model call doubled the failure surface;
+  // unsupported additions must not be represented as edits.
+  // template_id is free text in the schema itself - C1 stopped feeding Gemini a live template-id
+  // list on every turn (that fetch is now lazy, only after a reply actually asks for one of
+  // these fields - see coachTurn.ts's buildTurnWrites); coachWorkoutFiles.ts's applyTemplateEdit
+  // against the real manifest, fetched at that point, is the actual enforcement point.
   template_edit: {
     type: "object",
     properties: {
@@ -180,7 +183,7 @@ const RESPONSE_PROPERTIES = {
     required: ["template_id"],
   },
   // Today's modified session from an existing template. Single object: one prescription per
-  // closing turn. The server stamps session_date, deliberately limiting this action to today;
+  // turn. The server stamps session_date, deliberately limiting this action to today;
   // future-dated prescriptions require an explicit later schema change. skip_phases is plain
   // language because Gemini does not receive full template exercise numbers; the server
   // resolves the phase against the real template at commit time.
@@ -334,7 +337,6 @@ const RESPONSE_PROPERTIES = {
       },
     },
   },
-  session_closed: { type: "boolean" },
   reply: { type: "string" },
 } as const;
 
@@ -350,11 +352,11 @@ const FSP_ACTIONS = [
   "quest_create",
 ] as const satisfies readonly ResponseField[];
 
-// Available on every turn for a returning athlete, closing or not (#616) - these report facts
-// the athlete just stated, not a session artifact that needs the closing ritual around it.
-// season_start and quest_create joined this set in B3 - a returning athlete can start a new
-// season with its goal, or add a habit quest, the same as during First Session, on any turn.
-const RETURNING_DATA_FACT_ACTIONS = [
+// Available on every turn for a returning athlete (#616 unlocked the data-fact half; C1 folds
+// the session-artifact half in too - there is no more closing ritual to gate them behind).
+// season_start and quest_create joined the data-fact half in B3 - a returning athlete can start
+// a new season with its goal, or add a habit quest, the same as during First Session, any turn.
+const RETURNING_ACTIONS = [
   "memory_update",
   "sports_update",
   "injury_flag",
@@ -363,11 +365,6 @@ const RETURNING_DATA_FACT_ACTIONS = [
   "profile_update",
   "season_start",
   "quest_create",
-] as const satisfies readonly ResponseField[];
-
-// Session artifacts still gated to closing turns only - removed from "closing" entirely in C1,
-// not here.
-const RETURNING_CLOSE_ONLY_ACTIONS = [
   "template_edit",
   "session_plan",
   "week_plan",
@@ -380,13 +377,9 @@ function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
     mode === "greeting" || mode === "activity_sync"
       ? []
       : firstSession
-        ? mode === "closing"
-          ? ["coach_note", ...FSP_ACTIONS]
-          : FSP_ACTIONS
-        : mode === "closing"
-          ? ["coach_note", ...RETURNING_DATA_FACT_ACTIONS, ...RETURNING_CLOSE_ONLY_ACTIONS]
-          : RETURNING_DATA_FACT_ACTIONS;
-  const fields: ResponseField[] = [...actionFields, "session_closed", "reply"];
+        ? FSP_ACTIONS
+        : RETURNING_ACTIONS;
+  const fields: ResponseField[] = [...actionFields, "reply"];
   return Object.fromEntries(fields.map((key) => [key, RESPONSE_PROPERTIES[key]]));
 }
 
@@ -394,13 +387,13 @@ function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
 export function generationConfigFor(mode: TurnMode, firstSession: boolean) {
   return {
     responseMimeType: "application/json",
-    // Complex returning closes can legitimately combine several actions. Smaller modes keep the
+    // A complex returning turn can legitimately combine several actions. Smaller modes keep the
     // same ceiling; the schema, not truncation pressure, controls their output.
     maxOutputTokens: 4096,
     responseSchema: {
       type: "object",
       properties: responsePropertiesFor(mode, firstSession),
-      required: ["reply", "session_closed"],
+      required: ["reply"],
     },
   } as const;
 }

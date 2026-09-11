@@ -21,12 +21,32 @@ function schemaFields(mode: TurnMode, firstSession: boolean): string[] {
 
 describe("mode-specific response schemas", () => {
   it("allows no write actions on greetings or activity syncs", () => {
-    expect(schemaFields("greeting", true)).toEqual(["session_closed", "reply"]);
-    expect(schemaFields("activity_sync", false)).toEqual(["session_closed", "reply"]);
+    expect(schemaFields("greeting", true)).toEqual(["reply"]);
+    expect(schemaFields("activity_sync", false)).toEqual(["reply"]);
   });
 
-  it("unlocks data-fact actions (not session artifacts) on a returning ordinary turn (#616)", () => {
-    expect(schemaFields("ordinary", false)).toEqual([
+  it("allows only incremental intake actions during a First Session turn - no session artifacts, no coach_note", () => {
+    const fields = schemaFields("ordinary", true);
+    expect(fields).toEqual([
+      "memory_update",
+      "sports_update",
+      "injury_flag",
+      "injury_event",
+      "profile_update",
+      "season_start",
+      "quest_create",
+      "reply",
+    ]);
+    expect(fields).not.toContain("coach_note");
+    expect(fields).not.toContain("quest_event");
+    expect(fields).not.toContain("template_edit");
+  });
+
+  // C1: no more closing turn - a returning athlete's turn gets every action field (data-fact
+  // and session-artifact alike) every time, not just data-fact ones (#616) or only at a close.
+  it("unlocks every action field, data-fact and session-artifact, on a returning turn (C1)", () => {
+    const fields = schemaFields("ordinary", false);
+    expect(fields).toEqual([
       "memory_update",
       "sports_update",
       "injury_flag",
@@ -35,43 +55,14 @@ describe("mode-specific response schemas", () => {
       "profile_update",
       "season_start",
       "quest_create",
-      "session_closed",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit",
       "reply",
     ]);
-  });
-
-  it("allows only incremental intake actions during an ordinary First Session turn", () => {
-    expect(schemaFields("ordinary", true)).toEqual([
-      "memory_update",
-      "sports_update",
-      "injury_flag",
-      "injury_event",
-      "profile_update",
-      "season_start",
-      "quest_create",
-      "session_closed",
-      "reply",
-    ]);
-  });
-
-  it("adds coach_note at First Session close but excludes returning-athlete actions", () => {
-    const fields = schemaFields("closing", true);
-    expect(fields).toContain("coach_note");
-    expect(fields).toContain("quest_create");
-    expect(fields).not.toContain("quest_event");
-    expect(fields).not.toContain("template_edit");
-    expect(fields).not.toContain("week_plan");
-  });
-
-  it("allows operational actions and season/quest access at returning close (B3)", () => {
-    const fields = schemaFields("closing", false);
-    expect(fields).toContain("quest_event");
-    expect(fields).toContain("template_edit");
-    expect(fields).toContain("week_plan");
-    // B3: a returning athlete can start a new season with its goal, or add a habit quest, the
-    // same as during First Session, on any turn - closing included.
-    expect(fields).toContain("season_start");
-    expect(fields).toContain("quest_create");
+    expect(fields).not.toContain("coach_note");
   });
 });
 
@@ -158,33 +149,34 @@ describe("cache safety", () => {
     expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
   });
 
-  // Found live testing Part A: on the turn that both closes AND is still mid-First-Session, the
-  // mode==="closing" branch won outright and the dedicated FSP reminder (firstSessionTurn branch,
-  // tested above) was never reached - quest_create got buried as one paragraph among ~15 mostly
-  // irrelevant ones (template_edit/session_plan/week_plan/etc, none of which apply to a
-  // first-session athlete). Real athlete stated habit quests on a closing turn, Gemini's reply
-  // claimed they were saved, but quest_create never fired - confirmed from the raw response, not
-  // just the missing commit. Fixed with a dedicated, focused closing+FSP instruction block.
-  it("gives the closing turn its own focused FSP checklist when it's also a First Session close", () => {
+  // C1: the closing turn is gone, so there is no separate closing+FSP checklist any more - the
+  // single first-session block above (tested in "tells Gemini to emit action fields immediately
+  // on an ordinary First Session turn") already covers save-immediately guidance without ever
+  // burying quest_create among session-artifact fields that don't apply to a first-session
+  // athlete in the first place (they're structurally excluded, not just discouraged - see the
+  // "not a closing" schema test above).
+  it("a first-session athlete's dynamic text never mentions session-artifact fields", () => {
     const dynamic = buildDynamicText(
       "state",
       "quests",
-      "closing",
+      "ordinary",
       true,
       firstSessionContext(true, PROTOCOL),
       true,
     );
-    expect(dynamic).toContain("LAST CHANCE");
-    expect(dynamic).toContain("Their season (name, start/end dates) AND their main goal");
-    expect(dynamic).toContain("Any daily habits or routines they want to track");
-    expect(dynamic).toContain("quest_create's quests[]");
     expect(dynamic).not.toContain("Weekly Kick-off Ritual");
     expect(dynamic).not.toContain("the phase's plain-language name");
   });
 
-  it("still uses the generic closing checklist for a returning athlete's close (not First Session)", () => {
-    const dynamic = buildDynamicText("state", "quests", "closing", false, undefined, true);
-    expect(dynamic).not.toContain("LAST CHANCE");
-    expect(dynamic).toContain("session-close signal");
+  // C1: session-artifact guidance (template_edit/session_plan/week_plan/session_reconcile/
+  // plan_edit) used to live only in the closing-mode branch - now it's part of every returning
+  // athlete's ordinary turn, since there's no closing turn left to gate it behind.
+  it("a returning athlete's ordinary text covers session-artifact fields too (no more closing turn)", () => {
+    const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined, true);
+    expect(dynamic).toContain("Weekly Kick-off Ritual");
+    expect(dynamic).toContain("template_edit");
+    expect(dynamic).toContain("session_plan");
+    expect(dynamic).toContain("session_reconcile");
+    expect(dynamic).toContain("plan_edit");
   });
 });

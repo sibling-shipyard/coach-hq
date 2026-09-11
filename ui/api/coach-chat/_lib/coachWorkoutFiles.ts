@@ -375,12 +375,13 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
 };
 
 /**
- * Generates the athlete's initial workout templates on First Session close: deterministic
- * selection (selectTemplates), one light Gemini adjustment pass, then a FileEntry[] ready for
- * commitFilesAtomic (a separate commit from the main closing-turn one - see coachTurn.ts).
- * Never throws for a Gemini failure - falls back to the unadjusted templates from the library
- * so onboarding always produces *something*, and the caller in coachTurn.ts is expected not to
- * let this block or fail the athlete's response either way.
+ * Generates the athlete's initial workout templates on the turn that completes First Session:
+ * deterministic selection (selectTemplates), one light Gemini adjustment pass, then a
+ * FileEntry[] ready for commitFilesAtomic (a separate commit from the turn's own one - see
+ * coachTurn.ts's generateTemplatesAfterCompletion). Never throws for a Gemini failure - falls
+ * back to the unadjusted templates from the library so onboarding always produces *something*,
+ * and the caller in coachTurn.ts is expected not to let this block or fail the athlete's
+ * response either way.
  */
 export async function generateInitialTemplates(
   profile: ProfileJson,

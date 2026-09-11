@@ -19,7 +19,6 @@ const {
   }),
   askGemini: vi.fn(async () => ({
     reply: "Nice work on Easy Run.",
-    session_closed: false,
   })),
   getFileRaw: vi.fn(async (_repo: string, _path: string): Promise<string | null> => null),
   listDirectory: vi.fn(

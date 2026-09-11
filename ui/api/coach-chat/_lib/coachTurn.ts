@@ -10,11 +10,9 @@ import {
   invalidateCoachContext,
   isFirstSessionRitualDone,
   loadCoachContext,
-  parseJsonOrNull,
   resolveCoachChatBranch,
 } from "./coachChatFiles.js";
 import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coachDay.js";
-import { acceptedMessage, messageForGemini, shouldRequestClose } from "./closeSignal.js";
 import {
   appendConversationTurn,
   loadChatHistory,
@@ -32,26 +30,22 @@ import {
   validTemplateIdsFromManifest,
   TEMPLATES_MANIFEST_PATH,
 } from "./coachWorkoutFiles.js";
-import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
 import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
 import { captureGeminiFailure } from "../../_lib/sentry.js";
 import {
   combineExtraContext,
-  activeTemplatesContext,
-  activeWeekSessionsContext,
   firstSessionContext,
   type OnboardingHints,
 } from "./coachPromptText.js";
-import type { GeminiReply } from "./coachReplySchema.js";
+import type { GeminiReply, TurnMode } from "./coachReplySchema.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
 } from "./text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
-import { fspIncrementalWrites, ordinaryTurnResponse } from "./fspWrites.js";
 import { buildChatWrite } from "./turnWrites/chatWrite.js";
 import { buildCoachNoteWrite } from "./turnWrites/coachNoteWrite.js";
 import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
@@ -73,7 +67,6 @@ interface PostBody {
   activity_ids?: unknown;
   knownSha?: string;
   onboardingHints?: OnboardingHints;
-  endConversationRequested?: boolean;
 }
 
 export interface GreetRequest {
@@ -87,7 +80,6 @@ export interface TurnRequest {
   trimmed: string;
   geminiMessage: string;
   knownSha?: string;
-  endConversationRequested: boolean;
 }
 
 interface TurnState extends TurnRequest {
@@ -101,23 +93,14 @@ interface TurnState extends TurnRequest {
   athleteContext: string;
   questContext: string;
   firstSession: boolean;
-  closeIntent: boolean;
   now: number;
   traceId: string;
   userMsg?: Extract<ChatMessage, { role: "user" }>;
   closingFiles?: ClosingFileContext;
-  validTemplateIds: ReadonlySet<string>;
-  weekSessionsForContext: {
-    id: string;
-    date: string;
-    title: string;
-    status: string;
-  }[];
 }
 
 interface RepliedTurn extends TurnState {
   reply: GeminiReply;
-  closing: boolean;
 }
 
 export interface TurnWrites extends RepliedTurn {
@@ -127,7 +110,6 @@ export interface TurnWrites extends RepliedTurn {
   computedTitle: string;
   trimmedCoachNote?: string;
   optionalWrites: FileEntry[];
-  fspCandidates: (FileEntry | undefined)[];
   validUpdates: FileEntry[];
   wasProfileComplete: boolean;
   profileComplete: boolean;
@@ -161,16 +143,14 @@ export async function parseTurnRequest(
     };
   }
 
-  const endConversationRequested = body.endConversationRequested === true;
-  const trimmed = acceptedMessage(body.message, endConversationRequested);
-  if (trimmed == null) return Response.json({ error: "Message required" }, { status: 400 });
+  const trimmed = (body.message ?? "").trim();
+  if (!trimmed) return Response.json({ error: "Message required" }, { status: 400 });
   return {
     threadId: body.threadId,
     priorMessages: body.messages ?? [],
     trimmed,
-    geminiMessage: messageForGemini(trimmed, endConversationRequested),
+    geminiMessage: trimmed,
     knownSha: body.knownSha,
-    endConversationRequested,
   };
 }
 
@@ -211,32 +191,8 @@ export async function loadTurnState(
 
   const timezone = profile?.timezone?.trim() || "UTC";
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
-  const closeIntent = shouldRequestClose(
-    request.trimmed,
-    request.priorMessages,
-    request.endConversationRequested,
-  );
   const now = Date.now();
   const traceId = Math.random().toString(36).slice(2, 10);
-  let closingFiles: ClosingFileContext | undefined;
-  let validTemplateIds: ReadonlySet<string> = new Set();
-  let weekSessionsForContext: TurnState["weekSessionsForContext"] = [];
-
-  if (closeIntent) {
-    closingFiles = await loadClosingFileContext(repo, token);
-    const manifestRaw = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null);
-    validTemplateIds = validTemplateIdsFromManifest(manifestRaw);
-    const currentWeekRaw = await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null);
-    const parsedWeek = parseJsonOrNull<{
-      days?: {
-        date: string;
-        sessions?: { id: string; title: string; status: string }[];
-      }[];
-    }>(currentWeekRaw);
-    weekSessionsForContext = (parsedWeek?.days ?? []).flatMap((day) =>
-      (day.sessions ?? []).map((session) => ({ ...session, date: day.date })),
-    );
-  }
 
   return {
     ...request,
@@ -262,13 +218,9 @@ export async function loadTurnState(
       today: todayDateString(timezone, new Date()),
     }),
     firstSession,
-    closeIntent,
     now,
     traceId,
     userMsg: request.trimmed ? { id: `u-${now}`, role: "user", text: request.trimmed } : undefined,
-    closingFiles,
-    validTemplateIds,
-    weekSessionsForContext,
   };
 }
 
@@ -314,11 +266,9 @@ function findOversizedTextField(
 }
 
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
-  const mode = turn.closeIntent ? "closing" : "ordinary";
+  const mode: TurnMode = "ordinary";
   const extraContext = combineExtraContext(
     firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
-    activeTemplatesContext(turn.validTemplateIds),
-    activeWeekSessionsContext(turn.weekSessionsForContext),
   );
   try {
     let reply = await askGemini(
@@ -376,7 +326,6 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     return {
       ...turn,
       reply,
-      closing: turn.closeIntent && reply.session_closed === true,
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -460,12 +409,31 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
   const profileUpdateWrite = buildProfileUpdateWrite(repo, token, profileUpdates);
 
+  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit)
+  // are available on every returning-athlete turn now, not gated to a closing turn - so the
+  // templates-manifest fetch that validates their template_id references has to move here too,
+  // and stay lazy: fetch it only when the reply actually asked for one of these, not on every
+  // ordinary turn that never touches them (that would reintroduce the exact eager GitHub-read
+  // cost this PR removes). Gemini itself gets no pre-fetched id list any more (see
+  // coachPromptText.ts) - a wrong id just fails validation below instead of committing.
+  const needsTemplateContext =
+    reply.template_edit != null ||
+    reply.session_plan != null ||
+    reply.week_plan != null ||
+    (reply.session_reconcile?.length ?? 0) > 0 ||
+    (reply.plan_edit?.length ?? 0) > 0;
+  const validTemplateIds: ReadonlySet<string> = needsTemplateContext
+    ? validTemplateIdsFromManifest(
+        await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
+      )
+    : new Set<string>();
+
   const templateEditWrite = buildTemplateEditWrite(
     repo,
     token,
     traceId,
     reply.template_edit,
-    turn.validTemplateIds,
+    validTemplateIds,
   );
 
   const sessionPlanWrite = buildSessionPlanWrite(
@@ -474,7 +442,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     timezone,
     traceId,
     reply.session_plan,
-    turn.validTemplateIds,
+    validTemplateIds,
   );
 
   const currentWeekWrite = buildCurrentWeekWrite(
@@ -485,7 +453,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     reply.week_plan,
     reply.session_reconcile ?? [],
     reply.plan_edit ?? [],
-    turn.validTemplateIds,
+    validTemplateIds,
   );
 
   const today = todayDateString(timezone, new Date());
@@ -549,16 +517,6 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   // seasonWrite must precede questWrite here - buildSeasonStartWrite's questWrite.resolve()
   // reuses seasonWrite.resolve()'s cached computation and depends on it running first.
-  const fspCandidates = [
-    ...validUpdates,
-    memoryFileWrite,
-    injuryWrite,
-    questEventWrite,
-    profileUpdateWrite,
-    seasonStartWrites?.seasonWrite,
-    seasonStartWrites?.questWrite,
-    questCreateWrite,
-  ];
   const optionalWrites = [
     coachNoteWrite,
     memoryFileWrite,
@@ -581,7 +539,6 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     computedTitle,
     trimmedCoachNote,
     optionalWrites,
-    fspCandidates,
     validUpdates,
     wasProfileComplete,
     profileComplete,
@@ -622,45 +579,9 @@ export async function generateTemplatesAfterCompletion(turn: TurnWrites): Promis
   }
 }
 
-export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
-  const writes = [...fspIncrementalWrites(turn.fspCandidates), turn.chatWrite];
-  let repoSha = turn.currentSha;
-  if (writes.length > 0) {
-    try {
-      const result = await commitFilesAtomic(writes, "coach: ordinary turn updates recorded", {
-        repo: turn.repo,
-        branch: resolveCoachChatBranch(),
-        token: turn.token,
-      });
-      repoSha = result.commitSha;
-      invalidateCoachContext(turn.repo);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[coach-chat] ordinary commitFilesAtomic failed:", err, {
-        traceId: turn.traceId,
-      });
-      return Response.json(
-        {
-          error: `Coach replied but saving failed: ${message}`,
-          traceId: turn.traceId,
-        },
-        { status: 502 },
-      );
-    }
-  }
-  await generateTemplatesAfterCompletion(turn);
-  return Response.json(
-    ordinaryTurnResponse(turn.reply.reply, repoSha, turn.stale, turn.profileComplete),
-  );
-}
-
-export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
-  if (turn.validUpdates.length === 0 && !turn.trimmedCoachNote) {
-    console.warn("[coach-chat] close landed with no coach_note.", {
-      athleteMessage: turn.trimmed,
-      traceId: turn.traceId,
-    });
-  }
+// One commit path for every turn - it always writes the full set (data-fact fields per A1/B3,
+// session-artifact fields alongside them) and always returns the same response shape.
+export async function commitTurn(turn: TurnWrites): Promise<Response> {
   const writes = [...turn.validUpdates, turn.chatWrite, ...turn.optionalWrites];
   let repoSha: string;
   try {
@@ -674,31 +595,20 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
       },
     );
     repoSha = result.commitSha;
+    invalidateCoachContext(turn.repo);
     console.log(
-      "[coach-chat] close-trace",
+      "[coach-chat] turn committed",
       JSON.stringify({
         traceId: turn.traceId,
         threadId: turn.finalThreadId,
         repo: turn.repo,
-        coachNote: turn.trimmedCoachNote ? "present" : "empty",
         committed: writes.map((write) => write.path),
         ms: Date.now() - turn.now,
       }),
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      "[coach-chat] close-trace",
-      JSON.stringify({
-        traceId: turn.traceId,
-        threadId: turn.finalThreadId,
-        repo: turn.repo,
-        coachNote: turn.trimmedCoachNote ? "present" : "empty",
-        error: message,
-        ms: Date.now() - turn.now,
-      }),
-    );
-    console.error("[coach-chat] closing commitFilesAtomic failed:", err, {
+    console.error("[coach-chat] commitFilesAtomic failed:", err, {
       traceId: turn.traceId,
     });
     return Response.json(
@@ -713,10 +623,10 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
   await generateTemplatesAfterCompletion(turn);
   return Response.json({
     reply: turn.reply.reply,
-    closed: true,
     threadId: turn.finalThreadId,
     threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
     repoSha,
+    stale: turn.stale,
     profileComplete: turn.profileComplete,
     traceId: turn.traceId,
   });

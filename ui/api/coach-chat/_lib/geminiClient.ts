@@ -97,8 +97,9 @@ export async function askGemini(
     generationConfig: generationConfigFor(mode, firstSession),
   });
 
-  // Closing turns carry a larger prompt (full history) than the shared UPSTREAM_TIMEOUT_MS (25s,
-  // sized for file reads) can comfortably fit - give generateContent its own longer budget.
+  // A turn with a long conversation history carries a larger prompt than the shared
+  // UPSTREAM_TIMEOUT_MS (25s, sized for file reads) can comfortably fit - give generateContent
+  // its own longer budget.
   const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
   const callGemini = (useCache: boolean): Promise<Response> =>
@@ -193,9 +194,9 @@ async function finishGeminiResponse(
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. Nested
-  // under log() data it prints as [Object]. traceId on closing turns correlates with the
-  // close-trace line logged downstream in the POST handler. The reply stays off the breadcrumb.
-  console.log("[coach-chat] response:", parsed, mode === "closing" ? { traceId } : undefined);
-  log("coach-chat", "response", mode === "closing" ? { traceId } : undefined);
+  // under log() data it prints as [Object]. traceId correlates with the commit-trace line logged
+  // downstream in the POST handler. The reply stays off the breadcrumb.
+  console.log("[coach-chat] response:", parsed, { traceId });
+  log("coach-chat", "response", { traceId });
   return parsed;
 }

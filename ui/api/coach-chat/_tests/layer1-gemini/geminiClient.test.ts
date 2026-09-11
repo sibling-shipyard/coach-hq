@@ -57,7 +57,7 @@ describe("askGemini", () => {
   });
 
   it("parses a well-formed reply into a GeminiReply", async () => {
-    const reply = { reply: "Nice work this week.", session_closed: false };
+    const reply = { reply: "Nice work this week." };
     routeByUrl(jsonResponse(500, {}), geminiEnvelope(reply));
 
     const result = await askGemini(...args);
@@ -74,7 +74,6 @@ describe("askGemini", () => {
     const reply = {
       reply: "All done for today.",
       template_edit: { template_id: "none" },
-      session_closed: true,
     };
     routeByUrl(jsonResponse(500, {}), geminiEnvelope(reply));
 

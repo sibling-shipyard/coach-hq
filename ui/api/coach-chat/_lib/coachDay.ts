@@ -78,8 +78,8 @@ export function todayDateString(timezone: string, now: Date): string {
 
 // ADR 0018: coach_since is a durable, write-once anchor - "days since this athlete started using
 // Coach at all," independent of season/challenge resets. Falls back to season.start_date, then
-// challenge.start_date, for repos not yet stamped. Not currently called from the closing-turn
-// prompt (kept exported/tested in case a day-N surface reappears).
+// challenge.start_date, for repos not yet stamped. Not currently called from the turn-building
+// pipeline (kept exported/tested in case a day-N surface reappears).
 export function coachDayNumber(
   challengeJson: string | null | undefined,
   timezone: string,

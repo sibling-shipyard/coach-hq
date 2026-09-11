@@ -11,9 +11,7 @@ import {
   retryActivityIdsFromThread,
   selectProactiveCoachMessage,
   sendMessage,
-  shouldSendEndConversation,
   syncedActivityList,
-  updatePendingEndThreads,
   type ChatAttachment,
   type ChatMessage,
   type ChatThread,
@@ -216,12 +214,13 @@ describe("sendMessage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends the explicit close flag and returns fresh profile completeness", async () => {
+  it("returns the fresh committed thread list and profile completeness on every turn (C1)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          reply: "One last check before we close.",
-          closed: false,
+          reply: "Noted, 76kg it is.",
+          threadId: "thread-1",
+          threads: [],
           stale: false,
           profileComplete: true,
         }),
@@ -230,15 +229,18 @@ describe("sendMessage", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await sendMessage("thread-1", [], "", true);
+    const result = await sendMessage("thread-1", [], "76kg this morning");
 
     expect(result.profileComplete).toBe(true);
+    expect(result.threadId).toBe("thread-1");
     const request = fetchMock.mock.calls[0][1] as RequestInit;
-    expect(JSON.parse(request.body as string)).toMatchObject({
-      threadId: "thread-1",
-      message: "",
-      endConversationRequested: true,
-    });
+    // The request body carries only threadId/messages/message/knownSha now (C1 removed the
+    // End Conversation flag entirely).
+    expect(Object.keys(JSON.parse(request.body as string)).sort()).toEqual([
+      "message",
+      "messages",
+      "threadId",
+    ]);
   });
 });
 
@@ -325,19 +327,5 @@ describe("attachments on a thread", () => {
     expect(retryActivityIdsFromThread(pending)).toEqual([
       "hk:11111111-1111-1111-1111-111111111111",
     ]);
-  });
-});
-
-describe("explicit close pending state", () => {
-  it("keeps follow-up replies in closing mode for only the requested thread", () => {
-    const pending = updatePendingEndThreads(new Set<string>(), "thread-1", true);
-    expect(shouldSendEndConversation(pending, "thread-1", false)).toBe(true);
-    expect(shouldSendEndConversation(pending, "thread-2", false)).toBe(false);
-  });
-
-  it("clears only after the requested thread closes", () => {
-    const pending = new Set(["thread-1", "thread-2"]);
-    expect(updatePendingEndThreads(pending, "thread-1", false)).toEqual(new Set(["thread-2"]));
-    expect(pending).toEqual(new Set(["thread-1", "thread-2"]));
   });
 });
