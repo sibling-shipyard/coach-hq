@@ -3,6 +3,13 @@ import SwiftUI
 /// In-app Engine card — S/M/L density. WidgetKit's home-screen Engine widget is the separate
 /// `struct EngineWidget: Widget` in `CoachHQWidget/EngineWidget.swift`; the two only stay
 /// distinct names because this one moved here (W2 of docs/plans/ios-widget-modules.md).
+///
+/// Shares its band strip / trend / mix-bar maths with WidgetKit via `EngineGraphics` (W3) — see
+/// docs/plans/ios-widget-modules-lld.md §1 for the scale decision: `.l` draws its band marker
+/// against the pipeline's `scaleLow`/`scaleHigh` instead of a locally-recomputed range, which is
+/// what moves the marker to agree with `EngineDetailView`'s gauge for the same week. `.s` still
+/// falls back to `EngineGraphics.localScale` (no pipeline scale for that size — see its doc
+/// comment); `.m` renders no band marker at all.
 struct EngineCard: View {
     let size: WidgetSize
     let sizes: EngineSizes
@@ -16,12 +23,13 @@ struct EngineCard: View {
                 case .s:
                     header(weekLabel: sizes.S.weekLabel, signal: sizes.S.signal)
                     readout(load: sizes.S.load * bandProgress, verdict: sizes.S.compactVerdict)
-                    bandStrip(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh)
+                    let scale = EngineGraphics.localScale(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh)
+                    bandStrip(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh, scaleLow: scale.low, scaleHigh: scale.high)
                 case .m:
                     mobileHeader(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(numberString(sizes.M.load * bandProgress))
+                            Text(EngineGraphics.numberString(sizes.M.load * bandProgress))
                                 .font(.system(size: 46, weight: .medium, design: .default))
                                 .tracking(-2)
                                 .foregroundColor(.white)
@@ -38,7 +46,7 @@ struct EngineCard: View {
                     }
                     .padding(.top, 2)
 
-                    mixBar(sizes.M.mix, totalHours: sizes.M.totalHours)
+                    mixBarSection(sizes.M.mix, totalHours: sizes.M.totalHours)
                         .padding(.top, 14)
                         .overlay(alignment: .top) {
                             Rectangle()
@@ -49,9 +57,10 @@ struct EngineCard: View {
                 case .l:
                     header(weekLabel: sizes.L.weekLabel, signal: sizes.L.signal)
                     readout(load: sizes.L.load * bandProgress, verdict: sizes.L.verdict)
-                    bandStrip(load: sizes.L.load, bandLow: sizes.L.bandLow, bandHigh: sizes.L.bandHigh)
-                    trendSparkline(sizes.L.trend)
-                    mixBar(sizes.L.mix, totalHours: sizes.L.totalHours)
+                    bandStrip(load: sizes.L.load, bandLow: sizes.L.bandLow, bandHigh: sizes.L.bandHigh, scaleLow: sizes.L.scaleLow, scaleHigh: sizes.L.scaleHigh)
+                    EngineGraphics.trendSparkline(sizes.L.trend, color: .white.opacity(0.85), lineWidth: 2)
+                        .frame(height: 40)
+                    mixBarSection(sizes.L.mix, totalHours: sizes.L.totalHours)
                     Text(sizes.L.method)
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
                         .foregroundColor(.white.opacity(0.65))
@@ -100,7 +109,7 @@ struct EngineCard: View {
 
     private func readout(load: Double, verdict: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(numberString(load))
+            Text(EngineGraphics.numberString(load))
                 .font(.system(size: 44, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
                 .contentTransition(.numericText())
@@ -110,50 +119,24 @@ struct EngineCard: View {
         }
     }
 
-    private func bandStrip(load: Double, bandLow: Double?, bandHigh: Double?) -> some View {
-        GeometryReader { geo in
-            let low = bandLow ?? load * 0.8
-            let high = max(bandHigh ?? load * 1.2, low + 1)
-            let scaleLow = min(low, load) * 0.85
-            let scaleHigh = max(high, load) * 1.15 + 1
-            let range = max(1, scaleHigh - scaleLow)
-            let xLow = CGFloat((low - scaleLow) / range) * geo.size.width
-            let xHigh = CGFloat((high - scaleLow) / range) * geo.size.width
-            let xLoad = CGFloat((load - scaleLow) / range) * geo.size.width
-
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.18)).frame(height: 6)
-                Capsule()
-                    .fill(Color.white.opacity(0.55))
-                    .frame(width: max(1, xHigh - xLow) * bandProgress, height: 10)
-                    .offset(x: xLow * bandProgress)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 10, height: 10)
-                    .offset(x: max(0, xLoad * bandProgress - 5))
-            }
-        }
+    private func bandStrip(load: Double, bandLow: Double?, bandHigh: Double?, scaleLow: Double, scaleHigh: Double) -> some View {
+        EngineGraphics.bandStrip(
+            load: load,
+            bandLow: bandLow,
+            bandHigh: bandHigh,
+            scaleLow: scaleLow,
+            scaleHigh: scaleHigh,
+            progress: bandProgress,
+            trackHeight: 6,
+            bandHeight: 10,
+            dotSize: 10,
+            minBandWidth: 1,
+            clampDotOffset: true,
+            trackColor: Color.white.opacity(0.18),
+            bandColor: Color.white.opacity(0.55),
+            dotColor: .white
+        )
         .frame(height: 12)
-    }
-
-    private func trendSparkline(_ points: [TrendPointSnapshot]) -> some View {
-        let values = points.map(\.value)
-        let minV = values.min() ?? 0
-        let maxV = values.max() ?? 1
-        let range = max(1, maxV - minV)
-        return GeometryReader { geo in
-            Path { path in
-                for (index, point) in points.enumerated() {
-                    let x = points.count > 1
-                        ? geo.size.width * CGFloat(index) / CGFloat(points.count - 1)
-                        : geo.size.width
-                    let y = geo.size.height - geo.size.height * CGFloat((point.value - minV) / range)
-                    if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
-                }
-            }
-            .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-        }
-        .frame(height: 40)
     }
 
     private func mobileTrendSparkline(_ points: [TrendPointSnapshot], bandLow: Double?, bandHigh: Double?) -> some View {
@@ -212,27 +195,21 @@ struct EngineCard: View {
         .frame(height: 76)
     }
 
-    private func mixBar(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
-        let trackedHours = mix.reduce(0) { $0 + $1.hours }
-        let denominator = max(totalHours, trackedHours, 1)
+    /// Bar (`EngineGraphics.mixBar`) plus Home's per-sport legend row underneath — the legend is
+    /// Home-only chrome, not shared with WidgetKit's single "X.XH LOGGED" footer.
+    private func mixBarSection(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
         let activeMix = mix.filter { $0.hours > 0 }
-
         return VStack(alignment: .leading, spacing: 8) {
-            GeometryReader { geo in
-                HStack(spacing: 2) {
-                    ForEach(activeMix) { item in
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(WarmInstrument.color(hex: item.color))
-                            .frame(width: max(2, geo.size.width * CGFloat(item.hours / denominator)))
-                    }
-                    if trackedHours < totalHours {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(Color.white.opacity(0.16))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            }
+            EngineGraphics.mixBar(
+                mix,
+                totalHours: totalHours,
+                segmentSpacing: 2,
+                segmentCornerRadius: 2,
+                minSegmentWidth: 2,
+                outerClip: AnyShape(RoundedRectangle(cornerRadius: 4, style: .continuous)),
+                showRemainder: true,
+                remainderColor: Color.white.opacity(0.16)
+            )
             .frame(height: 8)
 
             HStack(spacing: 14) {
@@ -252,9 +229,5 @@ struct EngineCard: View {
                     .foregroundColor(.white.opacity(0.45))
             }
         }
-    }
-
-    private func numberString(_ value: Double) -> String {
-        value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
 }
