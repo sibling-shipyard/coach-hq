@@ -11,7 +11,8 @@ import { generationConfigFor, type TurnMode } from "../../_lib/gemini/coachReply
 // PR 4 of the SOUL v5.8 trim: the First Session Protocol left SOUL.chat.md and is injected
 // per-turn instead, gated on isAthleteProfileComplete(). The trap these tests exist to catch is
 // putting it in the cached prefix - staticSystemText() is hashed and uploaded once to serve every
-// athlete (soulCache.ts), so per-athlete content in there forks the Gemini cache silently.
+// athlete (_lib/llmAdapters/geminiSoulCache.ts), so per-athlete content in there forks the Gemini
+// cache silently.
 const PROTOCOL = "### First Session Protocol\n\n**Step 1 — Warm intro:** say hi.";
 const SOUL = "# Coach Phelps: SOUL.md\n\nBe a coach.";
 
@@ -108,6 +109,15 @@ describe("cache safety", () => {
     expect(staticSystemText(SOUL)).not.toContain("<first_session>");
   });
 
+  // Review finding (#713 M2 PR 2): the useCache ternary that used to gate a leading blank line
+  // got dropped along with the cache-active wrapper it guarded, silently losing the blank line
+  // on the no-cache path too even though the comment above buildDynamicText claims parity with
+  // pre-#713's shape.
+  it("leads with a blank line before <state>, matching pre-#713's no-cache shape", () => {
+    const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined);
+    expect(dynamic.startsWith("\n<state>")).toBe(true);
+  });
+
   it("the protocol reaches the model through the dynamic half", () => {
     const dynamic = buildDynamicText(
       "state",
@@ -115,7 +125,6 @@ describe("cache safety", () => {
       "greeting",
       true,
       firstSessionContext(true, PROTOCOL),
-      true,
     );
     expect(dynamic).toContain("<first_session>");
     expect(dynamic).toContain("**Step 1 — Warm intro:**");
@@ -128,7 +137,6 @@ describe("cache safety", () => {
       "ordinary",
       false,
       firstSessionContext(false, PROTOCOL),
-      true,
     );
     expect(dynamic).not.toContain("<first_session>");
     expect(dynamic).toContain("save any concrete fact they state on this same turn");
@@ -141,7 +149,6 @@ describe("cache safety", () => {
       "ordinary",
       true,
       firstSessionContext(true, PROTOCOL),
-      true,
     );
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
     expect(dynamic).toContain("season_start as soon as the first season and goal are agreed");
@@ -162,7 +169,6 @@ describe("cache safety", () => {
       "ordinary",
       true,
       firstSessionContext(true, PROTOCOL),
-      true,
     );
     expect(dynamic).not.toContain("Weekly Kick-off Ritual");
     expect(dynamic).not.toContain("the phase's plain-language name");
@@ -172,7 +178,7 @@ describe("cache safety", () => {
   // plan_edit) used to live only in the closing-mode branch - now it's part of every returning
   // athlete's ordinary turn, since there's no closing turn left to gate it behind.
   it("a returning athlete's ordinary text covers session-artifact fields too (no more closing turn)", () => {
-    const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined, true);
+    const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined);
     expect(dynamic).toContain("Weekly Kick-off Ritual");
     expect(dynamic).toContain("template_edit");
     expect(dynamic).toContain("session_plan");

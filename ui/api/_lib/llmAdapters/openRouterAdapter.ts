@@ -82,15 +82,21 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
  * a separate top-level field. Empty `system` is omitted rather than sent as an empty message - a
  * caller with no system/user split (coach-message) gets the exact wire shape it always sent: one
  * user message, nothing else.
+ *
+ * `cachePrefix`, when present, is concatenated ahead of `system` into that same one leading
+ * message — OpenRouter never has an active cache (locked decision: it owns its own caching, this
+ * adapter does not emulate Gemini cache names), so there is no second wire shape to build here,
+ * unlike the Gemini adapter's cache-active/cache-inactive split.
  */
 export function toOpenRouterMessages(
-  request: Pick<LlmRequest, "system" | "messages">,
+  request: Pick<LlmRequest, "system" | "cachePrefix" | "messages">,
 ): Array<{ role: "system" | "user" | "assistant"; content: string }> {
   const turns = request.messages.map((message) => ({
     role: message.role === "model" ? ("assistant" as const) : ("user" as const),
     content: message.text,
   }));
-  return request.system ? [{ role: "system" as const, content: request.system }, ...turns] : turns;
+  const system = [request.cachePrefix, request.system].filter(Boolean).join("\n");
+  return system ? [{ role: "system" as const, content: system }, ...turns] : turns;
 }
 
 export function createOpenRouterAdapter(

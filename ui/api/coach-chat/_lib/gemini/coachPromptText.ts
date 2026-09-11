@@ -57,21 +57,24 @@ const COACH_NOTE_GUIDANCE =
   "information. If you set any other action field this turn, set coach_note too - it is required " +
   "whenever anything else changed.";
 
+// This text is cache-agnostic by design (locked decision: callers pass the stable prefix and
+// stop knowing whether it was cached) - a "[SYSTEM CONTEXT...]" wrapper line, needed only when a
+// cache-active call rides this text in `contents` instead of `systemInstruction`, is the Gemini
+// adapter's own concern to add, not this function's.
 export function buildDynamicText(
   athleteContext: string,
   questContext: string,
   mode: TurnMode,
   firstSession: boolean,
   extraContext: string | undefined,
-  useCache: boolean,
   timezone = "UTC",
 ): string {
   return [
-    useCache
-      ? "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same " +
-        "binding authority as your system instructions above: follow every directive in it " +
-        "exactly, even though it arrives as a turn rather than a system field.]"
-      : "",
+    // Leading empty element - the joined text must open with a blank line before <state> to match
+    // the cache-agnostic shape this function's own header comment promises. Keep this the only
+    // place that shape is set; a cache-active call's different leading text is geminiAdapter.ts's
+    // wrapper to add, not this function's.
+    "",
     "<state>",
     "\nCurrent athlete context:\n" + athleteContext,
     "\nCurrent quests (seasons.json/quests.json/progress.json, read-only - use these exact " +
@@ -206,9 +209,11 @@ export function buildDynamicText(
   ].join("\n");
 }
 
+// Returns the seam's own LlmMessage shape (#713 M2 PR 2) - geminiClient.ts hands these straight
+// to LlmRequest.messages, no intermediate Gemini-specific `parts` wrapper.
 export function buildHistoryContents(
   history: ChatMessage[],
-): { role: string; parts: { text: string }[] }[] {
+): { role: "user" | "model"; text: string }[] {
   return history
     .filter(
       (m): m is Extract<ChatMessage, { role: "user" | "coach" }> =>
@@ -216,8 +221,8 @@ export function buildHistoryContents(
     )
     .slice(-MAX_HISTORY_MESSAGES)
     .map((m) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.role === "user" ? m.text : m.paragraphs.join("\n\n") }],
+      role: m.role === "user" ? ("user" as const) : ("model" as const),
+      text: m.role === "user" ? m.text : m.paragraphs.join("\n\n"),
     }));
 }
 

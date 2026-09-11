@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-06 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 ## Context
 
@@ -74,10 +74,13 @@ justifies it.
 Read these before drawing a conclusion from a green dashboard.
 
 - **Outbound HTTP from the API is deliberately untraced.** Both Node instrumentations copy the full
-  request URL onto the span and `geminiClient.ts` passes the key in the query string, so an
-  `http.client` span would be a credential in Sentry. `ignoreOutgoingRequests` drops the span and
-  the breadcrumb before either is built. The cost is that GitHub call durations never reach a trace.
-  [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) fixes the cause.
+  request URL onto the span, and template adjustment's own Gemini call (`coachWorkoutFiles.ts`)
+  still passes the key in the query string, so an `http.client` span would be a credential in
+  Sentry. `ignoreOutgoingRequests` drops the span and the breadcrumb before either is built. The
+  cost is that GitHub call durations never reach a trace.
+  [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) moved coach-message and chat to
+  header auth (`_lib/llmAdapters/geminiAdapter.ts`, #713 M2 PR 1/PR 2); template adjustment is the
+  one caller left on query-string auth, pending M2 PR 3.
 - **Every production stack trace is unreadable**, web and iOS alike. Nothing uploads source maps or
   dSYMs yet.
 - **Rage Reports are not errors.** Web's `submitRageReport()` and iOS's `RageReportSubmission.swift`

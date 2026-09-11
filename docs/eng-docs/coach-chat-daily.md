@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
 
 ## Context
 
@@ -138,6 +138,11 @@ schema is reply-only. The prompt sees the verified batch, fresh insights, live w
 injuries, and recent continuity; the reply must stand alone and invent no cause.
 
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/gemini/geminiClient.ts`)
+
+`askGemini()` builds the prompt/request and parses the reply. The actual `generateContent` call,
+the explicit soul cache, and the retry logic live behind the seam instead, in
+`ui/api/_lib/llmAdapters/geminiAdapter.ts`, reached via `selectLlmAdapter` (#713 M2 PR 2).
+`LLM_PROVIDER` stays unset/`gemini` in production, so this is plumbing, not a behavior change.
 
 The prompt splits into a **static** half (persona, fixed instructions, two few-shot examples —
 byte-identical for every athlete, every turn) and a **dynamic** half (rendered split context,
@@ -331,8 +336,8 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/decide/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
 | `ui/api/coach-chat/_lib/decide/activitySync.ts` | activity-sync batch id, hist lookup, attachment rows |
 | `ui/api/coach-chat/_lib/commit/activitySyncTurn.ts` | persist-on-sync Coach turn |
-| `ui/api/coach-chat/_lib/gemini/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
-| `ui/api/coach-chat/_lib/gemini/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
+| `ui/api/_lib/llmAdapters/geminiSoulCache.ts` | explicit Gemini caching for the static prompt prefix, called by `geminiAdapter.ts` — see `gemini-flow.md` |
+| `ui/api/coach-chat/_lib/gemini/geminiClient.ts` | `askGemini()` — builds the prompt/request, parses the reply; the actual call and retry logic live in `_lib/llmAdapters/geminiAdapter.ts` |
 | `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | prompt text and dynamic context construction |
 | `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | reply types and mode-specific response schemas |
 | `ui/api/coach-chat/_lib/decide/coachContext.ts` | renders athlete/quest context into prompt sections |

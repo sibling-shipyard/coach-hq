@@ -25,7 +25,9 @@ that directory's own `README.md` for the map. `layer3-commit`'s real test file i
 shared beyond coach-chat (also used by `coach-message.ts`/`waitlist.ts`), so its test stays with
 its source rather than moving under a `coach-chat/_tests/layer3-commit/` directory. In short:
 
-- **`layer1-gemini/`** - the Gemini HTTP call (`geminiClient.ts::askGemini`). Mocks `fetch` only.
+- **`layer1-gemini/`** - the Gemini call end to end through `geminiClient.ts::askGemini` (prompt
+  building) into `_lib/llmAdapters/geminiAdapter.ts` (the actual HTTP call, explicit cache, retry -
+  moved there by #713 M2 PR 2). Mocks `fetch` only.
 - **`layer2-fields/`** - decision -> file content, the pure appliers (`coachIntents.ts`,
   `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `turnWrites/*.ts`). No network at all.
 - **`layer3-commit`** - file content -> git commit (`githubGitData.ts::commitFilesAtomic`). Mocks

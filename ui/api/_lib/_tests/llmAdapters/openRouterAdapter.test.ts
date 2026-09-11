@@ -132,6 +132,36 @@ describe("createOpenRouterAdapter", () => {
     ).toEqual([{ role: "user", content: "prompt" }]);
   });
 
+  // #713 M2 PR 2: OpenRouter never has an active cache (locked decision - it owns its own
+  // caching, this adapter doesn't emulate Gemini cache names), so cachePrefix is always just
+  // concatenated ahead of system into the one leading message, unlike the Gemini adapter's
+  // cache-active/cache-inactive split.
+  it("concatenates cachePrefix ahead of system into one leading message (#713)", () => {
+    expect(
+      toOpenRouterMessages({
+        system: "ATHLETE STATE BLOCK",
+        cachePrefix: "STABLE PERSONA PREFIX",
+        messages: [{ role: "user", text: "How was my run?" }],
+      }),
+    ).toEqual([
+      { role: "system", content: "STABLE PERSONA PREFIX\nATHLETE STATE BLOCK" },
+      { role: "user", content: "How was my run?" },
+    ]);
+  });
+
+  it("uses cachePrefix alone as the leading message when system is empty (#713)", () => {
+    expect(
+      toOpenRouterMessages({
+        system: "",
+        cachePrefix: "STABLE PERSONA PREFIX",
+        messages: [{ role: "user", text: "Hi" }],
+      }),
+    ).toEqual([
+      { role: "system", content: "STABLE PERSONA PREFIX" },
+      { role: "user", content: "Hi" },
+    ]);
+  });
+
   it("threads request.timeoutMs through to fetchWithTimeout, not a hardcoded constant (#713)", async () => {
     const fetcher = vi.fn(async (_url: string, _init?: RequestInit, timeoutMs?: number) => {
       expect(timeoutMs).toBe(12_345);

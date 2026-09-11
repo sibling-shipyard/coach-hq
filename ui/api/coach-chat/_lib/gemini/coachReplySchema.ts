@@ -14,6 +14,7 @@ import {
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
 } from "../text-caps.bundle.js";
+import type { LlmJsonSchema, LlmJsonSchemaNode } from "../../../_lib/llmClient.js";
 
 export interface GeminiReply {
   reply: string;
@@ -113,6 +114,7 @@ const RESPONSE_PROPERTIES = {
       label: { type: "string", enum: [...MEMORY_NOTE_LABELS] },
       text: { type: "string", maxLength: MEMORY_NOTE_TEXT_CAP },
     },
+    additionalProperties: false,
   },
   // Constrained enum, not free text - matches B_engine.md's real FSP intake question
   // ("What works when things get hard?"). Also written by First Session Protocol; this is the
@@ -136,6 +138,7 @@ const RESPONSE_PROPERTIES = {
         text: { type: "string", maxLength: INJURY_FLAG_TEXT_CAP },
       },
       required: ["text"],
+      additionalProperties: false,
     },
   },
   // Update or resolve a flag already on file - flag_id required and must be a real id from the
@@ -152,6 +155,7 @@ const RESPONSE_PROPERTIES = {
         flag_id: { type: "string" },
       },
       required: ["status", "flag_id"],
+      additionalProperties: false,
     },
   },
   // Part 2 ledger split, step 3a - shipped and tested in isolation before profile_update
@@ -167,6 +171,7 @@ const RESPONSE_PROPERTIES = {
         status: { type: "string", enum: ["completed", "missed", "excused"] },
         value: { type: "string" },
       },
+      additionalProperties: false,
     },
   },
   // Part 2 ledger split, step 3b - shipped after quest_event confirmed working live.
@@ -182,6 +187,7 @@ const RESPONSE_PROPERTIES = {
         value: { type: "string" },
       },
       required: ["field", "value"],
+      additionalProperties: false,
     },
   },
   // Permanent structural removal from an existing template. Single object: one edit per turn.
@@ -200,6 +206,7 @@ const RESPONSE_PROPERTIES = {
       note: { type: "string" },
     },
     required: ["template_id"],
+    additionalProperties: false,
   },
   // Today's modified session from an existing template. Single object: one prescription per
   // turn. The server stamps session_date, deliberately limiting this action to today;
@@ -219,6 +226,7 @@ const RESPONSE_PROPERTIES = {
     // can't set this field at all without it, same "no silently-partial commitment object"
     // discipline as template_edit above.
     required: ["template_id"],
+    additionalProperties: false,
   },
   // coach-redesign workout-backend-wiring §5 - single object, the Weekly Kick-off Ritual's
   // full seven-day rewrite. priority/planned_duration_min/template_id are all optional per
@@ -252,14 +260,17 @@ const RESPONSE_PROPERTIES = {
                   template_id: { type: "string" },
                 },
                 required: ["discipline", "kind", "title"],
+                additionalProperties: false,
               },
             },
           },
           required: ["date", "sessions"],
+          additionalProperties: false,
         },
       },
     },
     required: ["headline", "body", "days"],
+    additionalProperties: false,
   },
   // coach-redesign workout-backend-wiring §5 - array, mirrors quest_event's shape.
   // session_id must be one of the ids listed in context (activeWeekSessionsContext below) -
@@ -281,9 +292,11 @@ const RESPONSE_PROPERTIES = {
             template_id: { type: "string" },
           },
           required: ["discipline", "kind", "title"],
+          additionalProperties: false,
         },
       },
       required: ["session_id", "status"],
+      additionalProperties: false,
     },
   },
   // coach-redesign workout-backend-wiring §5 follow-up - array, edits an existing session's
@@ -301,6 +314,7 @@ const RESPONSE_PROPERTIES = {
         template_id: { type: "string" },
       },
       required: ["session_id", "discipline", "kind", "title"],
+      additionalProperties: false,
     },
   },
   // Available to every athlete, first session or returning (B3) - starts a new season and its
@@ -332,6 +346,7 @@ const RESPONSE_PROPERTIES = {
           count_pattern: { type: "string" },
         },
         required: ["name", "type", "target"],
+        additionalProperties: false,
       },
       new_habits: {
         type: "array",
@@ -348,10 +363,12 @@ const RESPONSE_PROPERTIES = {
             unit: { type: "string" },
           },
           required: ["name", "type"],
+          additionalProperties: false,
         },
       },
     },
     required: ["name", "start_date", "end_date", "main_quest", "new_habits"],
+    additionalProperties: false,
   },
   // Available to every athlete, first session or returning (B3) - habit quests only. The main
   // goal moved to season_start.main_quest (above); there is no field here to set it anymore, so
@@ -374,12 +391,14 @@ const RESPONSE_PROPERTIES = {
             unit: { type: "string" },
           },
           required: ["name", "type"],
+          additionalProperties: false,
         },
       },
     },
+    additionalProperties: false,
   },
   reply: { type: "string" },
-} as const;
+} as const satisfies Record<string, LlmJsonSchemaNode>;
 
 type ResponseField = keyof typeof RESPONSE_PROPERTIES;
 
@@ -428,7 +447,10 @@ const RETURNING_ACTIONS = [
   "plan_edit",
 ] as const satisfies readonly ResponseField[];
 
-function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
+function responsePropertiesFor(
+  mode: TurnMode,
+  firstSession: boolean,
+): Record<string, LlmJsonSchemaNode> {
   const actionFields: readonly ResponseField[] =
     mode === "greeting" || mode === "activity_sync"
       ? []
@@ -436,7 +458,9 @@ function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
         ? FSP_ACTIONS
         : RETURNING_ACTIONS;
   const fields: ResponseField[] = [...actionFields, "reply"];
-  return Object.fromEntries(fields.map((key) => [key, RESPONSE_PROPERTIES[key]]));
+  return Object.fromEntries(
+    fields.map((key): [string, LlmJsonSchemaNode] => [key, RESPONSE_PROPERTIES[key]]),
+  );
 }
 
 // D1 layer 1 (#736): quest_event.quest_id and injury_event.flag_id are the referential-id class
@@ -452,9 +476,9 @@ export interface AthleteReferenceIds {
 }
 
 function withReferenceEnums(
-  properties: Record<string, unknown>,
+  properties: Record<string, LlmJsonSchemaNode>,
   ids: AthleteReferenceIds | undefined,
-): Record<string, unknown> {
+): Record<string, LlmJsonSchemaNode> {
   if (!ids) return properties;
   const next = { ...properties };
   // An empty enum is a schema Gemini can't satisfy at all (every id would be "not in []") - only
@@ -462,7 +486,14 @@ function withReferenceEnums(
   // quests/injuries yet, so the free-text field (and the existing throw-based guard downstream)
   // stays the only defense, same as before this layer existed.
   if (ids.questIds && ids.questIds.length > 0 && next.quest_event) {
-    const questEvent = next.quest_event as { items: { properties: Record<string, unknown> } };
+    const questEvent = next.quest_event as {
+      type: "array";
+      items: {
+        type: "object";
+        properties: Record<string, LlmJsonSchemaNode>;
+        additionalProperties: false;
+      };
+    };
     next.quest_event = {
       ...questEvent,
       items: {
@@ -475,7 +506,14 @@ function withReferenceEnums(
     };
   }
   if (ids.injuryFlagIds && ids.injuryFlagIds.length > 0 && next.injury_event) {
-    const injuryEvent = next.injury_event as { items: { properties: Record<string, unknown> } };
+    const injuryEvent = next.injury_event as {
+      type: "array";
+      items: {
+        type: "object";
+        properties: Record<string, LlmJsonSchemaNode>;
+        additionalProperties: false;
+      };
+    };
     next.injury_event = {
       ...injuryEvent,
       items: {
@@ -490,6 +528,11 @@ function withReferenceEnums(
   return next;
 }
 
+// A complex returning turn can legitimately combine several actions. Smaller modes keep the same
+// ceiling; the schema, not truncation pressure, controls their output. Shared by generationConfigFor
+// and chatResponseSchema so the seam's LlmRequest.maxOutputTokens can't drift from it.
+export const CHAT_MAX_OUTPUT_TOKENS = 4096;
+
 /** The smallest legal response shape for this turn; forbidden actions are absent structurally. */
 export function generationConfigFor(
   mode: TurnMode,
@@ -498,13 +541,35 @@ export function generationConfigFor(
 ) {
   return {
     responseMimeType: "application/json",
-    // A complex returning turn can legitimately combine several actions. Smaller modes keep the
-    // same ceiling; the schema, not truncation pressure, controls their output.
-    maxOutputTokens: 4096,
+    maxOutputTokens: CHAT_MAX_OUTPUT_TOKENS,
     responseSchema: {
       type: "object",
       properties: withReferenceEnums(responsePropertiesFor(mode, firstSession), ids),
       required: ["reply"],
     },
   } as const;
+}
+
+/**
+ * `generationConfigFor`'s schema, wrapped into the seam's `LlmJsonSchema` shape (#713 M2 PR 2) -
+ * `name` per OpenRouter's `json_schema.name` convention, `additionalProperties: false` added
+ * fresh here at the top level (the nested 19 objects inside RESPONSE_PROPERTIES already carry it,
+ * enforced at the type level above). Gemini's own adapter drops `additionalProperties` before
+ * sending, same as it already does for coach-message's schema.
+ */
+export function chatResponseSchema(
+  mode: TurnMode,
+  firstSession: boolean,
+  ids?: AthleteReferenceIds,
+): LlmJsonSchema {
+  const { responseSchema } = generationConfigFor(mode, firstSession, ids);
+  return {
+    name: "coach_reply",
+    schema: {
+      type: "object",
+      properties: responseSchema.properties,
+      required: [...responseSchema.required],
+      additionalProperties: false,
+    },
+  };
 }

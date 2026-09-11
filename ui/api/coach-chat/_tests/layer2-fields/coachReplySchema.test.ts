@@ -8,13 +8,15 @@ import { MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../../_lib/text-caps
 describe("coachReplySchema text caps", () => {
   it("caps memory_update.text at MEMORY_NOTE_TEXT_CAP", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    const memoryUpdate = props.memory_update as { properties: { text: unknown } };
+    const memoryUpdate = props.memory_update as unknown as { properties: { text: unknown } };
     expect(memoryUpdate.properties.text).toMatchObject({ maxLength: MEMORY_NOTE_TEXT_CAP });
   });
 
   it("caps injury_event[].text at INJURY_FLAG_TEXT_CAP", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    const injuryEvent = props.injury_event as { items: { properties: { text: unknown } } };
+    const injuryEvent = props.injury_event as unknown as {
+      items: { properties: { text: unknown } };
+    };
     expect(injuryEvent.items.properties.text).toMatchObject({
       maxLength: INJURY_FLAG_TEXT_CAP,
     });
@@ -22,7 +24,9 @@ describe("coachReplySchema text caps", () => {
 
   it("caps injury_flag[].text at INJURY_FLAG_TEXT_CAP", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    const injuryFlag = props.injury_flag as { items: { properties: { text: unknown } } };
+    const injuryFlag = props.injury_flag as unknown as {
+      items: { properties: { text: unknown } };
+    };
     expect(injuryFlag.items.properties.text).toMatchObject({
       maxLength: INJURY_FLAG_TEXT_CAP,
     });
@@ -113,7 +117,9 @@ describe("coachReplySchema dynamic reference-id enums (D1 #736, layer 1)", () =>
     const props = generationConfigFor("ordinary", false, {
       questIds: ["q1", "q2"],
     }).responseSchema.properties;
-    const questEvent = props.quest_event as { items: { properties: { quest_id: unknown } } };
+    const questEvent = props.quest_event as unknown as {
+      items: { properties: { quest_id: unknown } };
+    };
     expect(questEvent.items.properties.quest_id).toMatchObject({ enum: ["q1", "q2"] });
   });
 
@@ -121,13 +127,17 @@ describe("coachReplySchema dynamic reference-id enums (D1 #736, layer 1)", () =>
     const props = generationConfigFor("ordinary", false, {
       injuryFlagIds: ["inj_a", "inj_b"],
     }).responseSchema.properties;
-    const injuryEvent = props.injury_event as { items: { properties: { flag_id: unknown } } };
+    const injuryEvent = props.injury_event as unknown as {
+      items: { properties: { flag_id: unknown } };
+    };
     expect(injuryEvent.items.properties.flag_id).toMatchObject({ enum: ["inj_a", "inj_b"] });
   });
 
   it("leaves quest_id/flag_id as plain free-text fields when no ids are given (no ids to constrain to)", () => {
     const withoutIds = generationConfigFor("ordinary", false).responseSchema.properties;
-    const questEvent = withoutIds.quest_event as { items: { properties: { quest_id: unknown } } };
+    const questEvent = withoutIds.quest_event as unknown as {
+      items: { properties: { quest_id: unknown } };
+    };
     expect(questEvent.items.properties.quest_id).not.toHaveProperty("enum");
   });
 
@@ -136,18 +146,20 @@ describe("coachReplySchema dynamic reference-id enums (D1 #736, layer 1)", () =>
       questIds: [],
       injuryFlagIds: [],
     }).responseSchema.properties;
-    const questEvent = props.quest_event as { items: { properties: { quest_id: unknown } } };
+    const questEvent = props.quest_event as unknown as {
+      items: { properties: { quest_id: unknown } };
+    };
     expect(questEvent.items.properties.quest_id).not.toHaveProperty("enum");
   });
 
   it("does not mutate the shared schema shape across calls with different athletes' ids", () => {
     const first = generationConfigFor("ordinary", false, { questIds: ["q1"] });
     const second = generationConfigFor("ordinary", false, { questIds: ["q2"] });
-    const firstQuestEvent = first.responseSchema.properties.quest_event as {
+    const firstQuestEvent = first.responseSchema.properties.quest_event as unknown as {
       items: { properties: { quest_id: { enum: string[] } } };
     };
     expect(firstQuestEvent.items.properties.quest_id.enum).toEqual(["q1"]);
-    const secondQuestEvent = second.responseSchema.properties.quest_event as {
+    const secondQuestEvent = second.responseSchema.properties.quest_event as unknown as {
       items: { properties: { quest_id: { enum: string[] } } };
     };
     expect(secondQuestEvent.items.properties.quest_id.enum).toEqual(["q2"]);
