@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * rollover-current-week.mjs — the scheduled rollover ADR 0039/finding 8 calls for.
+ * rollover-current-week.mjs — the scheduled rollover ADR 0042/finding 8 calls for.
  *
  * current_week.json only ever refreshes when the model writes it: one day of grace past a live
  * week's end, parseCurrentWeek reports it "stale," and an athlete who doesn't chat opens a week
