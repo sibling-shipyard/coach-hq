@@ -39,6 +39,7 @@ describe("mode-specific response schemas", () => {
       "injury_event",
       "profile_update",
       "reply",
+      "unrecorded_facts",
     ]);
     expect(fields).not.toContain("quest_event");
     expect(fields).not.toContain("template_edit");
@@ -65,6 +66,7 @@ describe("mode-specific response schemas", () => {
       "session_reconcile",
       "plan_edit",
       "reply",
+      "unrecorded_facts",
     ]);
   });
 });

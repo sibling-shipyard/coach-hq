@@ -353,6 +353,31 @@ function missingRequiredCoachNote(reply: GeminiReply): boolean {
   });
 }
 
+// Finding D (OpenRouter K1 retest) mitigation: a self-audit signal, not a text heuristic. A dense
+// first message (a goal plus multiple injuries and habits in one turn) was found to make the
+// model narrate every fact in reply/coach_note while dropping almost all the matching action
+// fields - not a validation drop, the fields were simply never in the model's JSON. A keyword
+// heuristic (scan reply/coach_note text for injury/goal/habit words, compare to which fields
+// fired) was considered and rejected: it can't tell "mentioned a new injury" from "referenced an
+// injury already on file," and dense messages use varied enough wording that a fixed keyword list
+// would both over- and under-fire. Instead the model self-reports via unrecorded_facts
+// (coachReplySchema.ts) - it already has full context on what it just wrote and what it actually
+// committed, in the same generation pass, so it's better positioned to catch its own
+// inconsistency than an external heuristic reverse-engineering intent from prose. Same "request,
+// not guarantee" caveat as every other field here - the self-audit call could itself be
+// unreliable - but it's the strongest single signal available without a second full extraction
+// pass.
+function findUnrecordedFacts(reply: GeminiReply): string[] | null {
+  // Same null/type guard as findOversizedTextField's injury_flag/memory_update checks above -
+  // the schema declares this as string[], but that's a request to Gemini, not a runtime
+  // guarantee; a non-string element here must not throw and turn a usable reply into a false 500.
+  const facts = (reply.unrecorded_facts ?? [])
+    .filter((fact): fact is string => typeof fact === "string")
+    .map((fact) => fact.trim())
+    .filter(Boolean);
+  return facts.length > 0 ? facts : null;
+}
+
 // D1 layer 2 (#736): schema constraints (layer 1) are strong but not formally airtight - this
 // codebase's own experience already shows maxLength is "a real constraint Gemini receives, not a
 // guarantee it honors" (docs/eng-docs/gemini-flow.md:154-155). Same shape as
@@ -458,10 +483,12 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     // accepted as-is (no note ever silently invented from nothing).
     const violation = findOversizedTextField(reply);
     const missingNote = missingRequiredCoachNote(reply);
-    if (violation || missingNote) {
+    const unrecordedFacts = findUnrecordedFacts(reply);
+    if (violation || missingNote || unrecordedFacts) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
         missingNote,
+        unrecordedFacts,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -475,6 +502,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         notes.push(
           "you produced a structured update this turn but no coach_note - a coach_note is" +
             " required whenever anything else changed, so add one summarizing it",
+        );
+      }
+      if (unrecordedFacts) {
+        notes.push(
+          "your own unrecorded_facts flagged these as mentioned in reply/coach_note but not" +
+            ` captured in an action field this turn: ${unrecordedFacts.join("; ")} - add each as` +
+            " a real action field now, or if one genuinely doesn't apply, say so plainly instead" +
+            " of implying it was saved",
         );
       }
       const repromptMessage = [
@@ -501,10 +536,11 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       // vanishing silently.
       const stillOversized = findOversizedTextField(reply);
       const stillMissingNote = missingRequiredCoachNote(reply);
-      if (stillOversized || stillMissingNote) {
+      const stillUnrecordedFacts = findUnrecordedFacts(reply);
+      if (stillOversized || stillMissingNote || stillUnrecordedFacts) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
-          { stillOversized, stillMissingNote },
+          { stillOversized, stillMissingNote, stillUnrecordedFacts },
           { traceId: turn.traceId },
         );
       }

@@ -260,6 +260,110 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
   });
 });
 
+// Finding D (OpenRouter K1 retest) mitigation: a self-audit field, not a text heuristic. Same
+// one-retry-cap discipline as the other reprompts above - exercised in isolation here.
+describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once when unrecorded_facts is non-empty, then commits the corrected reply", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Got it, I've logged the new knee soreness.",
+        coach_note: "Athlete mentioned new knee soreness.",
+        unrecorded_facts: ["mentioned a new knee injury but set no injury_flag"],
+      })
+      .mockResolvedValueOnce({
+        reply: "Got it, I've logged the new knee soreness.",
+        coach_note: "Athlete mentioned new knee soreness.",
+        injury_flag: [{ text: "New knee soreness" }],
+        unrecorded_facts: [],
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag).toEqual([{ text: "New knee soreness" }]);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("mentioned a new knee injury but set no injury_flag");
+  });
+
+  it("does not reprompt a second time if unrecorded_facts is still non-empty, but logs it", async () => {
+    const stillFlagged = ["mentioned a new goal but set no season_start"];
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Sounds like a great goal.",
+        coach_note: "Discussed a new goal.",
+        unrecorded_facts: stillFlagged,
+      })
+      .mockResolvedValueOnce({
+        reply: "Sounds like a great goal.",
+        coach_note: "Discussed a new goal.",
+        unrecorded_facts: stillFlagged,
+      });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.unrecorded_facts).toEqual(stillFlagged);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillUnrecordedFacts: stillFlagged }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("ignores an unrecorded_facts array containing only blank entries", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      unrecorded_facts: ["   ", ""],
+    });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a non-string entry in unrecorded_facts instead of throwing (review finding)", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "ok",
+        coach_note: "note",
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        // The schema declares string[], but Gemini's actual output is not runtime-checked here -
+        // a non-string element must not crash .trim() and turn a usable reply into a false 500.
+        unrecorded_facts: [null, 42, "a real fact"] as unknown as string[],
+      })
+      .mockResolvedValueOnce({
+        reply: "ok",
+        coach_note: "note",
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        unrecorded_facts: [],
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(result).not.toBeInstanceOf(Response);
+  });
+
+  it("does not reprompt when unrecorded_facts is empty or absent", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      profile_update: [{ field: "weight_kg", value: "76" }],
+      unrecorded_facts: [],
+    });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd
 // while the reply still claimed success, because this prompt never told the model any real
 // template_id/session_id to work from on an ordinary turn - activeTemplatesContext/
