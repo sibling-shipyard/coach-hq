@@ -7,6 +7,7 @@
  * this repo makes lands in one commit instead of N. See ADR 0012.
  */
 import { fetchWithTimeout } from "./httpTimeout.js";
+import { withGithubSpan } from "./sentry.js";
 
 const GH_API = "https://api.github.com";
 
@@ -27,32 +28,46 @@ interface CommitContext {
 // function until Vercel's own platform ceiling killed it, with nothing here able to fail fast
 // into the withRetry handling below. fetchWithTimeout already tags a timeout as a 504, which
 // isTransient() below treats as retryable, so this is a drop-in swap, not new error handling.
-async function ghPost(path: string, ctx: CommitContext, body: unknown): Promise<any> {
-  const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
-    method: "POST",
-    headers: jsonHeaders(ctx.token),
-    body: JSON.stringify(body),
+// `operation` is a fixed span label (see withGithubSpan) - defaults to `path` for ghPost since
+// every ghPost path is already static; ghGet's callers pass one explicitly because several of
+// its paths interpolate a branch name or sha.
+async function ghPost(
+  path: string,
+  ctx: CommitContext,
+  body: unknown,
+  operation: string = path,
+): Promise<any> {
+  return withGithubSpan(operation, async (setStatus) => {
+    const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
+      method: "POST",
+      headers: jsonHeaders(ctx.token),
+      body: JSON.stringify(body),
+    });
+    setStatus(res.status);
+    if (!res.ok) {
+      const detail = await res.text();
+      const err = new Error(`GitHub ${path} failed (${res.status}): ${detail}`);
+      (err as any).status = res.status;
+      throw err;
+    }
+    return res.json();
   });
-  if (!res.ok) {
-    const detail = await res.text();
-    const err = new Error(`GitHub ${path} failed (${res.status}): ${detail}`);
-    (err as any).status = res.status;
-    throw err;
-  }
-  return res.json();
 }
 
-async function ghGet(path: string, ctx: CommitContext): Promise<any> {
-  const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
-    headers: jsonHeaders(ctx.token),
+async function ghGet(path: string, ctx: CommitContext, operation: string): Promise<any> {
+  return withGithubSpan(operation, async (setStatus) => {
+    const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
+      headers: jsonHeaders(ctx.token),
+    });
+    setStatus(res.status);
+    if (!res.ok) {
+      const detail = await res.text();
+      const err = new Error(`GitHub ${path} failed (${res.status}): ${detail}`);
+      (err as any).status = res.status;
+      throw err;
+    }
+    return res.json();
   });
-  if (!res.ok) {
-    const detail = await res.text();
-    const err = new Error(`GitHub ${path} failed (${res.status}): ${detail}`);
-    (err as any).status = res.status;
-    throw err;
-  }
-  return res.json();
 }
 
 function isTransient(err: unknown): boolean {
@@ -135,10 +150,10 @@ export async function commitFilesAtomic(
     }
     const blobs = [...staticBlobs, ...resolvedBlobs];
 
-    const ref = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx);
+    const ref = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx, "git/ref/heads");
     const headSha: string = ref.object.sha;
 
-    const headCommit = await ghGet(`/git/commits/${headSha}`, ctx);
+    const headCommit = await ghGet(`/git/commits/${headSha}`, ctx, "git/commits/read");
     const baseTreeSha: string = headCommit.tree.sha;
 
     const tree = await ghPost("/git/trees", ctx, {
@@ -153,21 +168,24 @@ export async function commitFilesAtomic(
     });
 
     try {
-      const res = await fetchWithTimeout(
-        `${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`,
-        {
-          method: "PATCH",
-          headers: jsonHeaders(ctx.token),
-          body: JSON.stringify({ sha: commit.sha }),
-        },
-      );
-      if (!res.ok) {
-        const detail = await res.text();
-        const status = res.status === 422 ? 409 : res.status; // 422 non-FF => retryable, same as iOS
-        const err = new Error(`Failed to update ref heads/${ctx.branch} (${status}): ${detail}`);
-        (err as any).status = status;
-        throw err;
-      }
+      await withGithubSpan("git/refs/heads/move", async (setStatus) => {
+        const res = await fetchWithTimeout(
+          `${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`,
+          {
+            method: "PATCH",
+            headers: jsonHeaders(ctx.token),
+            body: JSON.stringify({ sha: commit.sha }),
+          },
+        );
+        setStatus(res.status);
+        if (!res.ok) {
+          const detail = await res.text();
+          const status = res.status === 422 ? 409 : res.status; // 422 non-FF => retryable, same as iOS
+          const err = new Error(`Failed to update ref heads/${ctx.branch} (${status}): ${detail}`);
+          (err as any).status = status;
+          throw err;
+        }
+      });
     } catch (err) {
       // A network-level failure here (fetch() itself threw - timeout, connection reset) means
       // we genuinely don't know whether the ref move landed before the response was lost. The
@@ -180,7 +198,11 @@ export async function commitFilesAtomic(
       // error (status == null), so it needs the same recheck rather than blindly retrying.
       const status = (err as { status?: number }).status;
       if (status == null || status === 504) {
-        const recheck = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx).catch(() => null);
+        const recheck = await ghGet(
+          `/git/ref/heads/${ctx.branch}`,
+          ctx,
+          "git/ref/heads/recheck",
+        ).catch(() => null);
         if (recheck?.object?.sha === commit.sha) {
           return { commitSha: commit.sha as string };
         }
