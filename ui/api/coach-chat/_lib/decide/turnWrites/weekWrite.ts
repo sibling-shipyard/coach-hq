@@ -1,17 +1,14 @@
-// week_plan / session_reconcile / plan_edit: the current_week.json write - see coachWeekFiles.ts
-// for the appliers this wraps with I/O. One FileEntry because all three target the same file and
-// (per the console.warn below) are mutually exclusive within a single turn.
+// week_update: the current_week.json write - see coachWeekFiles.ts for applyWeekUpdate, the one
+// applier this wraps with I/O (ADR 0039 replaced week_plan/session_reconcile/plan_edit with this
+// single sparse-patch action).
 import type { FileEntry } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import {
-  applyWeekPlan,
-  applySessionReconcile,
-  applyPlanEdit,
+  applyWeekUpdate,
   assertCurrentWeekCommitReady,
+  isFullWeekKickoff,
   CURRENT_WEEK_PATH,
-  type WeekPlan,
-  type SessionReconcileEvent,
-  type PlanEditEvent,
+  type WeekUpdate,
 } from "../coachWeekFiles.js";
 
 export function buildCurrentWeekWrite(
@@ -19,57 +16,35 @@ export function buildCurrentWeekWrite(
   token: string,
   timezone: string,
   traceId: string,
-  weekPlan: WeekPlan | undefined,
-  sessionReconcileEvents: SessionReconcileEvent[],
-  planEditEvents: PlanEditEvent[],
+  weekUpdate: WeekUpdate | undefined,
   validTemplateIds: ReadonlySet<string>,
   // coachTurn.ts already fetches current_week.json once to build the session_id set
-  // validateSessionReconcile/validatePlanEdit check events against before we get here - reusing
-  // that same read here (instead of fetching it again) means what got validated is exactly what
-  // gets patched, no race window between the two reads.
+  // validateWeekUpdate checks patch entries against before we get here - reusing that same read
+  // here (instead of fetching it again) means what got validated is exactly what gets patched, no
+  // race window between the two reads.
   prefetchedContent?: string | null,
 ): FileEntry | undefined {
-  const weekPlanRequested = Boolean(
-    weekPlan?.headline?.trim() && weekPlan.body?.trim() && weekPlan.days?.length === 7,
-  );
+  if (weekUpdate === undefined) return undefined;
 
-  if (weekPlanRequested) {
-    if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
-      console.warn(
-        "[coach-chat] week_plan and session_reconcile/plan_edit both set - dropping the latter because their ids reference the old week",
-        { traceId },
-      );
-    }
+  if (isFullWeekKickoff(weekUpdate)) {
     return {
       path: CURRENT_WEEK_PATH,
       content: assertCurrentWeekCommitReady(
-        applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()),
+        applyWeekUpdate(null, weekUpdate, validTemplateIds, timezone, traceId, new Date()),
       ),
     };
   }
 
-  if (sessionReconcileEvents.length === 0 && planEditEvents.length === 0) return undefined;
-
   return {
     path: CURRENT_WEEK_PATH,
     resolve: async () => {
-      let working =
+      const working =
         prefetchedContent !== undefined
           ? prefetchedContent
           : await getFileRaw(repo, CURRENT_WEEK_PATH, token);
-      if (sessionReconcileEvents.length > 0) {
-        working = applySessionReconcile(
-          working,
-          sessionReconcileEvents,
-          validTemplateIds,
-          traceId,
-          new Date(),
-        );
-      }
-      if (planEditEvents.length > 0) {
-        working = applyPlanEdit(working, planEditEvents, validTemplateIds, traceId, new Date());
-      }
-      return assertCurrentWeekCommitReady(working as string);
+      return assertCurrentWeekCommitReady(
+        applyWeekUpdate(working, weekUpdate, validTemplateIds, timezone, traceId, new Date()),
+      );
     },
   };
 }

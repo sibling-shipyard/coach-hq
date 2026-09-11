@@ -574,9 +574,16 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
       .mockResolvedValueOnce({
         reply: "Done, swapped it.",
         coach_note: "Swapped Saturday.",
-        plan_edit: [
-          { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
-        ],
+        week_update: {
+          days: [
+            {
+              date: "2026-09-12",
+              sessions: [
+                { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+              ],
+            },
+          ],
+        },
       })
       .mockResolvedValueOnce({
         reply: "Actually, let me check first - dropping football or doing both?",
@@ -592,7 +599,7 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
     );
 
     expect(askGemini).toHaveBeenCalledTimes(2);
-    expect("reply" in result && result.reply.plan_edit).toBeUndefined();
+    expect("reply" in result && result.reply.week_update).toBeUndefined();
     const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("dropping football or doing both?");
   });
@@ -601,9 +608,16 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
     askGemini.mockResolvedValueOnce({
       reply: "Done, swapped it.",
       coach_note: "Swapped Saturday.",
-      plan_edit: [
-        { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
-      ],
+      week_update: {
+        days: [
+          {
+            date: "2026-09-12",
+            sessions: [
+              { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+            ],
+          },
+        ],
+      },
     });
 
     await requestCoachReply(
@@ -621,9 +635,16 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
     askGemini.mockResolvedValueOnce({
       reply: "Done, swapped it.",
       coach_note: "Swapped Saturday.",
-      plan_edit: [
-        { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
-      ],
+      week_update: {
+        days: [
+          {
+            date: "2026-09-12",
+            sessions: [
+              { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+            ],
+          },
+        ],
+      },
     });
 
     await requestCoachReply(baseTurnState({ pendingClarification: null }));

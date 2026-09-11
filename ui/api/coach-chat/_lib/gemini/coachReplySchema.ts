@@ -8,7 +8,7 @@
  * model narrate intent there instead of committing it to coach_note.
  */
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "../decide/coachMemoryFiles.js";
-import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "../decide/coachWeekFiles.js";
+import type { WeekUpdate } from "../decide/coachWeekFiles.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
@@ -54,12 +54,10 @@ export interface GeminiReply {
     skip_phases?: string[];
     note?: string;
   };
-  // See responseSchema's week_plan and coachWeekFiles.ts's applyWeekPlan.
-  week_plan?: WeekPlan;
-  // See responseSchema's session_reconcile and SessionReconcileEvent.
-  session_reconcile?: SessionReconcileEvent[];
-  // See responseSchema's plan_edit and PlanEditEvent.
-  plan_edit?: PlanEditEvent[];
+  // See responseSchema's week_update and coachWeekFiles.ts's applyWeekUpdate (ADR 0039). One
+  // field replaces the old week_plan/session_reconcile/plan_edit trio - a full headline/body/
+  // 7-day payload commits a fresh week, anything else is a sparse per-day/per-session patch.
+  week_update?: WeekUpdate;
   // See responseSchema's season_start for scope and rationale. main_quest is bundled in, not
   // optional (B3) - a season without a fixed goal for its duration isn't really a season, and
   // the two now always move as one unit, always. new_habits (#808) is required too, not because
@@ -243,12 +241,19 @@ const RESPONSE_PROPERTIES = {
     required: ["template_id"],
     additionalProperties: false,
   },
-  // coach-redesign workout-backend-wiring §5 - single object, the Weekly Kick-off Ritual's
-  // full seven-day rewrite. priority/planned_duration_min/template_id are all optional per
-  // session (server fills in a default priority, see coachWeekFiles.ts's
-  // DEFAULT_SESSION_PRIORITY, when Gemini leaves it out). No enum "null" option for priority -
-  // Gemini simply omits the field when it doesn't have a clear call.
-  week_plan: {
+  // ADR 0039 - one action field replaces week_plan/session_reconcile/plan_edit. A full
+  // headline/body/exactly-7-days payload commits a fresh week (the old Weekly Kick-off Ritual
+  // rewrite); anything else is a sparse per-day patch - only the day(s) and session(s) that
+  // changed, not the whole week. Every session entry inside days is either a brand-new planned
+  // session (omit session_id; discipline/kind/title required - enforced by
+  // coachWeekFiles.ts's applyWeekUpdate, not this schema, since Gemini's structured-output mode
+  // has no conditional-required support) or a patch to an EXISTING session (session_id from
+  // context's activeWeekSessionsContext, never invented) setting only the fields that changed:
+  // status+activity_ids to mark it done/skipped, discipline/kind/title to change what it is,
+  // move_to_date to relocate it to a different day this week. A status change and a content
+  // change can land on the same entry - "swap tomorrow's badminton for football, and mark
+  // today's run done" is one week_update call with two day entries, not two separate actions.
+  week_update: {
     type: "object",
     properties: {
       focus: { type: "string" },
@@ -267,70 +272,28 @@ const RESPONSE_PROPERTIES = {
               items: {
                 type: "object",
                 properties: {
+                  session_id: { type: "string" },
                   discipline: { type: "string" },
                   kind: { type: "string" },
                   title: { type: "string" },
                   priority: { type: "string", enum: ["anchor", "support", "optional"] },
                   planned_duration_min: { type: "number" },
                   template_id: { type: "string" },
+                  status: { type: "string", enum: ["done", "skipped"] },
+                  activity_ids: { type: "array", items: { type: "string" } },
+                  move_to_date: { type: "string" },
                 },
-                required: ["discipline", "kind", "title"],
                 additionalProperties: false,
               },
             },
           },
-          required: ["date", "sessions"],
+          required: ["date"],
           additionalProperties: false,
         },
       },
     },
-    required: ["headline", "body", "days"],
+    required: ["days"],
     additionalProperties: false,
-  },
-  // coach-redesign workout-backend-wiring §5 - array, mirrors quest_event's shape.
-  // session_id must be one of the ids listed in context (activeWeekSessionsContext below) -
-  // never invented. `actual` only when what happened differs from what was planned.
-  session_reconcile: {
-    type: "array",
-    items: {
-      type: "object",
-      properties: {
-        session_id: { type: "string" },
-        status: { type: "string", enum: ["done", "skipped"] },
-        activity_ids: { type: "array", items: { type: "string" } },
-        actual: {
-          type: "object",
-          properties: {
-            discipline: { type: "string" },
-            kind: { type: "string" },
-            title: { type: "string" },
-            template_id: { type: "string" },
-          },
-          required: ["discipline", "kind", "title"],
-          additionalProperties: false,
-        },
-      },
-      required: ["session_id", "status"],
-      additionalProperties: false,
-    },
-  },
-  // coach-redesign workout-backend-wiring §5 follow-up - array, edits an existing session's
-  // planned content without a full week_plan rewrite. session_id must be one of the ids
-  // listed in context (activeWeekSessionsContext below) - never invented.
-  plan_edit: {
-    type: "array",
-    items: {
-      type: "object",
-      properties: {
-        session_id: { type: "string" },
-        discipline: { type: "string" },
-        kind: { type: "string" },
-        title: { type: "string" },
-        template_id: { type: "string" },
-      },
-      required: ["session_id", "discipline", "kind", "title"],
-      additionalProperties: false,
-    },
   },
   // Available to every athlete, first session or returning (B3) - starts a new season and its
   // goal together, one atomic action. main_quest is required, not optional: starting a season
@@ -466,9 +429,7 @@ const RETURNING_ACTIONS = [
   "profile_update",
   "template_edit",
   "session_plan",
-  "week_plan",
-  "session_reconcile",
-  "plan_edit",
+  "week_update",
 ] as const satisfies readonly ResponseField[];
 
 function responsePropertiesFor(
@@ -485,7 +446,7 @@ function responsePropertiesFor(
   // field to audit against - skipped for greeting/activity_sync, which have none. Declared after
   // reply, not with the other action fields above, since it audits reply's own text too.
   // pending_clarification (Bug 3) shares the same gate - only ordinary turns can have a next-turn
-  // action field (plan_edit/session_reconcile/etc) worth guarding against an unresolved question.
+  // action field (week_update/template_edit/etc) worth guarding against an unresolved question.
   const fields: ResponseField[] =
     actionFields.length > 0
       ? [...actionFields, "reply", "pending_clarification", "unrecorded_facts"]

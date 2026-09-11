@@ -49,9 +49,7 @@ describe("coachReplySchema returning-athlete action fields", () => {
         "profile_update",
         "template_edit",
         "session_plan",
-        "week_plan",
-        "session_reconcile",
-        "plan_edit",
+        "week_update",
       ]),
     );
   });

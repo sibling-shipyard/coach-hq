@@ -194,7 +194,6 @@ describe("coach turn stages", () => {
           ],
         },
       ],
-      coach_comments: [],
       updated_at: "2026-09-10T00:00:00.000Z",
       updated_by: "model",
       trace_id: "seed",
@@ -210,20 +209,27 @@ describe("coach turn stages", () => {
           reply: {
             reply: "Done, swapped it for a walk.",
             coach_note: "Swapped Saturday.",
-            plan_edit: [
-              {
-                session_id: "s_saturday",
-                discipline: "walk",
-                kind: "recovery",
-                title: "Easy Walk",
-              },
-            ],
+            week_update: {
+              days: [
+                {
+                  date: "2026-09-12",
+                  sessions: [
+                    {
+                      session_id: "s_saturday",
+                      discipline: "walk",
+                      kind: "recovery",
+                      title: "Easy Walk",
+                    },
+                  ],
+                },
+              ],
+            },
           },
         }) as never,
       );
       expect(turn.droppedActions).toEqual([
         expect.objectContaining({
-          field: "plan_edit",
+          field: "week_update",
           reason: expect.stringContaining("unresolved"),
         }),
       ]);
@@ -247,14 +253,21 @@ describe("coach turn stages", () => {
           reply: {
             reply: "Done, swapped it for a walk.",
             coach_note: "Swapped Saturday.",
-            plan_edit: [
-              {
-                session_id: "s_saturday",
-                discipline: "walk",
-                kind: "recovery",
-                title: "Easy Walk",
-              },
-            ],
+            week_update: {
+              days: [
+                {
+                  date: "2026-09-12",
+                  sessions: [
+                    {
+                      session_id: "s_saturday",
+                      discipline: "walk",
+                      kind: "recovery",
+                      title: "Easy Walk",
+                    },
+                  ],
+                },
+              ],
+            },
           },
         }) as never,
       );

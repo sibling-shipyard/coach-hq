@@ -12,7 +12,7 @@
  */
 import type { QuestEvent, InjuryEvent } from "../coachIntents.js";
 import type { applyTemplateEdit, applySessionPlan } from "../coachWorkoutFiles.js";
-import type { SessionReconcileEvent, PlanEditEvent } from "../coachWeekFiles.js";
+import { isFullWeekKickoff, type WeekUpdate } from "../coachWeekFiles.js";
 
 type TemplateEdit = Parameters<typeof applyTemplateEdit>[1];
 type SessionPlanEdit = Omit<Parameters<typeof applySessionPlan>[1], "session_date">;
@@ -169,82 +169,61 @@ function categoryChangeIsConfirmed(
 // text to find a cue in), so a caller must pass `new Map()`/`""` explicitly to opt out of the
 // whole Bug 3 content-diff guard rather than disabling it by omission. Every real caller
 // (buildTurnWrites) always has both.
-export function validateSessionReconcile(
-  events: SessionReconcileEvent[],
+//
+// ADR 0039 replaces session_reconcile/plan_edit with one week_update field, sent as a sparse
+// per-day/per-session patch. A full-week-kickoff-shaped update (isFullWeekKickoff) is the old
+// week_plan case - it never references an existing session_id, so it passes through untouched; a
+// patch-shaped update gets every session_id checked against validSessionIds and every category
+// change checked against categoryChangeIsConfirmed, same guards session_reconcile/plan_edit used
+// separately, now applied to whichever fields a single patch entry actually sets (a status change
+// and a content change can land on the same entry - that's the point of the collapse).
+export function validateWeekUpdate(
+  update: WeekUpdate | undefined,
   validSessionIds: ReadonlySet<string>,
   existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
   athleteMessage: string,
-): { valid: SessionReconcileEvent[]; dropped: DroppedAction[] } {
-  const valid: SessionReconcileEvent[] = [];
-  const dropped: DroppedAction[] = [];
-  for (const event of events) {
-    if (!validSessionIds.has(event.session_id)) {
-      dropped.push({
-        field: "session_reconcile",
-        reason: `no session with id "${event.session_id}" - it may be stale or hallucinated`,
-      });
-      continue;
-    }
-    if (
-      event.actual &&
-      !categoryChangeIsConfirmed(
-        event.session_id,
-        event.actual.discipline,
-        existingSessions,
-        athleteMessage,
-      )
-    ) {
-      dropped.push({
-        field: "session_reconcile",
-        reason:
-          `session "${event.session_id}" would change category to "${event.actual.discipline}"` +
-          " with no confirmation in the athlete's message this turn - treating as an unconfirmed" +
-          " assumption, not committing",
-      });
-      continue;
-    }
-    valid.push(event);
-  }
-  return { valid, dropped };
-}
+): { valid: WeekUpdate | undefined; dropped: DroppedAction[] } {
+  if (!update) return { valid: undefined, dropped: [] };
+  if (isFullWeekKickoff(update)) return { valid: update, dropped: [] };
 
-// Same no-default reasoning as validateSessionReconcile above.
-export function validatePlanEdit(
-  events: PlanEditEvent[],
-  validSessionIds: ReadonlySet<string>,
-  existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
-  athleteMessage: string,
-): { valid: PlanEditEvent[]; dropped: DroppedAction[] } {
-  const valid: PlanEditEvent[] = [];
   const dropped: DroppedAction[] = [];
-  for (const event of events) {
-    if (!validSessionIds.has(event.session_id)) {
-      dropped.push({
-        field: "plan_edit",
-        reason: `no session with id "${event.session_id}" - it may be stale or hallucinated`,
-      });
-      continue;
-    }
-    if (
-      !categoryChangeIsConfirmed(
-        event.session_id,
-        event.discipline,
-        existingSessions,
-        athleteMessage,
-      )
-    ) {
-      dropped.push({
-        field: "plan_edit",
-        reason:
-          `session "${event.session_id}" would change category to "${event.discipline}" with no` +
-          " confirmation in the athlete's message this turn - treating as an unconfirmed" +
-          " assumption, not committing",
-      });
-      continue;
-    }
-    valid.push(event);
-  }
-  return { valid, dropped };
+  const days = update.days
+    .map((day) => ({
+      ...day,
+      sessions: (day.sessions ?? []).filter((session) => {
+        if (!session.session_id) return true;
+        if (!validSessionIds.has(session.session_id)) {
+          dropped.push({
+            field: "week_update",
+            reason: `no session with id "${session.session_id}" - it may be stale or hallucinated`,
+          });
+          return false;
+        }
+        if (
+          session.discipline !== undefined &&
+          !categoryChangeIsConfirmed(
+            session.session_id,
+            session.discipline,
+            existingSessions,
+            athleteMessage,
+          )
+        ) {
+          dropped.push({
+            field: "week_update",
+            reason:
+              `session "${session.session_id}" would change category to "${session.discipline}"` +
+              " with no confirmation in the athlete's message this turn - treating as an unconfirmed" +
+              " assumption, not committing",
+          });
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((day) => day.sessions.length > 0 || day.intent !== undefined);
+
+  if (days.length === 0) return { valid: undefined, dropped };
+  return { valid: { ...update, days }, dropped };
 }
 
 export interface QuestForSynthesis {

@@ -63,9 +63,7 @@ describe("mode-specific response schemas", () => {
       "profile_update",
       "template_edit",
       "session_plan",
-      "week_plan",
-      "session_reconcile",
-      "plan_edit",
+      "week_update",
       "reply",
       "pending_clarification",
       "unrecorded_facts",
@@ -157,7 +155,7 @@ describe("cache safety", () => {
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
     expect(dynamic).toContain("season_start as soon as the first season and goal are agreed");
     expect(dynamic).toContain("main_quest (the goal) and new_habits");
-    expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
+    expect(dynamic).toContain("Do not set template_edit, session_plan, or week_update");
   });
 
   // C1: the closing turn is gone, so there is no separate closing+FSP checklist any more - the
@@ -178,15 +176,14 @@ describe("cache safety", () => {
     expect(dynamic).not.toContain("the phase's plain-language name");
   });
 
-  // C1: session-artifact guidance (template_edit/session_plan/week_plan/session_reconcile/
-  // plan_edit) used to live only in the closing-mode branch - now it's part of every returning
-  // athlete's ordinary turn, since there's no closing turn left to gate it behind.
+  // C1: session-artifact guidance (template_edit/session_plan/week_update) used to live only in
+  // the closing-mode branch - now it's part of every returning athlete's ordinary turn, since
+  // there's no closing turn left to gate it behind.
   it("a returning athlete's ordinary text covers session-artifact fields too (no more closing turn)", () => {
     const dynamic = buildDynamicText("state", "quests", "ordinary", false, undefined);
     expect(dynamic).toContain("Weekly Kick-off Ritual");
     expect(dynamic).toContain("template_edit");
     expect(dynamic).toContain("session_plan");
-    expect(dynamic).toContain("session_reconcile");
-    expect(dynamic).toContain("plan_edit");
+    expect(dynamic).toContain("week_update");
   });
 });

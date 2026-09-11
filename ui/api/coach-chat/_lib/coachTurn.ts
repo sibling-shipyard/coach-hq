@@ -44,14 +44,17 @@ import {
   validateInjuryEvents,
   validateTemplateEdit,
   validateSessionPlan,
-  validateSessionReconcile,
-  validatePlanEdit,
+  validateWeekUpdate,
   synthesizeQuestEventFromUnrecordedFacts,
   hasConfirmationCue,
   type DroppedAction,
   type ExistingSessionForDiff,
 } from "./decide/turnWrites/validateActions.js";
-import { CURRENT_WEEK_PATH, weekSessionsFromCurrentWeek } from "./decide/coachWeekFiles.js";
+import {
+  CURRENT_WEEK_PATH,
+  weekSessionsFromCurrentWeek,
+  isFullWeekKickoff,
+} from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
   activeWeekSessionsContext,
@@ -153,8 +156,8 @@ interface RepliedTurn extends TurnState {
   // itself, rather than trusting a third model call that's already shown it won't comply.
   stillUnrecordedFacts?: string[] | null;
   // Bug 3 Primary (2026-09-10 pro baseline): the pending question from last turn, still
-  // unresolved after this turn's reprompt fired. buildTurnWrites drops plan_edit/
-  // session_reconcile/template_edit/session_plan entirely this turn when this is set - silence
+  // unresolved after this turn's reprompt fired. buildTurnWrites drops a patch-shaped
+  // week_update/template_edit/session_plan entirely this turn when this is set - silence
   // defaults to "don't overwrite," not "assume."
   stillUnconfirmedAssumption?: string | null;
 }
@@ -505,8 +508,10 @@ function scheduleChangingFieldNames(reply: GeminiReply): string[] {
   return [
     reply.template_edit != null && "template_edit",
     reply.session_plan != null && "session_plan",
-    (reply.session_reconcile?.length ?? 0) > 0 && "session_reconcile",
-    (reply.plan_edit?.length ?? 0) > 0 && "plan_edit",
+    // A full-week-kickoff-shaped week_update rewrites the whole week, not one disputed session,
+    // so it's deliberately not gated here. A patch-shaped week_update references existing
+    // sessions and is gated.
+    reply.week_update != null && !isFullWeekKickoff(reply.week_update) && "week_update",
   ].filter((field): field is string => Boolean(field));
 }
 
@@ -576,7 +581,7 @@ function friendlyGeminiErrorMessage(status: number): string {
 
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode: TurnMode = "ordinary";
-  // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit were silently
+  // Finding A (OpenRouter K1 retest): a patch-shaped week_update/template_edit were silently
   // no-op-ing while the reply still claimed success, because this prompt never told the model any
   // real template_id/session_id to reference - activeTemplatesContext/activeWeekSessionsContext
   // existed but were only ever called from activitySyncTurn.ts, a different turn path entirely.
@@ -700,7 +705,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
             " - the athlete's message this turn doesn't clearly resolve it, so do not commit a" +
-            " plan_edit/session_reconcile/template_edit/session_plan based on an assumed answer;" +
+            " week_update/template_edit/session_plan based on an assumed answer;" +
             " ask again instead, or proceed only if the athlete's message genuinely does answer it",
         );
       }
@@ -939,13 +944,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     turn.validQuestIds,
   );
 
-  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit) are
-  // available on every returning-athlete turn, so their template_id references need validating
-  // here regardless of which one fired. requestCoachReply already fetched the templates manifest
-  // before askGemini on any non-first-session turn (Finding A fix, so the prompt itself can supply
-  // real ids) - reuse that same read via turn.prefetchedTemplatesManifestContent instead of
-  // fetching it twice; only a first-session turn (where that prefetch never ran) falls back to
-  // fetching here, and only when actually needed.
+  // C1: session artifacts (template_edit/session_plan/week_update) are available on every
+  // returning-athlete turn, so their template_id references need validating here regardless of
+  // which one fired. requestCoachReply already fetched the templates manifest before askGemini on
+  // any non-first-session turn (Finding A fix, so the prompt itself can supply real ids) - reuse
+  // that same read via turn.prefetchedTemplatesManifestContent instead of fetching it twice; only
+  // a first-session turn (where that prefetch never ran) falls back to fetching here, and only
+  // when actually needed.
   //
   // This block sits before the droppedActions loop below (not after, where it used to live) so a
   // hallucinated template_id/session_id gets folded into this turn's own dropped-actions loop and
@@ -955,8 +960,9 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // clarifying question, never get an answer, then unilaterally overwrite a real scheduled session
   // anyway. requestCoachReply's reprompt already tried to get this resolved; if it's still
   // unresolved by the time the reply reaches here, hold back every schedule-changing field this
-  // turn rather than commit an assumption - silence defaults to "don't overwrite." week_plan
-  // (a full week rewrite, not tied to one disputed session) is deliberately not gated here.
+  // turn rather than commit an assumption - silence defaults to "don't overwrite." A full-week-
+  // kickoff-shaped week_update (a full rewrite, not tied to one disputed session) is deliberately
+  // not gated here, same as week_plan never was.
   const blockScheduleChangesThisTurn = Boolean(turn.stillUnconfirmedAssumption);
   if (blockScheduleChangesThisTurn) {
     const blockedFields = scheduleChangingFieldNames(reply);
@@ -972,17 +978,15 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   }
   const effectiveTemplateEdit = blockScheduleChangesThisTurn ? undefined : reply.template_edit;
   const effectiveSessionPlan = blockScheduleChangesThisTurn ? undefined : reply.session_plan;
-  const effectiveSessionReconcile = blockScheduleChangesThisTurn
-    ? []
-    : (reply.session_reconcile ?? []);
-  const effectivePlanEdit = blockScheduleChangesThisTurn ? [] : (reply.plan_edit ?? []);
+  const effectiveWeekUpdate =
+    blockScheduleChangesThisTurn &&
+    reply.week_update != null &&
+    !isFullWeekKickoff(reply.week_update)
+      ? undefined
+      : reply.week_update;
 
   const needsTemplateContext =
-    effectiveTemplateEdit != null ||
-    effectiveSessionPlan != null ||
-    reply.week_plan != null ||
-    effectiveSessionReconcile.length > 0 ||
-    effectivePlanEdit.length > 0;
+    effectiveTemplateEdit != null || effectiveSessionPlan != null || effectiveWeekUpdate != null;
   const validTemplateIds: ReadonlySet<string> = needsTemplateContext
     ? validTemplateIdsFromManifest(
         turn.prefetchedTemplatesManifestContent !== undefined
@@ -1018,15 +1022,15 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validTemplateIds,
   );
 
-  // Same pre-validate-before-build discipline as template_id above, applied to session_reconcile/
-  // plan_edit's session_id. Reuses requestCoachReply's own prefetch (Finding A fix) when one ran,
-  // same as validTemplateIds above; only a first-session turn falls back to fetching here. Either
-  // way this same read is handed to buildCurrentWeekWrite so its resolve() reuses it instead of
-  // fetching it again - what got validated is exactly what gets patched, no race window between
-  // two separate reads.
-  const rawSessionReconcile = effectiveSessionReconcile;
-  const rawPlanEdit = effectivePlanEdit;
-  const needsCurrentWeekContext = rawSessionReconcile.length > 0 || rawPlanEdit.length > 0;
+  // Same pre-validate-before-build discipline as template_id above, applied to a patch-shaped
+  // week_update's session_id references. Reuses requestCoachReply's own prefetch (Finding A fix)
+  // when one ran, same as validTemplateIds above; only a first-session turn falls back to fetching
+  // here. A full-week-kickoff week_update needs no existing file at all - it builds fresh, same as
+  // week_plan always did. Either way this same read is handed to buildCurrentWeekWrite so its
+  // resolve() reuses it instead of fetching it again - what got validated is exactly what gets
+  // patched, no race window between two separate reads.
+  const needsCurrentWeekContext =
+    effectiveWeekUpdate != null && !isFullWeekKickoff(effectiveWeekUpdate);
   const currentWeekContent = needsCurrentWeekContext
     ? turn.prefetchedCurrentWeekContent !== undefined
       ? turn.prefetchedCurrentWeekContent
@@ -1034,14 +1038,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     : undefined;
   // Single parse of currentWeekContent, with both the id set and the discipline/kind map derived
   // from it - two independent parseJsonOrNull calls over the same raw string would be redundant
-  // work on every turn that touches session_reconcile/plan_edit.
+  // work on every turn that touches a patch-shaped week_update.
   const weekSessions = needsCurrentWeekContext
     ? weekSessionsFromCurrentWeek(currentWeekContent ?? null)
     : [];
   const validSessionIds = new Set(weekSessions.map((session) => session.id));
-  // Bug 3 content-diff guard: existing session content, keyed by id, so
-  // validateSessionReconcile/validatePlanEdit can tell a category-changing edit from a same-turn
-  // confirmation.
+  // Bug 3 content-diff guard: existing session content, keyed by id, so validateWeekUpdate can
+  // tell a category-changing patch entry from a same-turn confirmation.
   const existingSessionsForDiff: ReadonlyMap<string, ExistingSessionForDiff> = new Map(
     weekSessions.map((session) => [
       session.id,
@@ -1049,31 +1052,20 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     ]),
   );
 
-  const { valid: sessionReconcileEvents, dropped: droppedSessionReconcile } =
-    validateSessionReconcile(
-      rawSessionReconcile,
-      validSessionIds,
-      existingSessionsForDiff,
-      turn.geminiMessage,
-    );
-  droppedActions.push(...droppedSessionReconcile);
-
-  const { valid: planEditEvents, dropped: droppedPlanEdit } = validatePlanEdit(
-    rawPlanEdit,
+  const { valid: validatedWeekUpdate, dropped: droppedWeekUpdate } = validateWeekUpdate(
+    effectiveWeekUpdate,
     validSessionIds,
     existingSessionsForDiff,
     turn.geminiMessage,
   );
-  droppedActions.push(...droppedPlanEdit);
+  droppedActions.push(...droppedWeekUpdate);
 
   const currentWeekWrite = buildCurrentWeekWrite(
     repo,
     token,
     timezone,
     traceId,
-    reply.week_plan,
-    sessionReconcileEvents,
-    planEditEvents,
+    validatedWeekUpdate,
     validTemplateIds,
     currentWeekContent,
   );

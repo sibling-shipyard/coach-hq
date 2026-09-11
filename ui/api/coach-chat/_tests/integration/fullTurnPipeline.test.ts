@@ -516,7 +516,6 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
               priority: "anchor",
               status: "planned",
               planned_duration_min: 30,
-              planned_load: null,
               template_id: null,
               session_file: null,
               coach_note: null,
@@ -529,7 +528,6 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
           (date) => ({ date, intent: null, coach_note: null, sessions: [] }),
         ),
       ],
-      coach_comments: [],
       updated_at: "2026-08-17T12:00:00.000Z",
       updated_by: "model",
       trace_id: "old",
@@ -550,7 +548,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         coach_note: "Logged a weight update.",
         profile_update: [{ field: "weight_kg", value: "78" }],
         template_edit: { template_id: "made_up_template" },
-        session_reconcile: [{ session_id: "made_up_session", status: "done" }],
+        week_update: {
+          days: [
+            { date: "2026-08-17", sessions: [{ session_id: "made_up_session", status: "done" }] },
+          ],
+        },
       },
     ]);
 
@@ -564,12 +566,12 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     const body = await response.json();
     expect(body).toMatchObject({
       reply:
-        "Updated your weight and looked into those.\n\n(Note: couldn't save template_edit, session_reconcile - it didn't match anything on file.)",
+        "Updated your weight and looked into those.\n\n(Note: couldn't save template_edit, week_update - it didn't match anything on file.)",
     });
     expect(body.droppedActions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "template_edit" }),
-        expect.objectContaining({ field: "session_reconcile" }),
+        expect.objectContaining({ field: "week_update" }),
       ]),
     );
     expect(body.droppedActions).toHaveLength(2);
