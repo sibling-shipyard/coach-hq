@@ -34,6 +34,8 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/generate_quest_history.py",
   "scripts/validate-current-week.mts",
   "scripts/validate-text-caps.py",
+  "scripts/reconcile-current-week.mjs",
+  "scripts/rollover-current-week.mjs",
 ];
 
 /** Dirs carved into engine/ */
@@ -537,6 +539,11 @@ function carve(outDir, sha) {
   const validateWrapperSrc = path.join(REPO_ROOT, "engine/scripts/validate-current-week");
   fs.copyFileSync(validateWrapperSrc, path.join(outDir, "engine/scripts/validate-current-week"));
   fs.chmodSync(path.join(outDir, "engine/scripts/validate-current-week"), 0o755);
+  for (const wrapper of ["reconcile-current-week", "rollover-current-week"]) {
+    const wrapperSrc = path.join(REPO_ROOT, "engine/scripts", wrapper);
+    fs.copyFileSync(wrapperSrc, path.join(outDir, "engine/scripts", wrapper));
+    fs.chmodSync(path.join(outDir, "engine/scripts", wrapper), 0o755);
+  }
 
   copyByobBoot(outDir);
 
