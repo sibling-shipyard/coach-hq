@@ -169,6 +169,102 @@ describe("coach turn stages", () => {
     );
   });
 
+  // Bug 3 Primary (2026-09-10 pro baseline): a real conversation showed the coach ask a genuine
+  // clarifying question, never get an answer, then unilaterally overwrite a real scheduled
+  // session anyway. requestCoachReply sets stillUnconfirmedAssumption when its own reprompt
+  // couldn't resolve it - these tests confirm buildTurnWrites actually holds back the write.
+  describe("stillUnconfirmedAssumption (Bug 3 Primary)", () => {
+    const currentWeekContent = JSON.stringify({
+      schema_version: 1,
+      data_status: "live",
+      timezone: "UTC",
+      week: { id: "2026-W37", start_date: "2026-09-07", end_date: "2026-09-13" },
+      coach_read: null,
+      days: [
+        {
+          date: "2026-09-12",
+          sessions: [
+            {
+              id: "s_saturday",
+              discipline: "football",
+              kind: "match",
+              title: "Football - away game",
+              status: "planned",
+            },
+          ],
+        },
+      ],
+      coach_comments: [],
+      updated_at: "2026-09-10T00:00:00.000Z",
+      updated_by: "model",
+      trace_id: "seed",
+    });
+
+    it("drops a plan_edit when stillUnconfirmedAssumption is set", async () => {
+      const turn = await buildTurnWrites(
+        baseTurn({
+          firstSession: false,
+          validQuestIds: new Set<string>(),
+          prefetchedCurrentWeekContent: currentWeekContent,
+          stillUnconfirmedAssumption: "dropping football or doing both?",
+          reply: {
+            reply: "Done, swapped it for a walk.",
+            coach_note: "Swapped Saturday.",
+            plan_edit: [
+              {
+                session_id: "s_saturday",
+                discipline: "walk",
+                kind: "recovery",
+                title: "Easy Walk",
+              },
+            ],
+          },
+        }) as never,
+      );
+      expect(turn.droppedActions).toEqual([
+        expect.objectContaining({
+          field: "plan_edit",
+          reason: expect.stringContaining("unresolved"),
+        }),
+      ]);
+      expect(turn.optionalWrites.map((write) => write.path)).not.toContain(
+        "user_data/ledger/current_week.json",
+      );
+    });
+
+    it("commits the plan_edit normally when stillUnconfirmedAssumption is not set", async () => {
+      const turn = await buildTurnWrites(
+        baseTurn({
+          firstSession: false,
+          validQuestIds: new Set<string>(),
+          // Explicit confirmation cue in the raw message - isolates this test to the
+          // stillUnconfirmedAssumption dimension only, distinct from the independent Bug 3
+          // Fallback content-diff guard (validateActions.ts), which would otherwise also drop a
+          // category-changing edit with no confirmation cue regardless of this field.
+          trimmed: "Yes, swap it for a walk instead.",
+          geminiMessage: "Yes, swap it for a walk instead.",
+          prefetchedCurrentWeekContent: currentWeekContent,
+          reply: {
+            reply: "Done, swapped it for a walk.",
+            coach_note: "Swapped Saturday.",
+            plan_edit: [
+              {
+                session_id: "s_saturday",
+                discipline: "walk",
+                kind: "recovery",
+                title: "Easy Walk",
+              },
+            ],
+          },
+        }) as never,
+      );
+      expect(turn.droppedActions).toEqual([]);
+      expect(turn.optionalWrites.map((write) => write.path)).toContain(
+        "user_data/ledger/current_week.json",
+      );
+    });
+  });
+
   it("commits incremental First Session writes on an ordinary turn", async () => {
     const response = await commitTurn({
       ...baseTurn(),

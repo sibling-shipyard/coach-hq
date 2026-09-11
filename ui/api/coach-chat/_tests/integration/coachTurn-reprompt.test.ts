@@ -412,6 +412,113 @@ describe("requestCoachReply missed-injury-language reprompt, compound ache words
   });
 });
 
+// Finding D (2026-09-10 pro baseline): findMissedInjuryLanguage's deterministic keyword safety
+// net, extended to habits - same first-session + zero-pre-existing-referents scoping. All tests
+// below use a first-session turn with an empty validQuestIds set, matching the scenario this was
+// built for (a fresh athlete's dense first message).
+describe("requestCoachReply missed-habit-language reprompt (Finding D, habit extension)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function firstSessionTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: true,
+      validQuestIds: new Set<string>(),
+      trimmed: "Also I want to build a daily stretching habit.",
+      geminiMessage: "Also I want to build a daily stretching habit.",
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when habit language is present but no habit was captured", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Great, let's build that in.",
+        coach_note: "Athlete wants a daily stretching habit.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Great, let's build that in.",
+        coach_note: "Athlete wants a daily stretching habit.",
+        quest_create: { quests: [{ name: "Daily Stretching", type: "daily_streak" as const }] },
+      });
+
+    const result = await requestCoachReply(firstSessionTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.quest_create?.quests).toHaveLength(1);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no habit was captured this turn");
+  });
+
+  it("does not reprompt a second time if habit language is still uncaptured, but logs it", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Great, let's build that in.",
+      coach_note: "Athlete wants a daily stretching habit.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await requestCoachReply(firstSessionTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedHabitLanguage: "daily" }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt on a returning-athlete turn even with the same habit language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(
+      firstSessionTurnState({ firstSession: false, validQuestIds: new Set<string>() }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when the athlete already has an active quest on file", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(firstSessionTurnState({ validQuestIds: new Set<string>(["q1"]) }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when a matching habit was already captured via season_start.new_habits", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      season_start: {
+        name: "Season",
+        start_date: "2026-09-10",
+        end_date: "2026-12-01",
+        main_quest: { name: "Goal", type: "count_target" as const, target: 1 },
+        new_habits: [{ name: "Daily Stretching", type: "daily_streak" as const }],
+      },
+    });
+
+    await requestCoachReply(firstSessionTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when the message contains no habit-shaped language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(
+      firstSessionTurnState({
+        trimmed: "I want to run a marathon.",
+        geminiMessage: "I want to run a marathon.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd
 // while the reply still claimed success, because this prompt never told the model any real
 // template_id/session_id to work from on an ordinary turn - activeTemplatesContext/
@@ -452,5 +559,93 @@ describe("requestCoachReply supplies real template/session context (Finding A fi
     await requestCoachReply(baseTurnState({ firstSession: true }));
 
     expect(getFileRaw).not.toHaveBeenCalled();
+  });
+});
+
+// Bug 3 Primary (2026-09-10 pro baseline): the reprompt-side half of pending-clarification
+// tracking - see coachTurn.ts's findUnconfirmedAssumption for the full story.
+describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once when a pending clarification exists and the reply touches a schedule field", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Done, swapped it.",
+        coach_note: "Swapped Saturday.",
+        plan_edit: [
+          { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        reply: "Actually, let me check first - dropping football or doing both?",
+        coach_note: "Asked for clarification instead of assuming.",
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        pendingClarification: "dropping football or doing both?",
+        trimmed: "That covers it, wrap this up.",
+        geminiMessage: "That covers it, wrap this up.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.plan_edit).toBeUndefined();
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("dropping football or doing both?");
+  });
+
+  it("does not reprompt when the athlete's message contains a confirmation cue", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Done, swapped it.",
+      coach_note: "Swapped Saturday.",
+      plan_edit: [
+        { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+      ],
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        pendingClarification: "dropping football or doing both?",
+        trimmed: "Yes, drop the football and do the walk.",
+        geminiMessage: "Yes, drop the football and do the walk.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when there is no pending clarification", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Done, swapped it.",
+      coach_note: "Swapped Saturday.",
+      plan_edit: [
+        { session_id: "s_saturday", discipline: "walk", kind: "recovery", title: "Walk" },
+      ],
+    });
+
+    await requestCoachReply(baseTurnState({ pendingClarification: null }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when the reply touches no schedule-changing field", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Sure thing.",
+      coach_note: "note",
+      profile_update: [{ field: "weight_kg", value: "76" }],
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        pendingClarification: "dropping football or doing both?",
+        trimmed: "That covers it, wrap this up.",
+        geminiMessage: "That covers it, wrap this up.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
   });
 });

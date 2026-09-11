@@ -4,6 +4,7 @@ import {
   applySessionReconcile,
   applyPlanEdit,
   assertCurrentWeekCommitReady,
+  weekSessionsFromCurrentWeek,
   CURRENT_WEEK_PATH,
   type WeekPlan,
 } from "../../_lib/decide/coachWeekFiles.js";
@@ -685,5 +686,48 @@ describe("applyPlanEdit", () => {
     const runtime = parseCurrentWeek(JSON.parse(content), now);
     expect(runtime.issues).toEqual([]);
     expect(runtime.data).not.toBeNull();
+  });
+});
+
+// parseJsonOrNull is an unchecked cast, not parseCurrentWeek's schema validator, so a session's
+// discipline/kind can be missing at runtime despite CurrentWeekSession's type declaring both
+// required - validateActions.ts's content-diff guard calls .trim() on them unconditionally, so
+// this must always hand back a real string.
+describe("weekSessionsFromCurrentWeek", () => {
+  it("falls back to an empty string for a session missing discipline/kind, instead of undefined", () => {
+    const content = JSON.stringify({
+      days: [
+        {
+          date: "2026-09-10",
+          sessions: [{ id: "s1", title: "Untitled", status: "planned" }],
+        },
+      ],
+    });
+    const sessions = weekSessionsFromCurrentWeek(content);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].discipline).toBe("");
+    expect(sessions[0].kind).toBe("");
+  });
+
+  it("passes through a well-formed session's real discipline/kind", () => {
+    const content = JSON.stringify({
+      days: [
+        {
+          date: "2026-09-10",
+          sessions: [
+            {
+              id: "s1",
+              title: "Football",
+              status: "planned",
+              discipline: "football",
+              kind: "match",
+            },
+          ],
+        },
+      ],
+    });
+    const sessions = weekSessionsFromCurrentWeek(content);
+    expect(sessions[0].discipline).toBe("football");
+    expect(sessions[0].kind).toBe("match");
   });
 });

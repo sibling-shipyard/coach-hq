@@ -30,7 +30,12 @@ import {
   validTemplateIdsFromManifest,
   TEMPLATES_MANIFEST_PATH,
 } from "./decide/coachWorkoutFiles.js";
-import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./decide/coachMemoryFiles.js";
+import {
+  PROFILE_PATH,
+  type ProfileJson,
+  type MemoryJson,
+  type CoachLogJson,
+} from "./decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
 import { captureGeminiFailure, captureValidationFailure } from "../../_lib/sentry.js";
@@ -41,13 +46,12 @@ import {
   validateSessionPlan,
   validateSessionReconcile,
   validatePlanEdit,
+  synthesizeQuestEventFromUnrecordedFacts,
+  hasConfirmationCue,
   type DroppedAction,
+  type ExistingSessionForDiff,
 } from "./decide/turnWrites/validateActions.js";
-import {
-  CURRENT_WEEK_PATH,
-  validSessionIdsFromCurrentWeek,
-  weekSessionsFromCurrentWeek,
-} from "./decide/coachWeekFiles.js";
+import { CURRENT_WEEK_PATH, weekSessionsFromCurrentWeek } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
   activeWeekSessionsContext,
@@ -60,6 +64,7 @@ import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
+  capText,
 } from "./text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import { buildChatWrite } from "./decide/turnWrites/chatWrite.js";
@@ -127,6 +132,10 @@ interface TurnState extends TurnRequest {
   // enum-constrained quest_id/flag_id fields, not just to validate the reply afterward.
   validQuestIds: ReadonlySet<string>;
   validInjuryFlagIds: ReadonlySet<string>;
+  // Bug 3 (2026-09-10 pro baseline): the most recent real coach_log.json row's
+  // pending_clarification, if any is still unresolved - see parsePendingClarification for how
+  // it's read back and findUnconfirmedAssumption for how it's enforced.
+  pendingClarification: string | null;
 }
 
 interface RepliedTurn extends TurnState {
@@ -137,6 +146,17 @@ interface RepliedTurn extends TurnState {
   // twice. Undefined on a first-session turn, where it's never fetched at all.
   prefetchedTemplatesManifestContent?: string | null;
   prefetchedCurrentWeekContent?: string | null;
+  // Finding E (2026-09-10 pro baseline): facts the model's own self-audit still flags as
+  // unrecorded even after the one-shot reprompt already fired - the model confabulated a false
+  // refusal instead of complying, confirmed live, twice, on two different repos. buildTurnWrites
+  // uses this as a last-resort signal to deterministically synthesize an unambiguous quest_event
+  // itself, rather than trusting a third model call that's already shown it won't comply.
+  stillUnrecordedFacts?: string[] | null;
+  // Bug 3 Primary (2026-09-10 pro baseline): the pending question from last turn, still
+  // unresolved after this turn's reprompt fired. buildTurnWrites drops plan_edit/
+  // session_reconcile/template_edit/session_plan entirely this turn when this is set - silence
+  // defaults to "don't overwrite," not "assume."
+  stillUnconfirmedAssumption?: string | null;
 }
 
 export interface TurnWrites extends RepliedTurn {
@@ -209,6 +229,50 @@ export function isActivitySyncRequest(
   value: GreetRequest | TurnRequest | ActivitySyncRequest,
 ): value is ActivitySyncRequest {
   return "action" in value && value.action === "activity_sync";
+}
+
+// Bug 3 (2026-09-10 pro baseline): pending_clarification is persisted inside the same day-keyed
+// coach_log.json row coach_note already writes to (buildCoachNoteWrite), wrapped in a recognizable
+// marker so it survives the round trip through free text without needing a schema change to
+// coach_log.json itself. Only the most recent row is checked - an older unresolved question that's
+// since been superseded (a new day's row written, with or without its own marker) shouldn't keep
+// blocking forever. See formatPendingClarificationMarker for the write side.
+const PENDING_CLARIFICATION_MARKER = "[Pending clarification:";
+
+function parsePendingClarification(coachLog: CoachLogJson | null | undefined): string | null {
+  const rows = coachLog?.rows ?? [];
+  if (rows.length === 0) return null;
+  const latestText = rows[rows.length - 1]?.text ?? "";
+  const start = latestText.indexOf(PENDING_CLARIFICATION_MARKER);
+  if (start === -1) return null;
+  const afterMarker = latestText.slice(start + PENDING_CLARIFICATION_MARKER.length);
+  // The marker always sits on its own line (joined first, with "\n" separating it from anything
+  // after) and always closes with "]" as that line's very last character - taking the line's LAST
+  // "]" rather than its first is what lets a question that legitimately contains one ("should I
+  // do a [tempo] run?") come through intact instead of truncating at the wrong bracket.
+  const newlineIndex = afterMarker.indexOf("\n");
+  const markerLine = newlineIndex === -1 ? afterMarker : afterMarker.slice(0, newlineIndex);
+  const end = markerLine.lastIndexOf("]");
+  if (end === -1) return null;
+  const question = markerLine.slice(0, end).trim();
+  return question.length > 0 ? question : null;
+}
+
+// Bounded well under COACH_LOG_TEXT_CAP so the marker's own contribution to buildCoachNoteWrite's
+// budget is small and predictable - a real open question is a short sentence, never anywhere near
+// this, and capText's own truncation marker text is reserved for the free-text note portion, not
+// this one.
+const PENDING_CLARIFICATION_TEXT_CAP = 200;
+
+// Write side of parsePendingClarification above - wraps the model's self-reported open question
+// in the same recognizable marker. Undefined (folds into nothing) when the reply didn't leave one
+// open, same "no empty line added" discipline as formatDroppedActionsNote.
+function formatPendingClarificationMarker(
+  pendingClarification: string | undefined,
+): string | undefined {
+  const trimmed = pendingClarification?.trim();
+  if (!trimmed) return undefined;
+  return `${PENDING_CLARIFICATION_MARKER} ${capText(trimmed, PENDING_CLARIFICATION_TEXT_CAP)}]`;
 }
 
 export async function loadTurnState(
@@ -285,6 +349,7 @@ export async function loadTurnState(
     userMsg: request.trimmed ? { id: `u-${now}`, role: "user", text: request.trimmed } : undefined,
     validQuestIds,
     validInjuryFlagIds,
+    pendingClarification: parsePendingClarification(coachLog),
   };
 }
 
@@ -396,11 +461,70 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
 const INJURY_LANGUAGE_PATTERN =
   /\b(strain(?:ed)?|sprain(?:ed)?|tweak(?:ed)?|sore(?:ness)?|(?:head|back|stomach|tooth)?ach(?:e|ing)|pain(?:ful)?|hurt(?:s|ing)?|injur(?:y|ed)|discomfort|tender(?:ness)?|pulled|niggle|twinge|flare(?:d)?)\b/i;
 
+// Shared by every findMissed*Language check below - each one needs exactly this "return the
+// matched keyword, or null" idiom against its own pattern.
+function firstMatch(text: string, pattern: RegExp): string | null {
+  return text.match(pattern)?.[0] ?? null;
+}
+
 function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
   if (!turn.firstSession) return null;
   if (turn.validInjuryFlagIds.size > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
-  return turn.geminiMessage.match(INJURY_LANGUAGE_PATTERN)?.[0] ?? null;
+  return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+}
+
+// Finding D (2026-09-10 pro baseline): findMissedInjuryLanguage above closes the dense-message
+// omission gap for injuries specifically, but the same same-generation self-audit blind spot is
+// real for every action type, not just injuries - this is the next highest-value domain. Same
+// three-part scoping that makes the injury version safe (first-session, zero pre-existing
+// referents, no matching field already set) transfers directly: on a first-session turn with zero
+// existing quests, there is nothing yet to be "referencing," so any habit-shaped language is
+// necessarily new. Habits arrive via either season_start.new_habits or a standalone quest_create -
+// check both before concluding one was dropped. A distinct, narrower keyword set than the injury
+// one on purpose - habits were separately observed to be honestly *deferred* by the model in
+// nearly every dense-message trial rather than silently dropped, so this is closing a smaller
+// residual risk, not the dominant failure mode for this domain.
+const HABIT_LANGUAGE_PATTERN =
+  /\b(every ?day|daily|habit|routine|track(?:ing)?|log(?:ging)?|streak)\b/i;
+
+function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.firstSession) return null;
+  if (turn.validQuestIds.size > 0) return null;
+  if ((reply.season_start?.new_habits ?? []).length > 0) return null;
+  if ((reply.quest_create?.quests ?? []).length > 0) return null;
+  return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+}
+
+// Single source of truth for "which fields count as schedule-changing" - both this function and
+// buildTurnWrites's blockedFields computation need the exact same list, and drift between two
+// separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
+// Named fields, not just a boolean, since buildTurnWrites also needs to report which ones it held
+// back.
+function scheduleChangingFieldNames(reply: GeminiReply): string[] {
+  return [
+    reply.template_edit != null && "template_edit",
+    reply.session_plan != null && "session_plan",
+    (reply.session_reconcile?.length ?? 0) > 0 && "session_reconcile",
+    (reply.plan_edit?.length ?? 0) > 0 && "plan_edit",
+  ].filter((field): field is string => Boolean(field));
+}
+
+// Bug 3 Primary (2026-09-10 pro baseline): the reprompt-side enforcement of pending_clarification
+// tracking - see parsePendingClarification (read side) and GeminiReply.pending_clarification's
+// comment for the full story. If last turn left a real question open, and this turn's reply
+// touches a schedule-changing field at all, and the athlete's raw message this turn carries no
+// affirmative confirmation cue, treat the pending question as still unanswered - deliberately not
+// trying to track *which* session the question was about (that would need parsing free text into
+// structured intent, itself an unreliable step); any schedule-changing write while a real question
+// sits unanswered is worth a reprompt. If the reprompt doesn't resolve it either,
+// buildTurnWrites's own layer (see the "still" check below) leaves it to layer 3's defense-in-depth
+// content-diff guard (validateActions.ts) as the final backstop.
+function findUnconfirmedAssumption(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.pendingClarification) return null;
+  if (scheduleChangingFieldNames(reply).length === 0) return null;
+  if (hasConfirmationCue(turn.geminiMessage)) return null;
+  return turn.pendingClarification;
 }
 
 // D1 layer 2 (#736): schema constraints (layer 1) are strong but not formally airtight - this
@@ -510,12 +634,31 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missingNote = missingRequiredCoachNote(reply);
     const unrecordedFacts = findUnrecordedFacts(reply);
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
-    if (violation || missingNote || unrecordedFacts || missedInjuryLanguage) {
+    const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
+    const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+    // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
+    // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
+    // RepliedTurn.stillUnrecordedFacts).
+    let stillUnrecordedFactsForSynthesis: string[] | null = null;
+    // Bug 3 Primary: set when the reprompt fires and the assumption is still unresolved after it -
+    // buildTurnWrites drops any schedule-changing action this turn when this is set (see
+    // RepliedTurn.stillUnconfirmedAssumption).
+    let stillUnconfirmedAssumptionForDrop: string | null = null;
+    if (
+      violation ||
+      missingNote ||
+      unrecordedFacts ||
+      missedInjuryLanguage ||
+      missedHabitLanguage ||
+      unconfirmedAssumption
+    ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
         missingNote,
         unrecordedFacts,
         missedInjuryLanguage,
+        missedHabitLanguage,
+        unconfirmedAssumption,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -546,6 +689,21 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " doesn't describe a real injury, disregard this note",
         );
       }
+      if (missedHabitLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedHabitLanguage}" but no habit was captured` +
+            " this turn (via season_start.new_habits or quest_create) - if a real habit was" +
+            " stated, add it now; if it genuinely doesn't describe a new habit, disregard this note",
+        );
+      }
+      if (unconfirmedAssumption) {
+        notes.push(
+          `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
+            " - the athlete's message this turn doesn't clearly resolve it, so do not commit a" +
+            " plan_edit/session_reconcile/template_edit/session_plan based on an assumed answer;" +
+            " ask again instead, or proceed only if the athlete's message genuinely does answer it",
+        );
+      }
       const repromptMessage = [
         turn.geminiMessage,
         `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
@@ -572,14 +730,42 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissingNote = missingRequiredCoachNote(reply);
       const stillUnrecordedFacts = findUnrecordedFacts(reply);
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
-      if (stillOversized || stillMissingNote || stillUnrecordedFacts || stillMissedInjuryLanguage) {
+      const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
+      const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+      // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
+      // - the model stops self-flagging the miss on retry (it now believes its confabulated
+      // excuse resolved it), even though the field still isn't captured. Carry forward the
+      // FIRST pass's unrecordedFacts instead, unconditionally - it was the reliable detection,
+      // and buildTurnWrites' own alreadyHandledQuestIds check already no-ops the synthesis safely
+      // if the reprompt's second pass did, in fact, add a real quest_event.
+      stillUnrecordedFactsForSynthesis = unrecordedFacts;
+      stillUnconfirmedAssumptionForDrop = stillUnconfirmedAssumption;
+      if (
+        stillOversized ||
+        stillMissingNote ||
+        stillUnrecordedFacts ||
+        stillMissedInjuryLanguage ||
+        stillMissedHabitLanguage ||
+        stillUnconfirmedAssumption
+      ) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
-          { stillOversized, stillMissingNote, stillUnrecordedFacts, stillMissedInjuryLanguage },
+          {
+            stillOversized,
+            stillMissingNote,
+            stillUnrecordedFacts,
+            stillMissedInjuryLanguage,
+            stillMissedHabitLanguage,
+            stillUnconfirmedAssumption,
+          },
           { traceId: turn.traceId },
         );
       }
     }
+    // unconfirmedAssumption truthy always triggers the reprompt block above (it's one of the OR
+    // conditions), so stillUnconfirmedAssumptionForDrop is only ever left at its null default when
+    // there was nothing to flag in the first place - no separate "reprompt never fired" case to
+    // handle here.
     // D1 layer 2 (#736): same one-retry-cap discipline as the oversized-field reprompt above -
     // exactly one corrective call, named to this specific bad reference. Runs after the text-cap
     // reprompt (independent concerns, each capped at one retry, both stay inside the shared
@@ -632,6 +818,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       reply,
       prefetchedTemplatesManifestContent: templatesManifestContent,
       prefetchedCurrentWeekContent: currentWeekContent,
+      stillUnrecordedFacts: stillUnrecordedFactsForSynthesis,
+      stillUnconfirmedAssumption: stillUnconfirmedAssumptionForDrop,
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -673,9 +861,20 @@ function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string
   return `(Note: couldn't save ${fields} - it didn't match anything on file.)`;
 }
 
+// Finding E: the athlete-facing counterpart to synthesizeQuestEventFromUnrecordedFacts - same
+// same-turn-visibility reasoning as formatDroppedActionsCorrection above, but for the opposite
+// case (something got auto-recorded on the athlete's behalf, not dropped). Surfaced so the
+// athlete can immediately correct it if the synthesis guessed wrong, rather than a silent write
+// they'd have no way to notice.
+function formatSynthesizedQuestEventNote(questName: string | undefined): string {
+  return questName
+    ? `(Logged "${questName}" as completed - let me know if that's not right.)`
+    : "(Logged that as completed - let me know if that's not right.)";
+}
+
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
-  const { profile, memory, seasons } = turn.context;
+  const { profile, memory, seasons, quests } = turn.context;
   const trimmedCoachNote = reply.coach_note?.trim();
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
@@ -699,11 +898,35 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
   const injuryWrite = buildInjuryWrites(repo, token, timezone, newInjuries, injuryEvents, traceId);
 
-  const { valid: questEvents, dropped: droppedQuestEvents } = validateQuestEvents(
+  const { valid: validatedQuestEvents, dropped: droppedQuestEvents } = validateQuestEvents(
     reply.quest_event ?? [],
     turn.validQuestIds,
   );
   droppedActions.push(...droppedQuestEvents);
+
+  // Finding E (2026-09-10 pro baseline): last-resort deterministic synthesis when the model's
+  // own self-audit flagged a completion it never captured and the reprompt still didn't fix it -
+  // see synthesizeQuestEventFromUnrecordedFacts's own comment for the full root-cause story.
+  // Unambiguous only; genuine ambiguity is left alone.
+  const alreadyHandledQuestIds = new Set(validatedQuestEvents.map((event) => event.quest_id));
+  const synthesizedQuestEvent = synthesizeQuestEventFromUnrecordedFacts(
+    turn.stillUnrecordedFacts,
+    quests?.quests ?? [],
+    alreadyHandledQuestIds,
+  );
+  const questEvents = synthesizedQuestEvent
+    ? [...validatedQuestEvents, synthesizedQuestEvent]
+    : validatedQuestEvents;
+  const synthesizedQuest = synthesizedQuestEvent
+    ? (quests?.quests ?? []).find((quest) => quest.id === synthesizedQuestEvent.quest_id)
+    : undefined;
+  if (synthesizedQuestEvent) {
+    console.warn("[coach-chat] synthesized a quest_event the model itself failed to comply on:", {
+      questId: synthesizedQuestEvent.quest_id,
+      traceId,
+    });
+  }
+
   const questEventWrite = buildQuestEventWrite(
     repo,
     token,
@@ -726,12 +949,38 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // hallucinated template_id/session_id gets folded into this turn's own dropped-actions loop and
   // coach_note, exactly like a bad quest_id/flag_id already does - same D1 layer 3 discipline:
   // validate every referential id before any write is built, not just quest/injury.
+  // Bug 3 Primary (2026-09-10 pro baseline): a real conversation showed the coach ask a genuine
+  // clarifying question, never get an answer, then unilaterally overwrite a real scheduled session
+  // anyway. requestCoachReply's reprompt already tried to get this resolved; if it's still
+  // unresolved by the time the reply reaches here, hold back every schedule-changing field this
+  // turn rather than commit an assumption - silence defaults to "don't overwrite." week_plan
+  // (a full week rewrite, not tied to one disputed session) is deliberately not gated here.
+  const blockScheduleChangesThisTurn = Boolean(turn.stillUnconfirmedAssumption);
+  if (blockScheduleChangesThisTurn) {
+    const blockedFields = scheduleChangingFieldNames(reply);
+    if (blockedFields.length > 0) {
+      droppedActions.push({
+        field: blockedFields.join(", "),
+        reason:
+          `left "${turn.stillUnconfirmedAssumption}" unresolved from last turn and the athlete's` +
+          " message this turn didn't clearly answer it - holding back the schedule change rather" +
+          " than committing an assumption",
+      });
+    }
+  }
+  const effectiveTemplateEdit = blockScheduleChangesThisTurn ? undefined : reply.template_edit;
+  const effectiveSessionPlan = blockScheduleChangesThisTurn ? undefined : reply.session_plan;
+  const effectiveSessionReconcile = blockScheduleChangesThisTurn
+    ? []
+    : (reply.session_reconcile ?? []);
+  const effectivePlanEdit = blockScheduleChangesThisTurn ? [] : (reply.plan_edit ?? []);
+
   const needsTemplateContext =
-    reply.template_edit != null ||
-    reply.session_plan != null ||
+    effectiveTemplateEdit != null ||
+    effectiveSessionPlan != null ||
     reply.week_plan != null ||
-    (reply.session_reconcile?.length ?? 0) > 0 ||
-    (reply.plan_edit?.length ?? 0) > 0;
+    effectiveSessionReconcile.length > 0 ||
+    effectivePlanEdit.length > 0;
   const validTemplateIds: ReadonlySet<string> = needsTemplateContext
     ? validTemplateIdsFromManifest(
         turn.prefetchedTemplatesManifestContent !== undefined
@@ -741,7 +990,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     : new Set<string>();
 
   const { valid: validatedTemplateEdit, dropped: droppedTemplateEdit } = validateTemplateEdit(
-    reply.template_edit,
+    effectiveTemplateEdit,
     validTemplateIds,
   );
   droppedActions.push(...droppedTemplateEdit);
@@ -754,7 +1003,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
 
   const { valid: validatedSessionPlan, dropped: droppedSessionPlan } = validateSessionPlan(
-    reply.session_plan,
+    effectiveSessionPlan,
     validTemplateIds,
   );
   droppedActions.push(...droppedSessionPlan);
@@ -773,25 +1022,45 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // way this same read is handed to buildCurrentWeekWrite so its resolve() reuses it instead of
   // fetching it again - what got validated is exactly what gets patched, no race window between
   // two separate reads.
-  const rawSessionReconcile = reply.session_reconcile ?? [];
-  const rawPlanEdit = reply.plan_edit ?? [];
+  const rawSessionReconcile = effectiveSessionReconcile;
+  const rawPlanEdit = effectivePlanEdit;
   const needsCurrentWeekContext = rawSessionReconcile.length > 0 || rawPlanEdit.length > 0;
   const currentWeekContent = needsCurrentWeekContext
     ? turn.prefetchedCurrentWeekContent !== undefined
       ? turn.prefetchedCurrentWeekContent
       : await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
     : undefined;
-  const validSessionIds = needsCurrentWeekContext
-    ? validSessionIdsFromCurrentWeek(currentWeekContent ?? null)
-    : new Set<string>();
+  // Single parse of currentWeekContent, with both the id set and the discipline/kind map derived
+  // from it - two independent parseJsonOrNull calls over the same raw string would be redundant
+  // work on every turn that touches session_reconcile/plan_edit.
+  const weekSessions = needsCurrentWeekContext
+    ? weekSessionsFromCurrentWeek(currentWeekContent ?? null)
+    : [];
+  const validSessionIds = new Set(weekSessions.map((session) => session.id));
+  // Bug 3 content-diff guard: existing session content, keyed by id, so
+  // validateSessionReconcile/validatePlanEdit can tell a category-changing edit from a same-turn
+  // confirmation.
+  const existingSessionsForDiff: ReadonlyMap<string, ExistingSessionForDiff> = new Map(
+    weekSessions.map((session) => [
+      session.id,
+      { id: session.id, discipline: session.discipline, kind: session.kind },
+    ]),
+  );
 
   const { valid: sessionReconcileEvents, dropped: droppedSessionReconcile } =
-    validateSessionReconcile(rawSessionReconcile, validSessionIds);
+    validateSessionReconcile(
+      rawSessionReconcile,
+      validSessionIds,
+      existingSessionsForDiff,
+      turn.geminiMessage,
+    );
   droppedActions.push(...droppedSessionReconcile);
 
   const { valid: planEditEvents, dropped: droppedPlanEdit } = validatePlanEdit(
     rawPlanEdit,
     validSessionIds,
+    existingSessionsForDiff,
+    turn.geminiMessage,
   );
   droppedActions.push(...droppedPlanEdit);
 
@@ -831,22 +1100,45 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // uses. commitFilesAtomic does not merge two writes to the same path, so the two notes are
   // combined into that one write here rather than sent separately.
   const droppedActionsNote = formatDroppedActionsNote(droppedActions);
+  const synthesizedQuestEventNote = synthesizedQuestEvent
+    ? formatSynthesizedQuestEventNote(synthesizedQuest?.name)
+    : undefined;
+  // coach_note is one row per calendar day, overwritten in place - a later same-day turn that
+  // writes anything to it but doesn't itself restate pending_clarification (the model only
+  // reports this per-turn; it has no reason to keep echoing an old one) would otherwise drop a
+  // still-open marker the moment that day's row gets overwritten. Carry the prior marker forward
+  // whenever this turn didn't produce a fresh one, unless the athlete's own message this turn
+  // reads as an answer to it.
+  const carriedPendingClarification =
+    turn.pendingClarification && !hasConfirmationCue(turn.geminiMessage)
+      ? turn.pendingClarification
+      : undefined;
+  const pendingClarificationMarker = formatPendingClarificationMarker(
+    reply.pending_clarification ?? carriedPendingClarification,
+  );
+  // buildCoachNoteWrite's capText caps the whole joined string from the tail, so the marker must
+  // go first, not last, to survive a long coach_note/droppedActionsNote ahead of it -
+  // formatPendingClarificationMarker also bounds its own length so it always fits intact
+  // regardless of how long the free-text portion behind it runs.
   const coachNoteWrite = buildCoachNoteWrite(
     repo,
     token,
     turn.today,
     traceId,
-    [trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") || undefined,
+    [pendingClarificationMarker, trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") ||
+      undefined,
   );
 
   // akash retest finding: the athlete-facing correction has to land in the reply actually sent
   // this turn, not just next turn's coach_log context above - so this builds the chat message
   // (and the reply text commitTurn returns) only now, after droppedActions is fully known, instead
-  // of at the top of this function using the model's raw, pre-validation reply.reply.
+  // of at the top of this function using the model's raw, pre-validation reply.reply. Finding E's
+  // synthesis note rides the same same-turn-visibility logic.
   const droppedActionsCorrection = formatDroppedActionsCorrection(droppedActions);
-  const finalReplyText = droppedActionsCorrection
-    ? `${reply.reply}\n\n${droppedActionsCorrection}`
-    : reply.reply;
+  const correctionSuffix = [droppedActionsCorrection, synthesizedQuestEventNote]
+    .filter(Boolean)
+    .join("\n");
+  const finalReplyText = correctionSuffix ? `${reply.reply}\n\n${correctionSuffix}` : reply.reply;
   const coachMsg: ChatMessage = {
     id: `c-${turn.now}`,
     role: "coach",

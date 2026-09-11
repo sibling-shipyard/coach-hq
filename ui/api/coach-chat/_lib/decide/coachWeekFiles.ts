@@ -334,7 +334,7 @@ export function validSessionIdsFromCurrentWeek(content: string | null): Readonly
  */
 export function weekSessionsFromCurrentWeek(
   content: string | null,
-): { id: string; date: string; title: string; status: string }[] {
+): { id: string; date: string; title: string; status: string; discipline: string; kind: string }[] {
   const parsed = parseJsonOrNull<CurrentWeek>(content);
   if (!Array.isArray(parsed?.days)) return [];
   return parsed.days.flatMap((day) =>
@@ -346,6 +346,13 @@ export function weekSessionsFromCurrentWeek(
             date: day.date,
             title: session.title,
             status: session.status,
+            // discipline/kind are what the Bug 3 content-diff guard (validateActions.ts) needs to
+            // tell a category-changing plan_edit/session_reconcile from a title tweak. This reader
+            // deliberately skips parseCurrentWeek's schema validation (see this file's header
+            // comment), so a session object here is only as trustworthy as the raw JSON - default
+            // to "" rather than hand a caller `undefined` typed as `string`.
+            discipline: session.discipline ?? "",
+            kind: session.kind ?? "",
           }))
       : [],
   );
