@@ -1,6 +1,7 @@
 # User-repo sync (coach-skeleton / coach-<user>). iOS path only — the HealthKit app commits
-# history directly, this just regenerates derived files (quest_history, sync_status,
-# dashboard_snapshot, athlete_insights) on every push.
+# history directly, this regenerates derived files (quest_history, sync_status,
+# dashboard_snapshot, athlete_insights), reconciles current_week.json against newly-synced
+# activities, and rolls it over once it ages out (ADR 0039) — on every push.
 
 name: Sync
 
@@ -70,6 +71,13 @@ jobs:
       - name: Reconcile current week
         run: ./engine/scripts/reconcile-current-week
 
+      # ADR 0039's scheduled rollover: runs after reconciliation (so the old week's last real
+      # activities get matched before it's replaced), and only ever acts on a week that's aged
+      # out - a still-current live or placeholder week is left untouched. Fixes the "dark week"
+      # bug: an athlete who never chats still gets a Current Week naming the real dates.
+      - name: Roll over an aged-out current week
+        run: ./engine/scripts/rollover-current-week
+
       - name: Commit pipeline changes
         run: |
           # Stage the athlete's activity history. Two states break a plain `git add` here and
@@ -120,6 +128,7 @@ jobs:
             node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
             node engine/scripts/generate-athlete-insights.mjs
             ./engine/scripts/reconcile-current-week
+            ./engine/scripts/rollover-current-week
             add_current_week
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
             git add gen/quest_history.json gen/sync_status.json
