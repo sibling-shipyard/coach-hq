@@ -55,18 +55,25 @@ against the same paths in the freshly-stamped skeleton. Two directions matter:
   `writeJson`/`writeText` call list, the same source of truth Step 0 would stamp from.
   - `coach-skanda-2003`: `user_data/coach/leftover_coach_notes.md`, `user_data/coach/sleep_log.json`,
     `gen/aggregate.json`, `gen/quest_log.md`.
-  - `coach-akash-suresh`: the same four plus `user_data/coach/opponent_notes.md`,
-    `gen/badminton_analytics_snapshot.json`, and a whole extra `user_data/ledger/seasons/`
-    directory sitting alongside the real `user_data/ledger/seasons.json` file.
+  - `coach-akash-suresh`: the same four plus `user_data/coach/opponent_notes.md` and
+    `gen/badminton_analytics_snapshot.json`.
   - `coach-prateekdevaraju`, `coach-date2022`, `coach-shreyas-95-cyber`: none - each matches the
     fixed set exactly.
   - `leftover_coach_notes.md` and `sleep_log.json` are named directly in a `carve-skeleton.mjs`
     comment (next to `PROFILE_TEMPLATE`). It says they "no longer exist in a fresh carve, per
     #407/#413's split." These two are confirmed dead leftovers pre-dating that split, not
-    per-athlete content the athlete chose to keep. `opponent_notes.md`,
-    `badminton_analytics_snapshot.json`, and the extra `ledger/seasons/` directory are different -
-    Akash-specific additions with no matching `carve-skeleton.mjs` entry at all, real Step 2
-    decisions rather than an inherited leftover.
+    per-athlete content the athlete chose to keep. `opponent_notes.md` and
+    `badminton_analytics_snapshot.json` are different - Akash-specific additions with no matching
+    `carve-skeleton.mjs` entry at all, real Step 2 decisions rather than an inherited leftover.
+  - Corrected from the last pass: `user_data/ledger/seasons/` (an empty directory, sitting next
+    to the real `seasons.json` file) is **not** a real finding - `git ls-files` shows it isn't
+    tracked at all on either repo. Local filesystem artifact only, not something to file or fix.
+  - **Not blocking, filed:** `sleep_log.json` (both) and `opponent_notes.md` (Akash) are already
+    tracked by #454 ("decide the fate of athlete-repository leftovers"), which also covers
+    archived-season shapes neither repo has an issue with today. `leftover_coach_notes.md` (both)
+    and `gen/aggregate.json`/`gen/quest_log.md` (both)/`gen/badminton_analytics_snapshot.json`
+    (Akash) were not yet in #454 - added there 2026-09-11 so all of Step 1's real findings have
+    one home. None of this is harmful today and none of it blocks F1's actual backfill work.
 
 Exclude naturally-per-athlete content from this diff — `user_data/activities/hist/*`,
 `user_data/activities/streams/*`, `user_data/activities/workout_plans/sessions/*` are expected to
@@ -86,7 +93,7 @@ straight from each repo's `quests.json`/`memory.json`/`profile.json` rather than
 |---|---|---|---|---|---|
 | `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | **`accountability`** - real answer, 2026-09-11 | populated (real gear list) | `profile.json`'s earlier empty `{}` is resolved - it now carries real `name`/`dob`/`timezone`/`height_cm`/`weight_kg`. No longer a mid-reset case; drop from the "info needed" checklist below. |
 | `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | `s_the_transformation_v2` (real, active) | **`analysis`** - real answer, 2026-09-11, replaces the stale `"accountability"` leftover from before the field was removed (#513/#515) | empty | The old value was confirmed stale, not accurate - Akash's real answer today is `analysis`, not `accountability`. |
-| `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | `season_strength_weight_gain_sea_o1jd` (real, active) | **`accountability`** - real answer, 2026-09-11 | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. Still open. |
+| `coach-prateekdevaraju` | **confirmed real, 2026-09-11**: keep `"20 Strength Sessions"` as-is (name/type/target/count_pattern unchanged) - the athlete confirmed Prateek's actual goal is getting stronger through end of year, and 20 strength sessions is the real target, not a coincidental placeholder match | `season_strength_weight_gain_sea_o1jd` (real, active) - **but its `end_date` is `2026-11-25`, not end of year - flag to the athlete before backfill, don't silently extend it** | **`accountability`** - real answer, 2026-09-11 | empty | No longer the skeleton-placeholder bug - only `_meta.updated_by: "skeleton-init"` needs correcting to a real value on write, the goal content itself is confirmed real and needs no change. |
 | `coach-date2022` | `"First Unassisted Pull-Up"` (real) | `chin-over-the-bar` (real, active) | **`encouragement`** - real answer, 2026-09-11 | populated (real gear list) | |
 | `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | `season_posture_core_rebuild_r9it` (real, active) | **`encouragement`** - real answer, 2026-09-11 | empty | New athlete, cloned for the first time this session. |
 
@@ -100,11 +107,15 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    `accountability`, `coach-date2022` -> `encouragement`, `coach-shreyas-95-cyber` ->
    `encouragement`. Akash's answer replaces the stale `"accountability"` leftover - it was
    confirmed inaccurate, not just old. Nothing further needed from the athlete on this item.
-2. **`main_quest`** — only `coach-prateekdevaraju` needs a real value backfilled (the other 4 already
-   have one). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
-   as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`). Also his
-   real `season_id` - see the next item; every athlete gets this field, Prateek's just needs a real
-   `main_quest` to attach it to.
+2. **`main_quest`** — resolved 2026-09-11: Prateek's real goal is confirmed as "get stronger
+   through end of year," and 20 strength sessions (`count_target`, `count_pattern:
+   "^WeightTraining\s*#"`) is the real number, not a coincidental placeholder match. The
+   `main_quest` object's content needs no change - only `_meta.updated_by` needs to move off
+   `"skeleton-init"` on the actual write, and it gets its `season_id` in the next item like every
+   other repo. **Separate open question, not blocking the backfill:** the season this
+   `main_quest` belongs to (`season_strength_weight_gain_sea_o1jd`) has `end_date: "2026-11-25"`.
+   That's not end of year - confirm with the athlete whether it needs updating too, rather than
+   silently extending it as part of this PR.
 3. **`main_quest.season_id`** (new field from B3) — backfill onto all 5, not just Prateek. All 5
    already have a real, active `current_season_id` (confirmed directly: `s_load_bearing_season`,
    `s_the_transformation_v2`, `season_strength_weight_gain_sea_o1jd`, `chin-over-the-bar`,
@@ -112,12 +123,16 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    `current_season_id`. No athlete input needed for this one, purely mechanical linking of two
    values that already exist.
 4. **`equipment`** — empty on `coach-akash-suresh`, `coach-prateekdevaraju`, `coach-shreyas-95-cyber`.
-   Worth being direct about why. This is exactly the field this session found being silently
-   dropped by #616's write-loss bug — these 3 athletes may well have *stated* their equipment in a
-   past conversation and had it lost, not simply never been asked. **Info needed from the athlete:**
-   whether these 3 already said their equipment somewhere recoverable (check `chat_history.json` if
-   any old threads survived, or just ask them directly) before assuming it's genuinely never been
-   discussed.
+   **Not blocking anything - confirmed directly against `isAthleteProfileComplete()`
+   (`coachChatFiles.ts`): `equipment` isn't one of its checked fields at all**, unlike
+   `coaching_style`. An athlete with it still empty stays fully able to use daily chat; this item
+   can wait indefinitely without holding up the merge or F1's other backfills. Worth being direct
+   about why it matters eventually. This is exactly the field this session found being silently
+   dropped by #616's write-loss bug - these 3 athletes may well have *stated* their equipment in a
+   past conversation and had it lost, not simply never been asked. **Info needed from the athlete,
+   whenever convenient:** whether these 3 already said their equipment somewhere recoverable (check
+   `chat_history.json` if any old threads survived, or just ask them directly) before assuming it's
+   genuinely never been discussed.
 5. **`coach-skanda-2003`'s `profile.json`** — resolved as of this re-check (2026-09-11): it now
    carries real values, not the empty `{}` the first pass found. No action needed here anymore.
 6. **`Season.status`'s widened enum** (B3) — no data change needed, existing `"active"` values stay
@@ -140,14 +155,19 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
 Checklist, not to be left blank at execution time:
 - [x] Coaching style for all 5 people, answered 2026-09-11 - see Step 3 item 1 above for the real
   values, ready to write.
-- [ ] Prateek's real current main quest/goal.
+- [x] Prateek's real current main quest/goal, answered 2026-09-11 - "get stronger through end of
+  year," 20 strength sessions is the real target. Open follow-up, not blocking: his season's
+  `end_date` (2026-11-25) doesn't match "end of year" - confirm whether that needs changing too.
 - [ ] Whether Akash's, Prateek's, and Shreyas's equipment was ever actually stated and lost, or
-  genuinely never discussed — and if stated, what it was.
+  genuinely never discussed — and if stated, what it was. Confirmed non-blocking (not part of
+  `isAthleteProfileComplete()`) - can be gathered whenever convenient, does not hold up the merge.
 - [x] Skanda's repo: resolved on its own as of 2026-09-11's re-check - `profile.json` now has real
   data, no athlete decision needed.
-- [ ] Step 2's per-item keep-or-remove decisions, now that Step 1's real diff is in hand (see the
-  Missing/Extra lists above, re-verified 2026-09-11) - specifically Akash's leftover files/directory
-  and `coach-date2022`'s missing `latest_message.json`.
+- [x] Step 2's per-item keep-or-remove decisions on the leftover files: the athlete's call is to
+  file them, not remove them now - not harmful today. `sleep_log.json`/`opponent_notes.md` were
+  already tracked by #454; `leftover_coach_notes.md` and the `gen/` extras were added to #454
+  2026-09-11 so everything Step 1 found has one home. `coach-date2022`'s missing
+  `latest_message.json` is still a real to-do, just a mechanical one (no athlete input needed).
 - [ ] Flag here immediately if any other field this redesign adds turns out to need a real answer
   the same way — don't assume this list is exhaustive once D2's audit lands.
 - [x] `timezone` (B1) and `coach_log.json` shape (C2) — checked 2026-09-03, no backfill/migration
