@@ -63,6 +63,13 @@ jobs:
           node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
           node engine/scripts/generate-athlete-insights.mjs
 
+      # ADR 0039's deterministic reconciler: matches newly-synced activities to this week's
+      # planned sessions with no model call. Only touches current_week.json when the result
+      # passes parseCurrentWeek - a validation failure exits nonzero and leaves the file alone,
+      # same as every other step below.
+      - name: Reconcile current week
+        run: ./engine/scripts/reconcile-current-week
+
       - name: Commit pipeline changes
         run: |
           # Stage the athlete's activity history. Two states break a plain `git add` here and
@@ -79,10 +86,16 @@ jobs:
             [ -n "$(ls -A "$hist" 2>/dev/null)" ] || return 0
             git add -f "$hist/"
           }
+          add_current_week() {
+            week=user_data/ledger/current_week.json
+            [ -f "$week" ] || return 0
+            git add "$week"
+          }
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           add_history
+          add_current_week
           git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
           git add gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
@@ -94,6 +107,9 @@ jobs:
           # Retry loop: on non-fast-forward, reset to origin/main and re-run the full
           # pipeline rather than rebasing — gen files are deterministic from activity
           # data, so regenerating on the new HEAD always produces a conflict-free commit.
+          # The reconciler is the same: it only ever acts on current_week.json's own planned
+          # sessions plus synced activity data, so re-running it against origin/main's fresh
+          # current_week.json is exactly as safe as regenerating the gen/ files is.
           for attempt in 1 2 3; do
             git push && exit 0
             echo "push rejected — re-running pipeline on origin/main (attempt $attempt)"
@@ -103,6 +119,8 @@ jobs:
             add_history
             node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
             node engine/scripts/generate-athlete-insights.mjs
+            ./engine/scripts/reconcile-current-week
+            add_current_week
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
             git add gen/quest_history.json gen/sync_status.json
             if git diff --cached --quiet; then

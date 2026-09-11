@@ -25,8 +25,8 @@ through to `"other"` when nothing matches. Constrain the model to the athlete's 
 fixed set. This also unblocks sport-agnostic Home widgets (#314).
 
 **Reconciliation moves to code.** Rules run automatically when an activity syncs: a match to a
-planned day marks it done, a planned day with nothing logged becomes missed, an unmatched activity
-attaches as unplanned. Coach only gets asked when two sessions could plausibly match, or an
+planned day marks it done, a planned day with nothing logged becomes skipped, an unmatched
+activity attaches as unplanned. Coach only gets asked when two sessions could plausibly match, or an
 activity landed a day off from plan - the ambiguous cases, not every sync.
 
 **A scheduled rollover, not a chat-triggered one.** A job in the sync pipeline advances the week
@@ -49,8 +49,8 @@ This is a locked-decision change, so it's recorded as ADR 0042, not just this pl
   one call, not two.
 - `discipline` is a closed enum end to end; `currentWeekAdapter.ts`'s substring matching is
   deleted.
-- Every §5-style reconciliation rule (`workouts-redesign-lld.md`) has a test that fails when
-  violated.
+- Every reconciliation rule (`current-week-redesign-lld.md`) has a test that fails when
+  violated - done, see `engine/scripts/reconcile-current-week.test.mjs`.
 - A quiet week with no chat still shows a real plan the next morning.
 - Every dropped field has a written consumer audit before removal - done, see the LLD.
 - Full local gate green, `test/close-verification` in `coach-skanda-2003` live-tested before this
