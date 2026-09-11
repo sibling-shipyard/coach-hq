@@ -1,10 +1,22 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
 
 ## Context
 
-`coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-flash-latest`). **Unblocked:**
+`coach-chat.ts` reaches Gemini through the shared seam (`ui/api/_lib/llmClient.ts`'s
+`selectLlmAdapter`, #713 M2) rather than opening its own socket - every direct-Gemini caller in
+the codebase (chat, coach-message, template adjustment) does now. `LLM_PROVIDER` unset/`gemini`
+(the production default throughout M2) resolves to the direct adapter
+(`_lib/llmAdapters/geminiAdapter.ts`), header-authenticated, no change to the wire request chat
+itself sends. **The model actually running in production is `gemini-pro-latest`** (pinned in
+`ui/api/_lib/geminiModel.ts`), not `gemini-flash-latest` - flash was the intended model, moved off
+after capacity failures (#668), pin still temporary. **This means the Options table below, priced
+against Flash's per-token rate, understates what pro is actually costing** - it was written before
+the flash-to-pro pin and never re-priced. Re-verify pro's own rate limits/pricing before using this
+table to make the provider call; see `GEMINI-PRO-BASELINE-2026-09-10.md` for the reliability
+findings from testing directly against pro, which are a separate question from what's costed here.
+**Unblocked:**
 Cloud Billing is live on the project, confirmed 2026-08-06 — the AI Studio Billing page shows
 "Paid 1 · $250 Billing Account Tier Cap" against ₹2,500 prepaid credit. The Rate Limit dashboard
 confirms Tier 1 is active, so real testing is no longer rate-limited at this account's scale. See Options
@@ -51,9 +63,9 @@ constraint. Rate-limit headroom and eventual model quality are.
 
 ## Architecture — grounding these numbers in what the code actually sends
 
-Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, no separate/cheaper call for
-anything. There is no more separate close-session detection step at all (C1 removed
-`CLOSE_SESSION_PATTERN`/`session_closed` entirely — every turn just commits). The
+Verified against `ui/api/coach-chat.ts`: one model call per turn through the `llmClient` seam, no
+separate/cheaper call for anything. There is no more separate close-session detection step at all
+(C1 removed `CLOSE_SESSION_PATTERN`/`session_closed` entirely — every turn just commits). The
 `systemInstruction` floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` +
 `rendered quest context`, sent in full every turn — roughly matches the ~15K input tokens/turn
 assumed above. A turn whose reply asks for a template/session-artifact write pays for the
@@ -125,8 +137,12 @@ pending — that's the one thing left before this doc's job is finished.
 3. ~~Cap/window in-thread conversation history~~ — **done** (hard cap; real
    compaction/summarization is still future work, blocked on real usage data - tracked in issue #572).
 4. ~~Build the eval harness~~ — **done**, structural rubric only (see Eval above).
-5. Revisit provider choice in ~2 weeks against eval results + real usage numbers, not projections
-   — the only step left. Nothing else in this doc is blocking that anymore.
+5. ~~Revisit provider choice in ~2 weeks~~ — **in progress, 2026-09-10**: a full one-day pro
+   baseline pass (`GEMINI-PRO-BASELINE-2026-09-10.md`) plus an OpenRouter/flash/DeepSeek retest
+   (`OPENROUTER-K1-RETEST-FINDINGS.md`) both ran. Current plan: merge the reliability-fix stack
+   this both produced, stay on direct pro in production a while longer, gather more real usage
+   data, then make the provider call - not deciding today on projections alone. The Options table
+   above still needs re-pricing against pro specifically before that decision (see Context).
 
 ## Deferred
 

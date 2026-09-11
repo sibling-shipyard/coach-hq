@@ -6,7 +6,7 @@
  * (docs/plans/openrouter-m2-chat-lld.md). `LLM_PROVIDER` stays unset/"gemini" in production
  * throughout M2 - this file never sets it, so nothing here flips a provider.
  */
-import { selectLlmAdapter, type LlmMessage } from "../../../_lib/llmClient.js";
+import { selectLlmAdapter, type LlmMessage, type LlmResult } from "../../../_lib/llmClient.js";
 import { log } from "../../../_lib/log.js";
 import { GEMINI_MODEL } from "../../../_lib/geminiModel.js";
 import type { ChatMessage } from "../chatThreads.js";
@@ -90,7 +90,23 @@ export async function askGemini(
     responseSchema: chatResponseSchema(mode, firstSession, referenceIds),
     timeoutMs: GEMINI_GENERATE_TIMEOUT_MS,
   };
-  let result = await adapter.generate(generateRequest);
+  // Tags the resolved adapter's real model onto any throw from here down, so a caller's
+  // captureGeminiFailure({ model: ... }) reports what actually ran (gemini-pro-latest or
+  // OpenRouter's pinned model) instead of a caller-side constant that assumes direct Gemini even
+  // when LLM_PROVIDER=openrouter picked a different adapter entirely.
+  const withModelTag = <T>(err: T): T => {
+    if (err && typeof err === "object" && !("model" in err)) {
+      Object.assign(err, { model: adapter.model });
+    }
+    return err;
+  };
+
+  let result: LlmResult;
+  try {
+    result = await adapter.generate(generateRequest);
+  } catch (err) {
+    throw withModelTag(err);
+  }
 
   // A retry on top of (not instead of) the adapter's own truncation retry. OpenRouter's
   // finish_reason doesn't always come back "length" on a truncated call (the adapter's own
@@ -115,8 +131,12 @@ export async function askGemini(
       error: err instanceof Error ? err.message : String(err),
       traceId,
     });
-    result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
-    parsed = JSON.parse(result.text) as GeminiReply;
+    try {
+      result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
+      parsed = JSON.parse(result.text) as GeminiReply;
+    } catch (err) {
+      throw withModelTag(err);
+    }
   }
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. Nested
   // under log() data it prints as [Object]. traceId correlates with the commit-trace line logged

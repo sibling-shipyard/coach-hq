@@ -826,7 +826,9 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     console.error("[coach-chat] askGemini failed:", err);
     await captureGeminiFailure(err, {
       traceId: turn.traceId,
-      model: GEMINI_MODEL,
+      // geminiClient.ts tags the resolved adapter's real model onto the error before it
+      // propagates here - falls back to the direct-Gemini constant only if that never ran.
+      model: (err as { model?: string }).model ?? GEMINI_MODEL,
       upstreamStatus: status,
       turnMode: mode,
       athleteMessage: turn.geminiMessage,

@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
 
 ## Context
 
@@ -69,10 +69,17 @@ of this write-up - flagged for whenever the workouts/`current_week` area gets it
 since its shape will likely change anyway. Every transcript was diagnosed against a live run before
 being kept, not just rewritten and assumed correct. A stale expectation got fixed; a real gap got
 its own issue and stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the
-transcripts directory for the current list. #807 and #808 (both filed during G1's own pass) are
-resolved as of K1; the one open live gap is `#27`'s `injury_flag` drop on a dense multi-fact FSP
-turn, not yet fixed - see `docs/plans/ccr-k1-final-test-pass-lld.md` for the evidence. The
-dynamic-enum/hallucination guard once deferred pending D1 is in now too (`#40`), D1 having landed.
+transcripts directory for the current list (none currently - every flagged gap below is closed).
+#807 and #808 (both filed during G1's own pass) are resolved as of K1.
+
+`#27`'s `injury_flag` drop on a dense multi-fact FSP turn has a real fix now too, in two stages.
+It was reframed and partly fixed on 2026-09-09: the actual shape was a hallucinated
+`template_edit.template_id` crash, not a plain drop (`docs/plans/ccr-k1-final-test-pass-lld.md`).
+It then resurfaced the next day as a genuine 5/8 fail rate on a larger live sample
+(`GEMINI-PRO-BASELINE-2026-09-10.md`'s FSP flagship scenario). PR #953 closed that with
+`findMissedInjuryLanguage`, a deterministic keyword safety net scoped to first-session turns with
+zero existing injury flags, verified 3/3 on a fresh live sample. The dynamic-enum/hallucination
+guard once deferred pending D1 is in now too (`#40`), D1 having landed.
 
 **`npm run test:coach-chat-manual`** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real
 conversation through the real `handle()` in `coach-chat.ts` against a real athlete repo

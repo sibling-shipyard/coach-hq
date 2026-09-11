@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
 
 ## Context
 
@@ -93,6 +93,8 @@ structured action as it lands:
   field, issue #408 moved that meaning to seasons/quests. No `phase` field, Part 2 dropped it.
 - Injuries → `injury_flag` for a brand-new one (server mints the id), `injury_event` to
   update/resolve one already on file (its real `flag_id`).
+- What works when things get hard (accountability/cheering/why) → `coaching_style_update` (E1) —
+  required for `isAthleteProfileComplete()` to resolve true, see "Completion signal" below.
 - Date of birth/height/weight/city → `profile_update` (`dob`/`height_cm`/`weight_kg`/`timezone`).
 - Habit quests → `quest_create`'s `quests[]` (habit quests only — the goal moved to
   `season_start.main_quest`).
@@ -146,8 +148,10 @@ message until the sending device's request resolves and its commit lands.
 ### 5. Completion signal
 
 `isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/decide/coachChatFiles.ts`) requires non-blank
-`profile.json` values for name, date of birth, timezone, height, and weight; at least one sport;
-and a `seasons.json.current_season_id` that names an existing season. Quests are optional.
+`profile.json` values for name, date of birth, timezone, height, and weight, plus at least one
+sport. It also requires a real `memory.json.coaching_style` (E1 - one of
+`accountability`/`encouragement`/`analysis`, not `null`) and a `seasons.json.current_season_id`
+that names an existing season. Quests are optional.
 `coachTurn.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
 writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
 GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is what gates

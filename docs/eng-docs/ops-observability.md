@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-08 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-10 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 ## Context
 
@@ -73,14 +73,14 @@ justifies it.
 
 Read these before drawing a conclusion from a green dashboard.
 
-- **Outbound HTTP from the API is deliberately untraced.** Both Node instrumentations copy the full
-  request URL onto the span, and template adjustment's own Gemini call (`coachWorkoutFiles.ts`)
-  still passes the key in the query string, so an `http.client` span would be a credential in
-  Sentry. `ignoreOutgoingRequests` drops the span and the breadcrumb before either is built. The
-  cost is that GitHub call durations never reach a trace.
-  [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) moved coach-message and chat to
-  header auth (`_lib/llmAdapters/geminiAdapter.ts`, #713 M2 PR 1/PR 2); template adjustment is the
-  one caller left on query-string auth, pending M2 PR 3.
+- **Outbound HTTP from the API is deliberately untraced.** Both Node instrumentations copy the
+  full request URL onto the span. [#638](https://github.com/sibling-shipyard/coach-hq/issues/638)
+  moved every direct-Gemini caller - coach-message, chat, and template adjustment alike - to header
+  auth (`_lib/llmAdapters/geminiAdapter.ts`, #713 M2, all three PRs landed), so no caller leaks a
+  key in a URL query string any more. `ignoreOutgoingRequests` still drops every outbound span and
+  breadcrumb regardless - GitHub calls carry a token in a header, and the rule was never narrowed
+  to allow Gemini/OpenRouter's own span through now that its original credential-leak reason no
+  longer applies there. The cost as things stand: GitHub call durations never reach a trace either.
 - **Every production stack trace is unreadable**, web and iOS alike. Nothing uploads source maps or
   dSYMs yet.
 - **Rage Reports are not errors.** Web's `submitRageReport()` and iOS's `RageReportSubmission.swift`

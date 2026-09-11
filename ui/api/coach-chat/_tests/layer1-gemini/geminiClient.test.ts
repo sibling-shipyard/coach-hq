@@ -165,6 +165,16 @@ describe("askGemini", () => {
     await expect(askGemini(...args)).rejects.toMatchObject({ status: 429 });
   });
 
+  // Every captureGeminiFailure call site outside coach-message.ts reports whichever model this
+  // constant names, not whatever adapter actually ran - wrong the moment LLM_PROVIDER=openrouter
+  // picks a different one. askGemini must tag the real adapter's model onto the throw so those
+  // call sites can read it back instead of assuming direct Gemini unconditionally.
+  it("tags the resolved adapter's model onto a thrown error", async () => {
+    routeByUrl(jsonResponse(500, {}), jsonResponse(429, { error: "rate limited" }));
+
+    await expect(askGemini(...args)).rejects.toMatchObject({ model: "gemini-pro-latest" });
+  });
+
   it("retries once as no-cache when a cached-content name is rejected with 400", async () => {
     // A cache name is only usable if getCachedSoulName actually returned one - simulate a
     // successful cachedContents create so cachedName is truthy on the first generateContent call.
