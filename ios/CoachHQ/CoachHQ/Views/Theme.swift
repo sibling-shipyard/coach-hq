@@ -199,6 +199,19 @@ enum WarmInstrument {
             : UIColor(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255, alpha: 1)
     })
 
+    /// AA-contrast text variant of `inkFaint` — use for faint *text*; borders/fills/backgrounds
+    /// stay on `inkFaint` (retinting those too would darken every decorative use, not just text).
+    /// `inkFaint`'s light value is 2.72:1 on paper / 2.24:1 on desk, both under the 4.5:1 AA
+    /// floor; light here (`#635f55`, matching the web token) is 4.94:1 on desk, the binding
+    /// surface. `inkFaint`'s *dark* value has the same gap (3.10:1 / 3.47:1 on dark card/muted
+    /// backgrounds) that the web token doesn't need to solve (no web dark mode) but iOS does —
+    /// dark here is a separate hand-picked value (not from web) at 4.59:1 / 5.14:1.
+    static let inkFaintText = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x8a / 255, green: 0x88 / 255, blue: 0x7f / 255, alpha: 1)
+            : UIColor(red: 0x63 / 255, green: 0x5f / 255, blue: 0x55 / 255, alpha: 1)
+    })
+
     /// Terracotta — load and primary action (ADR 0041): Engine hero, commitment cube fills
     /// tied to load, and primary CTAs (timer actions, Sync Now). Never decorative, never a
     /// status color.
@@ -236,6 +249,19 @@ enum WarmInstrument {
             ? UIColor(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255, alpha: 1)
             : UIColor(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255, alpha: 1)
     })
+
+    /// Badminton match *category* (ranked/league/friendly — competition tier), distinct from
+    /// `matchWin`/`matchLoss` above (match *result*). Same values web's badminton heatmap legend
+    /// used before it had its own token names (`--wi-match-ranked` etc.) — coincidental reuse of
+    /// `Workouts.recovery`/`realign` hex, now named for its own role. No iOS call site yet.
+    static let matchRanked = Color(red: 0x31 / 255, green: 0x5a / 255, blue: 0x4a / 255)
+    static let matchLeague = Color(red: 0xa8 / 255, green: 0x70 / 255, blue: 0x2c / 255)
+    static let matchFriendly = Color(red: 0xad / 255, green: 0xc2 / 255, blue: 0xb7 / 255)
+
+    /// Success/positive text color. Same value `Sport.foundation` happens
+    /// to use — coincidental reuse, now named for its own role (matches web's `--wi-status-success`).
+    /// No iOS call site yet.
+    static let statusSuccess = Color(red: 0x6d / 255, green: 0x7d / 255, blue: 0x4e / 255)
 
     /// Same warm-grey base `cardBorder`/`borderDashed`/`cardShadow` above already use at
     /// different opacities — named so a caller needing a different opacity doesn't re-type
