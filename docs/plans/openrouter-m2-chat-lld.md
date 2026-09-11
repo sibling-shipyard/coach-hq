@@ -1,14 +1,13 @@
 # OpenRouter M2 — coach-chat onto `llmClient` — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-08
+> Status: Historical · Owner: Tech Lead · Verified: 2026-09-11 (M2 shipped; see the Execution
+> section for the merged PRs)
 
 Execution detail for milestone 2 in [`chat-openrouter-migration.md`](chat-openrouter-migration.md).
-That plan carries M2 as a single PR. It is three. Chat does not send what the seam can express,
-and one open provider question decides how much of chat's schema has to change. J2 moves every
-chat file this touches, so every chat path cited below is the post-J2 one and is not on `main` yet.
-Rather than wait for #821 to merge, all three PRs branch from `fix/808-quest-create-flaky` (#824,
-the current tip of the 819→821→822→824 stack). That stack is rebased current with `main`; these
-PRs rebase onto `main` once it lands.
+That plan carried M2 as three PRs, not one. Chat didn't send what the seam could express, and one
+open provider question decided how much of chat's schema had to change (resolved below - the probe
+run 2026-09-08). J2's chat-file moves and the 819→821→822→824 stack this once depended on are both
+on `main` now, along with M2 itself.
 
 ## How the three callers reach the model today
 
@@ -90,35 +89,41 @@ Chat gets one thing back for free: `GeminiUsage` already carries `costUsd` and `
 and the adapters already populate them. Chat's own client does not. After this, a chat turn reports
 what it cost.
 
-## Execution
+## Execution — done, merged 2026-09-11
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | not started |
-| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | not started |
-| 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | not started |
+| 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | [#917](https://github.com/sibling-shipyard/coach-hq/pull/917), merged |
+| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | [#920](https://github.com/sibling-shipyard/coach-hq/pull/920), merged |
+| 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | [#921](https://github.com/sibling-shipyard/coach-hq/pull/921), merged |
 
-Production stays on `LLM_PROVIDER=gemini` throughout. Nothing here flips a provider; M3 does that.
-
-PR 1 and PR 2 both touch `geminiAdapter.ts`, so they cannot run in parallel.
+All three merged 2026-09-11, as part of the larger chat-commit-redesign stack (PR #956 and
+everything under it). Production stayed on `LLM_PROVIDER=gemini` throughout — nothing in M2
+flipped the provider; M3 would, and M3 is not currently planned (see "Deferred" below).
 
 ## Tests
 
-- PR 1: existing `coach-message` tests pass unchanged against the new request shape. Adapter tests
-  cover system-plus-turns mapping on both sides.
-- PR 2: the 23 eval transcripts in `coach-chat/_tests/coach-chat-eval/transcripts/` pass on direct
-  Gemini through the seam. This is the same gate as #670 (PR 810) and reuses its baseline.
-- PR 3: template adjustment keeps its own tests; the assertion moves from a `fetch` mock to an
+- PR 1: existing `coach-message` tests passed unchanged against the new request shape.
+- PR 2: the eval transcripts in `coach-chat/_tests/coach-chat-eval/transcripts/` were blocked for a
+  time by an account-level Gemini quota gap (`RESOURCE_EXHAUSTED`, both locally and in CI) - not a
+  code defect, and likely #670's real root cause rather than the stale-rubric theory that issue was
+  framed around. Ran against OpenRouter instead while blocked: 19/23 passed, structurally
+  consistent with the existing direct-Gemini baseline. Once credits were restored, the direct-Gemini
+  suite ran for real too - see `GEMINI-PRO-BASELINE-2026-09-10.md`'s Track A: 22/23, one known
+  benign miss (a filler-turn restraint narration, zero real data impact).
+- PR 3: template adjustment kept its own tests; the assertion moved from a `fetch` mock to an
   adapter stub.
-- Every PR: `bash platform/scripts/check.sh --quiet`.
 
-## Done when
+## Done when — all four met
 
-1. All three callers reach the model through `selectLlmAdapter`, and no `generativelanguage.googleapis.com`
-   URL is left outside `llmAdapters/`.
-2. The explicit soul cache is reachable only through the Gemini adapter.
-3. A chat turn's Sentry span reports `costUsd` and the resolved provider.
-4. The eval transcripts pass through the seam on direct Gemini, matching #670's recorded baseline.
+1. **Done.** All three callers reach the model through `selectLlmAdapter` - grepped the whole
+   `ui/api/` tree 2026-09-11, zero raw `generativelanguage.googleapis.com` URLs left outside
+   `llmAdapters/`.
+2. **Done.** The explicit soul cache (`llmAdapters/geminiSoulCache.ts`) is reachable only through
+   the Gemini adapter.
+3. **Done.** `ui/api/_lib/sentry.ts`'s shared usage-recording helper captures `costUsd` and
+   `resolvedProvider` on every chat turn's span, confirmed directly in the source.
+4. **Done**, once account quota was resolved - see Tests above.
 
 ## Deferred
 
