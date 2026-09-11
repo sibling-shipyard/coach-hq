@@ -25,9 +25,10 @@ describe("mode-specific response schemas", () => {
     expect(schemaFields("activity_sync", false)).toEqual(["reply"]);
   });
 
-  it("allows only incremental intake actions during a First Session turn - no session artifacts, no coach_note", () => {
+  it("allows only incremental intake actions during a First Session turn - no session artifacts", () => {
     const fields = schemaFields("ordinary", true);
     expect(fields).toEqual([
+      "coach_note",
       "memory_update",
       "sports_update",
       "injury_flag",
@@ -37,16 +38,16 @@ describe("mode-specific response schemas", () => {
       "quest_create",
       "reply",
     ]);
-    expect(fields).not.toContain("coach_note");
     expect(fields).not.toContain("quest_event");
     expect(fields).not.toContain("template_edit");
   });
 
   // C1: no more closing turn - a returning athlete's turn gets every action field (data-fact
   // and session-artifact alike) every time, not just data-fact ones (#616) or only at a close.
-  it("unlocks every action field, data-fact and session-artifact, on a returning turn (C1)", () => {
+  it("unlocks every action field, data-fact and session-artifact, on a returning turn (C1, C2)", () => {
     const fields = schemaFields("ordinary", false);
     expect(fields).toEqual([
+      "coach_note",
       "memory_update",
       "sports_update",
       "injury_flag",
@@ -62,7 +63,6 @@ describe("mode-specific response schemas", () => {
       "plan_edit",
       "reply",
     ]);
-    expect(fields).not.toContain("coach_note");
   });
 });
 

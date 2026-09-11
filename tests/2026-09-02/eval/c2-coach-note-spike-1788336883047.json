@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-09-02T08:12:22.760Z",
+  "model": "gemini-pro-latest",
+  "day": [
+    {
+      "user": "Morning coach, feeling pretty good today.",
+      "noteworthy": false
+    },
+    {
+      "user": "Actually my left hip has been sore for 3 days now, it's not going away on its own. Started after Tuesday's tempo run.",
+      "noteworthy": true,
+      "fact": "Left hip soreness, 3 days, started after Tuesday's tempo run - not resolving on its own."
+    },
+    {
+      "user": "Yeah just wanted to flag it, otherwise run felt fine.",
+      "noteworthy": false
+    },
+    {
+      "user": "Also - hit 10 cold showers in a row today, finished that streak quest!",
+      "noteworthy": true,
+      "fact": "Completed the 10-day cold shower streak quest."
+    },
+    {
+      "user": "Ha yeah feels good. Anyway that's it for now, talk later.",
+      "noteworthy": false
+    },
+    {
+      "user": "Oh wait, forgot to say - PR'd my 5k today, 22:15. Hip held up fine during it.",
+      "noteworthy": true,
+      "fact": "New 5k PR: 22:15. Hip held up fine during the run."
+    }
+  ],
+  "fullContext": {
+    "finalNote": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. However, they ran a 5k PR today (22:15) and reported that the hip held up fine during the effort. We will still need to monitor the hip closely and adjust upcoming training if needed. On a positive note, they also successfully completed their 10-day cold shower streak quest today.",
+    "steps": [
+      {
+        "userMessage": "Morning coach, feeling pretty good today.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "A generic morning greeting does not contain any meaningful training information or updates to warrant starting a daily note.",
+        "noteAfter": ""
+      },
+      {
+        "userMessage": "Actually my left hip has been sore for 3 days now, it's not going away on its own. Started after Tuesday's tempo run.",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "The athlete reported a persistent hip issue lasting 3 days, which is critical for injury tracking and training adjustments.",
+        "noteAfter": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. Since it is not resolving on its own, we will need to monitor this closely and adjust upcoming training to prevent further injury."
+      },
+      {
+        "userMessage": "Yeah just wanted to flag it, otherwise run felt fine.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "The current note already fully captures the athlete's report of a sore left hip following Tuesday's tempo run.",
+        "noteAfter": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. Since it is not resolving on its own, we will need to monitor this closely and adjust upcoming training to prevent further injury."
+      },
+      {
+        "userMessage": "Also - hit 10 cold showers in a row today, finished that streak quest!",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "Added the completion of the 10-day cold shower streak quest, as quest completions are specifically flagged as meaningful to record.",
+        "noteAfter": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. Since it is not resolving on its own, we will need to monitor this closely and adjust upcoming training to prevent further injury. On a positive note, they successfully completed their 10-day cold shower streak quest today."
+      },
+      {
+        "userMessage": "Ha yeah feels good. Anyway that's it for now, talk later.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "The current note already accurately captures both the hip soreness and the completed cold shower quest from today's transcript.",
+        "noteAfter": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. Since it is not resolving on its own, we will need to monitor this closely and adjust upcoming training to prevent further injury. On a positive note, they successfully completed their 10-day cold shower streak quest today."
+      },
+      {
+        "userMessage": "Oh wait, forgot to say - PR'd my 5k today, 22:15. Hip held up fine during it.",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "The athlete set a new 5k PR (22:15) and noted their hip felt fine during the run, which is a major training milestone and an important update on the injury.",
+        "noteAfter": "Athlete reported persistent soreness in their left hip that has lasted for 3 days, starting after Tuesday's tempo run. However, they ran a 5k PR today (22:15) and reported that the hip held up fine during the effort. We will still need to monitor the hip closely and adjust upcoming training if needed. On a positive note, they also successfully completed their 10-day cold shower streak quest today."
+      }
+    ]
+  },
+  "narrowContext": {
+    "finalNote": "Athlete reported left hip soreness persisting for 3 days after Tuesday's tempo run, but they went out and ran a 5k PR today (22:15) and said the hip held up fine during the effort. We will still monitor the hip closely and adjust upcoming training if needed, but the strong performance is a great sign. Also, they completed their 10-day cold shower streak quest today.",
+    "steps": [
+      {
+        "userMessage": "Morning coach, feeling pretty good today.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "A generic morning greeting and feeling pretty good does not constitute meaningful training info, injury updates, or quest completions worth logging.",
+        "noteAfter": ""
+      },
+      {
+        "userMessage": "Actually my left hip has been sore for 3 days now, it's not going away on its own. Started after Tuesday's tempo run.",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "The athlete reported a new, persistent injury tied to a specific workout, which is critical information for adjusting future training.",
+        "noteAfter": "Athlete reported left hip soreness that has persisted for 3 days, originating after Tuesday's tempo run. Will need to monitor this closely and adjust upcoming training to avoid aggravating the hip."
+      },
+      {
+        "userMessage": "Yeah just wanted to flag it, otherwise run felt fine.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "The athlete's comment merely confirmed the existing report without adding new, actionable, or significant information.",
+        "noteAfter": "Athlete reported left hip soreness that has persisted for 3 days, originating after Tuesday's tempo run. Will need to monitor this closely and adjust upcoming training to avoid aggravating the hip."
+      },
+      {
+        "userMessage": "Also - hit 10 cold showers in a row today, finished that streak quest!",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "The athlete completed a streak quest, which is a meaningful milestone specifically flagged to be captured in the daily narrative.",
+        "noteAfter": "Athlete reported left hip soreness that has persisted for 3 days, originating after Tuesday's tempo run. Will need to monitor this closely and adjust upcoming training to avoid aggravating the hip. On a positive note, they also completed their 10-day cold shower streak quest today."
+      },
+      {
+        "userMessage": "Ha yeah feels good. Anyway that's it for now, talk later.",
+        "expectedNoteworthy": false,
+        "geminiUpdated": false,
+        "correct": true,
+        "reasoning": "The latest exchange was merely a conversational sign-off and contained no new actionable or physiological information.",
+        "noteAfter": "Athlete reported left hip soreness that has persisted for 3 days, originating after Tuesday's tempo run. Will need to monitor this closely and adjust upcoming training to avoid aggravating the hip. On a positive note, they also completed their 10-day cold shower streak quest today."
+      },
+      {
+        "userMessage": "Oh wait, forgot to say - PR'd my 5k today, 22:15. Hip held up fine during it.",
+        "expectedNoteworthy": true,
+        "geminiUpdated": true,
+        "correct": true,
+        "reasoning": "A 5k PR is a major milestone, and the fact that the hip held up fine during the race significantly alters the injury outlook from the previous note.",
+        "noteAfter": "Athlete reported left hip soreness persisting for 3 days after Tuesday's tempo run, but they went out and ran a 5k PR today (22:15) and said the hip held up fine during the effort. We will still monitor the hip closely and adjust upcoming training if needed, but the strong performance is a great sign. Also, they completed their 10-day cold shower streak quest today."
+      }
+    ]
+  },
+  "reliabilityProbe": {
+    "filler": [
+      false,
+      false,
+      false
+    ],
+    "noteworthy": [
+      true,
+      true,
+      true
+    ]
+  }
+}

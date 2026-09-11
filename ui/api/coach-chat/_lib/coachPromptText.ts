@@ -42,6 +42,21 @@ export function staticSystemText(soul: string): string {
 const SAVE_CLAIM_GUARD =
   "Never say something is saved, logged, locked, or committed unless the matching action field in this exact response reflects it.";
 
+// C2: coach_note is one row per calendar day in coach_log.json, overwritten in place - not
+// appended - every time you write it, so it must always be the FULL revised note (today's
+// existing note, shown above in Current athlete context if there is one, merged with what this
+// turn adds), never just the new fragment on its own. Write it when something genuinely worth
+// remembering happened this turn - a real fact, a change, a completion, a miss, an injury update,
+// a number - not for small talk or a question that added no new information. If you set any other
+// action field this turn, set coach_note too: something changed, so it belongs in today's note.
+const COACH_NOTE_GUIDANCE =
+  "\nIf something genuinely worth remembering happened this turn - a real fact, a change, a " +
+  "completion, a miss, an injury update, a number - set coach_note to the FULL revised note for " +
+  "today: today's existing note (see Current athlete context above), merged with what just " +
+  "happened, not just the new fragment. Skip it for small talk or a question with no new " +
+  "information. If you set any other action field this turn, set coach_note too - it is required " +
+  "whenever anything else changed.";
+
 export function buildDynamicText(
   athleteContext: string,
   questContext: string,
@@ -96,6 +111,7 @@ export function buildDynamicText(
               "details marked already recorded are context only - never repeat them in an action field.",
               "Do not set template_edit, session_plan, week_plan, session_reconcile, or plan_edit - a",
               "first-session athlete has no existing templates or week plan yet.",
+              COACH_NOTE_GUIDANCE,
               SAVE_CLAIM_GUARD,
             ].join("\n")
           : [
@@ -158,6 +174,7 @@ export function buildDynamicText(
               "template.",
               "\nOmit any field entirely when this turn added no fact for it - never invent one to",
               "fill a guess.",
+              COACH_NOTE_GUIDANCE,
               SAVE_CLAIM_GUARD,
             ].join("\n"),
     "\n" + todayContextLine(timezone),

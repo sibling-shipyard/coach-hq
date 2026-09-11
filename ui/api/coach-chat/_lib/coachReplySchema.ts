@@ -90,9 +90,8 @@ export type TurnMode = "greeting" | "ordinary" | "activity_sync";
 
 const RESPONSE_PROPERTIES = {
   // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4).
-  // Continuity note appended to coach_log.json, never shown to the athlete - declared here for
-  // its shape/cap, but responsePropertiesFor never selects it since C1 removed the closing turn
-  // that used to gate it. C2 redesigns coach_note into a day-keyed row and wires it back up.
+  // Continuity note for coach_log.json, never shown to the athlete - day-keyed overwrite
+  // (coachIntents.ts's applyCoachNote), available on every ordinary turn.
   coach_note: { type: "string", maxLength: COACH_LOG_TEXT_CAP },
   // Replaces one of memory.json's constrained labelled note boxes in full.
   memory_update: {
@@ -343,6 +342,7 @@ const RESPONSE_PROPERTIES = {
 type ResponseField = keyof typeof RESPONSE_PROPERTIES;
 
 const FSP_ACTIONS = [
+  "coach_note",
   "memory_update",
   "sports_update",
   "injury_flag",
@@ -356,7 +356,11 @@ const FSP_ACTIONS = [
 // the session-artifact half in too - there is no more closing ritual to gate them behind).
 // season_start and quest_create joined the data-fact half in B3 - a returning athlete can start
 // a new season with its goal, or add a habit quest, the same as during First Session, any turn.
+// coach_note is here too - day-keyed (coachIntents.ts's applyCoachNote), available on every
+// returning turn; coachTurn.ts enforces it's present whenever another structured write fires
+// this turn.
 const RETURNING_ACTIONS = [
+  "coach_note",
   "memory_update",
   "sports_update",
   "injury_flag",
