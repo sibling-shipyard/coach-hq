@@ -4,8 +4,7 @@ import {
   validateInjuryEvents,
   validateTemplateEdit,
   validateSessionPlan,
-  validateSessionReconcile,
-  validatePlanEdit,
+  validateWeekUpdate,
   synthesizeQuestEventFromUnrecordedFacts,
   type QuestForSynthesis,
   type ExistingSessionForDiff,
@@ -92,49 +91,182 @@ describe("validateSessionPlan", () => {
   });
 });
 
-describe("validateSessionReconcile", () => {
-  it("keeps events whose session_id is in the valid set", () => {
-    const events = [{ session_id: "s1", status: "done" as const }];
-    const { valid, dropped } = validateSessionReconcile(events, new Set(["s1"]), new Map(), "");
-    expect(valid).toEqual(events);
+describe("validateWeekUpdate", () => {
+  // Every patch test below targets 2026-08-17/2026-08-19, so this is the one real week those
+  // dates belong to - passed as validDayDates unless a test is deliberately checking a date
+  // outside it.
+  const REAL_WEEK_DATES = new Set([
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-22",
+    "2026-08-23",
+  ]);
+
+  it("passes a full-week-kickoff-shaped update through untouched, no session_id or date checks", () => {
+    const kickoff = {
+      headline: "Steady week ahead.",
+      body: "Focus on consistency.",
+      days: Array.from({ length: 7 }, (_, i) => ({
+        date: `2026-08-${17 + i}`,
+        sessions: [],
+      })),
+    };
+    const { valid, dropped } = validateWeekUpdate(kickoff, new Set(), new Set(), new Map(), "");
+    expect(valid).toEqual(kickoff);
     expect(dropped).toEqual([]);
   });
 
-  it("drops events whose session_id is not in the valid set, keeping the rest", () => {
-    const good = { session_id: "s1", status: "done" as const };
-    const bad = { session_id: "s_bogus", status: "skipped" as const };
-    const { valid, dropped } = validateSessionReconcile(
-      [good, bad],
+  it("returns undefined, no drops, when update itself is undefined", () => {
+    const { valid, dropped } = validateWeekUpdate(undefined, new Set(), new Set(), new Map(), "");
+    expect(valid).toBeUndefined();
+    expect(dropped).toEqual([]);
+  });
+
+  it("keeps a patch entry whose session_id is in the valid set", () => {
+    const update = {
+      days: [{ date: "2026-08-17", sessions: [{ session_id: "s1", status: "done" as const }] }],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
       new Set(["s1"]),
       new Map(),
       "",
     );
-    expect(valid).toEqual([good]);
-    expect(dropped).toEqual([
-      { field: "session_reconcile", reason: expect.stringContaining('"s_bogus"') },
-    ]);
-  });
-});
-
-describe("validatePlanEdit", () => {
-  it("keeps events whose session_id is in the valid set", () => {
-    const events = [{ session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" }];
-    const { valid, dropped } = validatePlanEdit(events, new Set(["s1"]), new Map(), "");
-    expect(valid).toEqual(events);
+    expect(valid).toEqual(update);
     expect(dropped).toEqual([]);
   });
 
-  it("drops events whose session_id is not in the valid set, keeping the rest", () => {
-    const good = { session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" };
-    const bad = {
-      session_id: "s_bogus",
-      discipline: "strength",
-      kind: "full_body",
-      title: "Full body",
+  it("drops a patch entry whose session_id is not in the valid set, keeping the rest", () => {
+    const good = { session_id: "s1", status: "done" as const };
+    const bad = { session_id: "s_bogus", status: "skipped" as const };
+    const { valid, dropped } = validateWeekUpdate(
+      { days: [{ date: "2026-08-17", sessions: [good, bad] }] },
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [{ date: "2026-08-17", sessions: [good] }] });
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"s_bogus"') },
+    ]);
+  });
+
+  it("keeps a brand-new session (no session_id) without checking it against valid ids", () => {
+    const update = {
+      days: [
+        { date: "2026-08-19", sessions: [{ discipline: "run", kind: "easy", title: "Easy run" }] },
+      ],
     };
-    const { valid, dropped } = validatePlanEdit([good, bad], new Set(["s1"]), new Map(), "");
-    expect(valid).toEqual([good]);
-    expect(dropped).toEqual([{ field: "plan_edit", reason: expect.stringContaining('"s_bogus"') }]);
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
+  it("returns undefined when every entry gets dropped and nothing else is left", () => {
+    const { valid, dropped } = validateWeekUpdate(
+      {
+        days: [
+          { date: "2026-08-17", sessions: [{ session_id: "s_bogus", status: "done" as const }] },
+        ],
+      },
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toBeUndefined();
+    expect(dropped).toHaveLength(1);
+  });
+
+  it("keeps a day that only patches intent, even with no sessions", () => {
+    const update = { days: [{ date: "2026-08-17", intent: "recovery" }] };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [{ date: "2026-08-17", intent: "recovery", sessions: [] }] });
+    expect(dropped).toEqual([]);
+  });
+
+  // Review finding (P0): validateWeekUpdate never checked day.date or move_to_date against the
+  // real week, so a hallucinated date sailed through to applyWeekUpdate's own throw instead of
+  // being dropped here like every other bad reference.
+  it("drops a whole day entry whose date isn't in the current week", () => {
+    const update = {
+      days: [{ date: "2099-01-01", sessions: [{ session_id: "s1", status: "done" as const }] }],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toBeUndefined();
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("keeps valid days, drops only the one with a hallucinated date", () => {
+    const good = { date: "2026-08-17", sessions: [{ session_id: "s1", status: "done" as const }] };
+    const bad = { date: "2099-01-01", sessions: [{ session_id: "s2", status: "done" as const }] };
+    const { valid, dropped } = validateWeekUpdate(
+      { days: [good, bad] },
+      REAL_WEEK_DATES,
+      new Set(["s1", "s2"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [good] });
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("drops a session entry whose move_to_date isn't in the current week, keeping other sessions on the same day", () => {
+    const good = { session_id: "s1", status: "done" as const };
+    const bad = { session_id: "s2", move_to_date: "2099-01-01" };
+    const { valid, dropped } = validateWeekUpdate(
+      { days: [{ date: "2026-08-17", sessions: [good, bad] }] },
+      REAL_WEEK_DATES,
+      new Set(["s1", "s2"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [{ date: "2026-08-17", sessions: [good] }] });
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("keeps a move to a real day this week", () => {
+    const update = {
+      days: [{ date: "2026-08-17", sessions: [{ session_id: "s1", move_to_date: "2026-08-19" }] }],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
   });
 });
 
@@ -236,8 +368,10 @@ describe("synthesizeQuestEventFromUnrecordedFacts", () => {
 // Bug 3 (2026-09-10 pro baseline, real diff-confirmed): a real conversation showed the coach ask
 // an unanswered clarifying question, then silently overwrite a real scheduled football match with
 // a recovery walk anyway - a real session_id, so the plain existence check never caught it. These
-// tests exercise the content-diff guard added to validatePlanEdit/validateSessionReconcile.
-describe("validatePlanEdit content-diff guard (Bug 3)", () => {
+// tests exercise the content-diff guard, now shared by every patch entry that sets discipline -
+// whether it's a plain content edit or a status change with actual differing from plan (ADR 0042
+// collapsed both into the same session entry).
+describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
   const footballSession: ExistingSessionForDiff = {
     id: "s_saturday",
     discipline: "football",
@@ -245,139 +379,135 @@ describe("validatePlanEdit content-diff guard (Bug 3)", () => {
   };
   const existingSessions = new Map([["s_saturday", footballSession]]);
 
+  function patchOf(session: Record<string, unknown>) {
+    return { days: [{ date: "2026-08-22", sessions: [session] }] };
+  }
+  const VALID_DATE = new Set(["2026-08-22"]);
+
   it("drops a category-changing edit when the athlete's message has no confirmation cue", () => {
-    const event = {
+    const session = {
       session_id: "s_saturday",
       discipline: "walk",
       kind: "recovery",
       title: "Easy Recovery Walk",
     };
-    const { valid, dropped } = validatePlanEdit(
-      [event],
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "That covers it, wrap this up.",
     );
-    expect(valid).toEqual([]);
+    expect(valid).toBeUndefined();
     expect(dropped).toEqual([
-      { field: "plan_edit", reason: expect.stringContaining("unconfirmed assumption") },
+      { field: "week_update", reason: expect.stringContaining("unconfirmed assumption") },
     ]);
   });
 
   it("keeps a category-changing edit when the athlete's message contains a confirmation cue", () => {
-    const event = {
+    const session = {
       session_id: "s_saturday",
       discipline: "walk",
       kind: "recovery",
       title: "Easy Recovery Walk",
     };
-    const { valid, dropped } = validatePlanEdit(
-      [event],
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "Yes, drop the football and do the walk instead.",
     );
-    expect(valid).toEqual([event]);
+    expect(valid).toEqual(patchOf(session));
     expect(dropped).toEqual([]);
   });
 
   // "drop the" alone is one of the confirmation phrases, so an explicit refusal containing those
   // words must still read as unconfirmed, not as agreement with the opposite of what was said.
   it("still drops the edit when the message negates the very phrase that would otherwise confirm it", () => {
-    const event = {
+    const session = {
       session_id: "s_saturday",
       discipline: "walk",
       kind: "recovery",
       title: "Easy Recovery Walk",
     };
-    const { valid, dropped } = validatePlanEdit(
-      [event],
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "I'm not sure, don't drop the football.",
     );
-    expect(valid).toEqual([]);
+    expect(valid).toBeUndefined();
     expect(dropped).toEqual([
-      { field: "plan_edit", reason: expect.stringContaining("unconfirmed assumption") },
+      { field: "week_update", reason: expect.stringContaining("unconfirmed assumption") },
     ]);
   });
 
   it("keeps an edit that doesn't change the session's category, confirmation or not", () => {
-    const event = {
+    const session = {
       session_id: "s_saturday",
       discipline: "football",
       kind: "match",
       title: "Football - away game",
     };
-    const { valid, dropped } = validatePlanEdit(
-      [event],
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "That covers it, wrap this up.",
     );
-    expect(valid).toEqual([event]);
+    expect(valid).toEqual(patchOf(session));
     expect(dropped).toEqual([]);
   });
 
   it("keeps an edit when no existing-session data is supplied - nothing to compare against, so nothing to gate", () => {
-    const event = { session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" };
-    const { valid, dropped } = validatePlanEdit([event], new Set(["s1"]), new Map(), "");
-    expect(valid).toEqual([event]);
-    expect(dropped).toEqual([]);
-  });
-});
-
-describe("validateSessionReconcile content-diff guard (Bug 3)", () => {
-  const footballSession: ExistingSessionForDiff = {
-    id: "s_saturday",
-    discipline: "football",
-    kind: "match",
-  };
-  const existingSessions = new Map([["s_saturday", footballSession]]);
-
-  it("drops a category-changing actual when the athlete's message has no confirmation cue", () => {
-    const event = {
-      session_id: "s_saturday",
-      status: "done" as const,
-      actual: { discipline: "walk", kind: "recovery", title: "Easy Recovery Walk" },
-    };
-    const { valid, dropped } = validateSessionReconcile(
-      [event],
-      new Set(["s_saturday"]),
-      existingSessions,
-      "That covers it, wrap this up.",
+    const session = { session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" };
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
+      new Set(["s1"]),
+      new Map(),
+      "",
     );
-    expect(valid).toEqual([]);
-    expect(dropped).toEqual([
-      { field: "session_reconcile", reason: expect.stringContaining("unconfirmed assumption") },
-    ]);
-  });
-
-  it("keeps a category-changing actual when the athlete's message confirms it", () => {
-    const event = {
-      session_id: "s_saturday",
-      status: "done" as const,
-      actual: { discipline: "walk", kind: "recovery", title: "Easy Recovery Walk" },
-    };
-    const { valid, dropped } = validateSessionReconcile(
-      [event],
-      new Set(["s_saturday"]),
-      existingSessions,
-      "Yeah, swapped it for a walk instead.",
-    );
-    expect(valid).toEqual([event]);
+    expect(valid).toEqual(patchOf(session));
     expect(dropped).toEqual([]);
   });
 
-  it("does not gate a status-only reconcile with no actual field at all", () => {
-    const event = { session_id: "s_saturday", status: "done" as const };
-    const { valid, dropped } = validateSessionReconcile(
-      [event],
+  // A status-only patch (mark done, no discipline field at all) never touches the diff guard -
+  // there's nothing proposed to compare against the existing category.
+  it("does not gate a status-only patch with no discipline field at all", () => {
+    const session = { session_id: "s_saturday", status: "done" as const };
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "Done, just as planned.",
     );
-    expect(valid).toEqual([event]);
+    expect(valid).toEqual(patchOf(session));
     expect(dropped).toEqual([]);
+  });
+
+  it("gates a status change with a differing actual the same way a plain content edit is gated", () => {
+    const session = {
+      session_id: "s_saturday",
+      status: "done" as const,
+      discipline: "walk",
+      kind: "recovery",
+      title: "Easy Recovery Walk",
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
+      new Set(["s_saturday"]),
+      existingSessions,
+      "That covers it, wrap this up.",
+    );
+    expect(valid).toBeUndefined();
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining("unconfirmed assumption") },
+    ]);
   });
 });

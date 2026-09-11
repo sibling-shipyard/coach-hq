@@ -49,9 +49,7 @@ describe("coachReplySchema returning-athlete action fields", () => {
         "profile_update",
         "template_edit",
         "session_plan",
-        "week_plan",
-        "session_reconcile",
-        "plan_edit",
+        "week_update",
       ]),
     );
   });
@@ -61,6 +59,24 @@ describe("coachReplySchema returning-athlete action fields", () => {
   it("includes coach_note on a returning-athlete turn", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
     expect(Object.keys(props)).toContain("coach_note");
+  });
+
+  // Review finding, live-verified: without this, Gemini has sent "hiking" for the real enum
+  // value "hike" - a schema-level enum makes that structurally impossible instead of relying on
+  // coachWeekFiles.ts's coerceDiscipline to catch it after the fact.
+  it("constrains week_update session discipline to the closed enum", () => {
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
+    const weekUpdate = props.week_update as unknown as {
+      properties: {
+        days: {
+          items: { properties: { sessions: { items: { properties: { discipline: unknown } } } } };
+        };
+      };
+    };
+    const discipline = weekUpdate.properties.days.items.properties.sessions.items.properties
+      .discipline as { enum: string[] };
+    expect(discipline.enum).toContain("hike");
+    expect(discipline.enum).not.toContain("hiking");
   });
 });
 

@@ -1,10 +1,11 @@
 /**
- * coach-redesign workout-backend-wiring §5: current_week.json wiring. Two action fields -
- * week_plan (weekly kickoff, full rewrite) and session_reconcile (per-workout, upsert-by-id) -
- * following the same "Gemini reports a small fact, server owns every bookkeeping field" principle
- * as coachWorkoutFiles.ts/coachIntents.ts. Both appliers build a full CurrentWeek object and run
- * it through parseCurrentWeek before returning - never commit something the strict schema v1
- * validator would reject (engine/lib/current-week.mts).
+ * ADR 0042: current_week.json wiring. One action field - week_update - replaces the old
+ * week_plan/session_reconcile/plan_edit trio. The same object patches an existing week (status
+ * changes, content edits, moves) or, when it carries a full headline/body/7-day payload, commits a
+ * fresh week outright (the old week_plan behavior). Same "Gemini reports a small fact, server owns
+ * every bookkeeping field" principle as coachWorkoutFiles.ts/coachIntents.ts. Both paths build a
+ * full CurrentWeek object and run it through parseCurrentWeek before returning - never commit
+ * something the strict schema v1 validator would reject (engine/lib/current-week.mts).
  *
  * Field-length/enum rules (title <=96 chars, guardrails <=6 items, etc.) are NOT re-validated
  * here - parseCurrentWeek is the single source of truth for those, and a violation is exactly the
@@ -26,19 +27,62 @@ import { todayDateString } from "./coachDay.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 
-// ADR 0042: discipline is a closed enum now (SESSION_DISCIPLINES), but Gemini's structured-output
-// schema still declares it a free string pending the prompt/schema work in the next PR of this
-// stack - so a value arriving here needs the same lenient-coerce-with-a-warning treatment
-// applyWeekPlan already gives an unrecognized template_id, not a thrown error. "other" is a real,
-// pickable enum member, so an unrecognized string reads as a deliberate "none of the above."
+// ADR 0042: discipline is a closed enum, enforced at the JSON-schema level (coachReplySchema.ts's
+// week_update.days[].sessions[].discipline enum) - Gemini genuinely can't emit an off-list value
+// under normal structured-output compliance. This is real defense in depth, not the primary
+// guard: live-verified before the schema enum was added, Gemini sent "hiking" for the real value
+// "hike" and this caught it, same lenient-coerce-with-a-warning treatment template_id already
+// gets below, not a thrown error. "other" is a real, pickable enum member, so a genuinely
+// unrecognized string reads as a deliberate "none of the above," not a bug.
 const DISCIPLINE_SET = new Set<string>(SESSION_DISCIPLINES);
+// A near-miss (gerund, plural, a bare sport_type-style name) reads as a real intent worth
+// recovering, not a genuine "none of the above" - "other" should mean the athlete's activity
+// truly isn't one of these fifteen, not that Gemini phrased a real match slightly differently.
+// Covers every sport in the enum on the same principle, not case-by-case: this is the same
+// synonym set docs/plans/athlete-repo-migration-973.md's own migration transform uses for
+// existing repo data, kept in sync with it by hand since one's Python and one's TypeScript.
+const DISCIPLINE_SYNONYMS: Record<string, CurrentWeekSessionDiscipline> = {
+  weighttraining: "weight_training",
+  running: "run",
+  ride: "cycling",
+  bike: "cycling",
+  realign: "recovery",
+  mobility: "recovery",
+  hiking: "hike",
+  walking: "walk",
+  soccer: "football",
+  swimming: "swim",
+  calisthenic: "calisthenics",
+};
 function coerceDiscipline(raw: string, traceId: string): CurrentWeekSessionDiscipline {
   const normalized = raw.trim().toLowerCase();
   if (DISCIPLINE_SET.has(normalized)) return normalized as CurrentWeekSessionDiscipline;
+  const synonym = DISCIPLINE_SYNONYMS[normalized];
+  if (synonym) return synonym;
   console.warn(`[coach-chat] discipline "${raw}" is not in the closed set - writing "other"`, {
     traceId,
   });
   return "other";
+}
+
+// Same nulling-with-a-warning pattern coerceDiscipline uses above, applied to template_id - a
+// hallucinated or stale id is nulled out rather than thrown, since a session's template_id is one
+// optional field, not the whole point of the write.
+function coerceTemplateId(
+  raw: string | null | undefined,
+  validTemplateIds: ReadonlySet<string>,
+  actionLabel: string,
+  traceId: string,
+): string | null {
+  const templateId = raw?.trim() || null;
+  if (templateId && !validTemplateIds.has(templateId)) {
+    console.warn(
+      `[coach-chat] ${actionLabel}: template_id "${templateId}" not in this athlete's templates - nulling it out`,
+      { traceId },
+    );
+    return null;
+  }
+  return templateId;
 }
 
 /**
@@ -95,111 +139,129 @@ function getIsoWeekId(dateString: string): string {
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
 
-// The small shape Gemini actually reports for week_plan - see coachReplySchema.ts's GeminiReply.
-// headline/body are the coach_read content, kept in this one small schema per the plan's explicit
-// "don't add a second Gemini call for this" instruction.
-export interface WeekPlanSession {
-  discipline: string;
-  kind: string;
-  title: string;
+// The small shape Gemini reports for week_update - see coachReplySchema.ts's GeminiReply. One
+// entry per session that changed; omitting session_id creates a new planned session on that day,
+// same as week_plan's old per-day sessions array did. move_to_date relocates an existing session
+// to a different day in the same week - the missing piece the old three-action split never had a
+// field for (ADR 0042's finding 3): a move used to need two separate action-field entries.
+export interface WeekUpdateSessionPatch {
+  session_id?: string | null;
+  discipline?: string;
+  kind?: string;
+  title?: string;
   priority?: CurrentWeekSessionPriority | null;
   planned_duration_min?: number | null;
   template_id?: string | null;
+  status?: "done" | "skipped";
+  activity_ids?: string[];
+  move_to_date?: string | null;
 }
 
-export interface WeekPlanDay {
+export interface WeekUpdateDay {
   date: string;
   intent?: string | null;
-  sessions: WeekPlanSession[];
+  sessions?: WeekUpdateSessionPatch[];
 }
 
-export interface WeekPlan {
+export interface WeekUpdate {
   focus?: string | null;
   guardrails?: string[];
-  headline: string;
-  body: string;
-  days: WeekPlanDay[];
+  headline?: string;
+  body?: string;
+  days: WeekUpdateDay[];
 }
 
 // Default priority for a planned session Gemini left blank. parseCurrentWeek requires a
-// non-null priority on every "planned"-origin session (week_plan never writes "unplanned" - those
-// only ever come from a real completed-but-not-planned workout, which isn't this action field's
-// job) - "support" is the safest default: not "anchor" (which would overstate a session Gemini
-// didn't clearly prioritize) and not "optional" (which would understate a real planned session).
+// non-null priority on every "planned"-origin session (week_update never writes "unplanned" -
+// those only ever come from a real completed-but-not-planned workout, which isn't this action
+// field's job) - "support" is the safest default: not "anchor" (which would overstate a session
+// Gemini didn't clearly prioritize) and not "optional" (which would understate a real planned one).
 const DEFAULT_SESSION_PRIORITY: CurrentWeekSessionPriority = "support";
 
+// Two independent, OR'd signals - neither alone is reliable on its own:
+// - headline/body present: the JSON schema only requires `days`, so a genuine kickoff CAN arrive
+//   missing both (Gemini isn't schema-forced to include them) - relying on this alone would
+//   misroute that case into patch mode, where applyWeekPatch looks up the kickoff's brand-new
+//   dates against the CURRENT (old) week's days, finds none, and throws a confusing "no day X in
+//   the current week" instead of the direct "headline and body are required" a kickoff gives.
+// - exactly 7 days: catches that missing-headline case. Checked alone (no day-count-only check),
+//   a malformed kickoff that DOES carry headline/body but has the wrong day count would
+//   otherwise misroute to patch mode too, masking ITS specific validation error the same way.
+// Either signal alone routes to applyFullWeekKickoff, which does the real validation (headline/
+// body required, exactly 7 days, Monday-start, consecutive) and throws its own specific reason.
+// A patch legitimately hitting all seven days in one turn is a rare, acceptable false positive -
+// it just gets an clear "headline and body are required" thrown instead of silently misapplied.
+// Also used by buildCurrentWeekWrite (weekWrite.ts) to decide whether to fetch the existing file
+// at all - a kickoff builds fresh.
+export function isFullWeekKickoff(update: WeekUpdate | undefined): boolean {
+  if (!update) return false;
+  if (update.headline != null || update.body != null) return true;
+  return Array.isArray(update.days) && update.days.length === 7;
+}
+
 /**
- * Applies a week_plan action field: builds the full seven-day CurrentWeek object from Gemini's
- * small day/session shape, server-computing every bookkeeping field (week id/bounds, session ids,
- * origin/status/session_file, data_status, coach_read's valid_from/valid_until, updated_at/by/
- * trace_id) per gemini-flow.md's Action-field design rule. Validates the result with
+ * Applies a full-week-kickoff week_update: builds the full seven-day CurrentWeek object from
+ * Gemini's day/session shape, server-computing every bookkeeping field (week id/bounds, session
+ * ids, origin/status/session_file, data_status, coach_read's valid_from/valid_until, updated_at/
+ * by/trace_id) per gemini-flow.md's Action-field design rule. Validates the result with
  * parseCurrentWeek before returning - never commit something the strict validator would reject.
  *
  * Judgment calls (documented per the task's instruction, not silent):
- * - `template_id` on a session is checked against the athlete's real, already-committed template
- *   ids (validTemplateIds, same manifest-based set template_edit/session_plan already use). Unlike
- *   those two appliers - which throw on a hallucinated id because the whole action is *about* one
- *   template and is meaningless without a real one - here template_id is one optional field on one
- *   session inside a seven-day plan. Throwing would block the entire week's commit over one bad
- *   reference in an otherwise-good plan, and the contract confirms template_id is genuinely
- *   nullable (a session with no template, e.g. a badminton match, is valid). So an unrecognized id
- *   is nulled out with a console.warn instead of thrown - lenient here, strict everywhere else in
- *   this pipeline, because the failure mode this session belongs to is different in kind.
+ * - `template_id` is nulled out with a console.warn on a hallucinated id rather than thrown - one
+ *   optional field on one session inside a seven-day plan, not the whole point of the write, and
+ *   the contract confirms template_id is genuinely nullable (a session with no template, e.g. a
+ *   badminton match, is valid). Lenient here, strict everywhere else in this pipeline, because the
+ *   failure mode this session belongs to is different in kind.
  * - `data_status` is always written "live" - "draft" was dropped from the enum entirely (ADR
- *   0039). It was structurally unreachable: week_plan is a single-turn action field, same shape as
- *   every other action field in this pipeline, and by the time Gemini reports it the kickoff
- *   conversation already happened. There was never a second "confirm" turn to leave a week
- *   parked in.
+ *   0042). It was structurally unreachable: by the time Gemini reports a kickoff the conversation
+ *   already happened, and there was never a second "confirm" turn to leave a week parked in.
  * - `updated_by` is "model" (matches _meta.updated_by across every other Gemini-driven applier in
  *   this pipeline - coachIntents.ts, coachWorkoutFiles.ts), not the contract doc's own example
  *   value "coach" (which describes a human/Claude-Code hand-write, the old path this replaces).
  */
-export function applyWeekPlan(
-  plan: WeekPlan,
+function applyFullWeekKickoff(
+  update: WeekUpdate,
   validTemplateIds: ReadonlySet<string>,
   timezone: string,
   traceId: string,
   now: Date,
 ): string {
-  if (!Array.isArray(plan.days) || plan.days.length !== 7) {
+  if (update.days.length !== 7) {
     throw new Error(
-      `week_plan: expected exactly 7 days, got ${Array.isArray(plan.days) ? plan.days.length : "non-array"}`,
+      `week_update: expected exactly 7 days for a kickoff, got ${update.days.length}`,
     );
   }
-  const headline = plan.headline?.trim();
-  const body = plan.body?.trim();
+  const headline = update.headline?.trim();
+  const body = update.body?.trim();
   if (!headline || !body) {
-    throw new Error("week_plan: headline and body are required");
+    throw new Error("week_update: headline and body are required for a kickoff");
   }
 
-  for (const day of plan.days) {
+  for (const day of update.days) {
     if (!isRealDateString(day.date)) {
-      throw new Error(`week_plan: day date "${day.date}" is not a real YYYY-MM-DD date`);
+      throw new Error(`week_update: day date "${day.date}" is not a real YYYY-MM-DD date`);
     }
   }
-  const startDate = plan.days[0].date;
+  const startDate = update.days[0].date;
   if (new Date(`${startDate}T00:00:00Z`).getUTCDay() !== 1) {
-    throw new Error(`week_plan: first day (${startDate}) must be a Monday`);
+    throw new Error(`week_update: first day (${startDate}) must be a Monday`);
   }
-  plan.days.forEach((day, i) => {
+  update.days.forEach((day, i) => {
     const expected = addDays(startDate, i);
     if (day.date !== expected) {
       throw new Error(
-        `week_plan: day[${i}].date is "${day.date}", expected "${expected}" (days must be consecutive from Monday)`,
+        `week_update: day[${i}].date is "${day.date}", expected "${expected}" (days must be consecutive from Monday)`,
       );
     }
   });
   const endDate = addDays(startDate, 6);
 
-  const days: CurrentWeekDay[] = plan.days.map((day) => {
+  const days: CurrentWeekDay[] = update.days.map((day) => {
     const sessions: CurrentWeekSession[] = (day.sessions ?? []).map((session, sessIdx) => {
-      let templateId = session.template_id?.trim() || null;
-      if (templateId && !validTemplateIds.has(templateId)) {
-        console.warn(
-          `[coach-chat] week_plan: template_id "${templateId}" not in this athlete's templates - nulling it out`,
-          { traceId },
+      if (!session.discipline || !session.kind || !session.title) {
+        throw new Error(
+          `week_update: kickoff session on "${day.date}" needs discipline, kind, and title`,
         );
-        templateId = null;
       }
       const duration =
         typeof session.planned_duration_min === "number" &&
@@ -216,7 +278,12 @@ export function applyWeekPlan(
         priority: session.priority ?? DEFAULT_SESSION_PRIORITY,
         status: "planned",
         planned_duration_min: duration,
-        template_id: templateId,
+        template_id: coerceTemplateId(
+          session.template_id ?? undefined,
+          validTemplateIds,
+          "week_update",
+          traceId,
+        ),
         session_file: null,
         coach_note: null,
         original_date: null,
@@ -241,8 +308,8 @@ export function applyWeekPlan(
       id: getIsoWeekId(startDate),
       start_date: startDate,
       end_date: endDate,
-      focus: plan.focus?.trim() || null,
-      guardrails: plan.guardrails ?? [],
+      focus: update.focus?.trim() || null,
+      guardrails: update.guardrails ?? [],
     },
     coach_read: {
       headline,
@@ -262,40 +329,26 @@ export function applyWeekPlan(
   const parsed = parseCurrentWeek(result, now);
   if (!parsed.data) {
     throw new Error(
-      `week_plan: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
+      `week_update: kickoff result failed current_week.json validation: ${parsed.issues.join("; ")}`,
     );
   }
   return JSON.stringify(result, null, 2);
 }
 
-// The small shape Gemini actually reports for session_reconcile - see coachReplySchema.ts's
-// GeminiReply. Array, mirrors quest_event's upsert-by-id shape almost exactly. `actual` is new
-// (per direction): only set when what really happened differs from what was planned (planned a
-// run, actually played badminton) - the session's discipline/kind/title get overwritten to match
-// reality, not just its status. template_id inside `actual` is validated against the athlete's
-// real templates the same way template_edit/session_plan/week_plan already do, so a relabel onto
-// a real structured workout stays timer-app-usable.
-export interface SessionReconcileEvent {
-  session_id: string;
-  status: "done" | "skipped";
-  activity_ids?: string[];
-  actual?: { discipline: string; kind: string; title: string; template_id?: string };
-}
-
-// session_reconcile and plan_edit both load an existing current_week.json and walk current.days /
-// day.sessions before they've run it through parseCurrentWeek - a malformed file (days missing,
-// not an array, or a day with a non-array sessions field) would otherwise crash inside .forEach()
-// with a raw "Cannot read properties of undefined" instead of a message that says what's wrong.
-// Same discipline as the other guards in this file: throw a descriptive Error, don't let a bad
-// file surface a native TypeError.
-function assertValidCurrentWeekShape(actionName: string, current: CurrentWeek): void {
+// week_update (patch mode) loads an existing current_week.json and walks current.days/
+// day.sessions before it's run through parseCurrentWeek - a malformed file (days missing, not an
+// array, or a day with a non-array sessions field) would otherwise crash inside .forEach() with a
+// raw "Cannot read properties of undefined" instead of a message that says what's wrong. Same
+// discipline as the other guards in this file: throw a descriptive Error, don't let a bad file
+// surface a native TypeError.
+function assertValidCurrentWeekShape(current: CurrentWeek): void {
   if (!Array.isArray(current.days)) {
-    throw new Error(`${actionName}: current_week.json is malformed (days is not an array)`);
+    throw new Error("week_update: current_week.json is malformed (days is not an array)");
   }
   current.days.forEach((day, dayIndex) => {
     if (!Array.isArray(day?.sessions)) {
       throw new Error(
-        `${actionName}: current_week.json is malformed (days[${dayIndex}].sessions is not an array)`,
+        `week_update: current_week.json is malformed (days[${dayIndex}].sessions is not an array)`,
       );
     }
   });
@@ -310,13 +363,186 @@ function qualifyActivityId(id: string): string {
   return id.includes(":") ? id : `chat:${id}`;
 }
 
-// Same session_id set applySessionReconcile/applyPlanEdit derive internally, but callable before
-// either applier runs and non-throwing on a malformed file - coachTurn.ts uses this to validate
-// session_reconcile/plan_edit events up front (validateSessionReconcile/validatePlanEdit in
-// validateActions.ts), same "drop the one bad reference, don't let the whole atomic commit abort"
-// discipline as validTemplateIdsFromManifest in coachWorkoutFiles.ts. A malformed or unreadable
-// file just yields an empty set - every referenced session_id gets dropped as invalid, which is
-// the right outcome either way.
+// Looked up fresh by id every time, rather than cached once from the pre-mutation array - a
+// week_update patch can move a session between days in the same call (splicing it out of one
+// day's array and pushing it into another's), which would invalidate a cached dayIndex/
+// sessionIndex pair for anything after it in the same batch. The week is at most ~20 sessions, so
+// a fresh scan per lookup costs nothing real.
+function locateSession(
+  days: CurrentWeekDay[],
+  sessionId: string,
+): { dayIndex: number; sessionIndex: number } | null {
+  for (let dayIndex = 0; dayIndex < days.length; dayIndex += 1) {
+    const sessionIndex = days[dayIndex].sessions.findIndex((s) => s.id === sessionId);
+    if (sessionIndex !== -1) return { dayIndex, sessionIndex };
+  }
+  return null;
+}
+
+/**
+ * Applies a week_update patch to an existing week: per day (must already exist in the current
+ * week), per session - a real session_id patches that session in place (status/completion,
+ * content, template_id, priority, duration, or a move to a different day via move_to_date); no
+ * session_id creates a new planned session on that day, same shape week_plan's per-day sessions
+ * used to require. Every session_id and move_to_date target is checked to exist BEFORE any patch
+ * is applied, so a batch with one bad reference fails the whole call rather than silently applying
+ * a partial patch - same discipline applyQuestEvent's id guards use.
+ *
+ * A status change and a content change can land on the SAME entry (mark today's session done AND
+ * record what actually happened, in one patch) - this is the collapse ADR 0042 asks for: the old
+ * session_reconcile/plan_edit split needed two separate action-field entries for that.
+ */
+function applyWeekPatch(
+  content: string | null,
+  update: WeekUpdate,
+  validTemplateIds: ReadonlySet<string>,
+  traceId: string,
+  now: Date,
+): string {
+  const current = parseJsonOrNull<CurrentWeek>(content);
+  if (!current) {
+    throw new Error("week_update: current_week.json could not be read");
+  }
+  assertValidCurrentWeekShape(current);
+
+  const dayIndexByDate = new Map<string, number>();
+  current.days.forEach((day, index) => dayIndexByDate.set(day.date, index));
+
+  for (const day of update.days) {
+    if (!dayIndexByDate.has(day.date)) {
+      throw new Error(`week_update: no day "${day.date}" in the current week`);
+    }
+    for (const session of day.sessions ?? []) {
+      if (session.session_id && !locateSession(current.days, session.session_id)) {
+        throw new Error(
+          `week_update: no session with id "${session.session_id}" in current_week.json`,
+        );
+      }
+      if (session.move_to_date && !dayIndexByDate.has(session.move_to_date)) {
+        throw new Error(
+          `week_update: move_to_date "${session.move_to_date}" is not in the current week`,
+        );
+      }
+      if (!session.session_id && (!session.discipline || !session.kind || !session.title)) {
+        throw new Error(
+          `week_update: a new session on "${day.date}" needs discipline, kind, and title`,
+        );
+      }
+    }
+  }
+
+  const days: CurrentWeekDay[] = current.days.map((day) => ({
+    ...day,
+    sessions: day.sessions.map((s) => ({ ...s })),
+  }));
+
+  for (const patchDay of update.days) {
+    const dayIndex = dayIndexByDate.get(patchDay.date)!;
+    if (patchDay.intent !== undefined) {
+      days[dayIndex] = { ...days[dayIndex], intent: patchDay.intent?.trim() || null };
+    }
+
+    for (const patch of patchDay.sessions ?? []) {
+      if (!patch.session_id) {
+        const newId = `sess_${patchDay.date.replace(/-/g, "")}_${days[dayIndex].sessions.length + 1}`;
+        days[dayIndex].sessions.push({
+          id: newId,
+          origin: "planned",
+          discipline: coerceDiscipline(patch.discipline!, traceId),
+          kind: patch.kind!,
+          title: patch.title!,
+          priority: patch.priority ?? DEFAULT_SESSION_PRIORITY,
+          status: "planned",
+          planned_duration_min: patch.planned_duration_min ?? null,
+          template_id: coerceTemplateId(
+            patch.template_id ?? undefined,
+            validTemplateIds,
+            "week_update",
+            traceId,
+          ),
+          session_file: null,
+          coach_note: null,
+          original_date: null,
+          completion_activity_ids: [],
+        });
+        continue;
+      }
+
+      const loc = locateSession(days, patch.session_id)!;
+      const session = days[loc.dayIndex].sessions[loc.sessionIndex];
+      if (patch.status !== undefined) {
+        session.status = patch.status;
+        session.completion_activity_ids =
+          patch.status === "done" ? (patch.activity_ids ?? []).map(qualifyActivityId) : [];
+      }
+      if (patch.discipline !== undefined)
+        session.discipline = coerceDiscipline(patch.discipline, traceId);
+      if (patch.kind !== undefined) session.kind = patch.kind;
+      if (patch.title !== undefined) session.title = patch.title;
+      if (patch.template_id !== undefined) {
+        session.template_id = coerceTemplateId(
+          patch.template_id,
+          validTemplateIds,
+          "week_update",
+          traceId,
+        );
+      }
+      if (patch.priority !== undefined) session.priority = patch.priority;
+      if (patch.planned_duration_min !== undefined) {
+        session.planned_duration_min = patch.planned_duration_min;
+      }
+
+      if (patch.move_to_date && patch.move_to_date !== days[loc.dayIndex].date) {
+        const sourceDate = days[loc.dayIndex].date;
+        days[loc.dayIndex].sessions.splice(loc.sessionIndex, 1);
+        const targetIndex = dayIndexByDate.get(patch.move_to_date)!;
+        days[targetIndex].sessions.push({ ...session, original_date: sourceDate });
+      }
+    }
+  }
+
+  const result: CurrentWeek = {
+    ...current,
+    days,
+    updated_at: now.toISOString(),
+    updated_by: "model",
+    trace_id: traceId,
+  };
+
+  const parsed = parseCurrentWeek(result, now);
+  if (!parsed.data) {
+    throw new Error(
+      `week_update: patch result failed current_week.json validation: ${parsed.issues.join("; ")}`,
+    );
+  }
+  return JSON.stringify(result, null, 2);
+}
+
+/**
+ * Applies a week_update action field - the single replacement for the old week_plan/
+ * session_reconcile/plan_edit trio (ADR 0042). A full headline/body/7-day payload commits a fresh
+ * week (isFullWeekKickoff); anything else patches the existing week named by `content`.
+ */
+export function applyWeekUpdate(
+  content: string | null,
+  update: WeekUpdate,
+  validTemplateIds: ReadonlySet<string>,
+  timezone: string,
+  traceId: string,
+  now: Date,
+): string {
+  if (isFullWeekKickoff(update)) {
+    return applyFullWeekKickoff(update, validTemplateIds, timezone, traceId, now);
+  }
+  return applyWeekPatch(content, update, validTemplateIds, traceId, now);
+}
+
+// Same session_id set applyWeekPatch derives internally, but callable before it runs and
+// non-throwing on a malformed file - coachTurn.ts uses this to validate week_update's session_ids
+// up front (validateWeekUpdate in validateActions.ts), same "drop the one bad reference, don't let
+// the whole atomic commit abort" discipline as validTemplateIdsFromManifest in
+// coachWorkoutFiles.ts. A malformed or unreadable file just yields an empty set - every referenced
+// session_id gets dropped as invalid, which is the right outcome either way.
 export function validSessionIdsFromCurrentWeek(content: string | null): ReadonlySet<string> {
   const parsed = parseJsonOrNull<CurrentWeek>(content);
   if (!Array.isArray(parsed?.days)) return new Set();
@@ -354,7 +580,7 @@ export function weekSessionsFromCurrentWeek(
             title: session.title,
             status: session.status,
             // discipline/kind are what the Bug 3 content-diff guard (validateActions.ts) needs to
-            // tell a category-changing plan_edit/session_reconcile from a title tweak. This reader
+            // tell a category-changing week_update patch from a title tweak. This reader
             // deliberately skips parseCurrentWeek's schema validation (see this file's header
             // comment), so a session object here is only as trustworthy as the raw JSON - default
             // to "" rather than hand a caller `undefined` typed as `string`.
@@ -365,172 +591,16 @@ export function weekSessionsFromCurrentWeek(
   );
 }
 
-/**
- * Applies a session_reconcile action field: loads the current current_week.json, finds each
- * event's session by id across all 7 days (throws on a hallucinated/stale session_id - same
- * discipline as applyQuestEvent's flag_id/quest_id guards), patches status and
- * completion_activity_ids in place, leaves everything else untouched, re-stamps updated_at/
- * trace_id at the root. When `actual` is present, also overwrites discipline/kind/title (and
- * template_id, re-validated against validTemplateIds - never trust it unchecked) so a relabeled
- * session reflects what genuinely happened, not the stale original plan. Validates the result
- * with parseCurrentWeek before returning.
- *
- * All event session_ids are checked to exist BEFORE any patch is applied, so a batch with one bad
- * id fails the whole call rather than silently applying a partial patch.
- */
-export function applySessionReconcile(
-  content: string | null,
-  events: SessionReconcileEvent[],
-  validTemplateIds: ReadonlySet<string>,
-  traceId: string,
-  now: Date,
-): string {
-  const current = parseJsonOrNull<CurrentWeek>(content);
-  if (!current) {
-    throw new Error("session_reconcile: current_week.json could not be read");
-  }
-  assertValidCurrentWeekShape("session_reconcile", current);
-
-  const sessionLocation = new Map<string, { dayIndex: number; sessionIndex: number }>();
-  current.days.forEach((day, dayIndex) => {
-    day.sessions.forEach((session, sessionIndex) => {
-      sessionLocation.set(session.id, { dayIndex, sessionIndex });
-    });
-  });
-
-  for (const event of events) {
-    if (!sessionLocation.has(event.session_id)) {
-      throw new Error(
-        `session_reconcile: no session with id "${event.session_id}" in current_week.json`,
-      );
-    }
-  }
-
-  const days = current.days.map((day) => ({
-    ...day,
-    sessions: day.sessions.map((s) => ({ ...s })),
-  }));
-  for (const event of events) {
-    const loc = sessionLocation.get(event.session_id)!;
-    const session = days[loc.dayIndex].sessions[loc.sessionIndex];
-    session.status = event.status;
-    session.completion_activity_ids =
-      event.status === "done" ? (event.activity_ids ?? []).map(qualifyActivityId) : [];
-    if (event.actual) {
-      session.discipline = coerceDiscipline(event.actual.discipline, traceId);
-      session.kind = event.actual.kind;
-      session.title = event.actual.title;
-      const actualTemplateId = event.actual.template_id?.trim();
-      if (actualTemplateId && !validTemplateIds.has(actualTemplateId)) {
-        console.warn(
-          `[coach-chat] session_reconcile: actual.template_id "${actualTemplateId}" not in this athlete's templates - nulling it out`,
-          { traceId },
-        );
-        session.template_id = null;
-      } else {
-        session.template_id = actualTemplateId ?? null;
-      }
-    }
-  }
-
-  const result: CurrentWeek = {
-    ...current,
-    days,
-    updated_at: now.toISOString(),
-    updated_by: "model",
-    trace_id: traceId,
-  };
-
-  const parsed = parseCurrentWeek(result, now);
-  if (!parsed.data) {
-    throw new Error(
-      `session_reconcile: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
-    );
-  }
-  return JSON.stringify(result, null, 2);
-}
-
-// The small shape Gemini reports for plan_edit - see coachReplySchema.ts's GeminiReply. Edits an
-// EXISTING future (or today's) session's planned content in place, without touching the rest of
-// the week - the missing piece week_plan (full 7-day rewrite) and session_reconcile (status-only
-// patch) didn't cover: "swap tomorrow's badminton for football." session_id must be real, from
-// context (activeWeekSessionsContext), same guard as session_reconcile. Does not touch status -
-// a plan_edit session stays whatever status it already was (normally "planned").
-export interface PlanEditEvent {
-  session_id: string;
-  discipline: string;
-  kind: string;
-  title: string;
-  template_id?: string;
-}
-
-/**
- * Applies a plan_edit action field: finds each event's session by id (throws on a
- * hallucinated/stale id, same discipline as session_reconcile), overwrites discipline/kind/title
- * (and template_id, validated against validTemplateIds) in place, leaves status and everything
- * else on that session untouched. Validates the result with parseCurrentWeek before returning.
- */
-export function applyPlanEdit(
-  content: string | null,
-  events: PlanEditEvent[],
-  validTemplateIds: ReadonlySet<string>,
-  traceId: string,
-  now: Date,
-): string {
-  const current = parseJsonOrNull<CurrentWeek>(content);
-  if (!current) {
-    throw new Error("plan_edit: current_week.json could not be read");
-  }
-  assertValidCurrentWeekShape("plan_edit", current);
-
-  const sessionLocation = new Map<string, { dayIndex: number; sessionIndex: number }>();
-  current.days.forEach((day, dayIndex) => {
-    day.sessions.forEach((session, sessionIndex) => {
-      sessionLocation.set(session.id, { dayIndex, sessionIndex });
-    });
-  });
-
-  for (const event of events) {
-    if (!sessionLocation.has(event.session_id)) {
-      throw new Error(`plan_edit: no session with id "${event.session_id}" in current_week.json`);
-    }
-  }
-
-  const days = current.days.map((day) => ({
-    ...day,
-    sessions: day.sessions.map((s) => ({ ...s })),
-  }));
-  for (const event of events) {
-    const loc = sessionLocation.get(event.session_id)!;
-    const session = days[loc.dayIndex].sessions[loc.sessionIndex];
-    session.discipline = coerceDiscipline(event.discipline, traceId);
-    session.kind = event.kind;
-    session.title = event.title;
-    const templateId = event.template_id?.trim();
-    if (templateId && !validTemplateIds.has(templateId)) {
-      console.warn(
-        `[coach-chat] plan_edit: template_id "${templateId}" not in this athlete's templates - nulling it out`,
-        { traceId },
-      );
-      session.template_id = null;
-    } else {
-      session.template_id = templateId ?? null;
-    }
-  }
-
-  const result: CurrentWeek = {
-    ...current,
-    days,
-    updated_at: now.toISOString(),
-    updated_by: "model",
-    trace_id: traceId,
-  };
-
-  const parsed = parseCurrentWeek(result, now);
-  if (!parsed.data) {
-    throw new Error(
-      `plan_edit: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
-    );
-  }
-  return JSON.stringify(result, null, 2);
+// Same source file and lenient-read discipline as weekSessionsFromCurrentWeek above, but for the
+// week's own day dates rather than session content - validateWeekUpdate (validateActions.ts)
+// needs every real day date to check a patch entry's `date`/`move_to_date` against, including
+// days with zero sessions (an empty day is still a legal patch target). A malformed or
+// unreadable file yields an empty list, same defensive default as the sibling readers in this
+// file.
+export function weekDayDatesFromCurrentWeek(content: string | null): string[] {
+  const parsed = parseJsonOrNull<CurrentWeek>(content);
+  if (!Array.isArray(parsed?.days)) return [];
+  return parsed.days
+    .map((day) => day?.date)
+    .filter((date): date is string => typeof date === "string");
 }
