@@ -84,24 +84,22 @@ straight from each repo's `quests.json`/`memory.json`/`profile.json` rather than
 
 | Repo | `main_quest` | `current_season_id` | `coaching_style` | `equipment` note | Notes |
 |---|---|---|---|---|---|
-| `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | absent | populated (real gear list) | `profile.json`'s earlier empty `{}` is resolved - it now carries real `name`/`dob`/`timezone`/`height_cm`/`weight_kg`. No longer a mid-reset case; drop from the "info needed" checklist below. |
-| `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | `s_the_transformation_v2` (real, active) | **already present: `"accountability"`** | empty | Leftover from before the feature was removed (#513/#515) — the field was deleted from the schema, but this repo's data was never cleaned up. Confirm with Akash this value is still accurate before keeping it as-is; don't silently trust stale data. |
-| `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | `season_strength_weight_gain_sea_o1jd` (real, active) | absent | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. |
-| `coach-date2022` | `"First Unassisted Pull-Up"` (real) | `chin-over-the-bar` (real, active) | absent | populated (real gear list) | |
-| `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | `season_posture_core_rebuild_r9it` (real, active) | absent | empty | New athlete, cloned for the first time this session. |
+| `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | **`accountability`** - real answer, 2026-09-11 | populated (real gear list) | `profile.json`'s earlier empty `{}` is resolved - it now carries real `name`/`dob`/`timezone`/`height_cm`/`weight_kg`. No longer a mid-reset case; drop from the "info needed" checklist below. |
+| `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | `s_the_transformation_v2` (real, active) | **`analysis`** - real answer, 2026-09-11, replaces the stale `"accountability"` leftover from before the field was removed (#513/#515) | empty | The old value was confirmed stale, not accurate - Akash's real answer today is `analysis`, not `accountability`. |
+| `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | `season_strength_weight_gain_sea_o1jd` (real, active) | **`accountability`** - real answer, 2026-09-11 | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. Still open. |
+| `coach-date2022` | `"First Unassisted Pull-Up"` (real) | `chin-over-the-bar` (real, active) | **`encouragement`** - real answer, 2026-09-11 | populated (real gear list) | |
+| `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | `season_posture_core_rebuild_r9it` (real, active) | **`encouragement`** - real answer, 2026-09-11 | empty | New athlete, cloned for the first time this session. |
 
 All 5 already have a real, active current season — B3's new `main_quest.season_id` link backfills
 cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn't real yet either).
 
 ## What changes, per field (Step 3)
 
-1. **`coaching_style`** — backfill a real value for all 5, gathered by the athlete talking to each
-   person directly. Akash's repo already has one (`"accountability"`) — confirm it's still accurate
-   rather than assume; the other 4 need a real answer from scratch. **Info needed from the athlete
-   before this PR can execute:** each of the 5 people's answer to E1's FSP question. It asks what
-   works when things get hard - someone holding you accountable, someone cheering you on, or
-   someone walking through the why. One of `accountability` / `encouragement` / `analysis` per
-   person.
+1. **`coaching_style`** — real answers gathered 2026-09-11, ready to backfill: `coach-skanda-2003`
+   -> `accountability`, `coach-akash-suresh` -> `analysis`, `coach-prateekdevaraju` ->
+   `accountability`, `coach-date2022` -> `encouragement`, `coach-shreyas-95-cyber` ->
+   `encouragement`. Akash's answer replaces the stale `"accountability"` leftover - it was
+   confirmed inaccurate, not just old. Nothing further needed from the athlete on this item.
 2. **`main_quest`** — only `coach-prateekdevaraju` needs a real value backfilled (the other 4 already
    have one). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
    as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`). Also his
@@ -140,8 +138,8 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
 ## Info still needed from the athlete before this PR can execute
 
 Checklist, not to be left blank at execution time:
-- [ ] Coaching style (one of `accountability`/`encouragement`/`analysis`) for all 5 people —
-  Akash's existing value confirmed or corrected, the other 4 answered fresh.
+- [x] Coaching style for all 5 people, answered 2026-09-11 - see Step 3 item 1 above for the real
+  values, ready to write.
 - [ ] Prateek's real current main quest/goal.
 - [ ] Whether Akash's, Prateek's, and Shreyas's equipment was ever actually stated and lost, or
   genuinely never discussed — and if stated, what it was.

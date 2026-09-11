@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
 
 ## Context
 
@@ -142,10 +142,8 @@ standalone way to set it. The outgoing season's own `main_quest` moves into `que
 | `quests` | `Quest[]` | side quests, plus any retired former `main_quest` entries |
 
 **`QuestType` enum:** `"daily_streak" \| "progress" \| "count_target" \| "weekly_frequency"`.
-**`MainQuest` shape:** `{ id, name, type, target, count_pattern?, season_id }` — `season_id` links
-it to the season it belongs to.
-
-**`MainQuest` shape:** `{ id, name, type: QuestType, target, count_pattern? }`.
+**`MainQuest` shape:** `{ id, name, type: QuestType, target, count_pattern?, season_id }` —
+`season_id` (B3) links it to the season it belongs to.
 
 **`Quest` shape:** `{ id, name, type: QuestType, start_date, end_date: string \| null, status: "active" \| "graduated" \| "retired", polarity?: "default_done" \| "default_not_done" (daily_streak only), target?, unit? (progress only), source: "model" \| "athlete" }`.
 
@@ -275,8 +273,8 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
-| First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit`, plus `pending_clarification`/`unrecorded_facts` (see below) |
+| First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 
 `coach_note` (C2) is a day-keyed row, not the old closing-only append — see the
 `coach_log.json` section above.
@@ -286,11 +284,40 @@ is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/decide/tu
 doc doesn't restate that table, it's the source.
 
 `profile_update.field` enum: `"name" \| "dob" \| "timezone" \| "height_cm" \| "weight_kg"`.
-`injury_flag` is new-injury-only — `{text}`, no id, the server mints one. `injury_event` is
-update/resolve-only — `flag_id` is required (a real id from Active Injury Flags), `status` enum:
-`"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
-"missed" \| "excused"`. `season_start`/`quest_create` are available to every athlete, First
-Session or returning (B3) — a season change and its goal always move together, one atomic action.
+`injury_flag` is new-injury-only — an array of `{text}`, no id, the server mints one. `injury_event`
+is update/resolve-only — an array of `{status, flag_id, text?}`; `flag_id` is required (a real id
+from Active Injury Flags), `status` enum: `"active" \| "resolved"`. `quest_event.status` enum:
+`"completed" \| "missed" \| "excused"`. `season_start`/`quest_create` are available to every
+athlete, First Session or returning (B3) — a season change and its goal always move together, one
+atomic action.
+
+**`season_start` shape:** `{ name, start_date, end_date, main_quest, new_habits }` — all five
+fields required, not just `main_quest`. `main_quest`: `{ name, type: QuestType, target,
+count_pattern? }`, `name`/`type`/`target` required (the server mints `id` and stamps `season_id`
+onto it — see `MainQuest` above). `new_habits`: `HabitQuest[]`, required but may be `[]` when no
+habit was mentioned — Gemini must explicitly address it every time `season_start` fires (#808),
+the same structural guarantee `main_quest` already had. A goal and a new daily habit stated in
+the same message both go here, not through `quest_create` (that field is for a habit stated with
+no season change at all).
+
+**`HabitQuest` shape** (used by both `season_start.new_habits` and `quest_create.quests`):
+`{ name, type: QuestType, polarity?: "default_done" \| "default_not_done", target?, unit? }` —
+`name`/`type` required, the rest optional per `QuestType`.
+
+**`quest_create` shape:** `{ quests: HabitQuest[] }` — habit quests only; the main goal moved to
+`season_start.main_quest`, so there is no field here to set it anymore.
+
+**`pending_clarification`** (Bug 3, string, optional) — a same-pass self-report of any open
+either/or question the reply itself left unanswered. Persisted via `coach_log.json` the same way
+`coach_note` is, and checked next turn (`findUnconfirmedAssumption` in `coachTurn.ts`) before any
+action field that touches the same session is allowed to commit — see `chat-llm-seam.md` and
+`coachTurn.ts` for the full mechanism. Not a write action; nothing in `turnWrites/` consumes it
+directly.
+
+**`unrecorded_facts`** (Finding D mitigation, `string[]`, optional) — a same-pass self-audit
+listing any concrete fact from the athlete's message that this reply's own action fields failed to
+record. Drives a one-shot corrective reprompt in `requestCoachReply` (`coachTurn.ts`); not a write
+action itself. Declared last in the schema, after `reply`, since it audits `reply`'s own text too.
 
 ## File relationships
 
