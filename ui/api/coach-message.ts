@@ -56,7 +56,7 @@ async function listActivityFiles(repo: string, token: string): Promise<ActivityF
   return parseActivityHistoryTree(tree);
 }
 
-async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
+export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }

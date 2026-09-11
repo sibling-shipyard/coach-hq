@@ -1,0 +1,36 @@
+[
+  {
+    "kind": "manual",
+    "name": "coach-message",
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/pro-coachmessage-check",
+    "shaBefore": "8e0b5ebf5d6a8890e6b6c1cb97d1c1f59eec9c30",
+    "shaAfter": "8e0b5ebf5d6a8890e6b6c1cb97d1c1f59eec9c30",
+    "input": {
+      "activity_ids": [
+        "healthkit:B5E61FEE-4EED-4DE2-8A71-18D3ADD9A23B"
+      ]
+    },
+    "output": {
+      "message": {
+        "id": "cm-2333ace7-3795-4e48-806c-2d28de3d65c2",
+        "created_at": "2026-09-05T19:36:24.755Z",
+        "activity_ids": [
+          "healthkit:B5E61FEE-4EED-4DE2-8A71-18D3ADD9A23B"
+        ],
+        "body": "Look, that is 5k banked on the feet. Heart rate was working for a morning walk, but you got the time in. How did the legs hold up?",
+        "conversation_seed_id": "local-proactive-cm-2333ace7-3795-4e48-806c-2d28de3d65c2"
+      },
+      "delivered": true,
+      "idempotent": true,
+      "should_notify": false,
+      "repoSha": null
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": "no commit (sha unchanged)"
+    }
+  }
+]
