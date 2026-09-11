@@ -1,9 +1,17 @@
 # Workouts: compile from a routine, plan a season
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11 (re-verified against the chat-commit
+> redesign, which merged to `main` 2026-09-11, after this doc was first written)
 
 Two stacks. **A** is a hotfix that kills both live bug reports in days. **B** is periodization,
 and it is gated on evidence we do not have yet. Do not start B before the gate in §12.
+
+**Re-verification note (2026-09-11):** A1 (`feat/727-compile-workout`, PR #732) and A5/A5-ios
+(`feat/727-workouts-day-view`/`feat/ios-727-workouts-day-view`, PRs #733/#734) are real, open PRs
+already built against this design. They touch only `engine/`, `ui/client/`, and `ios/`, so nothing
+about the backend redesign below affects them. A2/A3/A4/A6 have no PR yet and reference backend
+structure that changed underneath this doc — see `workouts-stack-a-lld.md`'s own re-verification
+note for the corrected file paths and commit mechanics.
 
 ## 1. Context
 
@@ -11,15 +19,23 @@ Two of the four live athletes hit this in one week. One sees "a lot of random wo
 asked for. On the BYO Claude path, Coach said it *could not* build an upper body workout because
 "there is no template in this repo."
 
-Both are one bug. `turnWrites/workoutWrite.ts` has two write paths, `template_edit` and
-`session_plan`; both require an existing `template_id` gated by `validTemplateIdsFromManifest`.
-There is no create path, so an athlete's workout set is frozen at signup, and onboarding
-compensates by pre-selecting 4–6 library entries (`selectTemplates`). That is where the random
-ones come from.
+Both are one bug. `turnWrites/workoutWrite.ts` (now `decide/turnWrites/workoutWrite.ts` — see the
+LLD's note) has two write paths, `template_edit` and `session_plan`; both require an existing
+`template_id` gated by `validTemplateIdsFromManifest`. There is no create path, so an athlete's
+workout set is frozen at signup, and onboarding compensates by pre-selecting 4–6 library entries
+(`selectTemplates`). That is where the random ones come from. **This half of the diagnosis still
+holds exactly as written** — nothing in the chat-commit redesign touched workout creation itself.
 
-Worse, `responsePropertiesFor` (`coachReplySchema.ts`) gives an ordinary non-first-session turn
-**no action fields at all**. Even with a create path, "ask in chat and get a workout" needs the
-turn to be a closing one. Both facts have to change together.
+**This part is now stale, corrected 2026-09-11:** `responsePropertiesFor` used to give an ordinary
+non-first-session turn no action fields at all, and "ask in chat and get a workout" used to need
+the turn to be a closing one. Both of those were true when this doc was written. The chat-commit
+redesign removed the closing-turn concept entirely (C1) and gave returning athletes a full action
+set on every ordinary turn (B3), including `template_edit`/`session_plan`/`week_plan`/
+`session_reconcile`/`plan_edit`. **The only real gap left is the missing create path itself** — a
+returning athlete can already edit or prescribe from an existing template mid-conversation; they
+still can't have Coach build a new one from scratch. A2 in the LLD is simpler than originally
+scoped as a result: it's "add one more action field to the existing list," not "also fix the
+closing-turn gate."
 
 ## 2. The model
 
@@ -104,7 +120,8 @@ sync prompt for a case that is rare.
 Coach sees only the flagged rows. The case that earns it is self-adjustment. An athlete who
 moves Tuesday to Thursday without saying so reads as a missed anchor plus an orphan. The truth
 is one moved session. Coach sets `original_date`. The `session_reconcile` action already exists
-in `RETURNING_CLOSE_ACTIONS`.
+and, post-redesign, is available on every ordinary turn for a returning athlete (`RETURNING_ACTIONS`
+in `coachReplySchema.ts`) — there's no more separate closing-turn action set to add it to.
 
 **Who writes progressions (ADR 0023).** The reconciler, on a matched completion — not Coach
 noticing. Coach may *propose* a level change; code applies and rate-limits it. A signal nothing but
@@ -140,6 +157,12 @@ A pure selector, not a state machine. Week-level is `live` vs `none`; today is w
 | 5 | Every compiled file passes `validateWorkout` before commit | compiler |
 | 6 | A day marked `done` references a real synced activity id | reconciler |
 | 7 | Every active injury flag is addressed in the spec's `injury_ack` before a routine is written | write path |
+
+**"Write path" (2026-09-11 update):** D1/D2 (part of the chat-commit redesign) established
+`decide/turnWrites/validateActions.ts` as the real idiom for this kind of pre-write invariant
+check — every other action field's referential/shape checks (quest ids, injury flag ids, session
+ids) already live there. `workout_create`'s invariants 1/2/3/7 should follow that same pattern
+rather than inventing a new location.
 
 Invariant 7 is a **regression guard**: `selectTemplates` filters on active flags today
 (`conflictsWithActiveInjuries`), and removing it without a replacement would let an athlete with a
@@ -225,8 +248,11 @@ rollout:
 
 **The flag earns its place in three Stack B spots**, where an existing athlete's behaviour
 changes. B2 generates their week. B4 writes without them asking. B6 moves paths under a running
-app. There, `plugins.json` + `isPluginEnabled` gates it. Enablement is a **one-line PR per
-repo**. Rollback is a single revert — the repo *is* the datastore, so nothing partial survives.
+app. There, `plugins.json` gates it — the data file already exists (`{enabled: []}`, carved by
+`carve-skeleton.mjs`). But **no `isPluginEnabled` reader exists in code yet** (checked 2026-09-11,
+grepped the whole repo). Whichever Stack B PR first needs the gate has to build the read helper
+too, not just assume it's there. Enablement is a **one-line PR per repo**. Rollback is a single
+revert — the repo *is* the datastore, so nothing partial survives.
 
 **Data moves in three steps, never one — and this applies to fields, not just folders.**
 Dual-read → write new → delete old.
