@@ -77,7 +77,7 @@ changes no stored value, only what future writes are allowed to contain.
 | `ui/client/src/components/home-warm/liveWeekContract.ts`, `warmHomeModel.ts` | Consumers of the adapter output. |
 | `platform/scripts/carve-skeleton.mjs` | Already in contract (finding 9 correction); drop `coach_comments` from `CURRENT_WEEK_TEMPLATE` to match the trimmed schema. |
 | `engine/scripts/reconcile-current-week.mjs` (new) | The deterministic reconciler - done, wired into `sync.user.yml` after the existing pipeline. |
-| new: a sync-pipeline job | The scheduled rollover, still to build (next PR in the stack). |
+| `engine/scripts/rollover-current-week.mjs` (new) | The scheduled rollover - done, wired into `sync.user.yml` right after the reconciler. |
 
 ## Validation
 

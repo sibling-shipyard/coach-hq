@@ -51,7 +51,9 @@ This is a locked-decision change, so it's recorded as ADR 0042, not just this pl
   deleted.
 - Every reconciliation rule (`current-week-redesign-lld.md`) has a test that fails when
   violated - done, see `engine/scripts/reconcile-current-week.test.mjs`.
-- A quiet week with no chat still shows a real plan the next morning.
+- A quiet week with no chat never stays stuck on a stale week's dates - done, the scheduled
+  rollover always rolls it to a real placeholder frame for the current week. It doesn't compile
+  actual sessions into that frame; that's W3 (deferred, needs blocks in `seasons.json`).
 - Every dropped field has a written consumer audit before removal - done, see the LLD.
 - Full local gate green, `test/close-verification` in `coach-skanda-2003` live-tested before this
   is called done.
