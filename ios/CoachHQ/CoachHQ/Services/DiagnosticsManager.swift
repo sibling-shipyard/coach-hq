@@ -391,7 +391,7 @@ enum DiagnosticsManager {
         if let message = event.message {
             event.message = SentryMessage(formatted: DiagnosticsScrubber.scrub(message.formatted))
         }
-        event.exceptions?.forEach { $0.value = DiagnosticsScrubber.scrub($0.value) }
+        event.exceptions?.forEach { $0.value = $0.value.map(DiagnosticsScrubber.scrub) }
         event.breadcrumbs?.forEach { breadcrumb in
             breadcrumb.message = breadcrumb.message.map(DiagnosticsScrubber.scrub)
             breadcrumb.data = breadcrumb.data.map(DiagnosticsScrubber.scrub)
