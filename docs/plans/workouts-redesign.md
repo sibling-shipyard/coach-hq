@@ -8,6 +8,11 @@
 > This doc merges and replaces `workouts-season-model.md` and `workouts-stack-a-lld.md`, the
 > original design written by Akash. His core idea, "compile from a routine, plan a season," is
 > kept. What changes, and why, is explained below before the plan itself.
+>
+> **A7 and A8 (below) are done.** The Current Week stack (#973, PRs #974-980) built the
+> deterministic reconciler and the scheduled rollover this plan called for, verified against real
+> athlete data, and is green and ready to merge. Treat #973 as a dependency, not remaining work -
+> see `workouts-redesign-lld.md`'s "A7 and A8: superseded" section.
 
 ## What's changing, and why
 
@@ -37,12 +42,15 @@ the reasoning spelled out, not just copied as a bullet list.
 **What's changing from the original sequencing, and why.**
 
 1. **The reconciler and the automatic weekly rollover move out of the gated "periodization" work
-   and into the near-term plan.** The original design held both back behind an open question:
-   whether a workout routine holds steady week to week, or changes shape every week. That question
-   matters for periodization, the multi-week training arc. It has nothing to do with whether
+   and into the near-term plan - and have since shipped, via the separate Current Week stack
+   (#973), not this one.** The original design held both back behind an open question: whether a
+   workout routine holds steady week to week, or changes shape every week. That question matters
+   for periodization, the multi-week training arc. It has nothing to do with whether
    reconciliation should be automatic, or whether the week should refresh itself without a chat.
    Gating those two behind an unrelated question was keeping a live bug (the week going dark when
-   an athlete doesn't chat) unfixed for no reason connected to the actual open question.
+   an athlete doesn't chat) unfixed for no reason connected to the actual open question. #973's
+   stack fixed it first, in `engine/scripts/reconcile-current-week.mjs` and
+   `engine/scripts/rollover-current-week.mjs`, so A7 and A8 below are done, not upcoming work.
 2. **The First Session benchmark is promoted from "later" to part of the initial landing, and
    gains one new capability.** The original plan already designed a good First Session flow: Coach
    asks what the athlete can already do, and writes one benchmark workout instead of guessing six.
@@ -213,8 +221,8 @@ at the end of this section.
 | A5 | Three-band Workouts page, web | `main` | UI Expert | Today, this week, and library all render from a live repo |
 | A5-ios | Same three bands, iOS | `main`, after A5 | iOS Builder | The Workouts tab shows the same three bands from live repo data |
 | A6 | Recomposed soul and the compiler CLI, into the BYO athlete's own repo | A4 | Tech Lead | That athlete asks for an upper-body workout in their own repo and gets one |
-| A7 | Deterministic reconciler, moved out of the gated stack | A2 | Bob | Every row of the reconciliation table above has a test that fails if violated |
-| A8 | A weekly rollover with no chat required, moved out of the gated stack | A7 | Bob | A week with no conversation that week still shows a real plan the next morning |
+| ~~A7~~ | ~~Deterministic reconciler~~ - **done**, shipped as PR #978 in the #973 stack | - | - | Every row of the reconciliation table above has a test in `engine/scripts/reconcile-current-week.test.mjs` |
+| ~~A8~~ | ~~Weekly rollover with no chat required~~ - **done**, shipped as PR #979 in the #973 stack | - | - | Verified live: a stale week was replaced with a real current-week frame with no chat involved |
 
 A1, A5, and A5-ios can start at the same time, since they touch disjoint files. A5 and A5-ios are
 resequenced: see "What happens to #732, #733, and #734" below before building either.

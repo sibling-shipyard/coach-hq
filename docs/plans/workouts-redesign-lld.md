@@ -6,6 +6,11 @@
 > `workouts-stack-a-lld.md`, Akash's original execution detail. Read this file's row for your PR
 > and §1's mechanics; skip the rest unless your row cites it. Every claim checked against `main`
 > at 94f0965 on 2026-09-11.
+>
+> **A7 and A8 are done, shipped by the Current Week stack (#973), not by this plan.** That stack's
+> PRs #978 and #979 built exactly the reconciler and rollover described below, verified against
+> real athlete data, and are green and ready to merge. See "A7 and A8: superseded" below instead
+> of building either from scratch.
 
 ## Corrections folded into this merge
 
@@ -51,14 +56,11 @@ flowchart LR
   A1["A1 compiler"] --> A2["A2 workout_create"]
   A2 --> A3["A3 benchmark + first week"]
   A2 --> A4["A4 soul + carve"]
-  A2 --> A7["A7 reconciler"]
   A4 --> A6["A6 migrate BYO repo"]
-  A7 --> A8["A8 weekly rollover"]
+  A73["A7+A8 reconciler + rollover, shipped by #973"] -.->|already done| done
   A3 --> done
   A4 --> done
   A6 --> done
-  A7 --> done
-  A8 --> done
 ```
 
 | PR | Branch | Owner | Base | Files it may touch |
@@ -70,11 +72,12 @@ flowchart LR
 | A3 | `feat/727-first-session-benchmark` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts`, `shared/workout-library/` (deleted here) |
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo, a PR against it |
-| A7 | `feat/727-reconciler` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, a new sync-pipeline module |
-| A8 | `feat/727-weekly-rollover` | Bob | A7 | the sync-pipeline workflow |
+| ~~A7~~ | shipped as `core/973-reconciler` (PR #978) | - | - | `engine/scripts/reconcile-current-week.mjs` |
+| ~~A8~~ | shipped as `core/973-rollover` (PR #979) | - | - | `engine/scripts/rollover-current-week.mjs`, `.github/workflows/sync.user.yml` |
 
 A diff outside your file column fails review. Every PR: `Refs: #727`. Nothing in the near-term
-stack closes #727 on its own.
+stack closes #727 on its own. A7 and A8 no longer need a PR here - Refs: #973's stack already
+closes them; see below.
 
 ## Worktree and PR mechanics
 
@@ -88,7 +91,7 @@ git worktree remove /tmp/wt-<brief> --force
 ```
 
 Never switch branches in the primary checkout. Commit prefix per `.github/CONVENTIONS.md`: `feat:`
-for A1, A2, A3, A7, A8; `core:` for A4, A6; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
+for A1, A2, A3; `core:` for A4, A6; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
 
 ---
 
@@ -333,54 +336,27 @@ compiler's command-line wrapper, nothing else.
 
 ---
 
-## A7: deterministic reconciler
+## A7 and A8: superseded by the Current Week stack (#973)
 
-**Goal:** every row of the reconciliation table in the HLD runs automatically, with Coach only
-seeing the genuinely ambiguous case.
+This plan and `current-week-redesign.md` were written the same day, both against the same live
+bug (the week going dark on a quiet week) and the same fix (a deterministic reconciler plus a
+scheduled rollover). `current-week-redesign.md`'s stack built and shipped both first. Their
+original goals and behavior, as designed here, are unchanged - only where the work landed changed:
 
-**Files:** a new reconciliation module in the backend's decide layer, called whenever an activity
-syncs, plus its own test suite.
+- **Reconciler**, originally scoped here as a new module in `ui/api/coach-chat/_lib/decide/`,
+  shipped instead as `engine/scripts/reconcile-current-week.mjs` (PR #978, `core/973-reconciler`).
+  Same rules as the table in the HLD: exact match marks done, a passed planned day with nothing
+  matching becomes missed not skipped, an unmatched activity attaches as unplanned. Two plausible
+  candidates, or an activity a day either side of plan, stay planned and flag for Coach instead.
+  Every row has a regression test in `engine/scripts/reconcile-current-week.test.mjs`.
+- **Rollover**, originally scoped here as a new sync-pipeline step, shipped instead as
+  `engine/scripts/rollover-current-week.mjs` (PR #979, `core/973-rollover`), called from
+  `.github/workflows/sync.user.yml`. Verified live against a real athlete repo: a week that had
+  gone stale was correctly replaced with a placeholder frame for the real current week.
 
-**Behavior:** on each synced activity, check it against that day's planned sessions. An exact type
-match on the planned day marks it done and appends the completion id. A planned day that passes
-with nothing matching becomes missed, never skipped, since skipping without the athlete saying so
-would misrepresent a decision that was never made. An activity with no planned match at all
-attaches to its day as unplanned. Two plausible matches, or an activity landing a day either side
-of a planned session, stays planned and gets flagged for Coach to resolve in conversation, rather
-than guessed at automatically.
-
-**Tests:** one per row of the reconciliation table, each written to fail if that row's rule is
-violated.
-
-**Validate:** the new test suite, plus a replay of one real athlete's actual sync history against
-the new rules, checked by hand against what really happened that week.
-
-**Done when:** every reconciliation rule has a test, and the replay matches reality.
-
----
-
-## A8: weekly rollover with no chat required
-
-**Goal:** an athlete who doesn't talk to Coach at all in a given week still has a real week the
-next morning, not a blank screen.
-
-**Files:** a new step in the existing sync pipeline workflow, gated behind nothing since this is
-part of the near-term, unflagged stack.
-
-**Behavior:** on the week boundary, if there's no live week already in place for the new week,
-generate one using whatever the athlete's current season, goal, and (once A3 exists) stated
-training days already support. This reuses the same compile logic A3 uses for a first week, just
-triggered by the calendar instead of a conversation.
-
-**Tests:** a week with no chat activity all week still has a valid, live week the following
-Monday; a week that already has a live plan from a real conversation is left untouched by the
-rollover.
-
-**Validate:** the new test suite, plus a manual check against one of the four live repos showing
-the rollover firing correctly on a quiet week.
-
-**Done when:** no live athlete has ever opened Current Week to nothing because they didn't chat
-that week.
+**What's left for this plan to do here:** nothing. A3 (first-week compile) can call the same
+reconciler/rollover machinery once #973 merges, but doesn't need to build any part of it. Treat
+#973 as a dependency to pull in, not a PR to open under `feat/727-*`.
 
 ---
 
