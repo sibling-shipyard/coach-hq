@@ -53,6 +53,7 @@ import {
 import {
   CURRENT_WEEK_PATH,
   weekSessionsFromCurrentWeek,
+  weekDayDatesFromCurrentWeek,
   isFullWeekKickoff,
 } from "./decide/coachWeekFiles.js";
 import {
@@ -1043,6 +1044,12 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     ? weekSessionsFromCurrentWeek(currentWeekContent ?? null)
     : [];
   const validSessionIds = new Set(weekSessions.map((session) => session.id));
+  // A patch's day.date and move_to_date need checking against the week's real day dates too, not
+  // just session ids - every day is a legal patch target, including one with zero sessions, so
+  // this can't be derived from weekSessions alone.
+  const validDayDates = needsCurrentWeekContext
+    ? new Set(weekDayDatesFromCurrentWeek(currentWeekContent ?? null))
+    : new Set<string>();
   // Bug 3 content-diff guard: existing session content, keyed by id, so validateWeekUpdate can
   // tell a category-changing patch entry from a same-turn confirmation.
   const existingSessionsForDiff: ReadonlyMap<string, ExistingSessionForDiff> = new Map(
@@ -1054,6 +1061,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   const { valid: validatedWeekUpdate, dropped: droppedWeekUpdate } = validateWeekUpdate(
     effectiveWeekUpdate,
+    validDayDates,
     validSessionIds,
     existingSessionsForDiff,
     turn.geminiMessage,

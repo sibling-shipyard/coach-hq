@@ -155,16 +155,25 @@ export interface WeekUpdate {
 // Gemini didn't clearly prioritize) and not "optional" (which would understate a real planned one).
 const DEFAULT_SESSION_PRIORITY: CurrentWeekSessionPriority = "support";
 
-// Dispatch by INTENT, not by well-formedness: a week_update carrying headline or body at all is
-// unambiguously a kickoff attempt - a patch never sets those top-level fields (they're the
-// kickoff's own coach_read content). Deciding this by "did it pass every kickoff check" instead
-// would misroute a malformed kickoff (wrong day count, say) into patch mode, where content is
-// null and the real error - "expected exactly 7 days" - gets masked by "could not be read".
-// applyFullWeekKickoff below does the actual exactly-7-days/Monday-start/consecutive validation
-// and throws its own specific reason. Also used by buildCurrentWeekWrite (weekWrite.ts) to decide
-// whether to fetch the existing file at all - a kickoff builds fresh and never reads it.
+// Two independent, OR'd signals - neither alone is reliable on its own:
+// - headline/body present: the JSON schema only requires `days`, so a genuine kickoff CAN arrive
+//   missing both (Gemini isn't schema-forced to include them) - relying on this alone would
+//   misroute that case into patch mode, where applyWeekPatch looks up the kickoff's brand-new
+//   dates against the CURRENT (old) week's days, finds none, and throws a confusing "no day X in
+//   the current week" instead of the direct "headline and body are required" a kickoff gives.
+// - exactly 7 days: catches that missing-headline case. Checked alone (no day-count-only check),
+//   a malformed kickoff that DOES carry headline/body but has the wrong day count would
+//   otherwise misroute to patch mode too, masking ITS specific validation error the same way.
+// Either signal alone routes to applyFullWeekKickoff, which does the real validation (headline/
+// body required, exactly 7 days, Monday-start, consecutive) and throws its own specific reason.
+// A patch legitimately hitting all seven days in one turn is a rare, acceptable false positive -
+// it just gets an clear "headline and body are required" thrown instead of silently misapplied.
+// Also used by buildCurrentWeekWrite (weekWrite.ts) to decide whether to fetch the existing file
+// at all - a kickoff builds fresh.
 export function isFullWeekKickoff(update: WeekUpdate | undefined): boolean {
-  return Boolean(update && (update.headline != null || update.body != null));
+  if (!update) return false;
+  if (update.headline != null || update.body != null) return true;
+  return Array.isArray(update.days) && update.days.length === 7;
 }
 
 /**
@@ -557,4 +566,18 @@ export function weekSessionsFromCurrentWeek(
           }))
       : [],
   );
+}
+
+// Same source file and lenient-read discipline as weekSessionsFromCurrentWeek above, but for the
+// week's own day dates rather than session content - validateWeekUpdate (validateActions.ts)
+// needs every real day date to check a patch entry's `date`/`move_to_date` against, including
+// days with zero sessions (an empty day is still a legal patch target). A malformed or
+// unreadable file yields an empty list, same defensive default as the sibling readers in this
+// file.
+export function weekDayDatesFromCurrentWeek(content: string | null): string[] {
+  const parsed = parseJsonOrNull<CurrentWeek>(content);
+  if (!Array.isArray(parsed?.days)) return [];
+  return parsed.days
+    .map((day) => day?.date)
+    .filter((date): date is string => typeof date === "string");
 }

@@ -92,7 +92,20 @@ describe("validateSessionPlan", () => {
 });
 
 describe("validateWeekUpdate", () => {
-  it("passes a full-week-kickoff-shaped update through untouched, no session_id checks", () => {
+  // Every patch test below targets 2026-08-17/2026-08-19, so this is the one real week those
+  // dates belong to - passed as validDayDates unless a test is deliberately checking a date
+  // outside it.
+  const REAL_WEEK_DATES = new Set([
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-22",
+    "2026-08-23",
+  ]);
+
+  it("passes a full-week-kickoff-shaped update through untouched, no session_id or date checks", () => {
     const kickoff = {
       headline: "Steady week ahead.",
       body: "Focus on consistency.",
@@ -101,13 +114,13 @@ describe("validateWeekUpdate", () => {
         sessions: [],
       })),
     };
-    const { valid, dropped } = validateWeekUpdate(kickoff, new Set(), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(kickoff, new Set(), new Set(), new Map(), "");
     expect(valid).toEqual(kickoff);
     expect(dropped).toEqual([]);
   });
 
   it("returns undefined, no drops, when update itself is undefined", () => {
-    const { valid, dropped } = validateWeekUpdate(undefined, new Set(), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(undefined, new Set(), new Set(), new Map(), "");
     expect(valid).toBeUndefined();
     expect(dropped).toEqual([]);
   });
@@ -116,7 +129,13 @@ describe("validateWeekUpdate", () => {
     const update = {
       days: [{ date: "2026-08-17", sessions: [{ session_id: "s1", status: "done" as const }] }],
     };
-    const { valid, dropped } = validateWeekUpdate(update, new Set(["s1"]), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
     expect(valid).toEqual(update);
     expect(dropped).toEqual([]);
   });
@@ -126,6 +145,7 @@ describe("validateWeekUpdate", () => {
     const bad = { session_id: "s_bogus", status: "skipped" as const };
     const { valid, dropped } = validateWeekUpdate(
       { days: [{ date: "2026-08-17", sessions: [good, bad] }] },
+      REAL_WEEK_DATES,
       new Set(["s1"]),
       new Map(),
       "",
@@ -142,7 +162,13 @@ describe("validateWeekUpdate", () => {
         { date: "2026-08-19", sessions: [{ discipline: "run", kind: "easy", title: "Easy run" }] },
       ],
     };
-    const { valid, dropped } = validateWeekUpdate(update, new Set(), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "",
+    );
     expect(valid).toEqual(update);
     expect(dropped).toEqual([]);
   });
@@ -154,6 +180,7 @@ describe("validateWeekUpdate", () => {
           { date: "2026-08-17", sessions: [{ session_id: "s_bogus", status: "done" as const }] },
         ],
       },
+      REAL_WEEK_DATES,
       new Set(["s1"]),
       new Map(),
       "",
@@ -164,8 +191,81 @@ describe("validateWeekUpdate", () => {
 
   it("keeps a day that only patches intent, even with no sessions", () => {
     const update = { days: [{ date: "2026-08-17", intent: "recovery" }] };
-    const { valid, dropped } = validateWeekUpdate(update, new Set(), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "",
+    );
     expect(valid).toEqual({ days: [{ date: "2026-08-17", intent: "recovery", sessions: [] }] });
+    expect(dropped).toEqual([]);
+  });
+
+  // Review finding (P0): validateWeekUpdate never checked day.date or move_to_date against the
+  // real week, so a hallucinated date sailed through to applyWeekUpdate's own throw instead of
+  // being dropped here like every other bad reference.
+  it("drops a whole day entry whose date isn't in the current week", () => {
+    const update = {
+      days: [{ date: "2099-01-01", sessions: [{ session_id: "s1", status: "done" as const }] }],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toBeUndefined();
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("keeps valid days, drops only the one with a hallucinated date", () => {
+    const good = { date: "2026-08-17", sessions: [{ session_id: "s1", status: "done" as const }] };
+    const bad = { date: "2099-01-01", sessions: [{ session_id: "s2", status: "done" as const }] };
+    const { valid, dropped } = validateWeekUpdate(
+      { days: [good, bad] },
+      REAL_WEEK_DATES,
+      new Set(["s1", "s2"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [good] });
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("drops a session entry whose move_to_date isn't in the current week, keeping other sessions on the same day", () => {
+    const good = { session_id: "s1", status: "done" as const };
+    const bad = { session_id: "s2", move_to_date: "2099-01-01" };
+    const { valid, dropped } = validateWeekUpdate(
+      { days: [{ date: "2026-08-17", sessions: [good, bad] }] },
+      REAL_WEEK_DATES,
+      new Set(["s1", "s2"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual({ days: [{ date: "2026-08-17", sessions: [good] }] });
+    expect(dropped).toEqual([
+      { field: "week_update", reason: expect.stringContaining('"2099-01-01"') },
+    ]);
+  });
+
+  it("keeps a move to a real day this week", () => {
+    const update = {
+      days: [{ date: "2026-08-17", sessions: [{ session_id: "s1", move_to_date: "2026-08-19" }] }],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual(update);
     expect(dropped).toEqual([]);
   });
 });
@@ -282,6 +382,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
   function patchOf(session: Record<string, unknown>) {
     return { days: [{ date: "2026-08-22", sessions: [session] }] };
   }
+  const VALID_DATE = new Set(["2026-08-22"]);
 
   it("drops a category-changing edit when the athlete's message has no confirmation cue", () => {
     const session = {
@@ -292,6 +393,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "That covers it, wrap this up.",
@@ -311,6 +413,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "Yes, drop the football and do the walk instead.",
@@ -330,6 +433,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "I'm not sure, don't drop the football.",
@@ -349,6 +453,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "That covers it, wrap this up.",
@@ -359,7 +464,13 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
 
   it("keeps an edit when no existing-session data is supplied - nothing to compare against, so nothing to gate", () => {
     const session = { session_id: "s1", discipline: "run", kind: "easy", title: "Easy run" };
-    const { valid, dropped } = validateWeekUpdate(patchOf(session), new Set(["s1"]), new Map(), "");
+    const { valid, dropped } = validateWeekUpdate(
+      patchOf(session),
+      VALID_DATE,
+      new Set(["s1"]),
+      new Map(),
+      "",
+    );
     expect(valid).toEqual(patchOf(session));
     expect(dropped).toEqual([]);
   });
@@ -370,6 +481,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     const session = { session_id: "s_saturday", status: "done" as const };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "Done, just as planned.",
@@ -388,6 +500,7 @@ describe("validateWeekUpdate content-diff guard (Bug 3)", () => {
     };
     const { valid, dropped } = validateWeekUpdate(
       patchOf(session),
+      VALID_DATE,
       new Set(["s_saturday"]),
       existingSessions,
       "That covers it, wrap this up.",

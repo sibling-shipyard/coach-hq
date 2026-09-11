@@ -248,6 +248,20 @@ describe("applyWeekUpdate - full-week kickoff", () => {
       applyWeekUpdate(null, kickoff, validTemplateIds, "America/New_York", "t1", now),
     ).toThrow("needs discipline, kind, and title");
   });
+
+  // Review finding (P0): the JSON schema only requires `days`, so Gemini can legally send a
+  // real kickoff attempt with headline/body omitted. Routing that to patch mode against a null
+  // `content` used to throw "current_week.json could not be read" - confusing, and not the real
+  // problem. isFullWeekKickoff's 7-day fallback signal must still route this to the kickoff
+  // applier, which gives the correct, specific error.
+  it("still routes a kickoff-shaped payload missing headline/body to the kickoff applier, not patch mode", () => {
+    const kickoff = validKickoff();
+    delete (kickoff as any).headline;
+    delete (kickoff as any).body;
+    expect(() =>
+      applyWeekUpdate(null, kickoff, validTemplateIds, "America/New_York", "t1", now),
+    ).toThrow("headline and body are required");
+  });
 });
 
 describe("applyWeekUpdate - patch (status, content, moves)", () => {

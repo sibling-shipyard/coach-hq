@@ -173,12 +173,14 @@ function categoryChangeIsConfirmed(
 // ADR 0039 replaces session_reconcile/plan_edit with one week_update field, sent as a sparse
 // per-day/per-session patch. A full-week-kickoff-shaped update (isFullWeekKickoff) is the old
 // week_plan case - it never references an existing session_id, so it passes through untouched; a
-// patch-shaped update gets every session_id checked against validSessionIds and every category
-// change checked against categoryChangeIsConfirmed, same guards session_reconcile/plan_edit used
-// separately, now applied to whichever fields a single patch entry actually sets (a status change
-// and a content change can land on the same entry - that's the point of the collapse).
+// patch-shaped update gets every day.date and move_to_date checked against validDayDates, and
+// every session_id checked against validSessionIds, and every category change checked against
+// categoryChangeIsConfirmed - same D1 layer 3 discipline as every other referential field in this
+// file: check it here so applyWeekUpdate's own day/session lookups (coachWeekFiles.ts) stay real
+// defense in depth instead of the path a hallucinated date actually takes to a live throw.
 export function validateWeekUpdate(
   update: WeekUpdate | undefined,
+  validDayDates: ReadonlySet<string>,
   validSessionIds: ReadonlySet<string>,
   existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
   athleteMessage: string,
@@ -188,9 +190,24 @@ export function validateWeekUpdate(
 
   const dropped: DroppedAction[] = [];
   const days = update.days
+    .filter((day) => {
+      if (validDayDates.has(day.date)) return true;
+      dropped.push({
+        field: "week_update",
+        reason: `no day "${day.date}" in the current week - it may be stale or hallucinated`,
+      });
+      return false;
+    })
     .map((day) => ({
       ...day,
       sessions: (day.sessions ?? []).filter((session) => {
+        if (session.move_to_date && !validDayDates.has(session.move_to_date)) {
+          dropped.push({
+            field: "week_update",
+            reason: `move_to_date "${session.move_to_date}" is not in the current week - it may be stale or hallucinated`,
+          });
+          return false;
+        }
         if (!session.session_id) return true;
         if (!validSessionIds.has(session.session_id)) {
           dropped.push({
