@@ -1,0 +1,49 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/pro-retest-finding-a-planedit",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini rate limit exceeded - try again shortly"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "1075c0939f43f72377737d781f78c0ecf1604ae1",
+    "shaAfter": "1075c0939f43f72377737d781f78c0ecf1604ae1"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/pro-retest-finding-a-planedit",
+    "input": {
+      "messages": [],
+      "message": "Can you swap tomorrow's recovery/mobility session for a swim instead - just this once, a friend invited me to the pool. Wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini rate limit exceeded - try again shortly"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "1075c0939f43f72377737d781f78c0ecf1604ae1",
+    "shaAfter": "1075c0939f43f72377737d781f78c0ecf1604ae1"
+  }
+]

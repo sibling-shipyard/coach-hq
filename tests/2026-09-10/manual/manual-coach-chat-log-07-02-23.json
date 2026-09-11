@@ -1,0 +1,26 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/openrouter-pro-check",
+    "input": {
+      "threadId": "t-1789023741132",
+      "messages": [],
+      "message": "Nailed the cold shower again this morning - keeping the streak going, mark it complete for today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini rate limit exceeded - try again shortly"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "8e0b5ebf5d6a8890e6b6c1cb97d1c1f59eec9c30",
+    "shaAfter": "8e0b5ebf5d6a8890e6b6c1cb97d1c1f59eec9c30"
+  }
+]
