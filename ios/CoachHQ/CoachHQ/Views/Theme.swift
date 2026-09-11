@@ -224,43 +224,119 @@ enum WarmInstrument {
 
     // MARK: - W4 tokenization (docs/plans/ios-widget-modules.md) — one-off surface colors
     // that were hardcoded inline at their single (or few) call sites.
+    //
+    // ios/DESIGN.md:76 requires every color use adaptive tokens. None of these had a dark-mode
+    // value designed yet, so each dark branch below is a placeholder equal to light — a design
+    // pass, not a code change, is what should replace these, one surface at a time.
 
     /// Badminton match result — `ActivityDetailView`'s score ribbon.
-    static let matchWin = Color(red: 0x1A / 255, green: 0x47 / 255, blue: 0x31 / 255)
-    static let matchLoss = Color(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255)
+    static let matchWin = WITokens.Sports.badminton
+    static let matchLoss = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255, alpha: 1)
+            : UIColor(red: 0xa3 / 255, green: 0x46 / 255, blue: 0x2c / 255, alpha: 1)
+    })
 
     /// Same warm-grey base `cardBorder`/`borderDashed`/`cardShadow` above already use at
     /// different opacities — named so a caller needing a different opacity doesn't re-type
     /// the raw triple (`ActivityDetailView`'s ribbon-tick background).
-    static let borderTintBase = Color(red: 84 / 255, green: 76 / 255, blue: 65 / 255)
+    static let borderTintBase = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 1)
+            : UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 1)
+    })
 
     /// Yoga's accent — `OnboardingRevealFlow.sportDisplayInfo`. Not in `WITokens.Sports`
     /// (that table has no Yoga entry); kept as a standalone token rather than widening the
     /// generated sport palette for one caller.
-    static let yoga = Color(red: 0.53, green: 0.40, blue: 0.62)
+    static let yoga = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.53, green: 0.40, blue: 0.62, alpha: 1)
+            : UIColor(red: 0.53, green: 0.40, blue: 0.62, alpha: 1)
+    })
 
     /// Build-phase rail segments — `Views/Widgets/BuildPhaseCard.swift`.
-    static let buildPhaseDeload = Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255)
-    static let buildPhaseUpcoming = Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255)
+    static let buildPhaseDeload = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255, alpha: 1)
+            : UIColor(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255, alpha: 1)
+    })
+    static let buildPhaseUpcoming = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255, alpha: 1)
+            : UIColor(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255, alpha: 1)
+    })
 
     /// Recent-sessions swipe-to-edit action background — `Views/Widgets/RecentSessionsCard.swift`.
-    static let editAction = Color(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255)
+    static let editAction = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255, alpha: 1)
+            : UIColor(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255, alpha: 1)
+    })
 
     /// Coach Chat surface — `CoachChatWarmUI.swift`'s own palette, 12 colors that were each
     /// hardcoded inline at 1-3 call sites.
     enum Chat {
-        static let ink = Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255)
-        static let inkMuted = Color(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255)
-        static let inkFaint = Color(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255)
-        static let border = Color(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255)
-        static let borderLight = Color(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255)
-        static let borderMuted = Color(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255)
-        static let borderFocus = Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255)
-        static let goldAccent = Color(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255)
-        static let goldMuted = Color(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255)
-        static let surfaceBright = Color(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255)
-        static let surfaceMuted = Color(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255)
-        static let fillMuted = Color(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255)
+        static let ink = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255, alpha: 1)
+                : UIColor(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255, alpha: 1)
+        })
+        static let inkMuted = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255, alpha: 1)
+                : UIColor(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255, alpha: 1)
+        })
+        static let inkFaint = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255, alpha: 1)
+                : UIColor(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255, alpha: 1)
+        })
+        static let border = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255, alpha: 1)
+                : UIColor(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255, alpha: 1)
+        })
+        static let borderLight = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255, alpha: 1)
+                : UIColor(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255, alpha: 1)
+        })
+        static let borderMuted = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255, alpha: 1)
+                : UIColor(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255, alpha: 1)
+        })
+        static let borderFocus = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255, alpha: 1)
+                : UIColor(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255, alpha: 1)
+        })
+        static let goldAccent = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255, alpha: 1)
+                : UIColor(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255, alpha: 1)
+        })
+        static let goldMuted = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255, alpha: 1)
+                : UIColor(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255, alpha: 1)
+        })
+        static let surfaceBright = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255, alpha: 1)
+                : UIColor(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255, alpha: 1)
+        })
+        static let surfaceMuted = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255, alpha: 1)
+                : UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255, alpha: 1)
+        })
+        static let fillMuted = Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255, alpha: 1)
+                : UIColor(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255, alpha: 1)
+        })
     }
 
     // MARK: Typography — Space Grotesk → SF Pro, Space Mono → SF Mono, Newsreader → serif italic
