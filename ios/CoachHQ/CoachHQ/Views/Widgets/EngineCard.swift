@@ -29,7 +29,7 @@ struct EngineCard: View {
                     mobileHeader(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(EngineGraphics.numberString(sizes.M.load * bandProgress))
+                            Text(Format.number(sizes.M.load * bandProgress))
                                 .font(.system(size: 46, weight: .medium, design: .default))
                                 .tracking(-2)
                                 .foregroundColor(.white)
@@ -109,7 +109,7 @@ struct EngineCard: View {
 
     private func readout(load: Double, verdict: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(EngineGraphics.numberString(load))
+            Text(Format.number(load))
                 .font(.system(size: 44, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
                 .contentTransition(.numericText())

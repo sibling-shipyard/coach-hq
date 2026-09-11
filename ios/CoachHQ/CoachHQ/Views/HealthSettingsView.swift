@@ -246,7 +246,7 @@ private struct WorkoutImportRow: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Theme.ink)
 
-                Text("\(Self.timeLabel(for: row.start)) · \(Self.durationLabel(for: row.duration)) · \(row.sources.joined(separator: " + "))")
+                Text("\(Self.timeLabel(for: row.start)) · \(Format.duration(row.duration)) · \(row.sources.joined(separator: " + "))")
                     .font(WarmInstrument.figures(11))
                     .foregroundColor(WarmInstrument.inkFaint)
                     .lineLimit(1)
@@ -309,9 +309,4 @@ private struct WorkoutImportRow: View {
         date.formatted(date: .omitted, time: .shortened)
     }
 
-    private static func durationLabel(for duration: TimeInterval) -> String {
-        let minutes = max(0, Int(duration.rounded()) / 60)
-        if minutes < 60 { return "\(minutes)m" }
-        return "\(minutes / 60)h \(minutes % 60)m"
-    }
 }

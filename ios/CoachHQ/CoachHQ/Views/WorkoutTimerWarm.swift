@@ -7,6 +7,16 @@ enum WorkoutTimerWarm {
     static let rust = WarmInstrument.accent
     static let restAccent = WarmInstrument.alarmFg
 
+    // MARK: - W4 tokenization — shared across this file, WorkoutOverviewView, and WorkoutListView
+    // (the timer and its pre-workout overview share the same exercise-list chrome).
+    static let ink = Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255)
+    static let inkMuted = Color(red: 0x6B / 255, green: 0x6D / 255, blue: 0x64 / 255)
+    static let numberFaint = Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255)
+    static let labelFaint = Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255)
+    static let divider = Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255)
+    static let exerciseCardBorder = Color(red: 0xCA / 255, green: 0xBF / 255, blue: 0xA9 / 255)
+    static let listItemBorder = Color(red: 0xDC / 255, green: 0xD5 / 255, blue: 0xC6 / 255)
+
     struct UpNextItem: Identifiable {
         var id: Int { num }
         let num: Int
@@ -160,7 +170,7 @@ struct WarmTimerHeaderRight: View {
 
             Text(WorkoutTimerWarm.formatTimer(elapsed))
                 .font(WarmInstrument.figures(12, weight: .bold))
-                .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                .foregroundColor(WorkoutTimerWarm.ink)
         }
     }
 }
@@ -207,7 +217,7 @@ struct WarmFormCueCard: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("\(why) — Coach")
                 .font(WarmInstrument.coachVoice(13.5))
-                .foregroundColor(Color(red: 0x6B / 255, green: 0x6D / 255, blue: 0x64 / 255))
+                .foregroundColor(WorkoutTimerWarm.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -238,7 +248,7 @@ struct WarmNextStrip: View {
             if !dose.isEmpty {
                 Text(dose)
                     .font(WarmInstrument.figures(11))
-                    .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                    .foregroundColor(WorkoutTimerWarm.ink)
             }
         }
         .padding(.horizontal, 14)
@@ -294,7 +304,7 @@ struct WarmTimerControls: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                .foregroundColor(WorkoutTimerWarm.ink)
                 .frame(width: 56, height: 56)
                 .background(WarmInstrument.paper)
                 .overlay(
@@ -351,7 +361,7 @@ struct WarmSecondaryCTA: View {
                 .background(WarmInstrument.paper)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color(red: 0xCA / 255, green: 0xBF / 255, blue: 0xA9 / 255), lineWidth: 1)
+                        .stroke(WorkoutTimerWarm.exerciseCardBorder, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
@@ -458,7 +468,7 @@ private struct WarmExerciseListPhaseBlock: View {
                 HStack(alignment: .top, spacing: 14) {
                     Text("\(ex.num)")
                         .font(WarmInstrument.figures(11))
-                        .foregroundColor(status == .current ? accent : Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
+                        .foregroundColor(status == .current ? accent : WorkoutTimerWarm.numberFaint)
                         .frame(width: 14, alignment: .trailing)
                         .padding(.top, 2)
 
@@ -471,7 +481,7 @@ private struct WarmExerciseListPhaseBlock: View {
                                 Text("OPTIONAL")
                                     .font(WarmInstrument.monoLabel(8))
                                     .kerning(1)
-                                    .foregroundColor(Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255))
+                                    .foregroundColor(WorkoutTimerWarm.labelFaint)
                             }
                             if status == .current {
                                 Text("NOW")
@@ -494,7 +504,7 @@ private struct WarmExerciseListPhaseBlock: View {
 
                     Text(WorkoutTimerWarm.doseFor(ex))
                         .font(WarmInstrument.figures(12))
-                        .foregroundColor(status == .done ? WarmInstrument.inkFaint : Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                        .foregroundColor(status == .done ? WarmInstrument.inkFaint : WorkoutTimerWarm.ink)
                         .padding(.top, 2)
                 }
                 .padding(.horizontal, 18)
@@ -503,7 +513,7 @@ private struct WarmExerciseListPhaseBlock: View {
                 .overlay(alignment: .bottom) {
                     if ex.num != phase.exercises.last?.num {
                         Rectangle()
-                            .fill(Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255))
+                            .fill(WorkoutTimerWarm.divider)
                             .frame(height: 1)
                     }
                 }

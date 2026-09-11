@@ -326,7 +326,7 @@ private func sportDisplayInfo(_ sport: String) -> (name: String, symbol: String,
     case "Walk":
         return ("Walking",    "figure.walk",                  WarmInstrument.Sport.walk)
     case "Yoga":
-        return ("Yoga",       "figure.flexibility",           Color(red: 0.53, green: 0.40, blue: 0.62))
+        return ("Yoga",       "figure.flexibility",           WarmInstrument.yoga)
     case "Swimming":
         return ("Swimming",   "figure.pool.swim",             WarmInstrument.Sport.swim)
     case "Hiking":
@@ -386,21 +386,21 @@ private struct RevealStepView: View {
 
                 // Stats: sessions · hours · streak
                 HStack(alignment: .top, spacing: 0) {
-                    BigStat(value: "\(displaySessions)", label: "sessions")
+                    bigStat(value: "\(displaySessions)", label: "sessions")
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Rectangle()
                         .fill(WarmInstrument.inkFaint.opacity(0.22))
                         .frame(width: 1, height: 42)
                         .padding(.horizontal, 12)
                         .padding(.top, 2)
-                    BigStat(value: String(format: "%.0f", displayHours), label: "hours")
+                    bigStat(value: String(format: "%.0f", displayHours), label: "hours")
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Rectangle()
                         .fill(WarmInstrument.inkFaint.opacity(0.22))
                         .frame(width: 1, height: 42)
                         .padding(.horizontal, 12)
                         .padding(.top, 2)
-                    BigStat(
+                    bigStat(
                         value: summary.longestStreak > 0 ? "\(summary.longestStreak)" : "—",
                         label: "day streak"
                     )
@@ -504,23 +504,22 @@ private struct RevealStepView: View {
     }
 }
 
-private struct BigStat: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.system(size: 30, weight: .bold).monospacedDigit())
-                .foregroundColor(WarmInstrument.ink)
-                .minimumScaleFactor(0.55)
-                .lineLimit(1)
-            Text(label.uppercased())
-                .font(WarmInstrument.monoLabel(9))
-                .foregroundColor(WarmInstrument.inkFaint)
-                .kerning(1.2)
-        }
-    }
+/// Was `private struct BigStat` — folded onto the shared `StatCell` (W4). Its label used
+/// `.kerning(1.2)`; `StatCell`'s `MonoLabel` only exposes `.tracking(_:)`, a near-identical but
+/// not pixel-identical character-spacing behavior (LLD-equivalent note, see `Format.swift`).
+private func bigStat(value: String, label: String) -> some View {
+    StatCell(
+        value: value,
+        label: label,
+        valueFont: .system(size: 30, weight: .bold).monospacedDigit(),
+        animatesValue: false,
+        minimumScaleFactor: 0.55,
+        valueLineLimit: 1,
+        labelColor: WarmInstrument.inkFaint,
+        labelTracking: 1.2,
+        spacing: 4,
+        stretchToFill: false
+    )
 }
 
 private struct SportHoursTile: View {

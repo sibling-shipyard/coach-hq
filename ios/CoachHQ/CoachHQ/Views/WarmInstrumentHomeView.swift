@@ -603,9 +603,7 @@ struct EngineDetailView: View {
         CoachReadCard(read: coachRead)
     }
 
-    private var loadLabel: String {
-        engine.load == engine.load.rounded() ? "\(Int(engine.load))" : String(format: "%.1f", engine.load)
-    }
+    private var loadLabel: String { Format.number(engine.load) }
 }
 
 private struct EngineDetailGauge: View {

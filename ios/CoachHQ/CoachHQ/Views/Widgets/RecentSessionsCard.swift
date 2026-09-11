@@ -102,7 +102,7 @@ private struct SwipeToEditRow<Content: View>: View {
                     .tracking(0.8)
                     .foregroundColor(.white)
                     .frame(width: actionWidth, height: 44)
-                    .background(Color(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255))
+                    .background(WarmInstrument.editAction)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .opacity(offset < -20 ? 1 : 0)

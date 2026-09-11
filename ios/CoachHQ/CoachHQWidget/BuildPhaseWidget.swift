@@ -123,11 +123,11 @@ struct BuildPhaseWidgetView: View {
                 .frame(height: 4)
             // Deload
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255))
+                .fill(WarmInstrument.buildPhaseDeload)
                 .frame(height: 4)
             // Block 2 — upcoming
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .strokeBorder(Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .strokeBorder(WarmInstrument.buildPhaseUpcoming, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 .frame(height: 4)
             // Test week
             RoundedRectangle(cornerRadius: 3, style: .continuous)
