@@ -178,12 +178,6 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
   });
 
   it("an ordinary First Session turn with a profile_update lands in profile.json and returns the fresh repoSha", async () => {
-    // commitOrdinaryTurn only ever persists fspIncrementalWrites - real behavior (fspWrites.ts)
-    // is that an ordinary turn commits nothing at all once the profile was already complete
-    // going in; only a still-incomplete profile lets an ordinary turn's profile_update land
-    // immediately, as First Session Protocol incremental progress. A complete-profile athlete's
-    // profile_update only lands on close (see the next test). Discovered by this test initially
-    // asserting the wrong thing against a complete-profile fixture.
     // Deliberately no seasons.json/quests.json/complete profile - isFirstSessionRitualDone
     // (coachChatFiles.ts) is false whenever any of profile/memory/seasons is missing or
     // incomplete, which is exactly the state this test needs.
@@ -213,9 +207,32 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     // Untouched fields survive the merge - this is the layer-1/layer-2 seam actually working
     // together, not a layer-2 test overwriting the whole file.
     expect(committedProfile.name).toBe("Skanda");
-    // No chat/coach_log write on an ordinary turn, even a First Session one - only the FSP
-    // candidate writes commit here.
-    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(false);
+    // chatWrite is folded into the always-commit set on ordinary turns too (#616).
+    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
+  });
+
+  it("an ordinary turn with a profile_update lands immediately for a returning (complete-profile) athlete (#616)", async () => {
+    const repo = createFakeRepo(repoFixture());
+    const gemini = createFakeGemini([
+      {
+        reply: "Got it, updated your weight.",
+        profile_update: [{ field: "weight_kg", value: "76" }],
+      },
+    ]);
+
+    const response = await runTurn("owner/repo-1b", repo, gemini, {
+      threadId: "thread-1b",
+      priorMessages: [],
+      trimmed: "I'm 76kg now",
+      geminiMessage: "I'm 76kg now",
+      endConversationRequested: false,
+    });
+
+    const body = await response.json();
+    expect(body).toMatchObject({ reply: "Got it, updated your weight.", closed: false });
+    expect(body.repoSha).not.toBe("head-sha-0");
+    const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
+    expect(committedProfile.weight_kg).toBe(76);
   });
 
   it("a closing turn with a coach_note commits chat + coach_log together and reports closed", async () => {
