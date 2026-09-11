@@ -1,0 +1,121 @@
+[
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 1/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        }
+      ],
+      "userMessage": "I'm 28, 178cm, 82kg, based in Mumbai."
+    },
+    "output": {
+      "reply": "Got it. Mumbai time, 178cm, and 82kg locked in. What are we working towards? Give me your main goal right now.",
+      "coach_note": "Onboarding started: 28 years old, 178cm, 82kg, based in Mumbai (Asia/Kolkata). Awaiting primary training goal.",
+      "profile_update": [
+        {
+          "field": "height_cm",
+          "value": "178"
+        },
+        {
+          "field": "weight_kg",
+          "value": "82"
+        },
+        {
+          "field": "timezone",
+          "value": "Asia/Kolkata"
+        },
+        {
+          "field": "dob",
+          "value": "1998"
+        }
+      ]
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "profile.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 2/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        },
+        {
+          "id": "u-1788343484723",
+          "role": "user",
+          "text": "I'm 28, 178cm, 82kg, based in Mumbai."
+        },
+        {
+          "id": "c-1788343484723",
+          "role": "coach",
+          "paragraphs": [
+            "Got it. Mumbai time, 178cm, and 82kg locked in. What are we working towards? Give me your main goal right now."
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking."
+    },
+    "output": {
+      "reply": "Clear targets. I'm setting up a season running through the end of 2026 focused on getting stronger overall, and I've locked in your two daily quests: 10 minutes of reading, and staying smoke-free.\n\nTo build that strength, we need a consistent lifting schedule. How many days a week can you realistically commit to strength training right now?",
+      "coach_note": "Athlete aiming to get stronger overall by end of 2026. Committed to daily reading (10+ mins) and quitting smoking.",
+      "quest_create": {
+        "quests": [
+          {
+            "name": "Read 10 mins",
+            "type": "daily_streak",
+            "polarity": "default_not_done"
+          },
+          {
+            "name": "Smoke-free",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          }
+        ]
+      },
+      "season_start": {
+        "name": "End of 2026 Strength",
+        "start_date": "2026-09-02",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Stronger Overall",
+          "type": "progress",
+          "target": 100
+        }
+      }
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "quests.json",
+        "seasons.json"
+      ]
+    }
+  }
+]

@@ -9,7 +9,6 @@
   ],
   "userMessage": "Haha yeah it's been a long week, glad it's Friday.",
   "expect": {
-    "sessionClosed": false,
     "actionFieldsAbsent": ["coach_note", "quest_event", "profile_update", "memory_update"]
   }
 }

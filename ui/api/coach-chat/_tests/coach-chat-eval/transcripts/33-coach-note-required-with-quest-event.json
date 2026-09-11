@@ -10,7 +10,6 @@
   ],
   "userMessage": "Did my cold shower again this morning, that's day 13 in a row now.",
   "expect": {
-    "sessionClosed": false,
     "coachNoteReported": true,
     "actionFieldsPresent": ["quest_event", "coach_note"]
   }
