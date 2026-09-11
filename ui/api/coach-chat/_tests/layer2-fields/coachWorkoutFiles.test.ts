@@ -437,6 +437,17 @@ describe("adjustTemplatesWithGemini", () => {
 
     await expect(
       adjustTemplatesWithGemini("fake-api-key", [fakeTemplate()], memory()),
-    ).rejects.toThrow("upstream 503");
+    ).rejects.toMatchObject({ message: "upstream 503", model: "gemini-pro-latest" });
+  });
+
+  it("tags the resolved model onto a malformed-JSON SyntaxError too, not just an adapter throw", async () => {
+    generateMock.mockResolvedValue({
+      text: "not valid json",
+      telemetry: { adapter: "gemini", model: "gemini-pro-latest" },
+    });
+
+    await expect(
+      adjustTemplatesWithGemini("fake-api-key", [fakeTemplate()], memory()),
+    ).rejects.toMatchObject({ model: "gemini-pro-latest" });
   });
 });

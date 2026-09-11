@@ -358,6 +358,18 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
   ].join("\n");
 
   const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
+  // Tags the resolved adapter's real model onto any throw below, same as geminiClient.ts's
+  // askGemini - generateInitialTemplates's own catch reports this to Sentry and must not always
+  // claim direct Gemini ran when LLM_PROVIDER=openrouter picked a different adapter. Wraps the
+  // JSON.parse below too, not just adapter.generate() - a malformed 2xx body is otherwise an
+  // untagged SyntaxError, the same mislabeling this file's other caller was fixed for.
+  const withModelTag = <T>(err: T): T => {
+    if (err && typeof err === "object" && !("model" in err)) {
+      Object.assign(err, { model: adapter.model });
+    }
+    return err;
+  };
+
   let result;
   try {
     result = await adapter.generate({
@@ -368,16 +380,15 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
       timeoutMs: 20_000,
     });
   } catch (err) {
-    // Tags the resolved adapter's real model onto the throw, same as geminiClient.ts's askGemini -
-    // generateInitialTemplates's own catch reports this to Sentry and must not always claim
-    // direct Gemini ran when LLM_PROVIDER=openrouter picked a different adapter.
-    if (err && typeof err === "object" && !("model" in err)) {
-      Object.assign(err, { model: adapter.model });
-    }
-    throw err;
+    throw withModelTag(err);
   }
 
-  const parsed = JSON.parse(result.text) as { adjustments?: TemplateAdjustment[] };
+  let parsed: { adjustments?: TemplateAdjustment[] };
+  try {
+    parsed = JSON.parse(result.text) as { adjustments?: TemplateAdjustment[] };
+  } catch (err) {
+    throw withModelTag(err);
+  }
   return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
 };
 
