@@ -7,7 +7,7 @@ import SwiftUI
 /// 10pt bold uppercase tracked section headers, sport-colored left bars, and a green accent
 /// for progress/active states. The old neo-brutalist tokens (white cards, 12pt radius,
 /// `brandRed`) are retired; see `WarmInstrument` for the terracotta load/primary-action accent
-/// (ADR 0038) and the rest of the Warm Instrument palette.
+/// (ADR 0041) and the rest of the Warm Instrument palette.
 enum Theme {
     // MARK: - Appearance
 
@@ -199,7 +199,7 @@ enum WarmInstrument {
             : UIColor(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255, alpha: 1)
     })
 
-    /// Terracotta — load and primary action (ADR 0038): Engine hero, commitment cube fills
+    /// Terracotta — load and primary action (ADR 0041): Engine hero, commitment cube fills
     /// tied to load, and primary CTAs (timer actions, Sync Now). Never decorative, never a
     /// status color.
     static let accent = Color(red: 0x7f / 255, green: 0x37 / 255, blue: 0x28 / 255)
