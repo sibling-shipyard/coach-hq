@@ -74,7 +74,9 @@ enum UsualRowBuilder {
     }
 
     /// Used when the activity JSON carries no stored `vs_usual` block: computes the same
-    /// comparison from the ten most recent same-sport entries in `SyncCache`.
+    /// comparison from the 20 most recent same-sport entries in `SyncCache` — matching
+    /// `engine/core/vs_usual.py`'s `BASELINE_LIMIT` so the on-device fallback and the
+    /// server-computed baseline agree on window size.
     static func cachedRows(
         allEntries: [SyncCacheEntry],
         currentSportType: String,
@@ -87,7 +89,7 @@ enum UsualRowBuilder {
             allEntries
                 .filter { $0.sportType == currentSportType && $0.fileName != currentFileName }
                 .sorted { $0.startDateLocal > $1.startDateLocal }
-                .prefix(10)
+                .prefix(20)
         )
         var rows: [UsualRow] = []
 

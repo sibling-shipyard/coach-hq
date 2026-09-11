@@ -128,7 +128,7 @@ enum RibbonBuilder {
         var work: [Int] = []
         for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
 
-        var seed = UInt64(bitPattern: Int64(truncatingIfNeeded: seedKey.hashValue))
+        var seed = stableHash(seedKey)
         for i in stride(from: work.count - 1, through: 1, by: -1) {
             seed = seed &* 6364136223846793005 &+ 1442695040888963407
             let j = Int(seed >> 33) % (i + 1)
@@ -153,5 +153,17 @@ enum RibbonBuilder {
         for _ in lastFrom..<recCount { seq.append(0) }
 
         return seq
+    }
+
+    /// FNV-1a over `key`'s UTF-8 bytes. `String.hashValue` is seeded randomly per process launch
+    /// (Swift's `Hasher`), so it can't back `estimatedSequence`'s "same activity, same estimate"
+    /// guarantee across app relaunches — this is deterministic for the same input in every process.
+    private static func stableHash(_ key: String) -> UInt64 {
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in key.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
+        return hash
     }
 }

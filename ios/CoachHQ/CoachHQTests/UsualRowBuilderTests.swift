@@ -118,10 +118,11 @@ final class UsualRowBuilderTests: XCTestCase {
         XCTAssertEqual(rows.first?.usualValue, 3000, "median of {2800, 3200}, Ride entry excluded")
     }
 
-    func testCachedRowsOnlyKeepsTheTenMostRecentPriorSessions() {
+    func testCachedRowsOnlyKeepsTheTwentyMostRecentPriorSessions() {
         let current = entry(elapsedTime: 100, daysAgo: 0)
-        // 11 prior sessions of varying duration; only the 10 most recent (daysAgo 1...10) count.
-        let prior = (1...11).map { entry(elapsedTime: $0 * 100, daysAgo: $0) }
+        // 21 prior sessions of varying duration; only the 20 most recent (daysAgo 1...20) count —
+        // matching engine/core/vs_usual.py's BASELINE_LIMIT (20).
+        let prior = (1...21).map { entry(elapsedTime: $0 * 100, daysAgo: $0) }
 
         let rows = UsualRowBuilder.cachedRows(
             allEntries: prior + [current],
@@ -132,9 +133,9 @@ final class UsualRowBuilderTests: XCTestCase {
             currentHRZones: nil
         )
 
-        // daysAgo 11 (elapsedTime 1100) is the oldest and must be excluded from the median.
+        // daysAgo 21 (elapsedTime 2100) is the oldest and must be excluded from the median.
         let durationRow = rows.first { $0.label == "Duration" }
         XCTAssertNotNil(durationRow)
-        XCTAssertFalse([1100].contains(durationRow!.usualValue))
+        XCTAssertFalse([2100].contains(durationRow!.usualValue))
     }
 }

@@ -509,6 +509,20 @@ final class RibbonBuilderTests: XCTestCase {
         XCTAssertEqual(a, b)
     }
 
+    /// A pinned expected value, not just "two in-process calls agree" (the test above): a seed
+    /// with any per-process randomness in it stays self-consistent within one run and would pass
+    /// that test too, so only a value fixed across separate runs actually proves the seed itself
+    /// is stable across app launches.
+    func testEstimatedSequenceMatchesPinnedGoldenValue() {
+        let zones: [String: HRZoneEntry] = [
+            "Zone 1": HRZoneEntry(low: 0, high: 100, seconds: 300),
+            "Zone 3": HRZoneEntry(low: 121, high: 140, seconds: 600),
+        ]
+        let result = RibbonBuilder.estimatedSequence(elapsedSeconds: 1800, zones: zones, seedKey: "hk_2026-08-23_abc")
+
+        XCTAssertEqual(result, [2, 2, 2, 0, 2, 2, 0])
+    }
+
     func testEstimatedSequenceChangesWithSeedKey() {
         let zones: [String: HRZoneEntry] = [
             "Zone 1": HRZoneEntry(low: 0, high: 100, seconds: 300),
