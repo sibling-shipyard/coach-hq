@@ -196,3 +196,32 @@ test("an already-attached unplanned session's activity doesn't get re-attached a
   const result = reconcileWeek(alreadyAttached, [activity()], "2026-08-18");
   assert.equal(result.days[0].sessions.length, 1);
 });
+
+// Regression, found live against a real athlete repo: a session moved earlier in the week keeps
+// the id it was minted with on its ORIGINAL day (schema-correct - parseCurrentWeek requires ids
+// unique across the whole week, not just within a day). If that original day is now empty and an
+// unrelated activity lands there, the naive "sess_<date>_<day's own session count + 1>" scheme
+// regenerates the exact same id the moved session already owns elsewhere in the week.
+test("a new unplanned session never collides with a moved session's id from elsewhere in the week", () => {
+  const w = week([
+    { date: "2026-08-17", intent: null, coach_note: null, sessions: [] },
+    {
+      date: "2026-08-19",
+      intent: null,
+      coach_note: null,
+      sessions: [
+        plannedSession({
+          id: "sess_20260817_1",
+          status: "done",
+          original_date: "2026-08-17",
+        }),
+      ],
+    },
+  ]);
+  const result = reconcileWeek(w, [activity({ id: "NEW-1", start_date_local: "2026-08-17T08:00:00" })], "2026-08-18");
+  const newSession = result.days[0].sessions[0];
+  assert.equal(newSession.origin, "unplanned");
+  assert.notEqual(newSession.id, "sess_20260817_1");
+  const ids = result.days.flatMap((d) => d.sessions.map((s) => s.id));
+  assert.equal(new Set(ids).size, ids.length);
+});

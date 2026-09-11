@@ -103,6 +103,27 @@ export function reconcileWeek(currentWeek, activities, todayDateStr) {
     currentWeek.days.flatMap((day) => day.sessions.flatMap((s) => s.completion_activity_ids ?? [])),
   );
 
+  // Session ids are unique across the WHOLE week, not just within a day (parseCurrentWeek checks
+  // every id against one Set spanning all seven days) - a moved session keeps the id it was
+  // minted with on its original day, so a later day can be legitimately empty while that id is
+  // still "in use" elsewhere in the week. Seeding this from every real id up front, and checking
+  // it on every new id this pass mints, is what catches that instead of relying on a plain
+  // date+index guess that assumes a day's own session count is the only source of collisions.
+  const usedIds = new Set(
+    currentWeek.days.flatMap((day) => day.sessions.map((s) => s.id)),
+  );
+  function mintSessionId(date) {
+    const base = `sess_${date.replace(/-/g, "")}`;
+    let n = 1;
+    let id = `${base}_${n}`;
+    while (usedIds.has(id)) {
+      n += 1;
+      id = `${base}_${n}`;
+    }
+    usedIds.add(id);
+    return id;
+  }
+
   const days = currentWeek.days.map((day) => {
     const dayActivities = activitiesByDate.get(day.date) ?? [];
     const sessions = day.sessions.map((session) => {
@@ -143,7 +164,7 @@ export function reconcileWeek(currentWeek, activities, todayDateStr) {
     for (const activity of unmatched) {
       const id = qualifiedActivityId(activity);
       day.sessions.push({
-        id: `sess_${day.date.replace(/-/g, "")}_${day.sessions.length + 1}`,
+        id: mintSessionId(day.date),
         origin: "unplanned",
         discipline: classifyDiscipline(activity),
         kind: "logged",
