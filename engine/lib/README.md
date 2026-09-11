@@ -37,6 +37,7 @@ backstop that mirrors the three constants by hand because it can't import a TS m
 | `text-caps.mts` | TS | Bundled into `ui/api/coach-chat/_lib` via `ui/scripts/bundle-text-caps-api.mjs`, consumed by the coach-chat schema/prompt and write-time checks | Source of truth for the three Coach free-text length caps (issue #462). `engine/scripts/validate-text-caps.py` mirrors the numbers by hand as a CI-only backstop since it can't import a TS module. |
 | `current-week.mts` | TS | `engine/scripts/validate-current-week.mts`, `ui/scripts/validate-current-week.mts`, bundled into `ui/api/coach-chat/_lib` via `ui/scripts/bundle-current-week-api.mjs` | `current_week.json` schema/validation, shared between the engine-side validator and the coach-chat bundle. No Python counterpart. |
 | `projectActivity.mjs` | JS | `engine/scripts/build-dashboard-snapshot.mjs` | Projects an activity record down to what the dashboard snapshot needs. No Python counterpart - JS-only. |
+| `compileWorkout.mts` | TS | Nothing yet - `A2` (workouts redesign, issue #727) wires it into the coach-chat write path via a bundle shim, same pattern as `current-week.mts`. `engine/scripts/compile-dryrun.mts` calls it read-only today. | Pure function: a minimal exercise spec in, timer-ready JSON out. Fills rest/prep/numbering/duration deterministically; never recomputes a field the spec already sets. No Python counterpart. |
 
 ## What I couldn't determine
 

@@ -1,0 +1,62 @@
+{
+  "id": "compile_golden",
+  "title": "Golden compile",
+  "subtitle": "Synthetic fixture — not a live template",
+  "workout_type": "strength",
+  "location": "Home",
+  "equipment": ["None"],
+  "coaching_note": "Synthetic. Covers numbering, rests, duration math, both_sides, and a prep override.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "exercises": [
+        {
+          "name": "Jumping jacks",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 2,
+          "form_cue": "Light bounce, arms overhead.",
+          "why": "Raise heart rate"
+        }
+      ]
+    },
+    {
+      "name": "Strength",
+      "circuit": true,
+      "rounds": 2,
+      "exercises": [
+        {
+          "name": "Push-ups",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "form_cue": "Full range, elbows about 45 degrees.",
+          "why": "Push strength"
+        },
+        {
+          "name": "Side plank",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 1,
+          "both_sides": true,
+          "form_cue": "Hips stacked. Twenty seconds each side.",
+          "why": "Lateral stability"
+        }
+      ]
+    },
+    {
+      "name": "Finisher",
+      "exercises": [
+        {
+          "name": "Dead hang",
+          "type": "timed",
+          "duration_secs": 15,
+          "sets": 3,
+          "prep_secs": 0,
+          "form_cue": "Passive hang, shoulders packed.",
+          "why": "Grip and decompression"
+        }
+      ]
+    }
+  ]
+}

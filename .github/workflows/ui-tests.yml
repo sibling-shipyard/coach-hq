@@ -9,9 +9,11 @@ on:
     branches: [main]
     paths:
       - 'ui/**'
+      - 'engine/lib/**'
   pull_request:
     paths:
       - 'ui/**'
+      - 'engine/lib/**'
 
 jobs:
   ui-tests:
