@@ -114,6 +114,8 @@ user_data/ledger/
 user_data/activities/workout_plans/
   templates/          -> routines/   (renamed last, dual-read first)
   sessions/           -> compiled/   (same)
+shared/workout-library/
+  exercises.json      reshaped: one movement per entry, not a premade workout (see below)
 ```
 
 **`current_week.json` keeps its name and path here.** Whether individual fields get dropped is a
@@ -130,6 +132,37 @@ work, stated out loud so nobody builds it early by accident.
 **Compiled files are disposable.** They're committed so the timer and iOS can read them offline,
 but they are never treated as truth and never hand-edited. Delete the directory and the next
 compile rebuilds it exactly.
+
+## The exercise catalog
+
+**`shared/workout-library/` stops being complete premade workouts.** Today it holds ~30 full
+`Workout` files. The only thing that ever read them was the signup-time dump: pick 4-6 by tag,
+commit them as-is. That's bug 1 from the top of this doc. Reusing the same catalog shape would just
+move the bug from "picked automatically" to "picked by Coach" - dosing would still come from
+whichever canned file matched an athlete's tags, not from their own benchmark or progressions.
+
+**It becomes a catalog of individual movements instead.** One entry per exercise: a name, the
+muscle group or movement pattern it trains, `type` (`reps` | `timed`), the equipment it needs, a
+real form cue, and a `why`. Tracked movements also carry a `progression_id`. No sets, reps, weight,
+or duration on any entry - a catalog entry describes *what the movement is*, never *how much of
+it*. That's the same split this whole plan makes everywhere else, between Coach's judgment and
+code's mechanics.
+
+**Coach names exercises from the catalog. Coach doses them from the athlete.** Every
+`workout_create` spec - the FSP benchmark, a first-week anchor session, or "give me an upper-body
+workout" months later - picks movements from the catalog by muscle group, sport, and available
+equipment. Sets/reps/weight are set from that athlete's own `progressions.json` current value,
+`injuries.json` active flags, and `profile.json` age. The catalog fixes vocabulary, so Coach never
+invents an unsafe-sounding movement from nothing. Dosing is never read off the catalog - it's
+computed per athlete every time. That's the actual fix for "don't hand a 4kg athlete a 12kg lateral
+raise."
+
+**Coverage can't be thin.** The catalog needs real entries across every movement pattern Coach
+reaches for: push (chest, shoulders, triceps), pull (back, biceps), squat and hinge (legs, glutes,
+hamstrings), core, and calves. Add the calisthenics skill families already tracked in real
+`progressions.json` files: pull-up, handstand, front lever. It also needs prehab entries for the
+injury sites already on file: hip/glute, shoulder, posture. Thin coverage just pushes Coach back to
+inventing exercises outside the catalog, which defeats the point.
 
 ## Reconciliation
 
@@ -187,6 +220,7 @@ live plan or not," and today's question is just "which row is today."
 | 5 | Every compiled file passes structural validation before commit | compiler |
 | 6 | A day marked `done` references a real synced activity id | reconciler |
 | 7 | Every active injury flag is addressed before a routine is written | write path |
+| 8 | A dosed exercise with no existing `progression_id` must name a benchmarked or related movement it's scaled from | write path |
 
 Invariant 7 exists because the old library selector filtered out any workout that conflicted with
 an active injury flag. A model-written routine carries no library tags, so that filter can't carry
@@ -195,6 +229,13 @@ explaining how the routine accounts for it, and the write path refuses to save a
 leaves any active flag unaddressed. Code can't judge whether a routine is actually safe, but it can
 refuse to save one where Coach never considered a known flag at all, and that refusal is auditable
 afterward.
+
+Invariant 8 exists for the same reason, one level earlier. Invariant 2 caps a dose against a
+benchmark that already exists, but a brand-new movement has no ceiling to check against at all.
+Code still can't judge whether Coach's number is actually safe. It can require the spec to name
+what the number was scaled from: a related benchmarked movement, stated experience, or an explicit
+conservative-start note. An invented dose can't slip through with no reasoning attached -
+auditable the same way invariant 7 is.
 
 **The compiler lives in `engine/`, not in the Vercel API code.** The server-side coach is already
 documented elsewhere as a second engine re-implementing the same rules in a different language. A
@@ -215,15 +256,16 @@ at the end of this section.
 | # | Outcome | Base | Owner | Done when |
 |---|---|---|---|---|
 | A1 | `compileWorkout()` in `engine/` | `main` | Bob | A byte-identical golden fixture, and a dry run across all four live repos with every diff explainable line by line |
-| A2 | `workout_create` action, available on any ordinary turn | A1 | Bob | A returning athlete's mid-conversation request writes a valid routine file in that same turn |
-| A3 | First Session writes a benchmark, and a compiled first week | A2 | Bob | A fresh athlete's first close writes a benchmark, populated progressions, and a real first week, not a template dump |
+| A1b | Redesign `shared/workout-library/` into the exercise catalog | A1 | Bob | Real coverage across push/pull/squat/hinge/core/calves and the calisthenics skill families already tracked in `progressions.json`, plus prehab entries for the injury sites already on file |
+| A2 | `workout_create` and `workout_remove` actions, available on any ordinary turn | A1b | Bob | A returning athlete's mid-conversation request writes a valid routine file in that same turn, dosed from their own progressions/injuries, and can remove one on request |
+| A3 | First Session writes a benchmark, and a compiled first week | A2 | Bob | A fresh athlete's first close writes a benchmark, populated progressions, and a real first week assembled from the catalog and dosed from the benchmark - not a template dump |
 | A4 | Soul and carve updated for the new rules | A2 | Tech Lead | Soul validation is clean, and a freshly carved repo can create a routine |
 | A5 | Three-band Workouts page, web | `main` | UI Expert | Today, this week, and library all render from a live repo |
 | A5-ios | Same three bands, iOS | `main`, after A5 | iOS Builder | The Workouts tab shows the same three bands from live repo data |
 | A6 | Recomposed soul and the compiler CLI, into the BYO athlete's own repo | A4 | Tech Lead | That athlete asks for an upper-body workout in their own repo and gets one |
 | ~~A7~~ | ~~Deterministic reconciler~~ - **done**, shipped as PR #978 in the #973 stack | - | - | Every row of the reconciliation table above has a test in `engine/scripts/reconcile-current-week.test.mjs` |
 | ~~A8~~ | ~~Weekly rollover with no chat required~~ - **done**, shipped as PR #979 in the #973 stack | - | - | Verified live: a stale week was replaced with a real current-week frame with no chat involved |
-| A9 | Update `athlete-repo-migration-973.md` for whatever this stack adds to the migration | A1, A2, A3, A6 | Tech Lead | The doc covers every field/script this stack introduces, not just #973's, and stays deferred until an athlete repo actually migrates |
+| A9 | Update `athlete-repo-migration-973.md` for whatever this stack adds to the migration | A1, A1b, A2, A3, A6 | Tech Lead | The doc covers every field/script this stack introduces, not just #973's, and stays deferred until an athlete repo actually migrates |
 
 A1, A5, and A5-ios can start at the same time, since they touch disjoint files. A5 and A5-ios no
 longer wait on anything from #732/#733/#734: see "What happened to #732, #733, and #734" below.
@@ -299,6 +341,11 @@ datastore and nothing partial survives a revert.
   workouts.
 - Changing a progression changes the next compile automatically, with no edit to any routine file.
 - An athlete with an active injury flag is never offered a routine that conflicts with it.
+- Every dosed number traces to that athlete's own benchmark, progressions, or an explicit scaling
+  note - never to a premade workout picked off a shelf.
+- `shared/workout-library/` is an exercise catalog with real coverage across every major movement
+  pattern, not a thin stand-in.
+- An athlete can ask for a routine to be removed and it's gone, manifest included.
 - Every invariant above has a test that fails when it's violated.
 - All four live repos, BYO included, keep working throughout.
 - `docs/plans/athlete-repo-migration-973.md` describes every field and script this stack adds,
@@ -314,6 +361,12 @@ question about periodization.
 **Skip the near-term stack, design the periodization version first.** Not recommended. It designs
 on the unverified churn question the gated stack itself refuses to design around, and both live
 bugs stay open for the entire build.
+
+**Keep `shared/workout-library/` as complete premade workouts, only fix the automatic dump.**
+Smaller diff: stop auto-committing 4-6 of them at signup, but let Coach still hand one over
+wholesale on request. Rejected - this still doses every athlete from whichever canned file matches
+their tags closest, not from their own benchmark and progressions. That's the actual bug, not just
+where in the flow it happens.
 
 ## Deferred
 
