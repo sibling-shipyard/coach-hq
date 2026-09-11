@@ -38,6 +38,7 @@
 | 0036 | agent-kit: extract in place, then carve | cross-cutting |
 | 0037 | Chat history: full retention in storage, display still capped at 7 | cross-cutting (coach-chat API, web, iOS) |
 | 0038 | Coaching style restored, this time wired into SOUL's voice rules | cross-cutting (coach-chat backend, SOUL) |
+| 0039 | Widgets are modules, not screen-embedded views | ios |
 
 <details>
 <summary>Superseded / historical (4) — kept for the citations, not for the boot read</summary>
