@@ -1,6 +1,6 @@
 {
   "name": "fsp-quest-create-after-profile-complete",
-  "description": "B1 regression: profile fields complete in an early turn, goal + habits land in a later turn of the same conversation. season_start (main_quest bundled in, per B3) and quest_create must still fire once the goal is stated. Only meaningful with A1 landed underneath this PR in the stack - turn 1's profile_update has to actually persist (ordinary-turn writes no longer discarded) for isAthleteProfileComplete to flip true before turn 2 runs. Placeholder removal (this PR) means the completion gate isFirstSessionRitualDone can no longer be fooled by a seeded main_quest, so the ritual genuinely stays open into turn 2. NOTE: this harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises the response schema and coachPromptText.ts logic only, not SOUL prompt wording. KNOWN FLAKY FAILURE (issue #808): turn 2's quest_create is non-deterministic on live Gemini - season_start fires every time, quest_create was missing about 1 in 3 live runs even though the reply text still claims the habits are set. Left in and asserted strictly on purpose (this is the exact scenario the redesign traces back to) rather than loosened to fake a stable green.",
+  "description": "B1 regression: profile fields complete in an early turn, goal + habits land in a later turn of the same conversation. season_start (main_quest bundled in, per B3) must still fire once the goal is stated, with the habits in its own new_habits array (#808's structural fix - required, not the separate quest_create field, for this compound case). Only meaningful with A1 landed underneath this PR in the stack - turn 1's profile_update has to actually persist (ordinary-turn writes no longer discarded) for isAthleteProfileComplete to flip true before turn 2 runs. Placeholder removal (this PR) means the completion gate isFirstSessionRitualDone can no longer be fooled by a seeded main_quest, so the ritual genuinely stays open into turn 2. NOTE: this harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises the response schema and coachPromptText.ts logic only, not SOUL prompt wording.",
   "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n(none yet)\n",
   "history": [
@@ -26,7 +26,8 @@
       "firstSession": true,
       "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking.",
       "expect": {
-        "actionFieldsPresent": ["season_start", "quest_create"]
+        "actionFieldsPresent": ["season_start", "season_start.new_habits"],
+        "actionFieldsAbsent": ["quest_create"]
       }
     }
   ]

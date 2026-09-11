@@ -330,9 +330,10 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
 
   it('issue #609/D1 (#736): a template_edit sentinel of "none" no longer costs the chat message', async () => {
     // D1 layer 3 splits the facts commit from the chat commit - a bad structured field
-    // (template_edit referencing a nonexistent template) fails only the facts commit; the chat
-    // message still lands, and the failure surfaces as a dropped action instead of a 502 that
-    // discarded everything, including the otherwise-valid chat write.
+    // (template_edit referencing a nonexistent template) never even reaches commitFilesAtomic
+    // any more (validateTemplateEdit drops it before templateEditWrite is built, fixing the
+    // applier's throw aborting the whole atomic commit on one bad id); the chat message lands
+    // either way, and the failure surfaces as a validation-kind dropped action.
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
       { reply: "All set for today.", template_edit: { template_id: "none" } },
@@ -350,10 +351,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(body).toMatchObject({ reply: "All set for today." });
     expect(body.droppedActions).toEqual([
       expect.objectContaining({
-        field: "user_data/activities/workout_plans/templates/none.json",
+        field: "template_edit",
+        reason: expect.stringContaining('"none"'),
       }),
     ]);
-    // The chat message committed despite the facts commit failing.
+    // The chat message committed - there was never a facts commit to fail in the first place.
     expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
   });
 
@@ -468,6 +470,117 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(secondTurnState.athleteContext).toContain("quest_event");
   });
 
+  // The real production bug this whole D1 layer 3 pattern was missing until now.
+  // applyTemplateEdit/applySessionReconcile threw INSIDE commitFilesAtomic's resolve loop the
+  // moment they hit a bad id - one throw aborted the whole atomic commit, so a stale
+  // template_id or session_id cost every other real fact in the same turn (here, a weight
+  // update), not just itself. validateTemplateEdit/validateSessionReconcile now catch both
+  // before either write is built, so only the two bad fields drop and the valid one commits.
+  it("a hallucinated template_id and session_id in the same turn each get dropped on their own - a valid profile_update still commits", async () => {
+    const currentWeek = JSON.stringify({
+      schema_version: 1,
+      data_status: "live",
+      timezone: "America/New_York",
+      week: {
+        id: "2026-W34",
+        start_date: "2026-08-17",
+        end_date: "2026-08-23",
+        focus: null,
+        guardrails: [],
+      },
+      coach_read: {
+        headline: "Steady week ahead.",
+        body: "Focus on consistency.",
+        valid_from: "2026-08-17",
+        valid_until: "2026-08-23",
+      },
+      days: [
+        {
+          date: "2026-08-17",
+          intent: null,
+          coach_note: null,
+          sessions: [
+            {
+              id: "sess_20260817_1",
+              origin: "planned",
+              discipline: "run",
+              kind: "easy",
+              title: "Easy 5k",
+              priority: "anchor",
+              status: "planned",
+              planned_duration_min: 30,
+              planned_load: null,
+              template_id: null,
+              session_file: null,
+              coach_note: null,
+              original_date: null,
+              completion_activity_ids: [],
+            },
+          ],
+        },
+        ...["2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"].map(
+          (date) => ({ date, intent: null, coach_note: null, sessions: [] }),
+        ),
+      ],
+      coach_comments: [],
+      updated_at: "2026-08-17T12:00:00.000Z",
+      updated_by: "model",
+      trace_id: "old",
+    });
+
+    const repo = createFakeRepo(
+      repoFixture({
+        "user_data/activities/workout_plans/templates/_manifest.json": JSON.stringify({
+          template_ids: ["strength_b"],
+        }),
+        "user_data/activities/workout_plans/templates/strength_b.json": VALID_TEMPLATE,
+        "user_data/ledger/current_week.json": currentWeek,
+      }),
+    );
+    const gemini = createFakeGemini([
+      {
+        reply: "Updated your weight and looked into those.",
+        coach_note: "Logged a weight update.",
+        profile_update: [{ field: "weight_kg", value: "78" }],
+        template_edit: { template_id: "made_up_template" },
+        session_reconcile: [{ session_id: "made_up_session", status: "done" }],
+      },
+    ]);
+
+    const response = await runTurn("owner/repo-808-bug", repo, gemini, {
+      threadId: "thread-808",
+      priorMessages: [],
+      trimmed: "I'm 78kg now, also drop the warmup and mark today's run done",
+      geminiMessage: "I'm 78kg now, also drop the warmup and mark today's run done",
+    });
+
+    const body = await response.json();
+    expect(body).toMatchObject({ reply: "Updated your weight and looked into those." });
+    expect(body.droppedActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "template_edit" }),
+        expect.objectContaining({ field: "session_reconcile" }),
+      ]),
+    );
+    expect(body.droppedActions).toHaveLength(2);
+    // Both drops are pre-write validation drops (kind defaults to "validation") - neither ever
+    // reached commitFilesAtomic to fail as a commit_failure.
+    for (const dropped of body.droppedActions) {
+      expect(dropped.kind).toBeUndefined();
+    }
+
+    const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
+    expect(committedProfile.weight_kg).toBe(78);
+    // Neither the template nor current_week.json changed - both bad ids were dropped before any
+    // write targeting them was ever built.
+    expect(
+      JSON.parse(repo.files.get("user_data/activities/workout_plans/templates/strength_b.json")!),
+    ).toEqual(JSON.parse(VALID_TEMPLATE));
+    expect(
+      JSON.parse(repo.files.get("user_data/ledger/current_week.json")!).days[0].sessions[0].status,
+    ).toBe("planned");
+  });
+
   // B3: a returning athlete starting a new season with its goal, plus a habit quest, in the same
   // turn - exercises the real two-file season_start write (seasonWrite/questWrite ordering in
   // turnWrites/seasonWrite.ts) merged with quest_create's own quests.json write, through the
@@ -507,6 +620,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
           start_date: "2026-08-18",
           end_date: "2027-02-01",
           main_quest: { name: "Run a marathon", type: "count_target", target: 1 },
+          new_habits: [],
         },
         quest_create: { quests: [{ name: "Stretch daily", type: "daily_streak" }] },
         coach_note: "Started a new season: Marathon Build. Added a daily stretch habit quest.",

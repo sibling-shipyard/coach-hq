@@ -1,0 +1,26 @@
+{
+  "name": "returning-standalone-habit-no-season-change",
+  "description": "Baseline check for #808's design discussion: a returning athlete states a new daily habit mid-season, with no season/goal change in the same message at all. Establishes whether quest_create is reliable on its own (no season_start pairing), since #808 was only ever filed against the compound case - this path has never been live-tested.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-4 marathon\n- **Timeline / Upcoming events:** March 1 2027\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-4 Marathon\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["Good session yesterday. How are you feeling today?"]
+    }
+  ],
+  "userMessage": "Feeling good. I want to start a new habit actually - read for 30 mins every day.",
+  "expect": {
+    "actionFieldsPresent": ["quest_create"],
+    "actionFieldsAbsent": [
+      "season_start",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
+  }
+}

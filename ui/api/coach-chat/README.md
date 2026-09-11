@@ -75,7 +75,6 @@ must not depend on prompt text.
 | `activitySyncTurn.ts`  | Persist-on-sync Coach turn — one committed thread per verified batch                                      |
 | `turnWrites/`          | One file per `GeminiReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
 | `onboardingWrites.ts`  | Normalize native onboarding hints and suppress duplicate greet commits                                    |
-| `fspWrites.ts`         | Filter helper for a turn's own write candidates (kept for its unit tests; not wired into commitTurn)      |
 
 ### Conversation lifecycle
 

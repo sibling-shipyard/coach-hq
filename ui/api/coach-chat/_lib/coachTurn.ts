@@ -37,8 +37,13 @@ import { captureGeminiFailure, captureValidationFailure } from "../../_lib/sentr
 import {
   validateQuestEvents,
   validateInjuryEvents,
+  validateTemplateEdit,
+  validateSessionPlan,
+  validateSessionReconcile,
+  validatePlanEdit,
   type DroppedAction,
 } from "./decide/turnWrites/validateActions.js";
+import { CURRENT_WEEK_PATH, validSessionIdsFromCurrentWeek } from "./decide/coachWeekFiles.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -604,6 +609,94 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     turn.validQuestIds,
   );
 
+  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit)
+  // are available on every returning-athlete turn now, not gated to a closing turn - so the
+  // templates-manifest fetch that validates their template_id references has to move here too,
+  // and stay lazy: fetch it only when the reply actually asked for one of these, not on every
+  // ordinary turn that never touches them (that would reintroduce the exact eager GitHub-read
+  // cost this PR removes). Gemini itself gets no pre-fetched id list any more (see
+  // coachPromptText.ts) - a wrong id just fails validation below instead of committing.
+  //
+  // This block sits before the droppedActions loop below (not after, where it used to live) so a
+  // hallucinated template_id/session_id gets folded into this turn's own dropped-actions loop and
+  // coach_note, exactly like a bad quest_id/flag_id already does - same D1 layer 3 discipline:
+  // validate every referential id before any write is built, not just quest/injury.
+  const needsTemplateContext =
+    reply.template_edit != null ||
+    reply.session_plan != null ||
+    reply.week_plan != null ||
+    (reply.session_reconcile?.length ?? 0) > 0 ||
+    (reply.plan_edit?.length ?? 0) > 0;
+  const validTemplateIds: ReadonlySet<string> = needsTemplateContext
+    ? validTemplateIdsFromManifest(
+        await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
+      )
+    : new Set<string>();
+
+  const { valid: validatedTemplateEdit, dropped: droppedTemplateEdit } = validateTemplateEdit(
+    reply.template_edit,
+    validTemplateIds,
+  );
+  droppedActions.push(...droppedTemplateEdit);
+  const templateEditWrite = buildTemplateEditWrite(
+    repo,
+    token,
+    traceId,
+    validatedTemplateEdit,
+    validTemplateIds,
+  );
+
+  const { valid: validatedSessionPlan, dropped: droppedSessionPlan } = validateSessionPlan(
+    reply.session_plan,
+    validTemplateIds,
+  );
+  droppedActions.push(...droppedSessionPlan);
+  const sessionPlanWrite = buildSessionPlanWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    validatedSessionPlan,
+    validTemplateIds,
+  );
+
+  // Same pre-validate-before-build discipline as template_id above, applied to session_reconcile/
+  // plan_edit's session_id. current_week.json is fetched once here, only when one of those fields
+  // is actually present (same lazy-fetch discipline as validTemplateIds), and that same read is
+  // handed to buildCurrentWeekWrite so its resolve() reuses it instead of fetching it again -
+  // what got validated is exactly what gets patched, no race window between two separate reads.
+  const rawSessionReconcile = reply.session_reconcile ?? [];
+  const rawPlanEdit = reply.plan_edit ?? [];
+  const needsCurrentWeekContext = rawSessionReconcile.length > 0 || rawPlanEdit.length > 0;
+  const currentWeekContent = needsCurrentWeekContext
+    ? await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
+    : undefined;
+  const validSessionIds = needsCurrentWeekContext
+    ? validSessionIdsFromCurrentWeek(currentWeekContent ?? null)
+    : new Set<string>();
+
+  const { valid: sessionReconcileEvents, dropped: droppedSessionReconcile } =
+    validateSessionReconcile(rawSessionReconcile, validSessionIds);
+  droppedActions.push(...droppedSessionReconcile);
+
+  const { valid: planEditEvents, dropped: droppedPlanEdit } = validatePlanEdit(
+    rawPlanEdit,
+    validSessionIds,
+  );
+  droppedActions.push(...droppedPlanEdit);
+
+  const currentWeekWrite = buildCurrentWeekWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    reply.week_plan,
+    sessionReconcileEvents,
+    planEditEvents,
+    validTemplateIds,
+    currentWeekContent,
+  );
+
   for (const dropped of droppedActions) {
     console.error("[coach-chat] dropped a structured-fact action - bad reference:", dropped, {
       traceId,
@@ -648,53 +741,6 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     (update) => update.field != null && update.value != null,
   );
   const profileUpdateWrite = buildProfileUpdateWrite(repo, token, profileUpdates);
-
-  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit)
-  // are available on every returning-athlete turn now, not gated to a closing turn - so the
-  // templates-manifest fetch that validates their template_id references has to move here too,
-  // and stay lazy: fetch it only when the reply actually asked for one of these, not on every
-  // ordinary turn that never touches them (that would reintroduce the exact eager GitHub-read
-  // cost this PR removes). Gemini itself gets no pre-fetched id list any more (see
-  // coachPromptText.ts) - a wrong id just fails validation below instead of committing.
-  const needsTemplateContext =
-    reply.template_edit != null ||
-    reply.session_plan != null ||
-    reply.week_plan != null ||
-    (reply.session_reconcile?.length ?? 0) > 0 ||
-    (reply.plan_edit?.length ?? 0) > 0;
-  const validTemplateIds: ReadonlySet<string> = needsTemplateContext
-    ? validTemplateIdsFromManifest(
-        await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
-      )
-    : new Set<string>();
-
-  const templateEditWrite = buildTemplateEditWrite(
-    repo,
-    token,
-    traceId,
-    reply.template_edit,
-    validTemplateIds,
-  );
-
-  const sessionPlanWrite = buildSessionPlanWrite(
-    repo,
-    token,
-    timezone,
-    traceId,
-    reply.session_plan,
-    validTemplateIds,
-  );
-
-  const currentWeekWrite = buildCurrentWeekWrite(
-    repo,
-    token,
-    timezone,
-    traceId,
-    reply.week_plan,
-    reply.session_reconcile ?? [],
-    reply.plan_edit ?? [],
-    validTemplateIds,
-  );
 
   const { today } = turn;
 
