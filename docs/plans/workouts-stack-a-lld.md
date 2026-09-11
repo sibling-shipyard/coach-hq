@@ -1,6 +1,7 @@
 # Stack A — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-11 (re-verified against the chat-commit
+> redesign, which merged to `main` 2026-09-11, after this doc was first written)
 
 Execution detail for Stack A in [`workouts-season-model.md`](workouts-season-model.md) §8. That
 doc holds the *why*; this one is what an agent follows. Stack B is gated (§12 there) and is not in
@@ -8,6 +9,15 @@ this file.
 
 **Read before starting:** `AGENTS.md`, your role doc, this file, and the §8 row for your PR.
 Do not read the rest of the design unless your row cites it.
+
+**Re-verification note (2026-09-11).** A1/A5/A5-ios are real, open PRs (#732/#733/#734). They
+predate the chat-commit redesign but touch only `engine/`, `ui/client/`, `ios/`, none of which the
+redesign changed, so they're unaffected — still check their current CI/mergeable state before
+building on them, don't assume they're current without looking. A2/A3/A4/A6 have no PR yet and
+reference `ui/api/coach-chat/_lib/` file paths and commit mechanics from before the redesign's J2
+restructure and C1/B3/A1(#616) changes. This doc's A2/A3 sections below are corrected in place,
+re-verified directly against the current code, not guessed. The redesign also **simplified** A2's
+actual scope — see the HLD's own re-verification note.
 
 `validate_kdb.py` warns that eight paths here do not exist. That is correct — they are the files
 Stack A creates, marked `(new)` below. The warnings clear as the PRs land.
@@ -29,7 +39,7 @@ flowchart LR
 | A5 | `feat/727-workouts-day-view` | UI Expert | `main` | `ui/client/` only |
 | A5-ios | `feat/ios-727-workouts-day-view` | iOS Builder | `main` | `ios/` only |
 | A1 | `feat/727-compile-workout` | Bob | `main` | `engine/lib/`, `engine/scripts/` |
-| A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/`, `ui/scripts/bundle-compile-workout-api.mjs`, `ui/package.json` |
+| A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts`, `ui/scripts/bundle-compile-workout-api.mjs`, `ui/package.json` (post-J2 restructure — see §4 below for exact files) |
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo (PR against it) |
 
@@ -206,19 +216,27 @@ An unexplained diff blocks the merge.
 
 **Goal:** an athlete asks mid-conversation and a routine file is committed on that turn.
 
-**Files**
-- `ui/api/coach-chat/_lib/coachReplySchema.ts` — action field and turn-mode wiring.
-- `ui/api/coach-chat/_lib/turnWrites/workoutWrite.ts` — `buildWorkoutCreateWrite`.
-- `ui/api/coach-chat/_lib/coachWorkoutFiles.ts` — applier and invariant 7.
-- `ui/api/coach-chat/_lib/coachTurn.ts` — own `commitFilesAtomic` for `workout_create`.
-- `ui/api/coach-chat/_lib/coachPromptText.ts` — tell Coach the action exists.
+**Files** (paths corrected 2026-09-11 — J2's `_lib/` restructure moved these into
+`gemini/`/`decide/` subdirectories after this LLD was first written; verified directly against
+current `main`, not guessed)
+- `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` — action field and turn-mode wiring.
+- `ui/api/coach-chat/_lib/decide/turnWrites/workoutWrite.ts` — `buildWorkoutCreateWrite`, beside
+  the existing `template_edit`/`session_plan` builders in the same file.
+- `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts` — applier and invariant 7.
+- `ui/api/coach-chat/_lib/decide/turnWrites/validateActions.ts` — invariants 1/3/7's
+  pre-write checks, same pattern quest/injury ids already use (didn't exist when this LLD was
+  first written; D1/D2 built it since).
+- `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` — tell Coach the action exists.
 - `ui/api/coach-chat/_lib/compileWorkout.bundle.d.ts` (new) — shim, `export *` from engine.
 - `ui/scripts/bundle-compile-workout-api.mjs` (new) — copy `bundle-current-week-api.mjs`.
 - `ui/package.json` — add the bundle script to `prebuild` / `predev`.
 - `ui/api/coach-chat/_tests/layer2-fields/workoutCreate.test.ts` (new).
 
-**Schema** — add to `RESPONSE_PROPERTIES` beside `template_edit` (~line 144). Coach sends the
-spec, never timer physics:
+**No `coachTurn.ts` change needed for the commit itself** — see "Commit rule" below, corrected
+from what this LLD originally specified.
+
+**Schema** — add to `RESPONSE_PROPERTIES` beside `template_edit` (now ~line 215, not ~144 — the
+file grew substantially during the redesign). Coach sends the spec, never timer physics:
 
 ```
 workout_create: { type: "object", properties: {
@@ -238,23 +256,31 @@ workout_create: { type: "object", properties: {
 }, required:["title","workout_type","phases"] }
 ```
 
-**Turn wiring** — `responsePropertiesFor` (~line 336) returns `[]` for
-`mode === "ordinary" && !firstSession`. Add:
+**Turn wiring — corrected 2026-09-11, this is now much simpler than originally scoped.** The
+closing-turn concept this LLD was written against is gone entirely (C1); there's no more
+`mode === "ordinary" && !firstSession` branch that returns `[]`, and no `RETURNING_CLOSE_ACTIONS`
+to append to (that constant doesn't exist — checked directly, grepped the whole `_lib/` tree).
+`RETURNING_ACTIONS` in `coachReplySchema.ts` already gives a returning athlete `template_edit`/
+`session_plan`/`week_plan`/`session_reconcile`/`plan_edit` on every ordinary turn. Add
+`"workout_create"` to that one array (it sits right next to the other workout-adjacent actions).
+Nothing else to wire — no new mode, no second array for a closing path. **Do not** add it to
+`FSP_ACTIONS` — A3 supersedes the FSP path with the benchmark flow, this action is
+returning-athlete-only in Stack A.
 
-```ts
-const ORDINARY_ACTIONS = ["workout_create"] as const satisfies readonly ResponseField[];
-```
+**Commit rule — corrected 2026-09-11, no special-case commit needed.** This LLD originally
+warned that `commitOrdinaryTurn`'s `writes` array (`fspIncrementalWrites`) returned `[]` once
+`wasProfileComplete` was true, so appending there would silently no-op for every live athlete —
+that was a real, then-current bug (tracked as #616). The chat-commit redesign's A1 fixed it
+directly: every turn now commits whatever it produces, for every athlete, in every mode, no
+profile-completeness gate on ordinary-turn persistence. `commitOrdinaryTurn`/`fspIncrementalWrites`
+don't exist anymore (checked directly - grepped the whole `_lib/` tree, zero matches).
 
-and return it for that branch instead of `[]`. Also append `workout_create` to
-`RETURNING_CLOSE_ACTIONS` so it works on a closing turn too. **Do not** widen the ordinary branch
-to any other action — that is a separate decision.
-
-**Commit rule — own `commitFilesAtomic`, same as `generateTemplatesAfterCompletion`
-(`coachTurn.ts:573`).** Do not append to `commitOrdinaryTurn`'s `writes`. That array is
-`fspIncrementalWrites` (`fspWrites.ts:8`) and returns `[]` once `wasProfileComplete` is true —
-every live athlete. Appending there makes A2 a silent no-op in production (PR comment on #728).
-Call `commitFilesAtomic` with the compiled routine + manifest, message `coach: workout created`.
-On a closing turn, include the same write in the close commit as well (`RETURNING_CLOSE_ACTIONS`).
+The current mechanism: `buildTurnWrites` (`coachTurn.ts`) calls one `build*Write` function per
+action field in sequence (`decide/turnWrites/README.md` has the full table). It assembles them
+into one atomic commit via `commitFilesAtomic` — the same commit as every other action this turn
+produced, not a separate one. `workoutWrite.ts`'s `buildWorkoutCreateWrite` just needs to follow
+that same pattern alongside its existing `template_edit`/`session_plan` builders. No `coachTurn.ts`
+change, no new commit call, no closing-turn special case.
 
 **Applier — `applyWorkoutCreate(spec, injuries, existingIds, traceId)`**
 1. Derive `id` by slugifying `title`; suffix `-2`, `-3` on collision with `existingIds`.
@@ -291,11 +317,13 @@ On a closing turn, include the same write in the close commit as well (`RETURNIN
 
 **Goal:** first session ends with a benchmark and seeded progressions, not six guessed workouts.
 
-**Files**
-- `ui/api/coach-chat/_lib/coachWorkoutFiles.ts` — delete `selectTemplates`,
-  `adjustTemplatesWithGemini`, `loadWorkoutLibrary*`, `generateInitialTemplates`
-- `ui/api/coach-chat/_lib/coachTurn.ts` — `generateTemplatesAfterCompletion` → `generateBenchmarkAfterCompletion`
-- `ui/api/coach-chat/_lib/coachQuestFiles.ts` — progression seeding
+**Files.** Paths corrected 2026-09-11, same J2 restructure as A2 above.
+- `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts` — delete `selectTemplates`,
+  `adjustTemplatesWithGemini`, `loadWorkoutLibrary*`, `generateInitialTemplates`.
+- `ui/api/coach-chat/_lib/coachTurn.ts` — `generateTemplatesAfterCompletion` →
+  `generateBenchmarkAfterCompletion`. Now ~line 1272, not ~573 — verify by function name, not line
+  number, since it will keep moving.
+- `ui/api/coach-chat/_lib/decide/coachQuestFiles.ts` — progression seeding
 - `shared/workout-library/` — **deleted**, with `_tests/workoutLibrary.test.ts`
 - `ui/api/coach-chat/_tests/layer2-fields/benchmark.test.ts` (new)
 
