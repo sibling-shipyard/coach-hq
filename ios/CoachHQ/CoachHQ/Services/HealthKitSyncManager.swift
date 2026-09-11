@@ -217,12 +217,32 @@ class HealthKitSyncManager: ObservableObject {
 
     /// Replaces the sync notification body with Coach's first sentence. Same identifier so
     /// the existing banner updates instead of stacking a second one. `navigateTo: chat` stays.
-    private func replaceCoachNotification(count: Int, firstSentence: String) async {
+    ///
+    /// `threadId`/`repoFullName` carry the same deep-link payload `postCoachMessageNotification`
+    /// sends, using the same `userInfo` keys (`repoFullName`, `conversationSeedId`,
+    /// `coachMessageBody` - `CoachMessageRoute.init?(userInfo:)` requires all three or the tap
+    /// resolves to no route at all). Without this, a tap on this notification - the one that
+    /// fires when the in-thread turn already announced - could only open Chat generically,
+    /// landing on today's thread instead of the one the activity sync actually just posted to
+    /// (#918 review). Both are nil when the caller has nothing to offer (e.g. no signed-in repo);
+    /// the notification still fires, just without a deep link, same as before this fix.
+    private func replaceCoachNotification(
+        count: Int,
+        firstSentence: String,
+        threadId: String?,
+        repoFullName: String?
+    ) async {
         let content = UNMutableNotificationContent()
         content.title = count == 1 ? "Session logged" : "\(count) sessions logged"
         content.body = firstSentence
         content.sound = .default
-        content.userInfo = ["navigateTo": "chat"]
+        var userInfo: [AnyHashable: Any] = ["navigateTo": "chat"]
+        if let threadId, let repoFullName {
+            userInfo["repoFullName"] = repoFullName
+            userInfo["conversationSeedId"] = threadId
+            userInfo["coachMessageBody"] = firstSentence
+        }
+        content.userInfo = userInfo
         let request = UNNotificationRequest(
             identifier: "hk-sync-latest",
             content: content,
@@ -389,7 +409,12 @@ class HealthKitSyncManager: ObservableObject {
             done.completedThreadId = result.threadId
             done.completedThreads = result.threads
             activitySyncTurn = done
-            announceCoachReplyIfNeeded(result.reply, duplicate: result.duplicate, count: turn.activities.count)
+            announceCoachReplyIfNeeded(
+                result.reply,
+                duplicate: result.duplicate,
+                count: turn.activities.count,
+                threadId: result.threadId
+            )
         } catch let apiError as GitHubAPIError {
             guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             var failed = turn
@@ -407,13 +432,26 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
-    private func announceCoachReplyIfNeeded(_ reply: String, duplicate: Bool, count: Int) {
+    private func announceCoachReplyIfNeeded(
+        _ reply: String,
+        duplicate: Bool,
+        count: Int,
+        threadId: String?
+    ) {
         guard ActivitySyncCopy.shouldAnnounceReply(duplicate: duplicate, chatVisible: isChatVisible) else {
             return
         }
         let sentence = ActivitySyncCopy.firstSentence(of: reply)
         coachReplyHomeCopy = sentence
-        Task { await replaceCoachNotification(count: count, firstSentence: sentence) }
+        let repoFullName = apiClient?.repoFullName
+        Task {
+            await replaceCoachNotification(
+                count: count,
+                firstSentence: sentence,
+                threadId: threadId,
+                repoFullName: repoFullName
+            )
+        }
     }
 
     /// Matches `activityZoneLoad` in ui/api/coach-chat/_lib/activitySync.ts so provisional

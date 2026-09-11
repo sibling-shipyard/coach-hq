@@ -105,14 +105,14 @@ struct CoachMessageRoute: Codable, Equatable {
         ) != nil {
             return true
         }
-        return seedId.range(of: "^t-[0-9]+$", options: .regularExpression) != nil
+        return seedId.range(of: CoachThreadID.persistedSeedPattern, options: .regularExpression) != nil
     }
 
     /// True when this seed names a real, server-committed chat thread (`t-<epoch ms>`) that a
     /// caller can fetch and show directly, rather than a `local-proactive-<id>` stub id that only
     /// ever exists as a client-materialized thread (#918).
     var isPersistedThreadSeed: Bool {
-        conversationSeedId.range(of: "^t-[0-9]+$", options: .regularExpression) != nil
+        conversationSeedId.range(of: CoachThreadID.persistedSeedPattern, options: .regularExpression) != nil
     }
 
     init?(userInfo: [AnyHashable: Any]) {

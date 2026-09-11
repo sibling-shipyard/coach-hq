@@ -178,7 +178,7 @@ final class CoachMessageAPIClient: CoachMessageGenerating {
     /// mint one itself. One generator, one thread id (#918).
     static func isValidConversationSeedId(_ seedId: String, messageId: String) -> Bool {
         if seedId == "local-proactive-\(messageId)" { return true }
-        return seedId.range(of: "^t-[0-9]+$", options: .regularExpression) != nil
+        return seedId.range(of: CoachThreadID.persistedSeedPattern, options: .regularExpression) != nil
     }
 
     private static func parseISO8601(_ raw: String) -> Date? {

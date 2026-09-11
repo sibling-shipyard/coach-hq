@@ -9,6 +9,14 @@ enum ActivitySyncIDs {
     }
 }
 
+/// Shape of a real, server-committed chat-thread id (`buildActivitySyncThread`'s
+/// `t-<epoch ms>` id). `CoachMessageAPIClient.isValidConversationSeedId`,
+/// `CoachMessageRoute.isValidConversationSeedId`, and `CoachMessageRoute.isPersistedThreadSeed`
+/// all check this same shape - change the pattern here, not at each call site.
+enum CoachThreadID {
+    static let persistedSeedPattern = "^t-[0-9]+$"
+}
+
 /// One row in a `synced_activity_list` attachment. Server reread values win once they arrive;
 /// local titles/sport/start/duration are only provisional until then.
 struct SyncedActivityRow: Codable, Equatable, Identifiable {

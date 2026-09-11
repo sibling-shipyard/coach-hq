@@ -38,6 +38,12 @@ struct CoachChatView: View {
     /// below) - nil until that fetch resolves, at which point headerContext below reflects it.
     @State private var liveDayNumber: Int?
 
+    /// Bumped each time a proactive-route resolution is kicked off, so a slower, superseded
+    /// attempt (e.g. an older notification tap whose fetchThreads() resolves after a newer tap's)
+    /// can detect it lost the race and skip applying its result - same pattern as
+    /// ActivitySyncEpoch.shouldApply for activity-sync turns.
+    @State private var proactiveRouteEpoch = 0
+
     init(requestedProactiveRoute: Binding<CoachMessageRoute?>) {
         _requestedProactiveRoute = requestedProactiveRoute
     }
@@ -211,8 +217,10 @@ struct CoachChatView: View {
         }
         .onChange(of: requestedProactiveRoute) { _, route in
             guard route != nil, !threadsLoading else { return }
+            let epoch = beginProactiveRouteAttempt()
             Task {
-                let opened = await openRequestedProactiveRoute()
+                let opened = await openRequestedProactiveRoute(epoch: epoch)
+                guard epoch == proactiveRouteEpoch else { return }
                 guard !opened, let apiClient else { return }
                 if let today = todayThread {
                     activeThreadId = today.id
@@ -568,7 +576,7 @@ struct CoachChatView: View {
                     preservingThreadId: requestedSeed
                 )
             } ?? fetched
-            if await openRequestedProactiveRoute() {
+            if await openRequestedProactiveRoute(epoch: beginProactiveRouteAttempt()) {
                 return
             } else if let today = todayThread {
                 activeThreadId = today.id
@@ -588,14 +596,34 @@ struct CoachChatView: View {
         }
     }
 
+    /// Bumps `proactiveRouteEpoch` and returns the new value, for a caller about to kick off an
+    /// async proactive-route resolution to capture as its own epoch (see `proactiveRouteEpoch`).
+    private func beginProactiveRouteAttempt() -> Int {
+        proactiveRouteEpoch += 1
+        return proactiveRouteEpoch
+    }
+
     /// Opens one exact proactive seed. A repeated Home/notification tap selects the already-
     /// known thread instead of appending the opener again. `route.isPersistedThreadSeed` names a
     /// real, server-committed thread - if it isn't in our in-memory list yet, refetch once so the
     /// persisted thread (already carrying its synced-activity attachment) wins over fabricating a
     /// client-only stub from just the route's body. A `local-proactive-<id>` seed has no server
     /// thread to find, so it goes straight to the local materialization.
+    ///
+    /// A persisted-thread seed that's STILL not found after the refetch is never fabricated into
+    /// a stub: `fetchThreads()` only returns the newest MAX_RETAINED_THREADS (7) active threads
+    /// (ADR 0037), so an older real thread can legitimately fall outside that window. Fabricating
+    /// a one-message stub under the real thread's id would then get sent back to the server as
+    /// this thread's full `priorMessages` on the next reply, and `mergeThreadToFront` does a full
+    /// replace - silently discarding that thread's real history and synced-activity attachment.
+    /// Only a `local-proactive-<id>` seed (no real server thread to protect) may be materialized.
+    ///
+    /// `epoch` is this attempt's `proactiveRouteEpoch` snapshot (see `beginProactiveRouteAttempt`)
+    /// - if a newer attempt has started by the time the refetch resolves, this attempt lost the
+    /// race and must not mutate state, so a slower/older notification tap can't clobber a faster/
+    /// newer one.
     @discardableResult
-    private func openRequestedProactiveRoute() async -> Bool {
+    private func openRequestedProactiveRoute(epoch: Int) async -> Bool {
         guard let route = requestedProactiveRoute else { return false }
         guard route.repoFullName == authManager.repoFullName else {
             requestedProactiveRoute = nil
@@ -608,19 +636,30 @@ struct CoachChatView: View {
            let apiClient,
            let repo = authManager.repoFullName,
            let fetched = try? await apiClient.fetchThreads() {
+            guard epoch == proactiveRouteEpoch else { return false }
             threads = CoachChatLocalCache.restoring(fetched, repoFullName: repo)
         }
 
+        guard epoch == proactiveRouteEpoch else { return false }
+
+        let resolvedThreadId: String?
         if threads.contains(where: { $0.id == route.conversationSeedId }) {
-            activeThreadId = route.conversationSeedId
-        } else {
+            resolvedThreadId = route.conversationSeedId
+        } else if !route.isPersistedThreadSeed {
             let thread = CoachChatLocalCache.proactiveThread(for: route)
             threads.insert(thread, at: 0)
-            activeThreadId = thread.id
             cacheThreadLocally(thread)
+            resolvedThreadId = thread.id
+        } else {
+            // Real thread, still not found post-refetch (outside the retained-7 window) - do not
+            // fabricate a stub. Fall through to the caller's normal default (today's thread, or a
+            // fresh greet), same as if there had been no pending route at all.
+            resolvedThreadId = nil
         }
         requestedProactiveRoute = nil
         CoachMessageRoute.clear()
+        guard let resolvedThreadId else { return false }
+        activeThreadId = resolvedThreadId
         return true
     }
 
