@@ -17,6 +17,7 @@ import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/decide/
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/gemini/geminiClient.js";
+import { resolveProviderName } from "./_lib/llmClient.js";
 import { captureGeminiFailure, withProcessingSpan, withSentryRoute } from "./_lib/sentry.js";
 import {
   combineExtraContext,
@@ -172,7 +173,14 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
   if (req.method === "GET") return handleHistory(repo, token);
   if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  // A pure OpenRouter deployment (LLM_PROVIDER=openrouter, no GEMINI_API_KEY set at all) used to
+  // 500 here unconditionally - this gate checked GEMINI_API_KEY regardless of which provider is
+  // actually selected. Check whichever key the resolved provider actually needs, same resolution
+  // selectLlmAdapter itself uses, so this can never disagree with what the adapter picks.
+  const apiKey =
+    resolveProviderName(process.env) === "openrouter"
+      ? process.env.OPENROUTER_API_KEY
+      : process.env.GEMINI_API_KEY;
   if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;

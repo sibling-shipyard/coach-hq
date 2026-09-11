@@ -70,7 +70,10 @@ async function ghGet(path: string, ctx: CommitContext, operation: string): Promi
   });
 }
 
-function isTransient(err: unknown): boolean {
+// Exported so callers building their own one-off retry against a GitHub call (e.g. the manual
+// test harness's getHeadShaWithRetry) share this exact transient/permanent distinction instead of
+// each reimplementing their own guess at it.
+export function isTransient(err: unknown): boolean {
   const status = (err as { status?: number }).status;
   if (status == null) return true; // network-level failure
   return status >= 500 || status === 409 || status === 429 || status === 403;

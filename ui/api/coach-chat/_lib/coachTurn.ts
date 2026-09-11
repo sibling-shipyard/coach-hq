@@ -1032,7 +1032,13 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
         threadId: turn.finalThreadId,
         repo: turn.repo,
         committed: [...factWrites.map((write) => write.path), turn.chatWrite.path],
-        droppedFacts: commitFailureDrops.length,
+        // Two different counters, kept distinct on purpose (OpenRouter K1 retest finding): a
+        // reader who sees a bare "droppedFacts: 0" here has no way to tell that from a turn that
+        // actually dropped an action for a bad reference - droppedActionsValidation is what
+        // counts that (buildTurnWrites' reference-validation drops), droppedFactsCommitFailures
+        // is the late-write-failure count this function itself tracks.
+        droppedFactsCommitFailures: commitFailureDrops.length,
+        droppedActionsValidation: turn.droppedActions?.length ?? 0,
         ms: Date.now() - turn.now,
       }),
     );

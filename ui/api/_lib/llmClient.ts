@@ -115,7 +115,7 @@ export interface LlmAdapter {
   generate(request: LlmRequest): Promise<LlmResult>;
 }
 
-function resolveProviderName(env: NodeJS.ProcessEnv): LlmProviderName {
+export function resolveProviderName(env: NodeJS.ProcessEnv): LlmProviderName {
   return env.LLM_PROVIDER === "openrouter" ? "openrouter" : "gemini";
 }
 
