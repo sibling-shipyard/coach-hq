@@ -16,8 +16,8 @@ those tables, or the generated CSS / Swift.
 | `palette.ink` | `--wi-ink` | `Theme.ink` |
 | `palette.inkFaintText` | `--wi-ink-faint-text` | Swift-only, hand-maintained: `WarmInstrument.inkFaintText` — AA-contrast text variant of `inkFaint`; iOS also hand-picks its own dark-mode value (web has no dark mode) |
 | `palette.accent` | `--wi-rust` | load and primary-action terracotta (ADR 0041) — never decorative, never a status color |
-| `web.statusSuccess` | `--wi-status-success` | Swift-only, hand-maintained: `WarmInstrument.statusSuccess` |
-| `web.matchRanked` / `matchLeague` / `matchFriendly` | `--wi-match-ranked` / `-league` / `-friendly` | Swift-only, hand-maintained: `WarmInstrument.matchRanked` / `matchLeague` / `matchFriendly` — badminton match *category*, distinct from the existing `WarmInstrument.matchWin`/`matchLoss` match *result* pair |
+| — (no JSON path; hand-maintained on both sides) | `--wi-status-success` | Swift-only, hand-maintained: `WarmInstrument.statusSuccess` |
+| — (no JSON path; hand-maintained on both sides) | `--wi-match-ranked` / `-league` / `-friendly` | Swift-only, hand-maintained: `WarmInstrument.matchRanked` / `matchLeague` / `matchFriendly` — badminton match *category*, distinct from the existing `WarmInstrument.matchWin`/`matchLoss` match *result* pair |
 | `palette.alarmBg` / `alarmFg` | alarm flood classes | cold indigo-grey alarm |
 | `radius.cardWebPx` | card shell (26px) | scale to `radius.cardIosPt` (16–20pt) |
 | `sports.*.hex` | `--wi-badminton`, `--wi-weights`, etc. | `WITokens.Sports` via `Theme` / `WarmInstrument.Sport` |

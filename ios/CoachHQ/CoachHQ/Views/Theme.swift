@@ -258,7 +258,7 @@ enum WarmInstrument {
     static let matchLeague = Color(red: 0xa8 / 255, green: 0x70 / 255, blue: 0x2c / 255)
     static let matchFriendly = Color(red: 0xad / 255, green: 0xc2 / 255, blue: 0xb7 / 255)
 
-    /// Success/positive text color. Same value `Sport.foundation`/`Workouts.foundation` happen
+    /// Success/positive text color. Same value `Sport.foundation` happens
     /// to use — coincidental reuse, now named for its own role (matches web's `--wi-status-success`).
     /// No iOS call site yet.
     static let statusSuccess = Color(red: 0x6d / 255, green: 0x7d / 255, blue: 0x4e / 255)
