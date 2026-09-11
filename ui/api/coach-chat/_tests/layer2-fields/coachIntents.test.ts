@@ -573,7 +573,7 @@ describe("applyInjuryEvent", () => {
     ).toThrow('no flag with id "inj_nonexistent"');
   });
 
-  // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+  // Applier-level double-check for the same enum -
   // coachReplySchema.ts's injury_event.status already constrains on the Gemini path.
   it("throws on an invalid status instead of silently writing it", () => {
     expect(() =>
@@ -810,7 +810,7 @@ describe("applyQuestEvent", () => {
     ).toThrow('quest_event: no quest with id "not_a_real_quest" in quests.json');
   });
 
-  // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+  // Applier-level double-check for the same enum -
   // coachReplySchema.ts's quest_event.status already constrains on the Gemini path.
   it("throws on an invalid status instead of silently writing it", () => {
     expect(() =>

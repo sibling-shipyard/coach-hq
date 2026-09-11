@@ -286,7 +286,7 @@ export function applyInjuryEvent(
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
   for (const event of events) {
-    // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+    // Applier-level double-check for the same enum -
     // coachReplySchema.ts's injury_event.status already constrains on the Gemini path - defense
     // in depth, same reasoning as applyProfileUpdate's PROFILE_UPDATE_FIELDS guard above.
     if (!INJURY_EVENT_STATUSES.includes(event.status)) {
@@ -375,7 +375,7 @@ export function applyQuestEvent(
     if (!validQuestIds.has(event.quest_id)) {
       throw new Error(`quest_event: no quest with id "${event.quest_id}" in quests.json`);
     }
-    // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+    // Applier-level double-check for the same enum -
     // coachReplySchema.ts's quest_event.status already constrains on the Gemini path - defense
     // in depth, same reasoning as applyProfileUpdate's PROFILE_UPDATE_FIELDS guard above.
     if (!QUEST_EVENT_STATUSES.includes(event.status)) {
