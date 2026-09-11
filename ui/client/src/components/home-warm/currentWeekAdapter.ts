@@ -43,27 +43,6 @@ function disciplineFor(category: TrainingCategory): SessionDiscipline {
   return "other";
 }
 
-/** Runtime discipline is a free string; collapse it onto the widget's enum. */
-function mapDiscipline(discipline: string): SessionDiscipline {
-  const value = discipline.toLowerCase();
-  if (value.includes("badminton")) return "badminton";
-  if (value.includes("calisthenic")) return "calisthenics";
-  if (value === "cycling" || value === "ride" || value === "bike") return "cycling";
-  if (value === "foundation") return "foundation";
-  if (value === "recovery" || value === "realign" || value === "mobility") return "recovery";
-  if (value === "run" || value === "running") return "run";
-  if (value === "strength") return "strength";
-  if (value === "weight_training" || value === "weights" || value === "weight training")
-    return "weight_training";
-  if (value === "hike" || value === "hiking") return "hike";
-  if (value === "walk" || value === "walking") return "walk";
-  if (value === "cricket") return "cricket";
-  if (value === "football" || value === "soccer") return "football";
-  if (value === "workout") return "workout";
-  if (value === "swim" || value === "swimming") return "swim";
-  return "other";
-}
-
 function mapDataStatus(status: RuntimeCurrentWeek["data_status"]): CurrentWeekDataStatus {
   return status;
 }
@@ -115,7 +94,9 @@ function mapCoachRead(read: RuntimeCoachRead): CurrentWeekContract["coach_read"]
 function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
   return {
     id: session.id,
-    discipline: mapDiscipline(session.discipline),
+    // ADR 0042: discipline is a closed enum end to end now, so the runtime value is already a
+    // real SessionDiscipline member - no substring guessing needed to collapse it onto one.
+    discipline: session.discipline,
     kind: session.kind,
     title: session.title,
     priority: mapPriority(session.priority),

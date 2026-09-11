@@ -25,6 +25,20 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.27 — "Read the Code, Not the Old Memo" · Sep 11, 2026
+**Superpower gained:** nothing athlete-visible - Coach's own weekly-contract instructions stop
+pointing at a doc it can't always reach.
+
+Coach was told to "read" a schema reference doc before touching the weekly plan - fine advice for
+the terminal Coach with real file access, dead weight for the hosted chat Coach, who has none.
+Both got the same line anyway, since they share one soul.
+
+- No visible change - the doc's rules were already being enforced by the validator either way.
+- The instruction now names the actual validator that gates every save, not a file only one of
+  the two Coaches can open.
+**Why it mattered:** an instruction only half of Coach can act on reads as advice to the other
+half - naming what genuinely applies to both closes that gap.
+
 ## v5.26 — "The Week Is Never Half-Written" · Sep 11, 2026
 **Superpower gained:** nothing new - a dead instruction removed.
 
