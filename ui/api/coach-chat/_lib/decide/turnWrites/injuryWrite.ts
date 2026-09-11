@@ -22,6 +22,7 @@ export function buildInjuryWrites(
   timezone: string,
   newInjuries: InjuryFlagInput[],
   injuryEvents: InjuryEvent[],
+  traceId: string,
 ): ResolvedFileWrite | undefined {
   if (newInjuries.length === 0 && injuryEvents.length === 0) return undefined;
   const cappedNewInjuries = newInjuries.map((injury) => ({
@@ -33,10 +34,17 @@ export function buildInjuryWrites(
   return {
     path: INJURIES_PATH,
     resolve: async () => {
-      const today = todayDateString(timezone, new Date());
+      const now = new Date();
+      const today = todayDateString(timezone, now);
       const current = await getFileRaw(repo, INJURIES_PATH, token);
-      const afterNew = applyInjuryFlag(current, cappedNewInjuries, today);
-      return applyInjuryEvent(afterNew, cappedEvents, today);
+      const afterNew = applyInjuryFlag(
+        current,
+        cappedNewInjuries,
+        today,
+        now.toISOString(),
+        traceId,
+      );
+      return applyInjuryEvent(afterNew, cappedEvents, today, now.toISOString(), traceId);
     },
   };
 }
