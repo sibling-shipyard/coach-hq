@@ -163,8 +163,54 @@ export interface InjuryFlagInput {
   text: string;
 }
 
+// Word-overlap check backing applyInjuryFlag's dedup below. A plain case-insensitive-trim
+// compare isn't enough on its own - the fixture eval suite's own real duplicate came back
+// reworded ("Left hip soreness persisting for 3 days" vs "Left hip soreness for the past 3
+// days, noticed during runs"), not just re-cased or re-padded. This counts words shared between
+// the two texts as a fraction of the *shorter* text's distinct word count, so a short restated
+// injury that's fully contained in a longer, more detailed one still matches; two different real
+// injuries that happen to share one body-part word (e.g. "hip") stay well under threshold. Not a
+// general fuzzy-match library on purpose (per the athlete's own steer, don't over-engineer this) -
+// just enough to catch a same-turn-class restatement.
+// Laterality words name genuinely different injuries no matter how much of the rest of the
+// sentence overlaps ("Left hip pain" vs "Right hip pain" share "hip"/"pain", 2 of 3 words each,
+// clearing the 0.5 threshold below on body-part overlap alone) - checked first, before the
+// word-overlap ratio ever runs, so a short/generic-word text can't dilute this contradiction away.
+const LATERALITY_WORDS = ["left", "right"] as const;
+
+function injuryTextsLikelySame(a: string, b: string): boolean {
+  const lowerA = a.toLowerCase();
+  const lowerB = b.toLowerCase();
+  const sideOf = (text: string) => LATERALITY_WORDS.find((word) => text.includes(word));
+  const sideA = sideOf(lowerA);
+  const sideB = sideOf(lowerB);
+  if (sideA && sideB && sideA !== sideB) return false;
+
+  const wordsOf = (text: string) =>
+    new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+  const wordsA = wordsOf(a);
+  const wordsB = wordsOf(b);
+  if (wordsA.size === 0 || wordsB.size === 0) return false;
+  let shared = 0;
+  for (const word of wordsA) if (wordsB.has(word)) shared++;
+  return shared / Math.min(wordsA.size, wordsB.size) >= 0.5;
+}
+
 // Applied in order against an accumulating flags array, same repeat-safety story as
 // applyInjuryEvent below - a turn reporting several new injuries captures all of them.
+//
+// Dedup against existing *active* flags (K1 fixture eval, incremental-injury-disclosure): a pure
+// filler turn with zero new information re-fired injury_flag for an injury already logged the
+// turn before, which would otherwise mint a second, genuinely duplicate active flag for the same
+// real injury - a later injury_event by flag_id would then only ever reach one of the two. A
+// resolved flag never blocks a new one: the athlete can always re-report something that already
+// healed and reopened.
 export function applyInjuryFlag(
   content: string | null,
   newInjuries: InjuryFlagInput[],
@@ -174,6 +220,12 @@ export function applyInjuryFlag(
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
   for (const injury of newInjuries) {
+    const trimmedText = injury.text.trim();
+    const alreadyActive = flags.some(
+      (flag) => flag.status === "active" && injuryTextsLikelySame(flag.text, trimmedText),
+    );
+    if (alreadyActive) continue;
+
     const slug = injury.text
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
@@ -182,7 +234,7 @@ export function applyInjuryFlag(
     const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
     const newFlag: InjuryFlag = {
       id,
-      text: injury.text.trim(),
+      text: trimmedText,
       status: "active",
       opened_at: today,
       resolved_at: null,

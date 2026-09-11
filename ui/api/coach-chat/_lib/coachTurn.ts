@@ -43,8 +43,14 @@ import {
   validatePlanEdit,
   type DroppedAction,
 } from "./decide/turnWrites/validateActions.js";
-import { CURRENT_WEEK_PATH, validSessionIdsFromCurrentWeek } from "./decide/coachWeekFiles.js";
 import {
+  CURRENT_WEEK_PATH,
+  validSessionIdsFromCurrentWeek,
+  weekSessionsFromCurrentWeek,
+} from "./decide/coachWeekFiles.js";
+import {
+  activeTemplatesContext,
+  activeWeekSessionsContext,
   combineExtraContext,
   firstSessionContext,
   type OnboardingHints,
@@ -125,6 +131,12 @@ interface TurnState extends TurnRequest {
 
 interface RepliedTurn extends TurnState {
   reply: GeminiReply;
+  // Fetched in requestCoachReply, before askGemini, so the prompt can supply real template/
+  // session ids (Finding A, OpenRouter K1 retest - see requestCoachReply's own comment). Carried
+  // forward here so buildTurnWrites reuses this same read for validation instead of fetching
+  // twice. Undefined on a first-session turn, where it's never fetched at all.
+  prefetchedTemplatesManifestContent?: string | null;
+  prefetchedCurrentWeekContent?: string | null;
 }
 
 export interface TurnWrites extends RepliedTurn {
@@ -133,6 +145,11 @@ export interface TurnWrites extends RepliedTurn {
   finalThreadId: string;
   computedTitle: string;
   trimmedCoachNote?: string;
+  /** akash retest finding: reply.reply is the model's raw, pre-validation text - this is what
+   * actually gets committed to chat history and returned to the athlete, with a dropped-action
+   * correction appended when one applies (formatDroppedActionsCorrection). commitTurn must use
+   * this, not turn.reply.reply, or the athlete sees the stale claim for a whole turn. */
+  finalReplyText: string;
   optionalWrites: FileEntry[];
   validUpdates: FileEntry[];
   wasProfileComplete: boolean;
@@ -385,8 +402,32 @@ function friendlyGeminiErrorMessage(status: number): string {
 
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode: TurnMode = "ordinary";
+  // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit were silently
+  // no-op-ing while the reply still claimed success, because this prompt never told the model any
+  // real template_id/session_id to reference - activeTemplatesContext/activeWeekSessionsContext
+  // existed but were only ever called from activitySyncTurn.ts, a different turn path entirely.
+  // Caught between "you may use this field" and "never invent an id" (coachPromptText.ts's own
+  // instruction), the model either hallucinated one or self-censored the action field outright.
+  //
+  // Fetched on every non-first-session ordinary turn, not just when the message looks like it
+  // might need it - detecting "might reference a session" from free text is exactly the kind of
+  // guess this bug already showed the model getting wrong, and both reads are small, single-file
+  // GitHub gets that buildTurnWrites already pays later on any turn that actually uses them.
+  // Skipped on a first-session turn: the prompt already tells a first-session athlete these fields
+  // never apply (no templates/week plan exist yet), so fetching would just be two reads nothing
+  // downstream ever looks at.
+  let templatesManifestContent: string | null | undefined;
+  let currentWeekContent: string | null | undefined;
+  if (!turn.firstSession) {
+    [templatesManifestContent, currentWeekContent] = await Promise.all([
+      getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token).catch(() => null),
+      getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token).catch(() => null),
+    ]);
+  }
   const extraContext = combineExtraContext(
     firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
+    activeTemplatesContext(validTemplateIdsFromManifest(templatesManifestContent ?? null)),
+    activeWeekSessionsContext(weekSessionsFromCurrentWeek(currentWeekContent ?? null)),
   );
   const referenceIds = {
     questIds: [...(turn.validQuestIds ?? [])],
@@ -518,6 +559,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     return {
       ...turn,
       reply,
+      prefetchedTemplatesManifestContent: templatesManifestContent,
+      prefetchedCurrentWeekContent: currentWeekContent,
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -546,31 +589,22 @@ function formatDroppedActionsNote(droppedActions: DroppedAction[]): string | und
   return `[System note: couldn't save an update this turn (${fields}) - the reference didn't match anything on file. If it's still relevant, check back in with the athlete and redo it.]`;
 }
 
+// akash retest finding: formatDroppedActionsNote above only reaches the athlete on the *next*
+// turn (folded into coach_log.json context), by design - so a reply generated before validation
+// ran could tell the athlete something was saved when it wasn't, for one whole turn. This is the
+// same-turn fix: a short, plainly-system-authored correction appended to the reply actually sent
+// back this turn, not a rewrite of the model's own prose (that's fragile string surgery on
+// generated text) - just an honest addendum naming what didn't stick. Undefined when nothing was
+// dropped, same as formatDroppedActionsNote.
+function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string | undefined {
+  if (droppedActions.length === 0) return undefined;
+  const fields = droppedActions.map((dropped) => dropped.field).join(", ");
+  return `(Note: couldn't save ${fields} - it didn't match anything on file.)`;
+}
+
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons } = turn.context;
-  const coachMsg: ChatMessage = {
-    id: `c-${turn.now}`,
-    role: "coach",
-    paragraphs: [reply.reply],
-  };
-  const allMessages = appendConversationTurn(turn.priorMessages, turn.userMsg, coachMsg, {
-    id: `d-${turn.now}`,
-    role: "divider",
-    label: todayDividerLabel(timezone),
-  });
-
-  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
-    repo,
-    token,
-    traceId,
-    now: turn.now,
-    threadId: turn.threadId,
-    trimmed: turn.trimmed,
-    allMessages,
-    replyText: reply.reply,
-  });
-
   const trimmedCoachNote = reply.coach_note?.trim();
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
@@ -609,13 +643,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     turn.validQuestIds,
   );
 
-  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit)
-  // are available on every returning-athlete turn now, not gated to a closing turn - so the
-  // templates-manifest fetch that validates their template_id references has to move here too,
-  // and stay lazy: fetch it only when the reply actually asked for one of these, not on every
-  // ordinary turn that never touches them (that would reintroduce the exact eager GitHub-read
-  // cost this PR removes). Gemini itself gets no pre-fetched id list any more (see
-  // coachPromptText.ts) - a wrong id just fails validation below instead of committing.
+  // C1: session artifacts (template_edit/session_plan/week_plan/session_reconcile/plan_edit) are
+  // available on every returning-athlete turn, so their template_id references need validating
+  // here regardless of which one fired. requestCoachReply already fetched the templates manifest
+  // before askGemini on any non-first-session turn (Finding A fix, so the prompt itself can supply
+  // real ids) - reuse that same read via turn.prefetchedTemplatesManifestContent instead of
+  // fetching it twice; only a first-session turn (where that prefetch never ran) falls back to
+  // fetching here, and only when actually needed.
   //
   // This block sits before the droppedActions loop below (not after, where it used to live) so a
   // hallucinated template_id/session_id gets folded into this turn's own dropped-actions loop and
@@ -629,7 +663,9 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     (reply.plan_edit?.length ?? 0) > 0;
   const validTemplateIds: ReadonlySet<string> = needsTemplateContext
     ? validTemplateIdsFromManifest(
-        await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
+        turn.prefetchedTemplatesManifestContent !== undefined
+          ? turn.prefetchedTemplatesManifestContent
+          : await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
       )
     : new Set<string>();
 
@@ -661,15 +697,18 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
 
   // Same pre-validate-before-build discipline as template_id above, applied to session_reconcile/
-  // plan_edit's session_id. current_week.json is fetched once here, only when one of those fields
-  // is actually present (same lazy-fetch discipline as validTemplateIds), and that same read is
-  // handed to buildCurrentWeekWrite so its resolve() reuses it instead of fetching it again -
-  // what got validated is exactly what gets patched, no race window between two separate reads.
+  // plan_edit's session_id. Reuses requestCoachReply's own prefetch (Finding A fix) when one ran,
+  // same as validTemplateIds above; only a first-session turn falls back to fetching here. Either
+  // way this same read is handed to buildCurrentWeekWrite so its resolve() reuses it instead of
+  // fetching it again - what got validated is exactly what gets patched, no race window between
+  // two separate reads.
   const rawSessionReconcile = reply.session_reconcile ?? [];
   const rawPlanEdit = reply.plan_edit ?? [];
   const needsCurrentWeekContext = rawSessionReconcile.length > 0 || rawPlanEdit.length > 0;
   const currentWeekContent = needsCurrentWeekContext
-    ? await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
+    ? turn.prefetchedCurrentWeekContent !== undefined
+      ? turn.prefetchedCurrentWeekContent
+      : await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
     : undefined;
   const validSessionIds = needsCurrentWeekContext
     ? validSessionIdsFromCurrentWeek(currentWeekContent ?? null)
@@ -728,6 +767,35 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     traceId,
     [trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") || undefined,
   );
+
+  // akash retest finding: the athlete-facing correction has to land in the reply actually sent
+  // this turn, not just next turn's coach_log context above - so this builds the chat message
+  // (and the reply text commitTurn returns) only now, after droppedActions is fully known, instead
+  // of at the top of this function using the model's raw, pre-validation reply.reply.
+  const droppedActionsCorrection = formatDroppedActionsCorrection(droppedActions);
+  const finalReplyText = droppedActionsCorrection
+    ? `${reply.reply}\n\n${droppedActionsCorrection}`
+    : reply.reply;
+  const coachMsg: ChatMessage = {
+    id: `c-${turn.now}`,
+    role: "coach",
+    paragraphs: [finalReplyText],
+  };
+  const allMessages = appendConversationTurn(turn.priorMessages, turn.userMsg, coachMsg, {
+    id: `d-${turn.now}`,
+    role: "divider",
+    label: todayDividerLabel(timezone),
+  });
+  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
+    repo,
+    token,
+    traceId,
+    now: turn.now,
+    threadId: turn.threadId,
+    trimmed: turn.trimmed,
+    allMessages,
+    replyText: finalReplyText,
+  });
 
   const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
@@ -825,6 +893,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     finalThreadId,
     computedTitle,
     trimmedCoachNote,
+    finalReplyText,
     optionalWrites,
     validUpdates,
     wasProfileComplete,
@@ -940,7 +1009,7 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
       {
         error: `Coach replied but saving failed: ${message}`,
         traceId: turn.traceId,
-        reply: turn.reply.reply,
+        reply: turn.finalReplyText,
       },
       { status: 502 },
     );
@@ -948,7 +1017,7 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
 
   await generateTemplatesAfterCompletion(turn);
   return Response.json({
-    reply: turn.reply.reply,
+    reply: turn.finalReplyText,
     threadId: turn.finalThreadId,
     threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
     repoSha,

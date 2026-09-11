@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-04
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
 
 ## Context
 
@@ -90,6 +90,110 @@ That last field carries a `confidence` tag:
   truth, not a guess.
 
 Never treat a `derived` entry as evidence of a real bug - only `observed` entries are.
+
+## Testing against a local athlete repo - the practical workflow
+
+This is the discipline the OpenRouter K1 retest (2026-09-09) used across 6 real athlete repos and
+~150 live turns - the workflow below is what actually worked, not a guess. Use it whenever a
+change needs to be checked against a real conversation and real commits, not just the layered
+suite or a fixture transcript.
+
+**API keys and where they live.** `ui/.env.local` holds `GEMINI_API_KEY` and (if testing
+OpenRouter) `OPENROUTER_API_KEY`, loaded automatically via `process.loadEnvFile` in
+`run-manual-coach-chat-test.ts` - no manual `export` needed. Before spending a real call, sanity
+check the key actually has credit. A depleted key fails identically whether direct or via
+`soulCache`'s caching path: `429 RESOURCE_EXHAUSTED - "Your prepayment credits are depleted"`.
+```bash
+source ui/.env.local
+curl -s -o /dev/null -w "%{http_code}" \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=$GEMINI_API_KEY" \
+  -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"ping"}]}]}'
+```
+`200` means it's live. Anything else, check billing at ai.studio before running anything real
+against it.
+
+**Testing a change that lives on an unmerged PR branch - use a worktree of that branch, not HQ's
+own `main` checkout.** HQ's `main` lags every open PR stack. Concretely: `coachTurn.ts` on `main`
+may still call `askGemini`/direct-Gemini unconditionally, bypassing `selectLlmAdapter` entirely.
+Setting `LLM_PROVIDER=openrouter` against `main` can then silently no-op, or silently ignore the
+setting and hit direct Gemini anyway, instead of erroring. That's worse than a crash - it looks
+like a clean pass. Always confirm which checkout you're actually running against before trusting a
+result. Use a fresh worktree off the PR branch under test, never the primary checkout:
+```bash
+git fetch origin <pr-branch> -q
+git worktree add /tmp/wt-<brief> origin/<pr-branch> -q
+cp ui/.env.local /tmp/wt-<brief>/ui/.env.local
+cd /tmp/wt-<brief> && node platform/scripts/compose-soul.mjs && node ui/scripts/build-soul.mjs
+ln -s <primary-checkout>/ui/node_modules /tmp/wt-<brief>/ui/node_modules
+```
+The `node_modules` symlink is fine for *running* the harness read-only against a real repo. If
+this worktree will also `git push`, the pre-push gate needs real installed deps first - see
+AGENTS.md's stale-`node_modules` note; `rm -rf node_modules && npm ci` fixes it. Remove the
+worktree when done (`git worktree remove /tmp/wt-<brief> --force`).
+
+**Picking a repo.** Any athlete repo already cloned locally works - check
+`/home/skanda_suresh/Projects/coach-<name>` for what exists. `--athlete skanda`/`--athlete akash`
+are pre-registered shortcuts in `run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map; anything
+else needs `--repo <owner>/<name> --local-path <clone path>` spelled out. `coach-skanda-testing`
+(`skanda-testing/coach-skanda-testing`) is the **one** repo explicitly authorized to reset/wipe
+freely - every other real athlete repo has real personal data and should only ever get new scratch
+branches, never a reset or a touch to `main`.
+
+**Recreating a normal conversation.** Pick real content from the athlete's actual files first, so
+the message you send references something real, not an invented id. Check
+`user_data/ledger/quests.json` for a real `quest_id`, `user_data/coach/injuries.json` for a real
+`flag_id`, `user_data/activities/workout_plans/templates/_manifest.json` for a real `template_id`,
+`user_data/ledger/current_week.json` for a real `session_id`.
+Multi-turn conversations (an incremental disclosure, a season change, anything needing real
+thread continuity) need `--turns turns.json`, not repeated `--message` calls - see the `--message`
+warning above, it's easy to lose an afternoon to this exact mistake.
+
+**Choosing a provider.** Unset/`gemini` is production's real default (`gemini-pro-latest`, set in
+`ui/api/_lib/geminiModel.ts`). Prefix the command with `LLM_PROVIDER=openrouter` to test through
+OpenRouter instead - useful when direct Gemini credits are tight. OpenRouter and direct Gemini have
+measured, different reliability characteristics (see `OPENROUTER-K1-RETEST-FINDINGS.md` if it's
+still in the repo, or whatever findings doc it got folded into) - a clean OpenRouter run doesn't
+prove the same thing a clean direct-Gemini run does.
+
+**Seeing what actually got sent.** Add `--debug` (or set `DEBUG=1`) to dump the full assembled
+prompt - `cachePrefix` + `system` + `messages`, the exact object `askGemini` sends - not just the
+parsed JSON reply, which already prints unconditionally. Use this before guessing at a prompt-text
+fix; reading the real prompt is faster than re-deriving it from the source.
+
+**Verifying a result - never trust PASS/FAIL alone.** The harness's own PASS/FAIL is a heuristic
+based on which files changed, not a check against what should have changed. After a turn:
+1. Read the run log at `tests/<date>/manual/manual-coach-chat-<repo-slug>-log-<time>.json` for the
+   raw reply JSON and which fields actually fired.
+2. Independently confirm against the real repo: `git -C <local-clone> fetch origin <branch>` then
+   `git -C <local-clone> diff <before-sha>..<after-sha>` (the harness prints both shas), or read
+   the committed content directly via `gh api repos/<owner>/<repo>/contents/<path>?ref=<branch>`.
+   A field firing in the reply JSON is not the same as the file actually changing - cross-check
+   both before calling a scenario a pass.
+
+**Resetting an athlete repo to a genuinely fresh/blank state** (for First Session Protocol /
+onboarding testing) - only ever do this on `coach-skanda-testing`. `platform/scripts/carve-skeleton.mjs`
+has the exact blank shape for each FSP-owned file (`PROFILE_TEMPLATE`, `MEMORY_TEMPLATE`,
+`INJURIES_TEMPLATE`, `SEASONS_TEMPLATE`, `QUESTS_TEMPLATE`). Two ways to get a fresh scratch branch
+onto that state:
+- Local git: create the branch, overwrite the 5 files with the blank templates, commit, push.
+- **Or, if a local `git push` to the athlete repo gets denied by a permission gate:** use the
+  GitHub API directly instead. This is not a workaround. The harness's own branch creation already
+  works this same way under the hood - this is just the reset step done by hand:
+  ```bash
+  REPO="skanda-testing/coach-skanda-testing"
+  MAIN_SHA=$(gh api repos/$REPO/git/ref/heads/main -q .object.sha)
+  gh api repos/$REPO/git/refs -f ref="refs/heads/<branch>" -f sha="$MAIN_SHA"
+  # for each of the 5 FSP-owned files:
+  SHA=$(gh api "repos/$REPO/contents/<path>?ref=<branch>" -q .sha)
+  gh api -X PUT "repos/$REPO/contents/<path>" -f message="reset: blank <path>" \
+    -f content="$(echo -n '<blank JSON>' | base64 -w0)" -f sha="$SHA" -f branch="<branch>"
+  ```
+  Every write needs the file's current `sha` on that branch (fetch it first) - omitting it 422s.
+
+**Cleanup.** Scratch branches on athlete repos are local-only (never a PR, never touching `main`)
+but they do accumulate - dozens of `test/`/`retest/` branches across the repos used in a single
+investigation is normal. Not urgent to delete mid-investigation (evidence for a finding may live
+only on one), but worth a periodic sweep once a testing pass is fully wrapped up.
 
 ## Two different questions, answered by different tools
 

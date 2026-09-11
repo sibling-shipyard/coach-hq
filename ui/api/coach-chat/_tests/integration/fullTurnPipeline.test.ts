@@ -348,7 +348,13 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "All set for today." });
+    // akash retest finding: the dropped template_edit gets a same-turn correction appended to
+    // the reply the athlete actually sees, not just next turn's coach_log context - the model's
+    // own "All set for today." would otherwise stand alone and imply the edit landed.
+    expect(body).toMatchObject({
+      reply:
+        "All set for today.\n\n(Note: couldn't save template_edit - it didn't match anything on file.)",
+    });
     expect(body.droppedActions).toEqual([
       expect.objectContaining({
         field: "template_edit",
@@ -383,7 +389,8 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
 
     const body = await response.json();
     expect(body).toMatchObject({
-      reply: "Logged your weight and marked the quest.",
+      reply:
+        "Logged your weight and marked the quest.\n\n(Note: couldn't save quest_event - it didn't match anything on file.)",
     });
     expect(body.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
     const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
@@ -555,7 +562,10 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     });
 
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "Updated your weight and looked into those." });
+    expect(body).toMatchObject({
+      reply:
+        "Updated your weight and looked into those.\n\n(Note: couldn't save template_edit, session_reconcile - it didn't match anything on file.)",
+    });
     expect(body.droppedActions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "template_edit" }),

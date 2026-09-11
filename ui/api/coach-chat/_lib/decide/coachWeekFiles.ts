@@ -324,6 +324,34 @@ export function validSessionIdsFromCurrentWeek(content: string | null): Readonly
 }
 
 /**
+ * Same source file as validSessionIdsFromCurrentWeek above, but shaped for
+ * coachPromptText.ts's activeWeekSessionsContext rather than for validation - the prompt needs a
+ * session's date/title/status too so the model can match "tomorrow's session" to the right id,
+ * not just know which ids are legal. Pulled out as its own function (coachTurn.ts§requestCoachReply,
+ * Finding A fix) so an ordinary turn can supply this before asking Gemini, not just validate
+ * against it after. A malformed or unreadable file yields an empty list, same defensive default as
+ * validSessionIdsFromCurrentWeek.
+ */
+export function weekSessionsFromCurrentWeek(
+  content: string | null,
+): { id: string; date: string; title: string; status: string }[] {
+  const parsed = parseJsonOrNull<CurrentWeek>(content);
+  if (!Array.isArray(parsed?.days)) return [];
+  return parsed.days.flatMap((day) =>
+    Array.isArray(day?.sessions)
+      ? day.sessions
+          .filter((session): session is CurrentWeekSession & { id: string } => Boolean(session?.id))
+          .map((session) => ({
+            id: session.id,
+            date: day.date,
+            title: session.title,
+            status: session.status,
+          }))
+      : [],
+  );
+}
+
+/**
  * Applies a session_reconcile action field: loads the current current_week.json, finds each
  * event's session by id across all 7 days (throws on a hallucinated/stale session_id - same
  * discipline as applyQuestEvent's flag_id/quest_id guards), patches status and

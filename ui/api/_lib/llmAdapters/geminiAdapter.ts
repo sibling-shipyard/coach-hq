@@ -10,7 +10,7 @@
  *
  * #713 M2 PR 2 moves coach-chat's explicit soul cache and its retry logic in here from
  * `coach-chat/_lib/gemini/geminiClient.ts` (docs/plans/openrouter-m2-chat-lld.md). Both are gated
- * on `request.cachePrefix` being set, not on whether the cache lookup actually succeeds — that's
+ * on `request.cachePrefix` being set, not on whether the cache lookup actually succeeds - that's
  * the signal that this is a chat-shaped request at all, and it's what keeps coach-message (which
  * never sets `cachePrefix`) on its exact pre-#713 behavior: one call, no retry.
  */
@@ -28,7 +28,7 @@ type GeminiSchemaNode =
   | { type: "object"; properties: Record<string, GeminiSchemaNode>; required?: readonly string[] };
 
 /**
- * Gemini's own `responseSchema` has no `additionalProperties` field, at any nesting level —
+ * Gemini's own `responseSchema` has no `additionalProperties` field, at any nesting level -
  * unlike OpenRouter's strict `json_schema`, which requires it on every object node
  * (`LlmJsonSchemaNode`, `llmClient.ts`). A shallow strip at the top level was enough for
  * coach-message's flat one-property schema (#713 M2 PR 1); chat's schema nests up to five levels

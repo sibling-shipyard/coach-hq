@@ -203,6 +203,61 @@ describe("createOpenRouterAdapter", () => {
     await expect(adapter.generate(REQUEST)).rejects.toThrow(/finish=length/);
   });
 
+  it("retries once after a truncated response and returns the retry's result", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        okResponse({ choices: [{ finish_reason: "length", message: { content: "trunc" } }] }),
+      )
+      .mockResolvedValueOnce(okResponse());
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    const result = await adapter.generate(REQUEST);
+    expect(result.text).toBe(JSON.stringify({ body: "That looked controlled." }));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("sums usage across a truncation retry instead of reporting only the last attempt (review finding)", async () => {
+    // span.setAttributes overwrites per key rather than summing, so a truncated attempt's real,
+    // billed tokens must be folded into the running total before the retry's own call lands -
+    // recordUsage can never be called once per attempt with just that attempt's own numbers.
+    recordedUsage.length = 0;
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        okResponse({
+          choices: [{ finish_reason: "length", message: { content: "trunc" } }],
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        okResponse({ usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } }),
+      );
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate(REQUEST);
+    const last = recordedUsage[recordedUsage.length - 1];
+    expect(last.promptTokens).toBe(200);
+    expect(last.completionTokens).toBe(70);
+    expect(last.totalTokens).toBe(270);
+  });
+
+  it("gives up after two truncations in a row instead of retrying forever", async () => {
+    const fetcher = vi.fn(async () =>
+      okResponse({ choices: [{ finish_reason: "length", message: { content: "trunc" } }] }),
+    );
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await expect(adapter.generate(REQUEST)).rejects.toThrow(/finish=length/);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it("surfaces OpenRouter's own code and message when a 200 carries an error (#852)", async () => {
     const fetcher = vi.fn(async () =>
       Response.json({ error: { code: 429, message: "Provider returned error" } }),

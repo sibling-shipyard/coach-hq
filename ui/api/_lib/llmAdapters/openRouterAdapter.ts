@@ -16,7 +16,7 @@
  * do not read a span as proof of it.
  */
 import { fetchWithTimeout } from "../httpTimeout.js";
-import { withGeminiSpan } from "../sentry.js";
+import { withGeminiSpan, type GeminiUsage } from "../sentry.js";
 import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 export const OPENROUTER_MODEL = "google/gemini-3.8-flash";
@@ -76,6 +76,17 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
 }
 
 /**
+ * Adds two optional counts the same absent-vs-zero-safe way cachedPromptTokens above does:
+ * undefined only when neither side ever reported a value, otherwise a real sum. Used to
+ * accumulate usage across a truncation retry (below) without a missing/zero wire value on one
+ * attempt silently zeroing out a real number the other attempt already reported.
+ */
+function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+/**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
  * request shape for both providers. OpenAI-style chat completions calls the same turn
  * `"assistant"`, and puts a system turn ahead of the conversation as its own message rather than
@@ -84,7 +95,7 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
  * user message, nothing else.
  *
  * `cachePrefix`, when present, is concatenated ahead of `system` into that same one leading
- * message — OpenRouter never has an active cache (locked decision: it owns its own caching, this
+ * message - OpenRouter never has an active cache (locked decision: it owns its own caching, this
  * adapter does not emulate Gemini cache names), so there is no second wire shape to build here,
  * unlike the Gemini adapter's cache-active/cache-inactive split.
  */
@@ -115,97 +126,138 @@ export function createOpenRouterAdapter(
       }
       let resolvedProvider: string | undefined;
       let resolvedModel: string | undefined;
+      // Summed across every attempt inside this call (see the truncation-retry comment below) -
+      // span.setAttributes overwrites per key, so this is the only way the span ends up with the
+      // real total rather than just the last attempt's numbers.
+      let cumulativeUsage: GeminiUsage = {};
       const text = await withGeminiSpan(
         OPENROUTER_MODEL,
         async (recordUsage) => {
-          const response = await fetcher(
-            OPENROUTER_URL,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify({
-                model: OPENROUTER_MODEL,
-                messages: toOpenRouterMessages(request),
-                response_format: {
-                  type: "json_schema",
-                  json_schema: {
-                    name: request.responseSchema.name,
-                    strict: true,
-                    schema: request.responseSchema.schema,
+          // One attempt: a fetch plus everything short of the truncation decision, which the
+          // caller below needs to see in order to retry. Returns the reasoning-token count on a
+          // truncated attempt so both the retry-triggering throw and the eventual give-up throw
+          // can report it without a second parse.
+          const attempt = async (): Promise<
+            | { truncated: true; reasoningTokens: number | string }
+            | { truncated: false; text: string }
+          > => {
+            const response = await fetcher(
+              OPENROUTER_URL,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                  model: OPENROUTER_MODEL,
+                  messages: toOpenRouterMessages(request),
+                  response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                      name: request.responseSchema.name,
+                      strict: true,
+                      schema: request.responseSchema.schema,
+                    },
                   },
-                },
-                max_tokens: request.maxOutputTokens,
-                reasoning: { effort: "low" },
-                // Without this OpenRouter omits `cost` and `prompt_tokens_details.cached_tokens`
-                // from the response, and the generation-stats endpoint that would otherwise carry
-                // cost 404s under this account's `data_collection: "deny"` (#889, bench doc).
-                usage: { include: true },
-                provider: {
-                  only: ["google-vertex"],
-                  require_parameters: true,
-                  data_collection: "deny",
-                },
-              }),
-            },
-            request.timeoutMs,
-          );
-          if (!response.ok) {
-            const detail = await response.text();
-            throw Object.assign(
-              new Error(`OpenRouter request failed (${response.status}): ${detail}`),
-              { status: response.status === 429 ? 429 : 502 },
+                  max_tokens: request.maxOutputTokens,
+                  reasoning: { effort: "low" },
+                  // Without this OpenRouter omits `cost` and `prompt_tokens_details.cached_tokens`
+                  // from the response, and the generation-stats endpoint that would otherwise carry
+                  // cost 404s under this account's `data_collection: "deny"` (#889, bench doc).
+                  usage: { include: true },
+                  provider: {
+                    only: ["google-vertex"],
+                    require_parameters: true,
+                    data_collection: "deny",
+                  },
+                }),
+              },
+              request.timeoutMs,
             );
+            if (!response.ok) {
+              const detail = await response.text();
+              throw Object.assign(
+                new Error(`OpenRouter request failed (${response.status}): ${detail}`),
+                { status: response.status === 429 ? 429 : 502 },
+              );
+            }
+            const payload = (await response.json()) as OpenRouterResponse;
+            resolvedProvider = payload.provider;
+            resolvedModel = payload.model;
+            // Accumulated across every attempt, truncated or not - a truncated call still burns
+            // real tokens against the account, and `span.setAttributes` overwrites rather than
+            // sums, so a naive recordUsage() call per attempt would report only the last
+            // attempt's numbers and undercount what OpenRouter actually billed for the retry.
+            cumulativeUsage = {
+              promptTokens: sumDefined(cumulativeUsage.promptTokens, payload.usage?.prompt_tokens),
+              completionTokens: sumDefined(
+                cumulativeUsage.completionTokens,
+                visibleOutputTokens(payload.usage),
+              ),
+              totalTokens: sumDefined(cumulativeUsage.totalTokens, payload.usage?.total_tokens),
+              cachedPromptTokens:
+                cachedPromptTokens(payload.usage) ?? cumulativeUsage.cachedPromptTokens,
+              thinkingTokens: sumDefined(
+                cumulativeUsage.thinkingTokens,
+                payload.usage?.completion_tokens_details?.reasoning_tokens,
+              ),
+              costUsd: sumDefined(cumulativeUsage.costUsd, payload.usage?.cost),
+            };
+            recordUsage({ ...cumulativeUsage, resolvedProvider, resolvedModel });
+            if (payload.error) {
+              // Carry OpenRouter's own code and message through. Without them a 200-with-error is
+              // indistinguishable from an empty reply, and Sentry records a failure with no cause.
+              const code = payload.error.code ?? "no code";
+              const detail = payload.error.message ?? "no message";
+              throw Object.assign(
+                new Error(`OpenRouter returned an error with HTTP 200 (${code}): ${detail}`),
+                { status: 502 },
+              );
+            }
+            if (!payload.choices?.length) {
+              // Distinct from the empty-content case below: no choice was produced at all, and
+              // OpenRouter said nothing about why.
+              throw Object.assign(new Error("OpenRouter returned no choices and no error"), {
+                status: 502,
+              });
+            }
+            const finishReason = payload.choices?.[0]?.finish_reason;
+            if (finishReason === "length") {
+              // OpenRouter's truncation signal, the equivalent of Gemini's MAX_TOKENS guard
+              // (#827). Live retest found this hit ~37% of first-turn calls with no retry, always
+              // a short simple message burning its whole budget on reasoning - a transient
+              // per-generation flake, not a request problem, so it's worth one retry the same way
+              // geminiAdapter.ts retries its own MAX_TOKENS/503/504 cases once before giving up.
+              return {
+                truncated: true,
+                reasoningTokens:
+                  payload.usage?.completion_tokens_details?.reasoning_tokens ?? "unknown",
+              };
+            }
+            const responseText = payload.choices?.[0]?.message?.content;
+            if (!responseText) {
+              throw Object.assign(new Error("OpenRouter returned no content"), { status: 502 });
+            }
+            return { truncated: false, text: responseText };
+          };
+
+          let result = await attempt();
+          if (result.truncated) {
+            // Capped at one retry, same reasoning as the Gemini adapter: a second full-budget
+            // call risks blowing through vercel.json's maxDuration, and two truncations in a row
+            // means this is a real budget problem, not a one-off flake worth chasing further.
+            result = await attempt();
           }
-          const payload = (await response.json()) as OpenRouterResponse;
-          resolvedProvider = payload.provider;
-          resolvedModel = payload.model;
-          // Recorded even when `usage` is absent - the resolved provider/model is the whole
-          // point of provider routing and must reach the span regardless (locked decision).
-          recordUsage({
-            promptTokens: payload.usage?.prompt_tokens,
-            completionTokens: visibleOutputTokens(payload.usage),
-            totalTokens: payload.usage?.total_tokens,
-            cachedPromptTokens: cachedPromptTokens(payload.usage),
-            thinkingTokens: payload.usage?.completion_tokens_details?.reasoning_tokens,
-            costUsd: payload.usage?.cost,
-            resolvedProvider,
-            resolvedModel,
-          });
-          if (payload.error) {
-            // Carry OpenRouter's own code and message through. Without them a 200-with-error is
-            // indistinguishable from an empty reply, and Sentry records a failure with no cause.
-            const code = payload.error.code ?? "no code";
-            const detail = payload.error.message ?? "no message";
-            throw Object.assign(
-              new Error(`OpenRouter returned an error with HTTP 200 (${code}): ${detail}`),
-              { status: 502 },
-            );
-          }
-          if (!payload.choices?.length) {
-            // Distinct from the empty-content case below: no choice was produced at all, and
-            // OpenRouter said nothing about why.
-            throw Object.assign(new Error("OpenRouter returned no choices and no error"), {
-              status: 502,
-            });
-          }
-          const finishReason = payload.choices?.[0]?.finish_reason;
-          if (finishReason === "length") {
-            // OpenRouter's truncation signal, the equivalent of Gemini's MAX_TOKENS guard (#827).
+          if (result.truncated) {
             throw Object.assign(
               new Error(
-                `OpenRouter truncated its response before finishing (finish=length, reasoningTokens=${payload.usage?.completion_tokens_details?.reasoning_tokens ?? "unknown"})`,
+                `OpenRouter truncated its response before finishing twice in a row (finish=length, reasoningTokens=${result.reasoningTokens})`,
               ),
               { status: 502 },
             );
           }
-          const responseText = payload.choices?.[0]?.message?.content;
-          if (!responseText) {
-            throw Object.assign(new Error("OpenRouter returned no content"), { status: 502 });
-          }
-          return responseText;
+          return result.text;
         },
         { "llm.adapter": "openrouter", "gen_ai.system": "openrouter" },
       );

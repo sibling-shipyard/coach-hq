@@ -295,6 +295,70 @@ describe("applyInjuryFlag", () => {
     );
     expect(second.flags).toHaveLength(2);
   });
+
+  // K1 fixture eval (incremental-injury-disclosure [3/3]): a pure filler turn with zero new
+  // information re-fired injury_flag for the same hip injury already logged the turn before,
+  // reworded rather than identical - "Left hip soreness persisting for 3 days" (turn 2) vs "Left
+  // hip soreness for the past 3 days, noticed during runs" (turn 3's re-fire). Without dedup this
+  // would mint a second, genuinely duplicate active flag for the same real injury.
+  it("does not mint a second flag when a near-identical injury is already active (K1 fixture eval)", () => {
+    const first = JSON.parse(
+      applyInjuryFlag(null, [{ text: "Left hip soreness persisting for 3 days" }], "2026-08-18"),
+    );
+    expect(first.flags).toHaveLength(1);
+
+    const second = JSON.parse(
+      applyInjuryFlag(
+        JSON.stringify(first),
+        [{ text: "Left hip soreness for the past 3 days, noticed during runs" }],
+        "2026-08-19",
+      ),
+    );
+    expect(second.flags).toHaveLength(1);
+  });
+
+  it("does not dedupe against a resolved flag - a re-reported injury can reopen", () => {
+    const resolved = JSON.stringify({
+      flags: [
+        {
+          id: "inj_old",
+          text: "Left hip soreness",
+          status: "resolved",
+          opened_at: "2026-07-01",
+          resolved_at: "2026-07-10",
+        },
+      ],
+    });
+    const result = JSON.parse(
+      applyInjuryFlag(resolved, [{ text: "Left hip soreness" }], "2026-08-18"),
+    );
+    expect(result.flags).toHaveLength(2);
+    expect(result.flags[1].status).toBe("active");
+  });
+
+  it("still mints separate flags for two genuinely different injuries in the same batch", () => {
+    const result = JSON.parse(
+      applyInjuryFlag(
+        null,
+        [{ text: "Left hip soreness for 3 days" }, { text: "Right shoulder ache after lifting" }],
+        "2026-08-18",
+      ),
+    );
+    expect(result.flags).toHaveLength(2);
+  });
+
+  // Review finding: "Left hip pain" vs "Right hip pain" share 2 of 3 words each ("hip", "pain"),
+  // clearing the 0.5 word-overlap threshold and silently dropping a real second injury on the
+  // opposite side of the body.
+  it("does not dedupe a same-turn injury against its mirror on the opposite side", () => {
+    const first = JSON.parse(applyInjuryFlag(null, [{ text: "Left hip pain" }], "2026-08-18"));
+    expect(first.flags).toHaveLength(1);
+
+    const second = JSON.parse(
+      applyInjuryFlag(JSON.stringify(first), [{ text: "Right hip pain" }], "2026-08-19"),
+    );
+    expect(second.flags).toHaveLength(2);
+  });
 });
 
 describe("applyInjuryEvent", () => {

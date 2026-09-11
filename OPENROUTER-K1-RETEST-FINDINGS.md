@@ -1,0 +1,484 @@
+# OpenRouter K1 re-test - findings log
+
+Narrative log for the OpenRouter re-test of PR #921's tip. See `OPENROUTER-K1-TEST-RESULTS.md` for
+the structured per-scenario pass/fail results this feeds from.
+
+## Status
+
+**Investigation complete for the OpenRouter/flash/DeepSeek comparison. Decision as of 2026-09-09:
+stay on `gemini-pro-latest` direct** - see "Model & provider comparison" below for the full
+reasoning and real numbers. Whole 26-PR stack rebased and mergeable, not merged. Five PRs stacked
+on `main`: #948 (the 7 original findings) -> #949 (Finding D's reprompt safety net) -> #950
+(Finding C's residual bug) / #951 (test-infra + a real `GEMINI_API_KEY` bug) / #952 (a genuine
+crash-fix found during Finding D's larger pass) - 950/951/952 are three siblings on #949, not a
+linear chain. Testing workflow for local athlete repos is documented in
+`docs/eng-docs/coach-chat-testing.md` (added on #951).
+
+**2026-09-10 - that decision needs re-reading in light of a full pro baseline pass.** Direct pro's
+billing credits ran out, then were topped up the same day for a one-day-only thorough test pass.
+**See `GEMINI-PRO-BASELINE-2026-09-10.md` for the complete results** - Findings A/B/E re-verified
+directly on pro (A/B held, E did not), plus the full 23-transcript fixture suite and all 6 real
+athlete repos re-run against pro. Headline: **pro's flagship dense-message scenario came back 5/8
+(37.5% fail) at a larger sample, not the 12/12 this doc's earlier decision leaned on.** "Pro is
+12/12 clean" anywhere below refers to the smaller original sample on that one scenario - not a
+current, or a blanket, claim. Pro has real, repeatable, self-audit-invisible failure modes of its
+own (false-success claims, confabulated excuses), distinct in shape but not in severity from
+flash's omission or DeepSeek's hallucination. The model/provider decision above should be revisited
+with this fuller picture before any further action is taken on it.
+
+**PR #953, stacked on #952, fixes the two real bugs found in that pass** (the FSP injury-drop and
+`injuries.json`'s `_meta`/`version` loss) and adds `activity_sync` support to the manual test
+harness. Finding E's confabulation and coach-akash's false-success reply were both investigated
+deeper the same day - see "Direct pro's own reliability gaps" below for what was tried and why
+neither has a fix yet.
+
+**PR #954, stacked on #953, closes the two remaining test-coverage gaps from that pass:** a real
+`coach-message` harness (the endpoint had zero test coverage before this - live-verified both the
+idempotent-return and real-commit paths) and a dedicated multi-turn continuity pass (3 real 4-6
+turn conversations, since most of the original pro baseline was single-message). That pass found
+one new real finding (a silent-assumption bug on an unresolved conversational ambiguity) and
+reproduced Finding E's confabulation again on a different repo/quest - see "Direct pro's own
+reliability gaps" below.
+
+**PR #955, stacked on #954, closes all three items still open after that pass** (Finding E,
+Finding D's blind spot beyond injuries, the silent-assumption bug) - deterministic fixes, live
+Gemini-verified for the first two, unit-verified for the third. See "Finding E, Finding D, and the
+silent-assumption bug all closed" below.
+
+---
+
+## Bugs found and fixed
+
+Across #948-#953, full check gate green (9/9) after every commit. Every "live-verified" claim
+below is a real diff on a real athlete repo, not the test harness's own PASS/FAIL guess.
+
+| Bug | Root cause | Fix | Verification |
+|---|---|---|---|
+| FSP dense-message scenario silently dropped injuries 3/8 times (2026-09-10 pro baseline) even with `unrecorded_facts` live | Same-generation self-audit blind spot - see "Direct pro's own reliability gaps" below | `findMissedInjuryLanguage`: a deterministic keyword safety net, scoped to a first-session turn with zero existing injury flags so it can't hit the "new vs already on file" ambiguity a general version was rejected for | Fixed on #953, live-verified 3/3 (1 real catch, 2 clean passes, no false-positive interference) |
+| `injuries.json` was the only file writer that didn't re-stamp `version`/`_meta` on every write, unlike every sibling writer | `applyInjuryFlag`/`applyInjuryEvent` just emitted `{flags}`, dropping whatever existed | Stamp a fresh `version`/`_meta` on every write, matching the established pattern | Found on `coach-akash` during Track B, fixed on #953, live-verified |
+| **Finding A** - `plan_edit`/`session_reconcile` silently no-op'd while the reply claimed success | `requestCoachReply` never gave the model real template/session ids to reference on an ordinary turn | Fetch that context before asking the model, not just after to validate a guess | Live-re-verified 3/3 on `coach-prateek`, varied phrasing, every diff confirmed against real `current_week.json`. Pre-existing, provider-agnostic - not an OpenRouter bug |
+| **Finding B** - `template_edit` refused 100% of the time (6/6) | A Claude-Code-only SOUL guardrail ("never modify template files") was composing into the hosted chat build too, where it had nothing to do with the separate, validated `template_edit` action but read as a ban on it | Scoped the guardrail correctly (Claude-Code layer vs shared layer) | Live-verified on `coach-akash`: fires and commits for real |
+| **Finding C** - OpenRouter had no retry on `finish_reason: "length"` truncation (~37% of first-turn calls failed outright) | Missing retry, plus a second distinct bug: malformed JSON with a finish reason that isn't `"length"`, so the first retry never engaged | One retry mirroring the Gemini adapter's pattern (#948); second bug fixed on #950 | First fix dropped the rate to ~20%, not zero. Full fix live-verified 10/10 clean afterward |
+| **Finding E** - `quest_event` had no reprompt safety net if the model just skipped it (3/3 misses) | Weaker prompt instruction than `season_start`'s equivalent | Strengthened the instruction to match | Live-verified 3/3 on `coach-skanda` via OpenRouter/flash. **Does not hold on direct pro - 0/3, a distinct and worse failure mode, see "Still open" below. Not actually closed.** |
+| `injury_flag` duplication - a re-stated injury on a filler turn could mint a genuine duplicate flag | No dedup existed at all | Word-overlap dedup check plus a matching prompt restraint instruction | Unit-verified, fixture assertion added |
+| Dropped-action reply dishonesty - athlete's `reply` claimed a dropped action worked | Correction only reached next turn's context, not the same turn's reply | Same-turn reply now carries the correction | Unit-verified |
+| Eval transcript date rot - transcript 19 hardcoded a session date that rotted twice (same #807 bug class) | Hardcoded date | Resolves its date at run time instead | Can't rot the same way again |
+| `coach-chat.ts`'s real `handle()` required `GEMINI_API_KEY` regardless of provider - a genuine production bug | Found while fixing test-infra gaps; a deployment with only `OPENROUTER_API_KEY` set had coach-chat entirely disabled | Reads the right key for the resolved provider | Fixed on #951, live-verified |
+| Direct Gemini flash truncating on `MAX_TOKENS` 8/8 times on the dense-message scenario | Thinking alone was consuming ~3930 of the 4096-token `CHAT_MAX_OUTPUT_TOKENS` budget, leaving almost no room for JSON output | Raised budget to 8192 | Fixed on #952, live-verified 0/8 -> 6/6 clean. Plain crash fix, no provider/model judgment involved |
+
+**Confirmed still working, no regression:** the #27 fix (hallucinated `template_id`/`session_id` no
+longer crashes the whole atomic commit) - 0/3 crashes on the exact field-crowding load that used to
+crash 4/5 times, live-verified. The `new_habits` P0 guard - happy path live-confirmed, crash-guard
+unit-tested. Template generation at onboarding through the OpenRouter seam - live-verified clean.
+
+---
+
+## Still open
+
+### Finding D - severe structured-output omission, root cause unknown
+
+**What's happening:** send a dense first message (a goal + 2 injuries + 2 habits, all in one
+message) to a freshly-reset athlete, and the model frequently returns only `profile_update.name`,
+silently dropping everything else - while its `reply` text still narrates the dropped facts as
+saved. Not a crash, not a validation drop (`droppedActions` is empty) - the fields are just never
+in the model's JSON.
+
+**Ruled out with data, not guessed away** (24 live OpenRouter calls, `google/gemini-3.8-flash`, low
+reasoning effort - 0/8 full successes, 7/8 dropped everything but the name):
+- Reasoning effort - raising `low` -> `medium` (confirmed 587-1327 real reasoning tokens spent via
+  OpenRouter's own usage payload) still gave 2/2 total omission, and added a 3rd truncation crash.
+- Token budget - completion stayed at 250-470 of a 4096 budget, `finish_reason: "stop"`, nowhere
+  near exhausted.
+- Declaration order - the schema declares `season_start`/`injury_flag` *before* `profile_update`,
+  yet the later-declared field is what survives.
+- A prompt instruction addition ("save facts on message 1 too") - made zero measurable difference,
+  3/3 failed identically before and after.
+- Turn-1-specific - a turn-2 control (same message, restated after one trivial turn, real history
+  present) still dropped everything, so this is not turn-1-specific either.
+
+**Not purely OpenRouter-specific.** See "Model & provider comparison" below for the direct-Gemini
+head-to-head that proves this - the instability travels with the flash model itself, not the
+OpenRouter routing path.
+
+**Mitigation built and live-tested: a reprompt safety net, real improvement, not a full fix.**
+Added `unrecorded_facts` to the response schema - the model self-audits its own `reply`/`coach_note`
+against what it actually set in action fields this turn, and lists anything mentioned-but-uncaptured.
+If it flags anything, one reprompt fires (same one-retry-cap pattern as the two existing
+content-violation reprompts in `coachTurn.ts`), naming exactly what's missing. Chosen over a
+keyword-heuristic alternative because dense messages use too much wording variety for a fixed
+keyword list to reliably tell "a new fact" from "a reference to something already on file."
+
+**Larger sample (32 trials: 18 OpenRouter, 14 direct flash) - the small-sample read above was
+optimistic, not representative:**
+
+| Leg | n | Full success | Partial-but-honest | Total silent omission | False-success-claim |
+|---|---|---|---|---|---|
+| OpenRouter `google/gemini-3.8-flash` | 18 | 0 | 17 | 1 | 0 |
+| Direct `gemini-flash-latest` (after the token-budget fix) | 6 | 0 | 3 | 1 | 2 |
+
+Full success is rare on either provider at this sample size, not common as the earlier 5-7-trial
+read suggested. Habits get honestly deferred in every single trial across all 32 runs (100%) - the
+model consistently wants more intake before committing them, and the reprompt doesn't override
+that. Total silent omission still happens on OpenRouter (1/18) - the self-audit missed it, a second
+confirmed false negative. Direct flash produces false-success-claims at 2/6 (33%) even after its own
+crash bug (see "Bugs found and fixed") was fixed - the self-audit missed both.
+
+**Honest read:** the reprompt safety net is real and worth keeping (a strict improvement with no
+downside), but at this sample size it is clearly not reliable enough on its own to justify moving
+off `gemini-pro-latest`. The self-audit itself is wrong often enough (3 confirmed false negatives
+across 32+ trials, on both providers) that a false-success-claim or a silent omission can still
+reach a real athlete. **This firmer data points more strongly toward keeping M3 blocked, not less.**
+
+**Do not merge anything touching coach-chat's model-calling path, and do not proceed with M3
+(flipping `LLM_PROVIDER=openrouter` in production), until flash's reliability on this scenario
+improves upstream or a stronger mitigation is found.**
+
+### Direct pro's own reliability gaps, found in a full one-day baseline pass (2026-09-10)
+
+Billing credits ran out mid-investigation, then were topped up the same day for a dedicated
+one-day pro baseline pass - re-verifying Findings A/B/E directly on pro, plus the full 23-transcript
+fixture suite and all 6 real athlete repos. **Full results, all scenarios, all diffs: see
+`GEMINI-PRO-BASELINE-2026-09-10.md`.** Summary: A and B held cleanly; **E did not (0/3) - pro
+confabulates a false "not in the schema" excuse rather than complying with its own reprompt**. The
+fixture suite came back 22/23 (one restraint miss). Most importantly, **the flagship dense-message
+scenario - the one number this doc's "stay on pro" decision was built on - came back 5/8 (37.5%
+fail) at a larger sample, not 12/12.** Every pro failure across the whole pass shares one shape: a
+false-success claim or confabulated excuse the `unrecorded_facts` self-audit does not catch - same
+blind spot already documented for flash and DeepSeek, now confirmed on pro too.
+
+**The FSP injury-drop (3/8) was fixed same-day** - `findMissedInjuryLanguage`, see "Bugs found and
+fixed" above and PR #953.
+
+**Finding E's confabulation was investigated deeper, live, with no working fix found:**
+1. Reproduced the base failure again, live: 0/1, the same false "not in schema" excuse.
+2. Tried a maximally explicit escalated correction as a follow-up turn - the exact field shape,
+   the real quest id, and a direct pre-emption of the false claim ("do not state or imply that
+   quest_event is missing"). **The model still didn't comply - it hallucinated something else
+   instead** (a fabricated season, "Load Bearing Season," never discussed). This rules out
+   "better prompt wording" as a fix.
+3. Confirmed via code (not guessed) that the schema itself is correctly enum-constrained with the
+   real quest ids on both the original call and the reprompt - not a code bug, a genuine model
+   reliability limit on this exact scenario.
+4. Drafted a detection-side mechanical trigger mirroring `findMissedInjuryLanguage` (matching
+   quest-completion language against a real active quest name) and deliberately did not ship it:
+   in every observed failure, `unrecorded_facts` already correctly detected the miss and the
+   reprompt already fired - the problem is compliance, not detection, so an identical-shaped
+   trigger would add nothing to a reprompt that's already proven not to work here.
+
+**No fix found for Finding E's confabulation via prompt engineering or detection heuristics alone.**
+A deterministic fix that doesn't depend on the model complying was shipped later the same day - see
+"Finding E, Finding D, and the silent-assumption bug all closed" below.
+
+**Reproduced again, independently, in the multi-turn pass (PR #954):** a 5-turn conversation on
+coach-date2022 hit the same pattern on its very first turn ("keeps the streak going" - a plain
+quest-completion statement) - `quest_event` never fired, and the model claimed "no session
+logging or quest event tools available in this specific schema," a generalized version of the
+same false claim, on a different repo, different quest, different phrasing. The reprompt fired
+correctly and still didn't fix it. This confirms Finding E is a repeatable, cross-repo pattern,
+not tied to one athlete's data or one specific quest.
+
+**A new, distinct finding from the same multi-turn pass:** a 4-turn plan-adjustment conversation
+on coach-prateek showed the model asking a direct clarifying question about an ambiguous request
+("dropping football or doing both?"), never getting an answer, and then unilaterally acting on one
+interpretation anyway - overwriting a real scheduled football match with a recovery walk, no
+explicit confirmation. Confirmed via diff. Distinct from Finding E: not a false claim about
+capability, a genuine silent assumption on an unresolved ambiguity in the conversation itself.
+
+**coach-akash's false-success-reply on a dropped `session_reconcile` was investigated deeper too,
+with an inconclusive result - not a fix, not a ruled-out bug.** The fix mechanism
+(`formatDroppedActionsCorrection`) exists in code, is correctly wired (confirmed by reading it),
+and was purpose-built for exactly this case. But 4 live attempts across 3 different methods -
+natural ambiguous phrasing, referencing a date outside the current week, and a literal fabricated
+session id handed to the model directly - could not reproduce the original false-success trigger
+on direct pro. Every time, pro either picked a real, correct session or honestly told the athlete
+it didn't recognize the reference and asked for clarification - no hallucination, no false claim.
+This doesn't mean the bug is fixed (nothing changed) or that it can't happen - only that it did not
+reproduce naturally on pro in 4 real attempts today, unlike its original discovery via
+OpenRouter/flash. Worth retrying with a scripted, hardcoded-bad-id `--turns` file rather than
+natural phrasing if this needs a definitive answer later.
+
+### 2026-09-10 (later same day) - Finding E, Finding D, and the silent-assumption bug all closed (PR #955)
+
+All three of the open items above (Finding E's confabulation, Finding D's blind spot beyond
+injuries, the silent-assumption bug) got a deterministic fix - primary mechanism plus a reserved
+fallback for each, per the athlete's request not to depend on a single approach working. Stacked as
+PR #955 on top of #954. Full unit suite: 760/760. Each fix was then live-verified against real
+`gemini-pro-latest`, real athlete repos, real diffs - never trusting the harness's own PASS/FAIL:
+
+**Finding E (confabulation) - fixed via deterministic post-hoc synthesis, live-verified.**
+`synthesizeQuestEventFromUnrecordedFacts` (`validateActions.ts`) runs in `buildTurnWrites` after the
+model's own reprompt has already failed - if exactly one active, not-yet-handled quest's name is
+referenced in a still-unrecorded completion fact, it writes the `quest_event` itself, zero extra
+model calls. On genuine ambiguity (multiple matching quests) it does nothing, same as before.
+- First live attempt (`coach-skanda`, "7hrs Sleep" quest) exposed a real bug in the wiring: the
+  synthesis trigger was reading the *second*-pass reply's own `unrecorded_facts`, and the model
+  stops self-flagging the miss on retry once it believes its own confabulated excuse resolved
+  things - so the signal came back empty even though the field was still uncaptured. Fixed by
+  reading the *first*-pass detection instead (reliable throughout this whole investigation),
+  relying on `buildTurnWrites`'s own already-handled check to no-op safely if the second pass had,
+  in fact, genuinely complied.
+- Re-run after the fix, same repo/quest, fresh branch: confabulation reproduced exactly as before
+  in the reply text ("I don't have the system tool to officially check off that quest..."), but this
+  time `user_data/ledger/progress.json` was actually committed - confirmed via `gh api` content
+  read, a real new row (`pr_sleep_2026-09-10`, `source: "model"`, today's date, `trace_id` matching
+  the run) landed correctly despite the model's own non-compliance.
+
+**Finding D (self-audit blind spot beyond injuries) - fixed via a habit-language keyword net, live-verified.**
+`findMissedHabitLanguage` extends the same scoped pattern `findMissedInjuryLanguage` already
+proved on #953 (first-session turns, zero pre-existing quests, no matching field already set) to
+habit/routine language, wired into the same one-shot reprompt - no new cost beyond what the
+mechanism already costs today.
+- A dense first-session message on a freshly-reset FSP scratch branch
+  (`skanda-testing/coach-skanda-testing`), burying two habits ("stretching every night before bed",
+  "journal my mood every day") among goal/injury/equipment/diet content, triggered the reprompt
+  (`missedHabitLanguage: 'daily'`) - the model had genuinely missed at least one habit on the first
+  pass. After the reprompt, both habits landed in `quests.json`, confirmed via `gh api` content read.
+
+**Silent-assumption bug - both layers built, unit-verified; live reproduction of the original race
+condition proved difficult to force on demand.** Primary (`pending_clarification` schema field +
+cross-turn persistence via `coach_log.json` + `findUnconfirmedAssumption`) and Fallback (a
+content-diff guard in `validateSessionReconcile`/`validatePlanEdit` that drops a category-changing
+edit with no matching confirmation cue in the raw message, independent of any cross-turn state) are
+both shipped and covered by real-fixture unit tests (`coachTurn.test.ts`,
+`validateActions.test.ts`). Three separate live attempts to recreate the original repro's exact
+shape (coach asks a genuine either/or scheduling question, gets a non-answer, then unilaterally
+commits an assumption) on `coach-prateek`'s real branch and fresh variants of it did not reproduce
+the race: in every attempt, direct pro either deferred without committing any schedule change at
+all, or offered conditional guidance without setting `pending_clarification` - it simply didn't
+walk into the specific bad behavior this fix targets, in three tries today. This is not proof the
+fix works end-to-end against the original failure mode, only that the mechanism itself is sound
+against its own unit fixtures and that pro is not reliably reproducing the underlying bad behavior
+on demand. Worth retrying with a scripted `--turns` file that hardcodes the model's first-turn reply
+if a live end-to-end confirmation is needed later.
+
+### Idea not yet tried: the single-call schema itself may be the real bottleneck (2026-09-10)
+
+Every model tested so far gets the exact same shape of task in one call: read a dense message,
+decide across a dozen-plus possible action types, get real ids right, self-check its own output,
+and write the final athlete-facing reply - all in one shot. Pro (`gemini-pro-latest`) handles that
+load better than cheaper models (5/8 on the flagship dense-message scenario at a fuller sample -
+see `GEMINI-PRO-BASELINE-2026-09-10.md` - versus flash's near-total failure), but not perfectly.
+Every model tested, pro included, fails the same load in one of two ways: it either quietly drops
+part of the work (flash, both providers; pro's own 3/8 failures) or it "helpfully" invents content
+to look complete (DeepSeek's fabricated injury resolutions and invented season; pro's own Finding E
+confabulation and DOB hallucination). That is a classic too-much-in-one-call failure pattern that
+degrades by degree across capability tiers, not a binary "only pro can ever get this right."
+
+Everything tried so far has been a patch around the single-call shape - prompt wording, reasoning
+effort, the `unrecorded_facts` self-audit reprompt (which has now missed real failures on every
+model tested, pro included). None of it has restructured the call itself. **Not yet tested:
+splitting the turn into two smaller steps** (e.g. extract raw facts from the message first, then map
+extracted facts to the response schema second) so a cheaper model only has to do one simpler thing
+per call, instead of the whole decision surface at once. Worth testing against a cheap model next -
+the model choice and the call architecture are two separate variables, and only the first has been
+tested so far.
+
+---
+
+## Model & provider comparison
+
+### Why does `pro` work so well while flash fails so much?
+
+Most likely just model-capability tier - `pro` needs less "thinking" to reliably extract several
+facts from one dense message than a smaller/faster model does. Nothing found in this investigation
+contradicts that; not tested further since there was no lead suggesting otherwise.
+
+### Direct Gemini vs OpenRouter, same scenario, same repo, same reset-to-blank-FSP method
+
+| Model | Full success | Partial omission | Total omission | n |
+|---|---|---|---|---|
+| OpenRouter `google/gemini-3.8-flash` | 0/8 (0%) | 1/8 | 7/8 (88%) | 8 |
+| Direct Gemini `gemini-pro-latest` (production's real current default) | 12/12 (100%) | 0/12 | 0/12 | 12 (10 baseline + 2 turn-2 control) |
+| Direct Gemini `gemini-flash-latest` (temporary local override, matched to OpenRouter's alias) | 4/9 (44%) | 3/9 (33%) | 2/9 (22%) | 9 (8 baseline + 1 turn-2 control) |
+
+Turn-2 control: pro was clean 2/2 (matches its 10/10 baseline - genuinely not turn-specific in
+either direction for pro). Flash's single turn-2 control was a full success, but only after the
+existing `coach_note`-missing reprompt regenerated the reply and picked up `injury_flag` the second
+time - the first pass of that same turn also dropped a field, so flash's problem isn't turn-specific
+either.
+
+**Verdict: this is not purely OpenRouter-specific.** Direct-Gemini `gemini-pro-latest` - what
+production actually runs today - is completely clean (12/12), so there's no live production risk
+right now. But the same underlying `google`-side flash model, called directly through Gemini's own
+API with no OpenRouter routing involved, still drops structured fields at a real, non-trivial rate
+(5/9 not fully clean). That rules out "OpenRouter's routing/proxy layer is the cause" as the full
+explanation - the instability travels with the flash model itself, not the OpenRouter path.
+OpenRouter's number is still meaningfully worse than direct flash's (0% vs. 44% full success), so
+OpenRouter may still be compounding the problem on top of flash's own baseline unreliability - but
+flash itself, independent of OpenRouter, is not safe for this scenario. Two new flash-specific
+failure shapes were seen that never appeared in the pro runs or the OpenRouter data: a `coach_note`
+correctly narrating facts while the matching structured field never appeared at all (not recoverable
+by the existing reprompt in 2 of 3 cases), and one run where the model spent its output generating a
+200+ item garbage `sports_update` array instead of the real fields (a runaway generation, not a
+clean omission).
+
+**Practical read:** the number in this table (12/12) was this scenario's original, smaller-sample
+pro result. Reverting to `gemini-flash-latest` for cost/speed reasons, independent of any OpenRouter
+decision, would reintroduce a worse version of this omission risk than pro's own - but **pro is not
+failure-free here either at a larger sample (5/8, see "Direct pro's own reliability gaps" under
+"Still open"), and has an unrelated failure mode of its own on ordinary `quest_event` turns too. See
+`GEMINI-PRO-BASELINE-2026-09-10.md` for the complete picture.**
+
+### Why is OpenRouter's flash worse than direct Gemini's flash?
+
+Root-caused, not guessed: `openRouterAdapter.ts` forces `reasoning: {effort: "low"}` on every call
+(the model 400s on `{enabled: false}` - "low" is the floor), specifically to stop it burning its
+output budget on reasoning (Finding C). `geminiAdapter.ts` sets no reasoning config at all - direct
+Gemini flash gets whatever default thinking budget the API picks for itself.
+
+| Effort | Full success | Partial | Truncation (100% visible failure) | n |
+|---|---|---|---|---|
+| "low" (shipped default) | 0/8 | 1/8 | 0/8 | 8 |
+| "medium" | 3/5 | 2/5 (1 honest, 1 false-claim - self-audit missed it) | 0/5 | 5 |
+| "high" | 0/5 | 0/5 | 5/5 (100%) | 5 |
+
+"Medium" is a real improvement over "low." "High" is strictly worse than doing nothing - every
+single trial burned ~3930 of the 4096-token budget on reasoning and truncated twice in a row (both
+retries exhausted, surfaces as a visible 502 every time). **If OpenRouter's reasoning effort is
+ever raised, "medium" is the only defensible value - never "high."** Not shipped - this is a real
+tradeoff against Finding C that needs a decision, not a default choice made silently.
+
+### Is the `google-vertex` routing pin even verifiable?
+
+No - confirmed, not just assumed. Hit OpenRouter's raw endpoint directly with and without the pin:
+identical `provider: "Google"` in the response either way, no `X-Provider-Name` header actually
+sent despite being listed as exposable, `/api/v1/generation` 404s under this account's
+`data_collection: "deny"` exactly as predicted. The existing code comment is accurate and complete -
+this really is unknowable from the client side.
+
+### How does DeepSeek perform (via OpenRouter)?
+
+Tested live, 5 trials, same scenario. Not viable: 0/5 full success (worse than either Gemini flash
+variant), plus a failure mode neither Gemini variant showed - hallucination (invented
+`profile_update` values never stated, e.g. a fabricated name and timezone). The self-audit missed
+both of DeepSeek's worst trials too - same blind spot already seen once on direct Gemini flash, now
+seen twice across two different models.
+
+### DeepSeek v4 pro (via OpenRouter), a separate newer model, 4 trials
+
+`deepseek/deepseek-v4-pro` (distinct from whichever DeepSeek id the 5-trial test above used) - no
+`google-vertex` pin applies, resolved to provider "NextBit." `OPENROUTER_MODEL` locally overridden
+for these runs only, same worktree/method as the OpenRouter-pro trials above, not committed, not
+shipped. Also required dropping the adapter's hardcoded `provider.only: ["google-vertex"]` filter
+(Google-specific, meaningless for a non-Google model) for the raw request to route at all.
+
+| # | Scenario | Repo | Result | Evidence |
+|---|---|---|---|---|
+| 1 | Finding E (`quest_event`, mark `cold_shower` complete) | coach-skanda | **FAIL, severe hallucination** - asked to log one habit completion, the model instead fabricated an entire absent narrative (a "20-day gap since last check-in" that never happened), resolved 3 real, unrelated injury flags with invented justification text, fired a wrong action (`quest_create` instead of `quest_event` for an already-existing quest), and fabricated a whole new season ("ABC Prep") with invented dates and a main quest never discussed. `unrecorded_facts` came back empty - the self-audit saw nothing wrong with any of it | Real diff: 6 files touched (`injuries.json`, `seasons.json`, `quests.json`, `memory.json`, `coach_log.json`, `chat_history.json`) - all real writes, none reverted by any validator |
+| 2 | Finding A (`plan_edit`, swap a real session to a rest day) | coach-prateek | **PASS** - real session `sess_20260911_1` swapped from "Easy Mobility & Recovery" to a Full Rest Day, correct id, clean | Real diff: `current_week.json`'s `sess_20260911_1` entry confirmed changed |
+| 3 | Finding B (`template_edit`, drop `workout_a`'s wrist warm-up phase) | coach-akash | **FAIL, false-success claim** - `template_edit` fired with `skip_phases: ["Wrist Warm-up"]`, but the real phase is named "Warm-up — Wrist Prep" - same string-mismatch shape as the OpenRouter-pro trial above. App correctly logged the mismatch and dropped the edit, but the reply claimed "The wrist warm-up is out of workout_a for good" | Real diff: `workout_a.json`'s `phases` array unchanged, "Warm-up — Wrist Prep" still present |
+| 4 | Progress-quest completion (`quest_event`, first full push-up, a fresh repo/athlete) | coach-date2022 | **FAIL, false-success claim** - `quest_event` never appeared in the JSON at all (not even attempted and dropped - just absent), yet `coach_note` stated "Updated push-up progression milestone to 1." `unrecorded_facts` came back empty again | Real diff: `quests.json`'s `full-pushup` entry still `current: 0`, target `1`, unchanged |
+
+**Read, n=4: 1 pass, 3 fails, all 3 fails are false-success claims the self-audit missed
+completely.** Worse than the earlier 5-trial DeepSeek result, and a materially more dangerous
+failure shape - the earlier test found hallucinated *profile* fields (wrong name/timezone,
+annoying but low-stakes); trial 1 here fabricated and committed changes to *injury* and *season*
+state, the kind of data an athlete would reasonably expect to be accurate, and trials 3-4 show the
+same "claims success, nothing changed" pattern is not a one-off. `unrecorded_facts` was empty on
+every single failure (4/4) - on DeepSeek, the self-audit is not just imperfect, it has caught
+nothing yet across every trial run against it. Enough to keep DeepSeek off the table for anything
+production-facing regardless of final sample size.
+
+### OpenRouter-pro, tried as a same-day substitute while direct pro's key was dead
+
+`google/gemini-3.1-pro-preview` via `google-vertex` - not a stand-in for direct pro, it's a
+different model id behind a different routing path, but real live-tested data on it is worth
+keeping regardless. All 3 trials ran from a worktree with the actual `selectLlmAdapter` wiring
+(`origin/fix/finding-d-more-verification`, PR #952's tip - HQ's own `main` checkout does not have
+this wiring yet, `coachTurn.ts` there still calls `askGemini`/direct-Gemini unconditionally,
+confirmed the hard way after an initial test run against `main` silently no-op'd). `OPENROUTER_MODEL`
+was locally overridden from `google/gemini-3.8-flash` to `google/gemini-3.1-pro-preview` for these
+runs only, not committed, not shipped.
+
+| # | Scenario | Repo | Result | Evidence |
+|---|---|---|---|---|
+| 1 | Finding E (`quest_event`, mark `cold_shower` complete) | coach-skanda | FAIL - 1st attempt hit a hard OpenRouter 502 (real infra failure, not our code); retry ran clean but the model never emitted `quest_event`, only a `coach_note` - and falsely claimed "cannot log as `quest_event` is missing from the provided schema" (it is not). The `unrecorded_facts` self-audit correctly flagged it, the reprompt fired, but the model repeated the same false claim on the second pass too | Real diff: only `chat_history.json` changed, `quests.json` untouched |
+| 2 | Finding B (`template_edit`, drop `workout_a`'s wrist warm-up phase) | coach-akash | FAIL, false-success claim - `template_edit` fired with `skip_phases: ["wrist warm-up"]`, but the template's real phase is named "Warm-up - Wrist Prep" - a string mismatch. The app correctly logged `no phase named "wrist warm-up" in this template - ignoring` and dropped the edit, but `coach_note`/`reply` both still claimed success | Real diff: `workout_a.json`'s `phases` array unchanged, "Warm-up - Wrist Prep" still present |
+| 3 | Finding A (`plan_edit`, swap a real session to a rest day) | coach-prateek | PASS - real session `sess_20260911_1` swapped from "Easy Mobility & Recovery" to a Rest Day, correct id picked out of 5 real sessions in the week | Real diff: `current_week.json`'s `sess_20260911_1` entry confirmed changed (`title`, `discipline` both updated) |
+
+**Read:** small sample (n=3), but two new failure shapes neither direct-pro nor OpenRouter-flash
+testing has shown before - a false "not in the schema" claim, and a phase-name string mismatch
+silently swallowed while the reply still claims success. Both are self-audit blind spots, same class
+of gap Finding D's mitigation already isn't fully closing. Not enough data to characterize
+OpenRouter-pro's real reliability, but enough to say it is not a clean drop-in either - do not treat
+"OpenRouter can reach a pro-tier model" as equivalent to "direct pro's reliability, just cheaper."
+
+### Overall recommendation
+
+**This recommendation was made 2026-09-09, on the strength of pro's 12/12 result on the flagship
+scenario. As of 2026-09-10 that number does not hold at a larger sample (5/8) - see
+`GEMINI-PRO-BASELINE-2026-09-10.md`. This recommendation needs to be re-made with the fuller
+picture, not treated as still-current.** What was true then: pro was still the best failure rate
+found of anything tested (flash and DeepSeek both fail more often, and more severely, than pro's
+3/8). What's now also true: pro's own failures are real, repeatable, and just as invisible to the
+`unrecorded_facts` self-audit as everyone else's. Cost pressure is real and pro is not the
+failure-free option it looked like - the decision is now a genuine tradeoff between failure rate,
+failure severity, and cost, not "pro is clean, everything else isn't."
+
+---
+
+## Merge readiness - what's left before this stack merges
+
+1. **DONE - decision made.** Model/provider question resolved: stay on `gemini-pro-latest`. Not a
+   blocker to merging - production keeps its current default either way, nothing in this stack
+   flips it. Revisit if flash's reliability improves or cost pressure forces the tradeoff.
+2. **DONE.** Findings A and C both fixed and re-verified live. A holds up cleanly (3/3). C got a
+   second fix (#950) for the residual malformed-JSON bug the first fix's retry didn't cover.
+3. **DONE.** K1's own LLD (`docs/plans/ccr-k1-final-test-pass-lld.md`) records today's work, pushed
+   to #824. M2's LLD execution table is still stale (low priority, "leave M2 for now" stands).
+   Plan-file deletion correctly not done yet (K1 hasn't merged).
+4. **DONE.** All 7 test-infra gaps fixed on #951, plus a real `GEMINI_API_KEY` production bug found
+   and fixed in the same pass, plus the local-athlete-repo testing workflow now documented in
+   `docs/eng-docs/coach-chat-testing.md`. `activity_sync` mode testing was fixed on #953
+   (`--activity-ids`, live-verified against a real repo). `coach-message` (a genuinely separate
+   endpoint, not reachable through `coach-chat.ts`) still has no harness - needs its own script,
+   sized but not built.
+5. **F1 (athlete repo migration/backfill)** - still the hard production blocker, unrelated to
+   everything above. Merging triggers an immediate production deploy (confirmed via `vercel.json`);
+   without F1's `coaching_style` backfill, every real athlete's onboarding resets on their next
+   message. Not started.
+6. **M3 (flipping the provider in production)** - not started, and given the decision above (stay
+   on `pro`), not currently planned. Revisit "Model & provider comparison" above if that changes.
+7. **Real athlete repo scratch branches have accumulated well past 157** across this whole
+   investigation. None touch any athlete's real `main`, none are PRs. Cleanup owed once the
+   investigation is fully done - explicitly deferred per instruction, the one remaining item on
+   this list not yet closed.
+8. **Git mechanics are not blocking anything** - the whole 28-PR stack (`769`->...->`921`->`948`->
+   `949`->{`950`,`951`,`952`}->`953`->`954`) is rebased onto current `main`, green CI, mergeable.
+   Nothing merged.
+
+---
+
+## Test-infrastructure gaps - all fixed on #951 except one deferred item
+
+- **Fixed:** `--debug`/`DEBUG=1` dumps the raw assembled prompt now.
+- **Fixed:** `pretest:coach-chat-manual` hook builds SOUL automatically on a fresh checkout.
+- **Fixed:** `--message` now prints a loud stderr warning about the new-thread-per-call gotcha.
+- **Fixed:** `getHeadSha`'s harness call sites retry once on a transient GitHub API race.
+- **Fixed:** run log filenames now carry a repo slug, not just a timestamp.
+- **Fixed:** `coachTurn.ts`'s log line reports commit-failure drops and validation drops as two
+  distinct counters instead of one misleading `droppedFacts`.
+- **Fixed:** the harness's own startup check, and `coach-chat.ts`'s real `handle()` (a genuine
+  production bug, not just a test-harness one), now require the right API key for the actual
+  selected provider instead of always requiring `GEMINI_API_KEY`.
+- **Fixed on #953:** `--activity-ids` gives the manual harness a way to reach `mode: "activity_sync"`
+  for the first time - live-verified against a real repo with a real HealthKit activity id, correct
+  mode, correct contextual reply, real commit.
+- **Fixed on #954:** `coach-message` (the separate post-sync generator endpoint, not reachable
+  through `coach-chat.ts`'s `handle()`) now has its own harness -
+  `run-manual-coach-message-test.ts` / `npm run test:coach-message-manual`. Exported `handle()`
+  from `coach-message.ts` (same pattern `coach-chat.ts` already uses). Live-verified both real
+  paths: idempotent-return (a real already-processed production activity, byte-identical response)
+  and real-commit (a fresh activity, real diff on `latest_message.json`).
+- **Fixed on #954:** multi-turn conversational continuity, previously untested in this whole
+  pass (everything before was single-message) - 3 real 4-6 turn conversations run against direct
+  pro, see `GEMINI-PRO-BASELINE-2026-09-10.md`'s "Multi-turn coverage" section for full results.
+- **Documented, not code:** the local-athlete-repo testing workflow (recreating a conversation,
+  verifying via real diffs, resetting to blank FSP state via the GitHub API) is now written up in
+  `docs/eng-docs/coach-chat-testing.md` instead of living only in agent transcripts.
+
+## Minor observations, pre-existing, not investigated further
+
+- `injuries.json` writes drop `version`/`_meta`, unlike every other file this app writes.
+- `memory.json` writes always materialize a `"coaching_style": null` key even when unrelated to the
+  turn - a schema-normalization side effect, not a bug.

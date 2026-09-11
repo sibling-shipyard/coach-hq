@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.25 — "You're Allowed to Touch the Template" · Sep 9, 2026
+**Superpower gained:** Coach will actually edit a workout template when asked, in the hosted app.
+
+A live test kept ending the same way: ask Coach to permanently drop the warmup from a template,
+and it flatly refused - even with the exact template named and an explicit "just do it." A
+guardrail written for a different Coach (the one that hand-edits files in a terminal) was bleeding
+into one that was never supposed to read it that way.
+
+- Asking Coach to make a real, permanent template change now works in the hosted app.
+- Coach still won't touch a template on a whim - only on a real, explicit ask, same as before.
+**Why it mattered:** a feature Coach won't actually use is no feature at all.
+
 ## v5.24 — "Same Trick, Later in the Season" · Sep 4, 2026
 **Superpower gained:** v5.23's fix now covers a returning athlete too, not just a First Session.
 
