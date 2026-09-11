@@ -2,8 +2,10 @@
 
 import {
   MEMORY_NOTE_LABELS,
+  COACHING_STYLES,
   type MemoryJson,
   type MemoryNoteLabel,
+  type CoachingStyle,
   type InjuryFlag,
   type CoachLogRow,
   type ProfileJson,
@@ -80,10 +82,41 @@ export function applyMemoryUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
+    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
   result.notes[label] = { text: text.trim(), updated_at: updatedAt, trace_id: traceId };
+
+  return JSON.stringify(result, null, 2);
+}
+
+// coaching_style_update: a separate field from memory_update, not a seventh label - it's a plain
+// top-level enum on MemoryJson, not a {text, updated_at, trace_id} notes box.
+export function applyCoachingStyleUpdate(
+  content: string | null,
+  style: string,
+  updatedAt: string,
+  traceId: string,
+): string {
+  if (!COACHING_STYLES.includes(style as CoachingStyle)) {
+    throw new Error(`coaching_style_update: "${style}" is not a valid coaching style`);
+  }
+
+  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
+
+  const emptyNotes = () =>
+    Object.fromEntries(
+      MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+    ) as MemoryJson["notes"];
+
+  const result: MemoryJson = {
+    version: 1,
+    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
+    sports: parsed.sports ?? [],
+    coaching_style: style as CoachingStyle,
+    notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
+  };
 
   return JSON.stringify(result, null, 2);
 }
@@ -114,6 +147,7 @@ export function applySportsUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: cleaned,
+    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 

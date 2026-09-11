@@ -1,0 +1,22 @@
+{
+  "name": "fsp-coaching-style",
+  "description": "E1 (coach-chat commit redesign): during First Session, an explicit answer to the coaching-style intake question ('someone holding you accountable, someone cheering you on, or someone walking through the why') must produce coaching_style_update with one of the three enum values, so it actually lands in memory.json rather than being dropped or paraphrased into a memory_update note.",
+  "mode": "ordinary",
+  "firstSession": true,
+  "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Running\n- **Coaching style preference:** (not yet set)\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n(none yet)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": [
+        "Any injuries I should know about? And - what works when things get hard for you: someone holding you accountable, someone cheering you on, or someone walking through the why?"
+      ]
+    }
+  ],
+  "userMessage": "No injuries right now. And honestly I just need someone to hold me accountable - if you let me off easy I'll slack off.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["coaching_style_update"]
+  }
+}

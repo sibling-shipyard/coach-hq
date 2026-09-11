@@ -637,6 +637,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const hasSportsUpdate = sportsUpdate.length > 0;
   const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
     memoryUpdate: reply.memory_update,
+    coachingStyleUpdate: reply.coaching_style_update,
     sportsUpdate,
   });
 
@@ -719,6 +720,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       profileUpdates,
       sportsUpdate,
       hasSportsUpdate,
+      coachingStyleUpdate: reply.coaching_style_update,
       seasonStart,
       today,
       traceId,

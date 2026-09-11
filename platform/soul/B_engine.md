@@ -123,6 +123,7 @@ Run `python3 engine/core/query_history.py --last 12w --summary` to get the last 
 - What's the one thing you most want to change or achieve in the next 3-6 months?
 - Any upcoming events or deadlines that matter? (race, tournament, season start)
 - Any injuries or physical limitations I should know about?
+- What works when things get hard: someone holding you accountable, someone cheering you on, or someone walking through the why?
 - What's your date of birth? Also height and weight — useful context for how I calibrate training. Ask for the actual birth date, not a computed age.
 - Which city or country are you based in? Infer the IANA timezone yourself; never ask for a timezone directly.
 

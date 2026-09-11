@@ -303,7 +303,8 @@ export async function loadCoachContext(
 // First Session Protocol completion check. Used to be a regex/section-matching read of state.md's
 // Athlete Profile section (see git history) - now a field-presence check across profile.json,
 // memory.json, and seasons.json. First Session is done only after all profile basics, at least
-// one sport, and a matching current season exist. Quests stay optional by design.
+// one sport, a real coaching-style enum, and a matching current season exist. Quests stay
+// optional by design.
 export function isAthleteProfileComplete(
   profile: ProfileJson | null,
   memory: MemoryJson | null,
@@ -316,17 +317,29 @@ export function isAthleteProfileComplete(
   const hasHeight = profile.height_cm != null;
   const hasWeight = profile.weight_kg != null;
   const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
+  const hasCoachingStyle = ["accountability", "encouragement", "analysis"].includes(
+    memory.coaching_style ?? "",
+  );
   const hasCurrentSeason = Boolean(
     seasons.current_season_id &&
     seasons.seasons.some((season) => season.id === seasons.current_season_id),
   );
-  return hasName && hasDob && hasTimezone && hasHeight && hasWeight && hasSport && hasCurrentSeason;
+  return (
+    hasName &&
+    hasDob &&
+    hasTimezone &&
+    hasHeight &&
+    hasWeight &&
+    hasSport &&
+    hasCoachingStyle &&
+    hasCurrentSeason
+  );
 }
 
 // isAthleteProfileComplete deliberately excludes quests - some athletes don't want them, and
 // that gate also unlocks daily chat, so it can't wait on an optional field. But the same boolean
 // was also the only thing deciding whether <first_session> prompt guidance kept showing - so the
-// instant profile/sports/season landed, FSP context vanished even if quest-setup (SOUL's
+// instant profile/sports/style/season landed, FSP context vanished even if quest-setup (SOUL's
 // own Step 4) hadn't happened yet. Live testing: an athlete stated habit quests on the same turn
 // that completed their profile, and quest_create never fired because firstSessionContext() had
 // already stopped injecting by then. This is the bounded fix - main_quest is meant to be set

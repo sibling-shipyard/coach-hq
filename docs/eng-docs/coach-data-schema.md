@@ -38,6 +38,7 @@ Sports and Coach's labelled free-text notes. Written by
 | `version` | `1` | |
 | `_meta` | `{updated_at, updated_by, trace_id}` | |
 | `sports` | `string[]` | |
+| `coaching_style` | `"accountability" \| "encouragement" \| "analysis" \| null` | Set by First Session; changeable via `coaching_style_update` |
 | `notes` | `Record<MemoryNoteLabel, MemoryNote>` | |
 
 **`MemoryNoteLabel` enum** (`MEMORY_NOTE_LABELS`, fixed set): `fitness_baseline`,
@@ -274,8 +275,8 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
-| First Session | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 
 `coach_note` (C2) is a day-keyed row, not the old closing-only append — see the
 `coach_log.json` section above.

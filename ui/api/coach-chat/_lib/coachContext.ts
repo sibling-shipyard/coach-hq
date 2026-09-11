@@ -63,6 +63,7 @@ function profileSection(profile: ProfileJson | null, memory: MemoryJson | null):
     "## Athlete Profile",
     `- **Name:** ${profile?.name ?? ""}`,
     `- **Sport(s) / Activities:** ${sports}`,
+    `- **Coaching style preference:** ${memory?.coaching_style ?? ""}`,
     `- **Age:** ${computeAge(profile?.dob ?? null)}`,
     `- **Height:** ${profile?.height_cm != null ? `${profile.height_cm} cm` : ""}`,
     `- **Weight:** ${profile?.weight_kg != null ? `${profile.weight_kg} kg` : ""}`,
