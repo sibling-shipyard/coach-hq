@@ -60,6 +60,24 @@ describe("coachReplySchema returning-athlete action fields", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
     expect(Object.keys(props)).toContain("coach_note");
   });
+
+  // Review finding, live-verified: without this, Gemini has sent "hiking" for the real enum
+  // value "hike" - a schema-level enum makes that structurally impossible instead of relying on
+  // coachWeekFiles.ts's coerceDiscipline to catch it after the fact.
+  it("constrains week_update session discipline to the closed enum", () => {
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
+    const weekUpdate = props.week_update as unknown as {
+      properties: {
+        days: {
+          items: { properties: { sessions: { items: { properties: { discipline: unknown } } } } };
+        };
+      };
+    };
+    const discipline = weekUpdate.properties.days.items.properties.sessions.items.properties
+      .discipline as { enum: string[] };
+    expect(discipline.enum).toContain("hike");
+    expect(discipline.enum).not.toContain("hiking");
+  });
 });
 
 // B3: quest_create and season_start were FSP-only until now - a returning athlete could never

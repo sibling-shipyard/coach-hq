@@ -9,6 +9,7 @@
  */
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "../decide/coachMemoryFiles.js";
 import type { WeekUpdate } from "../decide/coachWeekFiles.js";
+import { SESSION_DISCIPLINES } from "../current-week.bundle.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
@@ -273,7 +274,7 @@ const RESPONSE_PROPERTIES = {
                 type: "object",
                 properties: {
                   session_id: { type: "string" },
-                  discipline: { type: "string" },
+                  discipline: { type: "string", enum: [...SESSION_DISCIPLINES] },
                   kind: { type: "string" },
                   title: { type: "string" },
                   priority: { type: "string", enum: ["anchor", "support", "optional"] },

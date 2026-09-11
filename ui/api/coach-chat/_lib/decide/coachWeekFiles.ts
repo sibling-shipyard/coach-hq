@@ -27,11 +27,13 @@ import { todayDateString } from "./coachDay.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 
-// ADR 0042: discipline is a closed enum now (SESSION_DISCIPLINES), but Gemini's structured-output
-// schema still declares it a free string - a value arriving here gets the same
-// lenient-coerce-with-a-warning treatment template_id already gets below, not a thrown error.
-// "other" is a real, pickable enum member, so an unrecognized string reads as a deliberate
-// "none of the above."
+// ADR 0042: discipline is a closed enum, enforced at the JSON-schema level (coachReplySchema.ts's
+// week_update.days[].sessions[].discipline enum) - Gemini genuinely can't emit an off-list value
+// under normal structured-output compliance. This is real defense in depth, not the primary
+// guard: live-verified before the schema enum was added, Gemini sent "hiking" for the real value
+// "hike" and this caught it, same lenient-coerce-with-a-warning treatment template_id already
+// gets below, not a thrown error. "other" is a real, pickable enum member, so a genuinely
+// unrecognized string reads as a deliberate "none of the above," not a bug.
 const DISCIPLINE_SET = new Set<string>(SESSION_DISCIPLINES);
 function coerceDiscipline(raw: string, traceId: string): CurrentWeekSessionDiscipline {
   const normalized = raw.trim().toLowerCase();
