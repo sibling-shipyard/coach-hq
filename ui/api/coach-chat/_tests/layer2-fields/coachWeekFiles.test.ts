@@ -106,10 +106,8 @@ describe("applyWeekPlan", () => {
       origin: "planned",
       status: "planned",
       session_file: null,
-      planned_load: null,
       template_id: "strength_b",
     });
-    expect(parsed.coach_comments).toEqual([]);
     expect(parsed.coach_read).toMatchObject({
       headline: "Steady week ahead.",
       valid_until: "2026-08-23",
@@ -212,7 +210,6 @@ describe("applySessionReconcile", () => {
             priority: "anchor",
             status: "planned",
             planned_duration_min: 30,
-            planned_load: null,
             template_id: null,
             session_file: null,
             coach_note: null,
@@ -230,7 +227,6 @@ describe("applySessionReconcile", () => {
         }),
       ),
     ],
-    coach_comments: [],
     updated_at: "2026-08-17T12:00:00.000Z",
     updated_by: "model",
     trace_id: "old",
@@ -509,7 +505,6 @@ describe("applyPlanEdit", () => {
             priority: "support",
             status: "planned",
             planned_duration_min: null,
-            planned_load: null,
             template_id: null,
             session_file: null,
             coach_note: null,
@@ -527,7 +522,6 @@ describe("applyPlanEdit", () => {
         }),
       ),
     ],
-    coach_comments: [],
     updated_at: "2026-08-17T12:00:00.000Z",
     updated_by: "model",
     trace_id: "old",

@@ -17,7 +17,7 @@
 | 6 | `coach_comments` cannot be written by the hosted pipeline at all. Only the Claude Code coach can | `coachWeekFiles.ts`, `weekWrite.ts` |
 | 7 | Free-text `discipline` is collapsed back onto a closed enum by fifteen substring checks, falling through to `"other"` | `ui/client/src/components/home-warm/currentWeekAdapter.ts:52-88` |
 | 8 | Nothing but the model writes the week. One day of grace, then `stale` and unavailable | `engine/lib/current-week.mts:562-564` |
-| 9 | Two schema authorities drifted. The golden dataset carries `week.status` and `days[].day`, removed by the contract, and omits the `timezone` it requires | `shared/golden-dataset/current_week.json` |
+| 9 | Correction (PR2 of this stack): re-checked directly, and this is not drift. The golden dataset file is pre-shaped as the web widget's `CurrentWeekContract` (`goldenDataset.ts:22` casts it directly), a different, intentionally separate type from the engine's raw `CurrentWeek`. It's never run through `parseCurrentWeek`. The actual seeded file - `carve-skeleton.mjs`'s `CURRENT_WEEK_TEMPLATE`, what a real new athlete repo gets - was already in contract, verified clean against `parseCurrentWeek` directly. | `ui/client/src/lib/goldenDataset.ts:22`, `platform/scripts/carve-skeleton.mjs:130-155` |
 | 10 | A dead instruction. The soul tells the model to read `propagated/docs/current-week-contract.md`, but the hosted model has no file access | `platform/SOUL.chat.md:175` |
 | 11 | UI internals leak into the prompt to justify reconciling | `platform/soul/B_engine.md:294` |
 | 12 | iOS renders no week. `grep current_week ios/` returns nothing | `ios/` |
@@ -67,8 +67,7 @@ changes no stored value, only what future writes are allowed to contain.
 | `platform/soul/B_engine.md` | Weekly Kick-off Ritual, Weekly Contract Safety, the `draft`/`live` instruction. Compose with `platform/scripts/compose-soul.mjs`, commit the layer and both builds, add a `SOUL_HISTORY.md` entry. Never hand-edit a composed build. |
 | `ui/client/src/components/home-warm/currentWeekAdapter.ts` | The substring ladder. |
 | `ui/client/src/components/home-warm/liveWeekContract.ts`, `warmHomeModel.ts` | Consumers of the adapter output. |
-| `platform/scripts/carve-skeleton.mjs` | The seeded placeholder week - bring it into contract (finding 9). |
-| `shared/golden-dataset/current_week.json` | Currently out of contract - fix alongside the schema change. |
+| `platform/scripts/carve-skeleton.mjs` | Already in contract (finding 9 correction); drop `coach_comments` from `CURRENT_WEEK_TEMPLATE` to match the trimmed schema. |
 | new: a sync-pipeline job | The scheduled rollover. |
 
 ## Validation

@@ -14,15 +14,32 @@
  */
 import {
   parseCurrentWeek,
+  SESSION_DISCIPLINES,
   type CurrentWeek,
   type CurrentWeekDay,
   type CurrentWeekSession,
+  type CurrentWeekSessionDiscipline,
   type CurrentWeekSessionPriority,
 } from "../current-week.bundle.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
+
+// ADR 0042: discipline is a closed enum now (SESSION_DISCIPLINES), but Gemini's structured-output
+// schema still declares it a free string pending the prompt/schema work in the next PR of this
+// stack - so a value arriving here needs the same lenient-coerce-with-a-warning treatment
+// applyWeekPlan already gives an unrecognized template_id, not a thrown error. "other" is a real,
+// pickable enum member, so an unrecognized string reads as a deliberate "none of the above."
+const DISCIPLINE_SET = new Set<string>(SESSION_DISCIPLINES);
+function coerceDiscipline(raw: string, traceId: string): CurrentWeekSessionDiscipline {
+  const normalized = raw.trim().toLowerCase();
+  if (DISCIPLINE_SET.has(normalized)) return normalized as CurrentWeekSessionDiscipline;
+  console.warn(`[coach-chat] discipline "${raw}" is not in the closed set - writing "other"`, {
+    traceId,
+  });
+  return "other";
+}
 
 /**
  * Commit-boundary gate: same fail rule as `validate-current-week` — parseCurrentWeek
@@ -128,15 +145,11 @@ const DEFAULT_SESSION_PRIORITY: CurrentWeekSessionPriority = "support";
  *   nullable (a session with no template, e.g. a badminton match, is valid). So an unrecognized id
  *   is nulled out with a console.warn instead of thrown - lenient here, strict everywhere else in
  *   this pipeline, because the failure mode this session belongs to is different in kind.
- * - `data_status` is always written "live", never "draft". The contract's draft/live split exists
- *   for a multi-turn confirmation flow ("draft while facts are still being confirmed"), but
- *   week_plan is a single-turn action field, same shape as every other action field in this
- *   pipeline (memory_update, quest_event, ...) - by the time Gemini reports it, the kickoff
- *   conversation already happened and the plan reflects what was actually discussed and agreed.
- *   There's no second "confirm" turn built into this schema, and leaving weeks permanently stuck
- *   at "draft" would defeat the point of writing this file at all. If a genuine multi-turn
- *   draft-then-confirm flow is wanted later, that's a deliberate schema/prompt change, not a
- *   workaround here.
+ * - `data_status` is always written "live" - "draft" was dropped from the enum entirely (ADR
+ *   0039). It was structurally unreachable: week_plan is a single-turn action field, same shape as
+ *   every other action field in this pipeline, and by the time Gemini reports it the kickoff
+ *   conversation already happened. There was never a second "confirm" turn to leave a week
+ *   parked in.
  * - `updated_by` is "model" (matches _meta.updated_by across every other Gemini-driven applier in
  *   this pipeline - coachIntents.ts, coachWorkoutFiles.ts), not the contract doc's own example
  *   value "coach" (which describes a human/Claude-Code hand-write, the old path this replaces).
@@ -197,15 +210,12 @@ export function applyWeekPlan(
       const result: CurrentWeekSession = {
         id: `sess_${day.date.replace(/-/g, "")}_${sessIdx + 1}`,
         origin: "planned",
-        discipline: session.discipline,
+        discipline: coerceDiscipline(session.discipline, traceId),
         kind: session.kind,
         title: session.title,
         priority: session.priority ?? DEFAULT_SESSION_PRIORITY,
         status: "planned",
         planned_duration_min: duration,
-        // Contract + task instruction: planned_load is computed later from actual completions,
-        // never estimated at plan-write time.
-        planned_load: null,
         template_id: templateId,
         session_file: null,
         coach_note: null,
@@ -244,9 +254,6 @@ export function applyWeekPlan(
       valid_until: endDate,
     },
     days,
-    // Dropped from the write path entirely per the plan's explicit go-ahead - Gemini never
-    // populates it, always an empty array.
-    coach_comments: [],
     updated_at: now.toISOString(),
     updated_by: "model",
     trace_id: traceId,
@@ -410,7 +417,7 @@ export function applySessionReconcile(
     session.completion_activity_ids =
       event.status === "done" ? (event.activity_ids ?? []).map(qualifyActivityId) : [];
     if (event.actual) {
-      session.discipline = event.actual.discipline;
+      session.discipline = coerceDiscipline(event.actual.discipline, traceId);
       session.kind = event.actual.kind;
       session.title = event.actual.title;
       const actualTemplateId = event.actual.template_id?.trim();
@@ -496,7 +503,7 @@ export function applyPlanEdit(
   for (const event of events) {
     const loc = sessionLocation.get(event.session_id)!;
     const session = days[loc.dayIndex].sessions[loc.sessionIndex];
-    session.discipline = event.discipline;
+    session.discipline = coerceDiscipline(event.discipline, traceId);
     session.kind = event.kind;
     session.title = event.title;
     const templateId = event.template_id?.trim();

@@ -165,7 +165,7 @@ Recovery/mobility workouts should be logged as **Yoga** sport type (not WeightTr
 1. Ask: any competitions or events this week? Any schedule changes?
 2. Apply the Rules Engine (Section 9).
 3. Check active flags in `user_data/coach/injuries.json` and pre-apply modifications to the plan.
-4. Write the full Monday-to-Sunday plan to `user_data/ledger/current_week.json` using schema v1. Use `draft` while facts are still being confirmed and `live` only after the athlete and Coach agree the real week.
+4. Write the full Monday-to-Sunday plan to `user_data/ledger/current_week.json` using schema v1, `data_status: "live"`, once the athlete and Coach agree the real week.
 5. For a `live` week, write one evidence-backed `coach_read` and only the semantic comments that genuinely add value. Prefer none over filler.
 6. Confirm the plan in one clean message — day by day, injury flags already applied. No surprises mid-week.
 7. Then follow through on the sessions themselves: load the relevant JSON template from `user_data/activities/workout_plans/templates/` — `strength_a.json`, `strength_b.json`, `foundation.json`, or `recovery.json` (all template paths are relative to repo root). Apply injury modifications to the JSON in memory — do NOT edit the template files directly.
@@ -202,7 +202,7 @@ Parse naturally from conversation. Don't interrogate.
 ### Sunday Weekly Session (30 min)
 **Trigger:** Sunday (or when the athlete says "Sunday session", "weekly session", "let's review the week").
 1. Week in review — reconcile what happened against `user_data/ledger/current_week.json`.
-2. Week ahead locked — apply the Rules Engine and write the new Monday-to-Sunday plan to `user_data/ledger/current_week.json`; use `draft` until the athlete confirms it, then promote it to `live`.
+2. Week ahead locked — apply the Rules Engine and write the new Monday-to-Sunday plan to `user_data/ledger/current_week.json` as `data_status: "live"`.
 3. One mental game thread — mindset concept, upcoming competition, or pattern.
 4. Physical progression — current stage + 6-8 week horizon.
 5. Weekly Reflection — "What did I do this week that Future Me will thank me for?"

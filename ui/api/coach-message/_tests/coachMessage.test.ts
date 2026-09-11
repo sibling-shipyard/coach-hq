@@ -64,7 +64,6 @@ function liveWeek() {
       coach_note: null,
       sessions: [],
     })),
-    coach_comments: [],
     updated_at: "2026-08-23T10:00:00Z",
     updated_by: "coach",
     trace_id: "week-trace",

@@ -9,11 +9,8 @@ import type {
   CurrentWeekAvailability,
   CurrentWeekSession as RuntimeSession,
   CoachRead as RuntimeCoachRead,
-  CoachComment as RuntimeCoachComment,
 } from "@/lib/currentWeek";
 import type {
-  CoachComment,
-  CoachTone,
   CurrentWeekContract,
   CurrentWeekDataStatus,
   CurrentWeekDay,
@@ -28,9 +25,6 @@ import type {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PLAN_INTENTS: readonly PlanIntent[] = ["train", "recovery", "open", "rest", "review"];
-const COMMENT_TOPICS = ["weekly_load", "training_intensity", "weekly_plan"] as const;
-type CommentTopic = (typeof COMMENT_TOPICS)[number];
-
 function disciplineFor(category: TrainingCategory): SessionDiscipline {
   if (category.startsWith("badminton")) return "badminton";
   if (category === "calisthenics") return "calisthenics";
@@ -70,19 +64,13 @@ function mapDiscipline(discipline: string): SessionDiscipline {
   return "other";
 }
 
-/** schema-v1 tone carries an extra "recovery"; the widget tone stops at caution. */
-function mapTone(tone: RuntimeCoachComment["tone"]): CoachTone {
-  return tone === "recovery" ? "steady" : tone;
-}
-
 function mapDataStatus(status: RuntimeCurrentWeek["data_status"]): CurrentWeekDataStatus {
-  // The widget only distinguishes placeholder vs live; draft reads as placeholder.
-  return status === "live" ? "live" : "placeholder";
+  return status;
 }
 
 function mapWeekStatus(availability: CurrentWeekAvailability["status"]): WeekStatus {
   if (availability === "current" || availability === "grace") return "active";
-  if (availability === "upcoming" || availability === "draft" || availability === "placeholder") {
+  if (availability === "upcoming" || availability === "placeholder") {
     return "draft";
   }
   return "complete";
@@ -124,24 +112,6 @@ function mapCoachRead(read: RuntimeCoachRead): CurrentWeekContract["coach_read"]
   };
 }
 
-function mapCoachComment(comment: RuntimeCoachComment, index: number): CoachComment {
-  const topic: CommentTopic = (COMMENT_TOPICS as readonly string[]).includes(comment.topic)
-    ? (comment.topic as CommentTopic)
-    : "weekly_plan";
-  return {
-    id: comment.id,
-    topic,
-    headline: comment.headline,
-    body: comment.body,
-    tone: mapTone(comment.tone),
-    // schema-v1 has no explicit priority; preserve authored order for the widget's sort.
-    priority: index + 1,
-    evidence_refs: comment.evidence_refs,
-    valid_from: comment.valid_from,
-    valid_until: comment.valid_until,
-  };
-}
-
 function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
   return {
     id: session.id,
@@ -151,7 +121,10 @@ function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
     priority: mapPriority(session.priority),
     status: mapStatus(session),
     planned_duration_min: session.planned_duration_min,
-    planned_load: session.planned_load,
+    // ADR 0042 drops planned_load from the schema - no writer ever set it to a real value
+    // (docs/plans/current-week-redesign-lld.md's consumer audit). The widget contract still
+    // carries the field; hardcode null rather than widen the contract in this PR.
+    planned_load: null,
     template_id: session.template_id,
     session_file: session.session_file,
     coach_note: session.coach_note,
@@ -254,7 +227,9 @@ export function adaptCurrentWeek(
           valid_until: runtime.week.end_date,
         },
     days,
-    coach_comments: runtime.coach_comments.map(mapCoachComment),
+    // ADR 0042 drops coach_comments from the schema - Gemini never populated it (see the
+    // consumer audit). Hardcode empty rather than widen the widget contract in this PR.
+    coach_comments: [],
     updated_at: runtime.updated_at,
     updated_by: runtime.updated_by,
     trace_id: runtime.trace_id,
