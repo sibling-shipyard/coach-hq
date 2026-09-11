@@ -1,8 +1,8 @@
 /**
- * OpenRouter adapter — Gemini reached through OpenRouter's provider routing, selected only when
+ * OpenRouter adapter - Gemini reached through OpenRouter's provider routing, selected only when
  * `LLM_PROVIDER=openrouter`. Pinned to `google-vertex`, never AI Studio: the account requires ZDR
  * and AI Studio endpoints are excluded by it (verified live, see #713's readiness gate in
- * docs/plans/chat-openrouter-migration.md). Named without a `~` alias — a floating alias exposes
+ * docs/plans/chat-openrouter-migration.md). Named without a `~` alias - a floating alias exposes
  * no endpoint list, so a provider allow-list cannot be pinned to one.
  *
  * `reasoning: {enabled: false}` returns a 400 on this model; `{effort: "low"}` is what gets 0
@@ -12,7 +12,7 @@
  *
  * The response cannot confirm the pin. OpenRouter reports `provider: "Google"` and echoes the slug
  * it was asked for, so `gen_ai.response.provider` reads the same whether the request pinned Vertex
- * or not (observed 2026-09-05, 4 runs). ZDR rests on this request body and the account setting —
+ * or not (observed 2026-09-05, 4 runs). ZDR rests on this request body and the account setting -
  * do not read a span as proof of it.
  */
 import { fetchWithTimeout } from "../httpTimeout.js";
@@ -21,7 +21,6 @@ import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 export const OPENROUTER_MODEL = "google/gemini-3.8-flash";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_TIMEOUT_MS = 45_000;
 
 interface OpenRouterResponse {
   choices?: Array<{
@@ -29,14 +28,14 @@ interface OpenRouterResponse {
     finish_reason?: string;
   }>;
   // OpenRouter reports an upstream refusal, a moderation block or a provider outage as HTTP 200
-  // with this object and no `choices` at all — the transport succeeded, the generation did not.
+  // with this object and no `choices` at all - the transport succeeded, the generation did not.
   error?: { code?: number | string; message?: string };
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
     completion_tokens_details?: { reasoning_tokens?: number };
-    // Both populated only when the request sends `usage: {include: true}` — the readiness gate's
+    // Both populated only when the request sends `usage: {include: true}` - the readiness gate's
     // finding that `/api/v1/generation` 404s under this account's `data_collection: "deny"`
     // (docs/eng-docs/chat-provider-bench.md § Gotchas). `cost` is USD for the whole call.
     cost?: number;
@@ -54,7 +53,7 @@ interface OpenRouterResponse {
  * own as `thinkingTokens`. `total_tokens` stays inclusive, which both providers already agree on.
  *
  * Measured 2026-09-05, `reasoning: {effort: "high"}`: completion 372, reasoning 332, and a
- * 176-character reply — 372 - 332 = the 40 tokens actually shown to the athlete.
+ * 176-character reply - 372 - 332 = the 40 tokens actually shown to the athlete.
  */
 export function visibleOutputTokens(usage: OpenRouterResponse["usage"]): number | undefined {
   const completion = usage?.completion_tokens;
@@ -67,13 +66,31 @@ export function visibleOutputTokens(usage: OpenRouterResponse["usage"]): number 
 /**
  * `prompt_tokens_details.cached_tokens` only arrives when the request sends `usage: {include:
  * true}`. Passed through undefined-safe on purpose: absent and zero are different facts on the
- * wire — absent means the field never arrived (caching status unknown), zero means it arrived
+ * wire - absent means the field never arrived (caching status unknown), zero means it arrived
  * and reported no cached prefix (a real cache miss, e.g. #713's finding that a varying athlete
  * block never earns Vertex's exact-repeat discount). `usageAttributes` (sentry.ts) already omits
  * `undefined` rather than sending a false zero, so this must not collapse the two either.
  */
 export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number | undefined {
   return usage?.prompt_tokens_details?.cached_tokens;
+}
+
+/**
+ * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
+ * request shape for both providers. OpenAI-style chat completions calls the same turn
+ * `"assistant"`, and puts a system turn ahead of the conversation as its own message rather than
+ * a separate top-level field. Empty `system` is omitted rather than sent as an empty message - a
+ * caller with no system/user split (coach-message) gets the exact wire shape it always sent: one
+ * user message, nothing else.
+ */
+export function toOpenRouterMessages(
+  request: Pick<LlmRequest, "system" | "messages">,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  const turns = request.messages.map((message) => ({
+    role: message.role === "model" ? ("assistant" as const) : ("user" as const),
+    content: message.text,
+  }));
+  return request.system ? [{ role: "system" as const, content: request.system }, ...turns] : turns;
 }
 
 export function createOpenRouterAdapter(
@@ -105,7 +122,7 @@ export function createOpenRouterAdapter(
               },
               body: JSON.stringify({
                 model: OPENROUTER_MODEL,
-                messages: [{ role: "user", content: request.prompt }],
+                messages: toOpenRouterMessages(request),
                 response_format: {
                   type: "json_schema",
                   json_schema: {
@@ -127,7 +144,7 @@ export function createOpenRouterAdapter(
                 },
               }),
             },
-            OPENROUTER_TIMEOUT_MS,
+            request.timeoutMs,
           );
           if (!response.ok) {
             const detail = await response.text();
@@ -139,7 +156,7 @@ export function createOpenRouterAdapter(
           const payload = (await response.json()) as OpenRouterResponse;
           resolvedProvider = payload.provider;
           resolvedModel = payload.model;
-          // Recorded even when `usage` is absent — the resolved provider/model is the whole
+          // Recorded even when `usage` is absent - the resolved provider/model is the whole
           // point of provider routing and must reach the span regardless (locked decision).
           recordUsage({
             promptTokens: payload.usage?.prompt_tokens,

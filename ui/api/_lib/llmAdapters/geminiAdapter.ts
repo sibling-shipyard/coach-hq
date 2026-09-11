@@ -1,5 +1,5 @@
 /**
- * Direct Gemini adapter — the path production selects when `LLM_PROVIDER` is unset or "gemini".
+ * Direct Gemini adapter - the path production selects when `LLM_PROVIDER` is unset or "gemini".
  * Header auth (`x-goog-api-key`), not the URL query param the old single call site used: #638
  * (PR 823) was rewriting that same call site to header auth when this replaced it outright, so
  * there is nothing to retrofit onto (see the PR body for the pointer if 823 lands later).
@@ -14,7 +14,6 @@ import { withGeminiSpan } from "../sentry.js";
 import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
 interface GeminiGenerateResponse {
   candidates?: Array<{
@@ -52,10 +51,19 @@ export function createGeminiAdapter(
               method: "POST",
               headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
               body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: request.prompt }] }],
+                // Empty system is omitted rather than sent as an empty systemInstruction - a
+                // caller with no system/user split (coach-message) gets the exact wire shape it
+                // always sent: one user content block, nothing else.
+                ...(request.system
+                  ? { systemInstruction: { parts: [{ text: request.system }] } }
+                  : {}),
+                contents: request.messages.map((message) => ({
+                  role: message.role,
+                  parts: [{ text: message.text }],
+                })),
                 generationConfig: {
                   responseMimeType: "application/json",
-                  // Gemini's responseSchema has no additionalProperties field — OpenRouter's
+                  // Gemini's responseSchema has no additionalProperties field - OpenRouter's
                   // strict json_schema needs one, Gemini rejects fields it doesn't recognize, so
                   // only the three fields it understands cross over.
                   responseSchema: {
@@ -67,7 +75,7 @@ export function createGeminiAdapter(
                 },
               }),
             },
-            GEMINI_GENERATE_TIMEOUT_MS,
+            request.timeoutMs,
           );
           if (!response.ok) {
             const detail = await response.text();

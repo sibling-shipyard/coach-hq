@@ -8,7 +8,8 @@ import { createGeminiAdapter } from "../../llmAdapters/geminiAdapter.js";
 import type { LlmRequest } from "../../llmClient.js";
 
 const REQUEST: LlmRequest = {
-  prompt: "prompt",
+  system: "",
+  messages: [{ role: "user", text: "prompt" }],
   maxOutputTokens: 3_072,
   responseSchema: {
     name: "proactive",
@@ -19,6 +20,7 @@ const REQUEST: LlmRequest = {
       additionalProperties: false,
     },
   },
+  timeoutMs: 45_000,
 };
 
 function okResponse(body: string) {
@@ -62,6 +64,61 @@ describe("createGeminiAdapter", () => {
       fetcher,
     );
     await adapter.generate(REQUEST);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("omits systemInstruction and sends one user content block when system is empty (#713)", async () => {
+    // coach-message has no natural system/user split — this must be the exact wire shape it
+    // always sent: no systemInstruction field at all, one user content block.
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body).not.toHaveProperty("systemInstruction");
+      expect(body.contents).toEqual([{ role: "user", parts: [{ text: "prompt" }] }]);
+      return okResponse("That looked controlled.");
+    });
+    const adapter = createGeminiAdapter(
+      { GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate(REQUEST);
+  });
+
+  it("maps a non-empty system plus multi-turn messages to systemInstruction/contents (#713)", async () => {
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.systemInstruction).toEqual({ parts: [{ text: "You are Coach." }] });
+      expect(body.contents).toEqual([
+        { role: "user", parts: [{ text: "How was my run?" }] },
+        { role: "model", parts: [{ text: "Solid effort." }] },
+        { role: "user", parts: [{ text: "Thanks." }] },
+      ]);
+      return okResponse("That looked controlled.");
+    });
+    const adapter = createGeminiAdapter(
+      { GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate({
+      ...REQUEST,
+      system: "You are Coach.",
+      messages: [
+        { role: "user", text: "How was my run?" },
+        { role: "model", text: "Solid effort." },
+        { role: "user", text: "Thanks." },
+      ],
+    });
+  });
+
+  it("threads request.timeoutMs through to fetchWithTimeout, not a hardcoded constant (#713)", async () => {
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit, timeoutMs?: number) => {
+      expect(timeoutMs).toBe(12_345);
+      return okResponse("That looked controlled.");
+    });
+    const adapter = createGeminiAdapter(
+      { GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate({ ...REQUEST, timeoutMs: 12_345 });
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
