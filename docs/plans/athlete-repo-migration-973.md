@@ -81,17 +81,30 @@ Run in this order, once per repo, `sibling-shipyard/coach-skeleton` included:
 
 ## Repos in scope
 
-- `sibling-shipyard/coach-skeleton` - the template every new athlete repo forks from. Migrate
-  first; every repo carved after it inherits the fix.
-- `skanda-2003/coach-skanda-2003`
-- `akash-suresh/coach-akash-suresh`
+Six total. `ui/scripts/run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map only names two
+(`skanda`, `akash`) - out of date. Worth adding the other three there while doing this migration,
+so a live test against any of them doesn't need `--repo`/`--local-path` spelled out by hand.
 
-Confirm this list is still complete before starting - a repo not listed in
-`ui/scripts/run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map, or a newer one, would be missed.
+Checked directly against each local clone (not assumed) on 2026-09-11:
+
+| Repo | `coach_comments`? | Any `planned_load`? | `data_status` | `reconcile`/`rollover` scripts |
+|---|---|---|---|---|
+| `sibling-shipyard/coach-skeleton` | template only - fixed by this PR's carve-skeleton.mjs change | - | - | fixed by this PR |
+| `skanda-2003/coach-skanda-2003` | present on `main` | present on `main` | `live` on `main` (verified separately, its own scratch branch) | absent |
+| `akash-suresh/coach-akash-suresh` | present | present | `live` | absent |
+| `date2022/coach-date2022` | present | present | `live` | absent |
+| `prateekdevaraju/coach-prateekdevaraju` | present | none currently | `placeholder` | absent |
+| `shreyas-95-cyber/coach-shreyas-95-cyber` | present | none currently | `placeholder` | absent |
+
+A `placeholder` week still needs the `coach_comments` drop - the field's on the root object
+regardless of `data_status`. "No `planned_load` currently" only means no *session* has one right
+now, not that the field is genuinely absent from the type; migrate all six the same way
+regardless, since a future session write could otherwise reintroduce it.
 
 ## Done when
 
-- All three repos above pass `./engine/scripts/validate-current-week` on `main`.
-- Each repo's `sync.yml` has run at least once post-migration with the Reconcile and Rollover
-  steps both green.
+- All six repos above pass `./engine/scripts/validate-current-week` on `main`.
+- Each athlete repo's `sync.yml` has run at least once post-migration with the Reconcile and
+  Rollover steps both green.
+- `ATHLETE_REPOS` in `run-manual-coach-chat-test.ts` lists all five athletes, not two.
 - This file is deleted in the finishing PR, per the plan-delete-on-last-PR rule.
