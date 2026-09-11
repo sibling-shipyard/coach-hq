@@ -33,4 +33,9 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
 
 ## Learnings
 
-- _(none yet — the previous entries were promoted into the docs you own, plus `ios/DESIGN.md`)_
+- Never fabricate a local stub thread under a REAL server thread id (`route.isPersistedThreadSeed`,
+  a persisted `t-<epoch>` seed) when the turn-commit protocol sends the client's local `messages`
+  back to the server for that id — the server does a full replace (`mergeThreadToFront` in
+  `chatThreads.ts`), not an append, so a truncated stub silently discards the real thread's
+  history/attachments on the next reply. Only a seed with no server record (`local-proactive-<id>`)
+  may be materialized locally — see `CoachChatView.swift`'s `openRequestedProactiveRoute`.

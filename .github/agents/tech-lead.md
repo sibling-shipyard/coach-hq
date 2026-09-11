@@ -147,6 +147,9 @@ nothing and hides the few lines that matter.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
-- Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing runs it until a PR links the issue. It wants the bare milestone code (`M3`); `gh issue create` wants the full title (`M3: Scale to 10 users`). M3/M4 also need a native parent link to an open `epic` in the same milestone, and the repo has few — file as `Later` or create the epic first.
+- After rebasing a stacked PR chain, `git merge-base --is-ancestor <parent> <child>` every link,
+  not just the one you just did — rebasing onto an `origin/<branch>` ref whose own upstream rebase
+  hasn't landed (push blocked/delayed) silently drops the parent's fix. GitHub's `mergeable` can
+  show stale `CONFLICTING` after a force-push; `git merge --no-commit --no-ff` locally is proof.
 - Never quote a provider number from memory — pinning, cache measurement, where cost comes from and free-tier quota are all in `docs/eng-docs/chat-provider-bench.md`, measured.
 - A deployment proves nothing until you know its commit. `llm.adapter` absent from a `gen_ai` span means pre-adapter code, not a bad flag; a Vercel redeploy rebuilds the same commit.
