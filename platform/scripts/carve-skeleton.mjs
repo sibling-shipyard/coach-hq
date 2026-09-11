@@ -119,14 +119,15 @@ const PLUGINS_TEMPLATE = {
   enabled: [],
 };
 
-// "unavailable" is not a legal data_status (CurrentWeekDataStatus is "placeholder" | "draft" |
-// "live" only - "unavailable" is an availability *result*, computed by parseCurrentWeek, never a
-// value the file itself holds). This is a genuinely valid current_week.json - schema_version 1,
-// data_status "placeholder" (which short-circuits parseCurrentWeek's staleness check regardless
-// of when the repo is actually carved, per getAvailability()), a real Monday-anchored week with
-// seven matching days, no coach_read/coach_comments (required empty for placeholder), and a real
-// timestamp - not a stub that only coincidentally satisfies fewer fields than validate-current-week
-// actually checks. Verified clean against `engine/scripts/validate-current-week` directly.
+// "unavailable" is not a legal data_status (CurrentWeekDataStatus is "placeholder" | "live" only,
+// ADR 0039 dropped "draft" - "unavailable" is an availability *result*, computed by
+// parseCurrentWeek, never a value the file itself holds). This is a genuinely valid
+// current_week.json - schema_version 1, data_status "placeholder" (which short-circuits
+// parseCurrentWeek's staleness check regardless of when the repo is actually carved, per
+// getAvailability()), a real Monday-anchored week with seven matching days, no coach_read
+// (required empty for placeholder), and a real timestamp - not a stub that only coincidentally
+// satisfies fewer fields than validate-current-week actually checks. Verified clean against
+// `engine/scripts/validate-current-week` directly.
 const CURRENT_WEEK_TEMPLATE = {
   schema_version: 1,
   data_status: "placeholder",
@@ -148,7 +149,6 @@ const CURRENT_WEEK_TEMPLATE = {
     { date: "2026-01-10", intent: null, coach_note: null, sessions: [] },
     { date: "2026-01-11", intent: null, coach_note: null, sessions: [] },
   ],
-  coach_comments: [],
   updated_at: "2026-01-05T00:00:00Z",
   updated_by: "skeleton-init",
   trace_id: "skeleton-init",

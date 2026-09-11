@@ -25,6 +25,19 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.26 — "The Week Is Never Half-Written" · Sep 11, 2026
+**Superpower gained:** nothing new - a dead instruction removed.
+
+Coach's own rules told it to write a weekly plan as `draft` while facts were still being
+confirmed, then promote it to `live` once agreed. No code path ever honored that: the hosted
+pipeline always wrote `live` outright, and a BYOB Coach following the instruction literally would
+now get its write rejected outright, since the schema itself no longer allows the value.
+
+- No visible change - Coach never actually paused a week at `draft` for anyone.
+- Removes an instruction that only ever described a state nothing could reach.
+**Why it mattered:** ADR 0039 drops `draft` from the schema entirely; leaving Coach still being
+told to use it would have turned a dead field into a write Coach can no longer make.
+
 ## v5.25 — "You're Allowed to Touch the Template" · Sep 9, 2026
 **Superpower gained:** Coach will actually edit a workout template when asked, in the hosted app.
 

@@ -2,8 +2,6 @@
 var CURRENT_WEEK_SCHEMA_VERSION = 1;
 var DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 var ISO_TIMESTAMP_WITH_ZONE_PATTERN = /(?:Z|[+-]\d{2}:\d{2})$/;
-var EVIDENCE_REF_PATTERN = /^[a-z][a-z0-9_]*$/;
-var TOPIC_PATTERN = /^[a-z][a-z0-9_]*$/;
 var QUALIFIED_ACTIVITY_ID_PATTERN = /^[a-z][a-z0-9_-]*:[^\s:]+$/;
 var ROOT_KEYS = [
   "schema_version",
@@ -12,7 +10,6 @@ var ROOT_KEYS = [
   "week",
   "coach_read",
   "days",
-  "coach_comments",
   "updated_at",
   "updated_by",
   "trace_id"
@@ -34,7 +31,6 @@ var SESSION_KEYS = [
   "priority",
   "status",
   "planned_duration_min",
-  "planned_load",
   "template_id",
   "session_file",
   "coach_note",
@@ -47,20 +43,27 @@ var COACH_READ_KEYS = [
   "valid_from",
   "valid_until"
 ];
-var COACH_COMMENT_KEYS = [
-  "id",
-  "topic",
-  ...COACH_READ_KEYS,
-  "tone",
-  "confidence",
-  "evidence_refs"
+var DATA_STATUSES = ["placeholder", "live"];
+var SESSION_DISCIPLINES = [
+  "badminton",
+  "calisthenics",
+  "cycling",
+  "foundation",
+  "recovery",
+  "run",
+  "strength",
+  "weight_training",
+  "hike",
+  "walk",
+  "cricket",
+  "football",
+  "workout",
+  "swim",
+  "other"
 ];
-var DATA_STATUSES = ["placeholder", "draft", "live"];
 var SESSION_ORIGINS = ["planned", "unplanned"];
 var SESSION_PRIORITIES = ["anchor", "support", "optional"];
 var SESSION_STATUSES = ["planned", "done", "skipped"];
-var COACH_TONES = ["positive", "steady", "caution", "recovery"];
-var COACH_CONFIDENCES = ["low", "medium", "high"];
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -179,29 +182,6 @@ function validateCoachRead(value, path, issues) {
   validateRequiredString(value.body, `${path}.body`, issues, 280);
   validateCommentaryWindow(value, path, issues);
 }
-function validateCoachComment(value, index, issues) {
-  const path = `current_week.coach_comments[${index}]`;
-  if (!isObject(value)) {
-    issues.push(`${path} must be an object`);
-    return;
-  }
-  validateKeys(value, COACH_COMMENT_KEYS, path, issues);
-  validateRequiredString(value.id, `${path}.id`, issues, 80);
-  if (validateRequiredString(value.topic, `${path}.topic`, issues, 64) && !TOPIC_PATTERN.test(value.topic)) {
-    issues.push(`${path}.topic must use lower snake_case`);
-  }
-  validateRequiredString(value.headline, `${path}.headline`, issues, 48);
-  validateRequiredString(value.body, `${path}.body`, issues, 140);
-  validateEnum(value.tone, COACH_TONES, `${path}.tone`, issues);
-  validateEnum(value.confidence, COACH_CONFIDENCES, `${path}.confidence`, issues);
-  validateStringArray(value.evidence_refs, `${path}.evidence_refs`, issues, {
-    minItems: 1,
-    maxItems: 8,
-    maxItemLength: 64,
-    pattern: EVIDENCE_REF_PATTERN
-  });
-  validateCommentaryWindow(value, path, issues);
-}
 function validateSession(value, dayDate, path, issues, sessionIds) {
   if (!isObject(value)) {
     issues.push(`${path} must be an object`);
@@ -215,7 +195,7 @@ function validateSession(value, dayDate, path, issues, sessionIds) {
     sessionIds.add(value.id);
   }
   const originValid = validateEnum(value.origin, SESSION_ORIGINS, `${path}.origin`, issues);
-  validateRequiredString(value.discipline, `${path}.discipline`, issues, 48);
+  validateEnum(value.discipline, SESSION_DISCIPLINES, `${path}.discipline`, issues);
   validateRequiredString(value.kind, `${path}.kind`, issues, 48);
   validateRequiredString(value.title, `${path}.title`, issues, 96);
   if (value.priority !== null) {
@@ -233,12 +213,6 @@ function validateSession(value, dayDate, path, issues, sessionIds) {
   }
   if (value.planned_duration_min !== null && (!Number.isInteger(value.planned_duration_min) || Number(value.planned_duration_min) <= 0)) {
     issues.push(`${path}.planned_duration_min must be a positive integer or null`);
-  }
-  if (value.planned_load !== null && (typeof value.planned_load !== "number" || !Number.isFinite(value.planned_load) || value.planned_load <= 0)) {
-    issues.push(`${path}.planned_load must be a positive load-points number or null`);
-  }
-  if (originValid && value.origin === "unplanned" && value.planned_load !== null) {
-    issues.push(`${path}.planned_load must be null for an unplanned session`);
   }
   validateNullableString(value.template_id, `${path}.template_id`, issues, 100);
   if (validateNullableString(value.session_file, `${path}.session_file`, issues, 160) && typeof value.session_file === "string") {
@@ -336,9 +310,6 @@ function getAvailability(data, now) {
   if (data.data_status === "placeholder") {
     return { status: "placeholder", available: false, reason: "The weekly plan has not been confirmed yet." };
   }
-  if (data.data_status === "draft") {
-    return { status: "draft", available: false, reason: "The weekly plan is still being confirmed." };
-  }
   const today = formatDateInTimeZone(now, data.timezone);
   if (today < data.week.start_date) {
     return { status: "upcoming", available: false, reason: "The live weekly plan has not started yet." };
@@ -361,7 +332,6 @@ function parseCurrentWeek(input, now = /* @__PURE__ */ new Date()) {
       data: null,
       availability: { status: "invalid", available: false, reason: "Weekly data is not a JSON object." },
       coachRead: null,
-      coachComments: [],
       issues: ["current_week must be an object"]
     };
   }
@@ -386,23 +356,6 @@ function parseCurrentWeek(input, now = /* @__PURE__ */ new Date()) {
       validateDay(day, index, startDate ? addDays(startDate, index) : null, issues, sessionIds);
     });
   }
-  if (!Array.isArray(input.coach_comments)) {
-    issues.push("current_week.coach_comments must be an array");
-  } else {
-    if (input.coach_comments.length > 3) {
-      issues.push("current_week.coach_comments must contain at most three comments");
-    }
-    const commentIds = /* @__PURE__ */ new Set();
-    input.coach_comments.forEach((comment, index) => {
-      validateCoachComment(comment, index, issues);
-      if (isObject(comment) && typeof comment.id === "string") {
-        if (commentIds.has(comment.id)) {
-          issues.push(`current_week.coach_comments[${index}].id must be unique`);
-        }
-        commentIds.add(comment.id);
-      }
-    });
-  }
   if (typeof input.updated_at !== "string" || !ISO_TIMESTAMP_WITH_ZONE_PATTERN.test(input.updated_at) || Number.isNaN(Date.parse(input.updated_at))) {
     issues.push("current_week.updated_at must be an ISO 8601 timestamp with a timezone");
   }
@@ -411,7 +364,7 @@ function parseCurrentWeek(input, now = /* @__PURE__ */ new Date()) {
   if (dataStatusValid && input.data_status === "live" && input.coach_read === null) {
     issues.push("current_week.coach_read is required when data_status is live");
   }
-  if (dataStatusValid && input.data_status === "placeholder" && (input.coach_read !== null || Array.isArray(input.coach_comments) && input.coach_comments.length > 0)) {
+  if (dataStatusValid && input.data_status === "placeholder" && input.coach_read !== null) {
     issues.push("placeholder weekly data must not contain Coach commentary");
   }
   if (issues.length > 0 || !timezoneValid) {
@@ -419,25 +372,24 @@ function parseCurrentWeek(input, now = /* @__PURE__ */ new Date()) {
       data: null,
       availability: { status: "invalid", available: false, reason: "Weekly data failed runtime validation." },
       coachRead: null,
-      coachComments: [],
       issues
     };
   }
   const data = input;
   const availability = getAvailability(data, now);
   if (!availability.available) {
-    return { data, availability, coachRead: null, coachComments: [], issues: [] };
+    return { data, availability, coachRead: null, issues: [] };
   }
   const localDate = formatDateInTimeZone(now, data.timezone);
   return {
     data,
     availability,
     coachRead: data.coach_read && isCommentaryCurrent(data.coach_read, localDate) ? data.coach_read : null,
-    coachComments: data.coach_comments.filter((comment) => isCommentaryCurrent(comment, localDate)),
     issues: []
   };
 }
 export {
   CURRENT_WEEK_SCHEMA_VERSION,
+  SESSION_DISCIPLINES,
   parseCurrentWeek
 };
