@@ -1,6 +1,6 @@
 # Current Week: evidence
 
-> Status: Proposal · Owner: Tech Lead · Created: 2026-09-11 · Issue: #727
+> Status: Proposal · Owner: Tech Lead · Created: 2026-09-11 · Issue: #973
 >
 > Drill-down for [`current-week-redesign.md`](current-week-redesign.md). Every claim checked
 > against `main` at 94f0965 on 2026-09-11.
@@ -37,6 +37,21 @@ Coach sees only the flagged rows. A self-adjustment (athlete moves Tuesday to Th
 saying so) reads as a missed anchor plus an orphan unless Coach sets `original_date` on the one
 real moved session.
 
+## Consumer audit (gates the field drops in ADR 0039)
+
+Checked against `main` at 94f0965, real consumers only (`node_modules` excluded).
+
+| Field | Every consumer | Verdict |
+|---|---|---|
+| `planned_load` | Written `null` at plan time (`coachWeekFiles.ts:208`, comment: "computed later from actual completions"). `applySessionReconcile` and `applyPlanEdit` never touch it - grepped both functions, no assignment. `currentWeekAdapter.ts:154` reads it straight through to the UI type. `liveWeekContract.ts:86` writes a placeholder `null`. No path ever computes the "later" the comment promises. | **Drop.** No writer sets it to a real value anywhere in the pipeline; the promised completion-time computation was never built. |
+| `coach_comments` | `coachWeekFiles.ts:249` writes `[]` on every `week_plan`, with its own comment: "Dropped from the write path entirely per the plan's explicit go-ahead." `applySessionReconcile` spreads the array through unchanged. `currentWeekAdapter.ts:127-257` still maps it to a UI `CoachComment` type, and `warmHomeModel.ts:195-197` still has a lookup function for it. | **Drop the schema field and the write-side type.** The array can never hold anything after `week_plan` writes it once. Keep the read-side UI type only if a future non-hosted writer needs it - none does today, so drop both. |
+| `data_status: "draft"` | `coachWeekFiles.ts:131-139` documents this is deliberate, not an oversight: the pipeline has no multi-turn confirm flow, so `draft` is structurally unreachable from any writer. `current-week.mts:550-551` and `B_engine.md:13` both still branch on it as a real state (placeholder-style "not yet available" messaging). `carve-skeleton.mjs` seeds `placeholder`, not `draft`, at signup. | **Drop `draft` from the writable enum, keep `placeholder` and `live`.** `placeholder`/`live` are both real, reachable states (carve seeds `placeholder`, the model writes `live`); `draft` has zero writers and exists only as unreachable enum surface plus one soul branch and one availability-machine branch that never fire. |
+
+None of the three needed a schema migration for existing data. `planned_load` and `coach_comments`
+are already always their zero value (`null` / `[]`) in every live athlete's file, and no live file
+has ever reached `data_status: "draft"` since a writer never emits it. Removing them from the type
+changes no stored value, only what future writes are allowed to contain.
+
 ## Files touched
 
 | File | Why |
@@ -58,8 +73,7 @@ real moved session.
 
 ## Validation
 
-- Consumer audit before any field drop: a written list naming every reader of `planned_load`,
-  `coach_comments`, and the `draft` status, checked against the files above.
+- Consumer audit: done, see above, ADR 0039.
 - Unit tests on `current-week.mts` for the merged `week_update` applier and the closed enum.
 - Reconciliation: every row of the table above covered by a test that fails when violated.
 - Replay one athlete's real kick-off, sync, and a missed day through the new path offline; check

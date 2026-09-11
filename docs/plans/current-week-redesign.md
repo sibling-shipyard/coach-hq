@@ -1,6 +1,6 @@
 # Current Week: redesign
 
-> Status: Proposal · Owner: Tech Lead · Created: 2026-09-11 · Issue: #727
+> Status: Proposal · Owner: Tech Lead · Created: 2026-09-11 · Issue: #973
 >
 > Evidence and file references live in
 > [`current-week-redesign-lld.md`](current-week-redesign-lld.md).
@@ -32,13 +32,16 @@ activity landed a day off from plan - the ambiguous cases, not every sync.
 **A scheduled rollover, not a chat-triggered one.** A job in the sync pipeline advances the week
 on its own. An athlete who doesn't chat on Monday still has a real week Tuesday morning.
 
-**Drop the fields nothing uses**, once a consumer audit clears each one. `planned_load` is
-specified in the contract but never written by the hosted pipeline. `coach_comments` can't be
-written by the hosted pipeline at all. The `draft` half of the lifecycle is dead: `applyWeekPlan`
-already hardcodes `"live"`.
+**Drop the fields nothing uses.** The consumer audit in the LLD is done. `planned_load` has no
+writer anywhere that ever sets it to a real value. `coach_comments` is written `[]` on every plan
+and never touched again. `draft` is structurally unreachable, since this pipeline has no
+multi-turn confirm flow to put it in. `placeholder` and `live` stay - both are real, reachable
+states.
 
 **One schema authority.** `engine/lib/current-week.mts` becomes the only source of truth. The
 separate contract doc is generated from it or retired - the two have already drifted once.
+
+This is a locked-decision change, so it's recorded as ADR 0039, not just this plan.
 
 ## Done when
 
@@ -49,7 +52,7 @@ separate contract doc is generated from it or retired - the two have already dri
 - Every §5-style reconciliation rule (`workouts-redesign-lld.md`) has a test that fails when
   violated.
 - A quiet week with no chat still shows a real plan the next morning.
-- Every dropped field has a written consumer audit before removal.
+- Every dropped field has a written consumer audit before removal - done, see the LLD.
 - Full local gate green, `test/close-verification` in `coach-skanda-2003` live-tested before this
   is called done.
 
