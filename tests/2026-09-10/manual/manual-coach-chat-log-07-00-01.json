@@ -1,0 +1,26 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/pro-retest-finding-a-planedit",
+    "input": {
+      "threadId": "t-1789023598762",
+      "messages": [],
+      "message": "ping",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini rate limit exceeded - try again shortly"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "1075c0939f43f72377737d781f78c0ecf1604ae1",
+    "shaAfter": "1075c0939f43f72377737d781f78c0ecf1604ae1"
+  }
+]

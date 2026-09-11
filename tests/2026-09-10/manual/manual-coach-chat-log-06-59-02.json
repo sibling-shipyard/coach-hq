@@ -1,0 +1,26 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/pro-retest-finding-b",
+    "input": {
+      "threadId": "t-1789023538125",
+      "messages": [],
+      "message": "Please permanently drop the Accessory phase from my workout_a template. My ring support holds work isn't needed there anymore going forward. Wrap this up.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini rate limit exceeded - try again shortly"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "dc8cb587e68a163706aebfda7b78356e8f8a9bc3",
+    "shaAfter": "dc8cb587e68a163706aebfda7b78356e8f8a9bc3"
+  }
+]
