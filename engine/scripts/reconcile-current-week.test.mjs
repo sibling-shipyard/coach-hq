@@ -95,6 +95,20 @@ test("two same-discipline candidates flag ambiguity on coach_note, leave status 
   assert.match(session.coach_note, /Ambiguous/);
 });
 
+// Regression: the ambiguous branch flagged the session's coach_note but never claimed the
+// candidate activities, so the unmatched-activity pass below found them unclaimed and attached
+// each one a second time as its own new unplanned session - one real match turning into three
+// total sessions (the flagged one plus two duplicates) instead of one flagged session.
+test("ambiguous candidates are claimed too, so they don't also attach as duplicate unplanned sessions", () => {
+  const w = week([{ date: "2026-08-17", intent: null, coach_note: null, sessions: [plannedSession()] }]);
+  const result = reconcileWeek(
+    w,
+    [activity({ id: "A" }), activity({ id: "B" })],
+    "2026-08-18",
+  );
+  assert.equal(result.days[0].sessions.length, 1);
+});
+
 test("a session chat already marked done or skipped is never touched", () => {
   const w = week([
     {

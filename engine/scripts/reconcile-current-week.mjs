@@ -118,6 +118,11 @@ export function reconcileWeek(currentWeek, activities, todayDateStr) {
         return { ...session, status: "done", completion_activity_ids: [id] };
       }
       if (candidates.length > 1) {
+        // Claim every candidate, not just the session it's flagged against - otherwise the
+        // unmatched-activity pass below still finds them unclaimed and attaches each one a
+        // second time as its own new unplanned session, turning one flagged ambiguity into
+        // three total sessions instead of one.
+        for (const candidate of candidates) claimed.add(qualifiedActivityId(candidate));
         return {
           ...session,
           coach_note:
