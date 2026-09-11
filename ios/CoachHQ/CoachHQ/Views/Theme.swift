@@ -346,20 +346,6 @@ extension UIWindow {
 
 // MARK: - Reusable styled components
 
-/// All-caps tracked section header, e.g. "ACTIVITY FEED" — 10pt bold, 2px tracking, gray.
-struct SectionHeader: View {
-    let title: String
-
-    init(_ title: String) { self.title = title }
-
-    var body: some View {
-        Text(title.uppercased())
-            .font(.system(size: 11, weight: .bold))
-            .kerning(2)
-            .foregroundColor(.secondary)
-    }
-}
-
 /// Sport-type badge: filled color pill with white bold uppercase text, like the
 /// website's filter buttons.
 struct SportBadge: View {
@@ -375,43 +361,6 @@ struct SportBadge: View {
             .padding(.vertical, 2)
             .background(badge.color)
             .clipShape(Capsule())
-    }
-}
-
-/// A single inline stat: value on top (semibold, monospaced digits), tiny gray
-/// uppercase label below — matches the website's Duration | Cal | Avg HR | Peak row.
-struct StatItem: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 1) {
-            Text(value)
-                .font(.system(size: 14, weight: .semibold))
-                .monospacedDigit()
-                .foregroundColor(.primary)
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.secondary)
-        }
-    }
-}
-
-/// Card container with white background, subtle light gray border, sharp corners.
-struct ThemedCard<Content: View>: View {
-    var padding: CGFloat = 10
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padding)
-            .background(Theme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(Theme.cardBorder, lineWidth: 1)
-            )
     }
 }
 
@@ -447,31 +396,6 @@ struct PrimaryButtonStyle: ButtonStyle {
             .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
-    }
-}
-
-/// Minimal screen header: large bold title on the system background with a
-/// hairline divider underneath. Quiet, aesthetic, iOS-native.
-struct BrandHeader: View {
-    var title: String = "Coach HQ"
-    var trailing: AnyView? = nil
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
-                Spacer()
-                if let trailing { trailing }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
-
-            Divider().opacity(0.5)
-        }
-        .background(Color(uiColor: .systemBackground))
     }
 }
 

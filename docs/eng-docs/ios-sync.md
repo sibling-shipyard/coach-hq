@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-06
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-08
 
 ## Context
 
@@ -25,8 +25,6 @@ flowchart LR
 Entry points, all calling the same manager:
 
 - `SettingsView.swift` — the "Sync Now" button.
-- Pull-to-refresh on the same screen.
-- `ActivityListView.swift` — sync from the activity list.
 - Background HealthKit delivery — iOS can wake the app on new workouts.
 
 All of them call `HealthKitSyncManager.syncNewWorkouts()` directly, on-device. **No workflow is
@@ -368,7 +366,6 @@ files.
 | File | Role |
 |---|---|
 | `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Sync Now button, pull-to-refresh |
-| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | secondary sync trigger |
 | `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | orchestrates the whole flow |
 | `ios/CoachHQ/CoachHQ/Services/HRZoneStore.swift` | reads, mirrors, seeds and encodes repo-backed zone boundaries |
 | `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity schema, HR zones |

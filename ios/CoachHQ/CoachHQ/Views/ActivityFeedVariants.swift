@@ -64,62 +64,6 @@ struct ZoneDots: View {
     }
 }
 
-/// Proportional horizontal zone bar: 5 segments, animated on appear.
-struct CompactZoneBar: View {
-    let zones: [String: HRZoneEntry]?
-    var height: CGFloat = 5
-    var rounded: Bool = true
-    var animateEntrance: Bool = true
-    @State private var appeared: Bool
-
-    init(
-        zones: [String: HRZoneEntry]?,
-        height: CGFloat = 5,
-        rounded: Bool = true,
-        animateEntrance: Bool = true
-    ) {
-        self.zones = zones
-        self.height = height
-        self.rounded = rounded
-        self.animateEntrance = animateEntrance
-        _appeared = State(initialValue: !animateEntrance)
-    }
-
-    private var fractions: [Double] {
-        let vals = HRZone.keys.map { zones?[$0]?.seconds ?? 0 }
-        let total = vals.reduce(0, +)
-        guard total > 0 else { return [] }
-        return vals.map { $0 / total }
-    }
-
-    var body: some View {
-        if !fractions.isEmpty {
-            GeometryReader { geo in
-                HStack(spacing: 1) {
-                    ForEach(fractions.indices, id: \.self) { i in
-                        Theme.hrZoneColors[i]
-                            .frame(width: max(1, geo.size.width * (appeared ? fractions[i] : 0)))
-                            .animation(
-                                .spring(duration: 0.5, bounce: 0.05).delay(Double(i) * 0.06),
-                                value: appeared
-                            )
-                    }
-                }
-            }
-            .frame(height: height)
-            .clipShape(RoundedRectangle(cornerRadius: rounded ? height / 2 : 0))
-            .onAppear {
-                guard animateEntrance else { return }
-                appeared = true
-            }
-            .onDisappear {
-                guard animateEntrance else { return }
-                appeared = false
-            }
-        }
-    }
-}
-
 // MARK: - Week summary widget
 
 struct WeekSummaryWidget: View {
