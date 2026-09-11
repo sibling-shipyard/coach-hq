@@ -1,0 +1,22 @@
+{
+  "name": "equipment-after-profile-complete",
+  "description": "B1 regression: an established athlete (profile long complete) mentions new equipment on an ordinary turn, no close requested. memory_update should fire and commit immediately - part of the same 'every turn commits' guarantee this redesign exists for, exercised here specifically for the equipment note field rather than a profile field.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how's the training going this week?"] }
+  ],
+  "userMessage": "Going well. Also, I just picked up a squat rack for home so I've got real weights to work with now, not just bodyweight.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["memory_update"],
+    "actionFieldsAbsent": [
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
+  }
+}

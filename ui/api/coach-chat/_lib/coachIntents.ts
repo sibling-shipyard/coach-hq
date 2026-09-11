@@ -439,7 +439,7 @@ export function applyQuestCreate(
   const parsed = parseJsonOrNull<Partial<QuestsJson>>(content) ?? {};
   const existingQuests: Quest[] = Array.isArray(parsed.quests) ? parsed.quests : [];
 
-  let mainQuest: MainQuest | undefined = parsed.main_quest;
+  let mainQuest: MainQuest | null = parsed.main_quest ?? null;
   if (input.main_quest) {
     mainQuest = {
       id: mintId("mq", input.main_quest.name),
@@ -450,12 +450,8 @@ export function applyQuestCreate(
     };
   }
 
-  if (!mainQuest) {
-    // main_quest is required on QuestsJson (not optional) - a fresh file with no prior main_quest
-    // and no main_quest given in this call has nothing valid to write. Same "throw rather than
-    // silently write a broken shape" discipline as the guards elsewhere in this file.
-    throw new Error("quest_create: no main_quest given and quests.json has none to fall back to");
-  }
+  // A quest_create call with no main_quest given and none on file is legal now - habit quests
+  // stated before any goal. mainQuest stays null and quests.json genuinely has no main_quest yet.
 
   const newQuests: Quest[] = (input.quests ?? []).map((q) => ({
     id: mintId("q", q.name),

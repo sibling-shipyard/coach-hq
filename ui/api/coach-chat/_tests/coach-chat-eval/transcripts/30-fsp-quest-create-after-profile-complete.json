@@ -1,0 +1,35 @@
+{
+  "name": "fsp-quest-create-after-profile-complete",
+  "description": "B1 regression: profile fields complete in an early turn, goal + habits land in a later turn of the same conversation. quest_create must still fire once the goal is stated. Only meaningful with A1 landed underneath this PR in the stack - turn 1's profile_update has to actually persist (ordinary-turn writes no longer discarded) for isAthleteProfileComplete to flip true before turn 2 runs. Placeholder removal (this PR) means the completion gate isFirstSessionRitualDone can no longer be fooled by a seeded main_quest, so the ritual genuinely stays open into turn 2. NOTE: this harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises the response schema and coachPromptText.ts logic only, not SOUL prompt wording.",
+  "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n(none yet)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": [
+        "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "mode": "ordinary",
+      "firstSession": true,
+      "userMessage": "I'm 28, 178cm, 82kg, based in Mumbai.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsPresent": ["profile_update"]
+      }
+    },
+    {
+      "mode": "ordinary",
+      "firstSession": true,
+      "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsPresent": ["quest_create"]
+      }
+    }
+  ]
+}

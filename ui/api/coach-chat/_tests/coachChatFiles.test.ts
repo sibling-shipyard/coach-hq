@@ -147,6 +147,16 @@ describe("isFirstSessionRitualDone", () => {
       false,
     );
   });
+
+  // The bug this whole gate exists to close: carve used to seed a real main_quest placeholder,
+  // which satisfied Boolean(quests?.main_quest) from repo creation onward. A genuinely null
+  // main_quest (post-carve, pre quest_create) must keep the gate "not done" - proves the fix
+  // isn't just "quests.json exists" but the field itself is real.
+  it("is false when quests.json exists but main_quest is explicitly null", () => {
+    expect(
+      isFirstSessionRitualDone(profile(), memory(), seasons(), quests({ main_quest: null })),
+    ).toBe(false);
+  });
 });
 
 // Audit fix: concurrent cache-miss callers for the same repo used to each independently hit
