@@ -1,6 +1,9 @@
 # 0012 — Coach chat: atomic commits via Git Data API, count-based retention
 
-- **Status:** Accepted · 2026-07-29 · Tech Lead · retention tier revised by 0032
+- **Status:** Superseded by 0037 · 2026-07-29 · Tech Lead · retention tier revised by 0032, then
+  this ADR's count-based retention itself superseded by 0037 (full retention in storage, cap
+  moved to response time); the atomic-commit Git Data API pattern below is unaffected and still
+  stands
 - **Area:** cross-cutting
 - **Context:** Closing a coach-chat session called `putFile()` once per changed file and once
   more for `chat_history.json` — several commits for what is one save. iOS had already solved

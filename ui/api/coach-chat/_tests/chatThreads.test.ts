@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   appendConversationTurn,
   serializeChatHistory,
-  applyRetention,
+  pruneForResponse,
   mergeThreadToFront,
   type ChatThread,
 } from "../_lib/chatThreads.js";
@@ -72,13 +72,41 @@ describe("serializeChatHistory", () => {
   });
 });
 
-describe("mergeThreadToFront / applyRetention", () => {
-  it("still work against the trimmed persisted shape", () => {
+describe("mergeThreadToFront", () => {
+  it("still works against the trimmed persisted shape", () => {
     const threads = [thread({ id: "t-1" }), thread({ id: "t-2" })];
     const merged = mergeThreadToFront(threads, thread({ id: "t-1", title: "Updated" }));
     expect(merged.map((t) => t.id)).toEqual(["t-1", "t-2"]);
     expect(merged[0].title).toBe("Updated");
-    expect(applyRetention(merged)).toHaveLength(2);
+  });
+
+  it("keeps every thread in storage past the old 7-thread cap - nothing is ever dropped on write", () => {
+    let threads: ChatThread[] = [];
+    for (let i = 1; i <= 9; i++) {
+      threads = mergeThreadToFront(threads, thread({ id: `t-${i}` }));
+    }
+    expect(threads).toHaveLength(9);
+    // Newest-first: the last merged thread (t-9) is at the front.
+    expect(threads[0].id).toBe("t-9");
+    expect(threads[8].id).toBe("t-1");
+  });
+});
+
+describe("pruneForResponse", () => {
+  it("returns only the newest 7 when storage holds more, without mutating storage order", () => {
+    let threads: ChatThread[] = [];
+    for (let i = 1; i <= 10; i++) {
+      threads = mergeThreadToFront(threads, thread({ id: `t-${i}` }));
+    }
+    const pruned = pruneForResponse(threads);
+    expect(pruned).toHaveLength(7);
+    expect(pruned.map((t) => t.id)).toEqual(["t-10", "t-9", "t-8", "t-7", "t-6", "t-5", "t-4"]);
+    expect(threads).toHaveLength(10);
+  });
+
+  it("returns everything unchanged when storage holds 7 or fewer", () => {
+    const threads = [thread({ id: "t-1" }), thread({ id: "t-2" })];
+    expect(pruneForResponse(threads)).toHaveLength(2);
   });
 });
 

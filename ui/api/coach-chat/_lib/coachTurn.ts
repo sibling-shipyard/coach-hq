@@ -18,6 +18,7 @@ import { acceptedMessage, messageForGemini, shouldRequestClose } from "./closeSi
 import {
   appendConversationTurn,
   loadChatHistory,
+  pruneForResponse,
   type ChatMessage,
   type ChatThread,
 } from "./chatThreads.js";
@@ -140,7 +141,7 @@ export async function handleHistory(repo: string, token: string): Promise<Respon
   ]);
   const timezone = context.profile?.timezone?.trim() || "UTC";
   return Response.json({
-    threads: withComputedDayOffsets(history.threads, timezone),
+    threads: withComputedDayOffsets(pruneForResponse(history.threads), timezone),
   });
 }
 
@@ -695,7 +696,7 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
     reply: turn.reply.reply,
     closed: true,
     threadId: turn.finalThreadId,
-    threads: withComputedDayOffsets(turn.latestThreads, turn.timezone),
+    threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
     repoSha,
     profileComplete: turn.profileComplete,
     traceId: turn.traceId,

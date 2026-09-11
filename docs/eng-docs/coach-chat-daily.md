@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-01
 
 ## Context
 
@@ -12,7 +12,8 @@ context and write timing. For Gemini request/schema/caching mechanics specifical
 [`gemini-flow.md`](gemini-flow.md). For every file/enum Coach reads or writes, see
 [`coach-data-schema.md`](coach-data-schema.md). For the dated history of how this system got
 here, see [`coach-chat-design-history.md`](coach-chat-design-history.md). Commit/retention
-design: ADR 0012. Vercel function-count constraint that shapes the endpoint layout: ADR 0017.
+design: ADR 0012 (commits); ADR 0037 (retention). Vercel function-count constraint that shapes
+the endpoint layout: ADR 0017.
 
 Both day-to-day chat and First Session Protocol are one endpoint (`ui/api/coach-chat.ts`) and one
 companion (`ui/api/coach-chat-context.ts` for pre-warming, `ui/api/coach-chat-profile-status.ts`
@@ -225,14 +226,16 @@ bookkeeping, and produces the next full JSON content. `coach_note` becomes one a
 `coach_log.json`. Thread titles are derived server-side from the athlete's first message and
 sanitized to the display limit; Gemini does not generate them.
 
-### Retention (ADR 0012, amended)
+### Retention (ADR 0037)
 
-No archive tier. The cap (`MAX_RETAINED_THREADS = 7`) is a flat `threads.slice(0, 7)` on the
-newest-first array; creating an 8th thread evicts the oldest. The endpoint implements GET and
-POST only.
+`chat_history.json` keeps every thread forever — nothing is ever deleted from storage. The
+7-thread cap (`MAX_RETAINED_THREADS`) only applies at response time: `pruneForResponse()` slices
+the newest 7 off the newest-first array at every place threads go back to a client (GET history,
+a turn's own response, an activity-sync response). Web and iOS never see more than 7 either way;
+neither has its own cap to keep in sync. The endpoint implements GET and POST only.
 
 Since greet never commits the thread itself (see step 2 above), an unengaged conversation never
-consumes a retention slot — only threads that actually got a real close-out ever reach this list.
+adds a thread — only threads that actually got a real close-out land in the file at all.
 
 ### Rendering
 
@@ -343,7 +346,7 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/coachPromptText.ts` | prompt text and dynamic context construction |
 | `ui/api/coach-chat/_lib/coachReplySchema.ts` | reply types and mode-specific response schemas |
 | `ui/api/coach-chat/_lib/coachContext.ts` | renders athlete/quest context into prompt sections |
-| `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, retention |
+| `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, response-time display cap |
 | `ui/api/coach-chat/_lib/closeSignal.ts` | close-intent detection |
 | `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |
 | `ui/api/coach-chat/_lib/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |

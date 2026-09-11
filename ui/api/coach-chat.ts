@@ -12,7 +12,7 @@ import {
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
 import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/coachDay.js";
-import { loadChatHistory } from "./coach-chat/_lib/chatThreads.js";
+import { loadChatHistory, pruneForResponse } from "./coach-chat/_lib/chatThreads.js";
 import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIntents.js";
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
@@ -156,7 +156,7 @@ async function handleGreet(
   return Response.json({
     reply: reply.reply,
     threadId: `t-${now}`,
-    threads: withComputedDayOffsets(history.threads, timezone),
+    threads: withComputedDayOffsets(pruneForResponse(history.threads), timezone),
     repoSha,
     profileComplete: isAthleteProfileComplete(
       freshContext.profile,

@@ -1,4 +1,4 @@
-/** Thread model, persistence, title cleanup, and count-based retention (ADR 0012). */
+/** Thread model, persistence, title cleanup, and response-time display cap (ADR 0037). */
 import { getFileRaw } from "./coachChatFiles.js";
 
 export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
@@ -127,16 +127,16 @@ export function serializeChatHistory(
 }
 
 // Puts `thread` at the front, replacing any existing entry with the same id - keeps the
-// newest-first invariant applyRetention() below depends on.
+// newest-first invariant pruneForResponse() below depends on.
 export function mergeThreadToFront(threads: ChatThread[], thread: ChatThread): ChatThread[] {
   return [thread, ...threads.filter((t) => t.id !== thread.id)];
 }
 
-// ADR 0012 (amended): count-based retention, no archive tier. Only "active" threads count -
-// the 7 most-recently-active survive, creating an 8th evicts the oldest. Threads must be
-// newest-first for the cap to keep the right ones.
+// ADR 0037: storage keeps every thread forever, no cap on write. This slice is applied only at
+// response time, at every place threads go back to a client (web or iOS) - never on the way into
+// chat_history.json. Threads must be newest-first for the slice to keep the right ones.
 export const MAX_RETAINED_THREADS = 7;
 
-export function applyRetention(threads: ChatThread[]): ChatThread[] {
+export function pruneForResponse(threads: ChatThread[]): ChatThread[] {
   return threads.slice(0, MAX_RETAINED_THREADS);
 }
