@@ -247,60 +247,12 @@ struct ActivityDetailView: View {
         return RibbonBuilder.carryGaps(perCell).map { HRZone.colors[$0] }
     }
 
-    /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
-    /// spread evenly between them — matching the mock's `zoneSequence` algorithm.
-    private func ribbonSequence(zones: [String: HRZoneEntry]) -> [Color] {
-        // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
-        // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
-        let cellCount = min(41, max(5, entry.elapsedTime / 240))
-        let totalSecs = HRZone.keys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
-        guard totalSecs > 0 else { return [] }
-
-        // Largest-remainder allocation of cellCount across zones
-        let rawCounts = HRZone.keys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
-        var counts = rawCounts.map { Int($0) }
-        let leftover = cellCount - counts.reduce(0, +)
-        rawCounts.enumerated()
-            .map { (idx: $0.offset, frac: $0.element - Double(counts[$0.offset])) }
-            .sorted { $0.frac > $1.frac }
-            .prefix(leftover)
-            .forEach { counts[$0.idx] += 1 }
-
-        // Build work array (zones 1–4 = Base through VO₂ Max) and shuffle with seeded RNG
-        var work: [Int] = []
-        for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
-
-        var seed = UInt64(bitPattern: Int64(truncatingIfNeeded: entry.fileName.hashValue))
-        for i in stride(from: work.count - 1, through: 1, by: -1) {
-            seed = seed &* 6364136223846793005 &+ 1442695040888963407
-            let j = Int(seed >> 33) % (i + 1)
-            work.swapAt(i, j)
-        }
-
-        // Group work cells into bursts of 3, spread recovery between gaps
-        var groups: [[Int]] = []
-        var i = 0
-        while i < work.count { groups.append(Array(work[i..<min(i + 3, work.count)])); i += 3 }
-
-        let recCount = counts[0]
-        let gapCount = groups.count + 1
-        var seq: [Int] = []
-        for (g, group) in groups.enumerated() {
-            let from = g * recCount / gapCount
-            let to   = (g + 1) * recCount / gapCount
-            for _ in 0..<(to - from) { seq.append(0) }
-            seq.append(contentsOf: group)
-        }
-        let lastFrom = groups.count * recCount / gapCount
-        for _ in lastFrom..<recCount { seq.append(0) }
-
-        return seq.map { HRZone.colors[$0] }
-    }
-
     private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
-        // Real ordering when the heart rate was recorded; the estimate otherwise.
+        // Real ordering when the heart rate was recorded; the estimate otherwise. The estimate's
+        // arithmetic lives in RibbonBuilder too (W5) — same reasoning as measuredRibbon above.
         let colors = hrStream.flatMap { measuredRibbon(stream: $0, zones: zones) }
-            ?? ribbonSequence(zones: zones)
+            ?? RibbonBuilder.estimatedSequence(elapsedSeconds: entry.elapsedTime, zones: zones, seedKey: entry.fileName)
+                .map { HRZone.colors[$0] }
         return HStack(spacing: 1.5) {
             ForEach(colors.indices, id: \.self) { i in
                 colors[i].frame(maxWidth: .infinity)
@@ -383,147 +335,26 @@ struct ActivityDetailView: View {
         }
     }
 
+    /// Row-building maths lives in `UsualRowBuilder` (W5) — pure, tested there, not here.
     private var usualRows: [UsualRow] {
         if let stored = activity?.vsUsual ?? entry.activity?.vsUsual {
-            let rows = storedUsualRows(stored)
+            let rows = UsualRowBuilder.storedRows(
+                from: stored,
+                currentElapsedTime: entry.elapsedTime,
+                currentAverageHeartrate: activity?.averageHeartrate,
+                currentHRZones: activity?.hrZones
+            )
             if !rows.isEmpty { return rows }
         }
 
-        return cachedUsualRows
-    }
-
-    /// A stored block is one coherent historical snapshot. Missing metrics stay
-    /// missing rather than being filled from the shorter on-device cache.
-    private func storedUsualRows(_ stored: VsUsual) -> [UsualRow] {
-        var rows: [UsualRow] = []
-        let currentDuration = Double(entry.elapsedTime)
-
-        if let usual = stored.durationMedianS, usual > 0 {
-            let pct = ((currentDuration - usual) / usual * 100).rounded()
-            let sign = pct >= 0 ? "+" : ""
-            rows.append(UsualRow(
-                label: "Duration",
-                currentValue: currentDuration,
-                usualValue: usual,
-                minVal: 0,
-                maxVal: max(currentDuration, usual) * 1.2,
-                deltaLabel: "\(sign)\(Int(pct))%"
-            ))
-        }
-
-        if let usual = stored.avgHRMedian,
-           let currentHR = activity?.averageHeartrate {
-            let diff = currentHR - usual
-            let sign = diff >= 0 ? "+" : ""
-            rows.append(UsualRow(
-                label: "Avg HR",
-                currentValue: currentHR,
-                usualValue: usual,
-                minVal: min(currentHR, usual) * 0.92,
-                maxVal: max(currentHR, usual) * 1.08,
-                deltaLabel: "\(sign)\(Int(diff.rounded())) bpm"
-            ))
-        }
-
-        if let usual = stored.aboveThresholdMedianS,
-           usual > 30,
-           let currentZones = activity?.hrZones {
-            let currentAbove = (currentZones["Zone 4"]?.seconds ?? 0)
-                + (currentZones["Zone 5"]?.seconds ?? 0)
-            let pct = ((currentAbove - usual) / usual * 100).rounded()
-            let sign = pct >= 0 ? "+" : ""
-            rows.append(UsualRow(
-                label: "Above threshold",
-                currentValue: currentAbove,
-                usualValue: usual,
-                minVal: 0,
-                maxVal: max(currentAbove, usual) * 1.2,
-                deltaLabel: "\(sign)\(Int(pct))%"
-            ))
-        }
-
-        return rows
-    }
-
-    /// Legacy fallback for activity JSON with no stored baseline. Kept as the
-    /// existing ten-entry SyncCache calculation for backward compatibility.
-    private var cachedUsualRows: [UsualRow] {
-        let allEntries = SyncCache.load()
-        let prior = Array(
-            allEntries
-                .filter { $0.sportType == entry.sportType && $0.fileName != entry.fileName }
-                .sorted { $0.startDateLocal > $1.startDateLocal }
-                .prefix(10)
+        return UsualRowBuilder.cachedRows(
+            allEntries: SyncCache.load(),
+            currentSportType: entry.sportType,
+            currentFileName: entry.fileName,
+            currentElapsedTime: entry.elapsedTime,
+            currentAverageHeartrate: activity?.averageHeartrate,
+            currentHRZones: activity?.hrZones
         )
-        var rows: [UsualRow] = []
-
-        // Duration — always present; requires ≥2 prior sessions
-        let durations = prior.map { Double($0.elapsedTime) }
-        if durations.count >= 2 {
-            let usual = median(durations)
-            let current = Double(entry.elapsedTime)
-            let pct = ((current - usual) / usual * 100).rounded()
-            let sign = pct >= 0 ? "+" : ""
-            let all = durations + [current]
-            rows.append(UsualRow(
-                label: "Duration",
-                currentValue: current,
-                usualValue: usual,
-                minVal: 0,
-                maxVal: (all.max() ?? current) * 1.2,
-                deltaLabel: "\(sign)\(Int(pct))%"
-            ))
-        }
-
-        // Avg HR — present once stats have been backfilled
-        let hrVals = prior.compactMap { $0.averageHeartrate }
-        if hrVals.count >= 2, let currentHR = activity?.averageHeartrate {
-            let usual = median(hrVals)
-            let diff = currentHR - usual
-            let sign = diff >= 0 ? "+" : ""
-            let all = hrVals + [currentHR]
-            rows.append(UsualRow(
-                label: "Avg HR",
-                currentValue: currentHR,
-                usualValue: usual,
-                minVal: (all.min() ?? currentHR) * 0.92,
-                maxVal: (all.max() ?? currentHR) * 1.08,
-                deltaLabel: "\(sign)\(Int(diff.rounded())) bpm"
-            ))
-        }
-
-        // Above threshold (Zone 4 + Zone 5) — needs full Activity cached
-        let aboveVals: [Double] = prior.compactMap { e in
-            guard let z = e.activity?.hrZones else { return nil }
-            return (z["Zone 4"]?.seconds ?? 0) + (z["Zone 5"]?.seconds ?? 0)
-        }
-        if aboveVals.count >= 2 {
-            let currentZ = activity?.hrZones
-            let currentAbove = (currentZ?["Zone 4"]?.seconds ?? 0) + (currentZ?["Zone 5"]?.seconds ?? 0)
-            let usual = median(aboveVals)
-            if usual > 30 {
-                let pct = ((currentAbove - usual) / usual * 100).rounded()
-                let sign = pct >= 0 ? "+" : ""
-                let all = aboveVals + [currentAbove]
-                rows.append(UsualRow(
-                    label: "Above threshold",
-                    currentValue: currentAbove,
-                    usualValue: usual,
-                    minVal: 0,
-                    maxVal: (all.max() ?? currentAbove) * 1.2,
-                    deltaLabel: "\(sign)\(Int(pct))%"
-                ))
-            }
-        }
-
-        return rows
-    }
-
-    private func median(_ values: [Double]) -> Double {
-        let sorted = values.sorted()
-        let n = sorted.count
-        guard n > 0 else { return 0 }
-        return n % 2 == 0 ? (sorted[n/2 - 1] + sorted[n/2]) / 2 : sorted[n/2]
     }
 
     // MARK: - Beat 04: Description section (every sport)
@@ -1276,16 +1107,7 @@ private struct FormattedMatchData {
     }
 }
 
-// MARK: - VS Your Usual row model + view
-
-private struct UsualRow {
-    let label: String
-    let currentValue: Double
-    let usualValue: Double
-    let minVal: Double
-    let maxVal: Double
-    let deltaLabel: String
-}
+// MARK: - VS Your Usual row view (row model is UsualRow, in Services/UsualRowBuilder.swift)
 
 private struct UsualComparisonRow: View {
     let row: UsualRow

@@ -102,4 +102,68 @@ enum RibbonBuilder {
         if v <= config.zone4Upper { return 3 }
         return 4
     }
+
+    /// Estimated zone sequence for a session with no recorded HR stream: work zones shuffled in
+    /// bursts with recovery spread evenly between them, matching the mock's `zoneSequence`
+    /// algorithm. `seedKey` seeds the shuffle so the same activity always renders the same
+    /// estimate — callers pass something stable per activity, e.g. its filename.
+    static func estimatedSequence(elapsedSeconds: Int, zones: [String: HRZoneEntry], seedKey: String) -> [Int] {
+        // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
+        // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
+        let cellCount = min(41, max(5, elapsedSeconds / 240))
+        let totalSecs = HRZone.keys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
+        guard totalSecs > 0 else { return [] }
+
+        // Largest-remainder allocation of cellCount across zones
+        let rawCounts = HRZone.keys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
+        var counts = rawCounts.map { Int($0) }
+        let leftover = cellCount - counts.reduce(0, +)
+        rawCounts.enumerated()
+            .map { (idx: $0.offset, frac: $0.element - Double(counts[$0.offset])) }
+            .sorted { $0.frac > $1.frac }
+            .prefix(leftover)
+            .forEach { counts[$0.idx] += 1 }
+
+        // Build work array (zones 1–4 = Base through VO₂ Max) and shuffle with seeded RNG
+        var work: [Int] = []
+        for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
+
+        var seed = stableHash(seedKey)
+        for i in stride(from: work.count - 1, through: 1, by: -1) {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let j = Int(seed >> 33) % (i + 1)
+            work.swapAt(i, j)
+        }
+
+        // Group work cells into bursts of 3, spread recovery between gaps
+        var groups: [[Int]] = []
+        var i = 0
+        while i < work.count { groups.append(Array(work[i..<min(i + 3, work.count)])); i += 3 }
+
+        let recCount = counts[0]
+        let gapCount = groups.count + 1
+        var seq: [Int] = []
+        for (g, group) in groups.enumerated() {
+            let from = g * recCount / gapCount
+            let to   = (g + 1) * recCount / gapCount
+            for _ in 0..<(to - from) { seq.append(0) }
+            seq.append(contentsOf: group)
+        }
+        let lastFrom = groups.count * recCount / gapCount
+        for _ in lastFrom..<recCount { seq.append(0) }
+
+        return seq
+    }
+
+    /// FNV-1a over `key`'s UTF-8 bytes. `String.hashValue` is seeded randomly per process launch
+    /// (Swift's `Hasher`), so it can't back `estimatedSequence`'s "same activity, same estimate"
+    /// guarantee across app relaunches — this is deterministic for the same input in every process.
+    private static func stableHash(_ key: String) -> UInt64 {
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in key.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
+        return hash
+    }
 }
