@@ -31,6 +31,14 @@ struct WarmInstrumentHomeView: View {
     @AppStorage("wiCommitmentsSize") private var commitmentsSize = "M"
     @AppStorage("preferredName") private var preferredName = ""
 
+    /// Home's widget order, stored as a comma-joined `WidgetCatalogKey.rawValue` list (W6) —
+    /// `@AppStorage` doesn't hold arrays directly. `homeOrder` below is the typed read of this;
+    /// the parse/encode logic lives in `WidgetCatalogKey` itself so it's testable without a
+    /// constructed view.
+    @AppStorage("wiHomeOrder") private var homeOrderRaw = WidgetCatalogKey.encodeOrder(WidgetCatalogKey.defaultOrder)
+
+    private var homeOrder: [WidgetCatalogKey] { WidgetCatalogKey.parseOrder(homeOrderRaw) }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
@@ -138,76 +146,95 @@ struct WarmInstrumentHomeView: View {
 
     @ViewBuilder
     private func widgetColumn(for snapshots: WidgetSnapshotsFile) -> some View {
+        // Order is stored data (homeOrder, W6): an unrecognized key — a future addition this
+        // build doesn't know yet — is dropped by homeOrder's compactMap, never crashes here.
+        ForEach(Array(homeOrder.enumerated()), id: \.element) { index, key in
+            widgetView(for: key, snapshots: snapshots, revealDelay: 0.30 + Double(index) * 0.10)
+        }
+    }
+
+    /// One entry from the catalog, in its full existing chrome (edit-mode wrapper, jiggle
+    /// phase, reveal animation) — unchanged from each widget's pre-W6 body, just keyed instead
+    /// of inlined in a fixed sequence.
+    @ViewBuilder
+    private func widgetView(for key: WidgetCatalogKey, snapshots: WidgetSnapshotsFile, revealDelay: Double) -> some View {
         let home = snapshots.home
 
-        // Engine — tap opens dose ledger + coach read
-        EditableWidget(isEditing: $isEditingLayout, sizeBinding: $engineSize, sizeOptions: ["S", "M", "L"], jigglePhase: 0.00) {
-            Button {
-                Haptics.tap()
-                navigationPath.append(.engine)
-            } label: {
-                EngineCard(size: WidgetSize(rawValue: engineSize) ?? .m, sizes: snapshots.sizes.engine)
-            }
-            .buttonStyle(.plain)
-        }
-        .scaleEffect(enginePulse ? 1.02 : 1)
-        .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
-        .staggerReveal(delay: 0.30)
-        .overlay {
-            if !engineOverlayDismissed {
-                EngineFirstVisitOverlay {
-                    withAnimation(.easeOut(duration: 0.25)) { engineOverlayDismissed = true }
-                }
-                .transition(.opacity)
-            }
-        }
-        .animation(.easeOut(duration: 0.25), value: engineOverlayDismissed)
-
-        // Sport commitment quartet strip
-        EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
-            CommitmentCard(
-                size: WidgetSize(rawValue: commitmentsSize) ?? .m,
-                sizes: snapshots.sizes.commitments,
-                showingRanked: $badmintonShowsRanked
-            )
-        }
-        .staggerReveal(delay: 0.40)
-
-        // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
-        WeeklyPlanCard(plan: home.plan, compact: true)
-            .staggerReveal(delay: 0.50)
-
-        // Calories + main quest side-by-side
-        HStack(spacing: 14) {
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.15) {
-                CaloriesCard(calories: home.calories, compact: true)
-            }
-            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $questSize, sizeOptions: ["S", "M"], jigglePhase: 0.20) {
-                QuestCard(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
-            }
-        }
-        .staggerReveal(delay: 0.60)
-
-        EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
-            BuildPhaseCard(phase: home.phase)
-        }
-        .staggerReveal(delay: 0.70)
-
-        EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
-            RecentSessionsCard(
-                sessions: home.sessions,
-                compact: true,
-                onOpenActivities: { navigationPath.append(.activities) },
-                onOpen: { entry in
+        switch key {
+        case .engine:
+            // Engine — tap opens dose ledger + coach read
+            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $engineSize, sizeOptions: ["S", "M", "L"], jigglePhase: 0.00) {
+                Button {
                     Haptics.tap()
-                    navigationPath.append(.activity(entry))
-                },
-                onUnavailable: {
-                    toast = Toast(kind: .info, message: "Sync this session to open it.")
+                    navigationPath.append(.engine)
+                } label: {
+                    EngineCard(size: WidgetSize(rawValue: engineSize) ?? .m, sizes: snapshots.sizes.engine)
                 }
-            )
+                .buttonStyle(.plain)
+            }
+            .scaleEffect(enginePulse ? 1.02 : 1)
+            .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
+            .staggerReveal(delay: revealDelay)
+            .overlay {
+                if !engineOverlayDismissed {
+                    EngineFirstVisitOverlay {
+                        withAnimation(.easeOut(duration: 0.25)) { engineOverlayDismissed = true }
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.25), value: engineOverlayDismissed)
+
+        case .commitments:
+            // Sport commitment quartet strip
+            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
+                CommitmentCard(
+                    size: WidgetSize(rawValue: commitmentsSize) ?? .m,
+                    sizes: snapshots.sizes.commitments,
+                    showingRanked: $badmintonShowsRanked
+                )
+            }
+            .staggerReveal(delay: revealDelay)
+
+        case .weeklyPlan:
+            // Chip drag owns long-press; not wrapped in jiggle editor.
+            WeeklyPlanCard(plan: home.plan, compact: true)
+                .staggerReveal(delay: revealDelay)
+
+        case .caloriesAndQuest:
+            HStack(spacing: 14) {
+                EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.15) {
+                    CaloriesCard(calories: home.calories, compact: true)
+                }
+                EditableWidget(isEditing: $isEditingLayout, sizeBinding: $questSize, sizeOptions: ["S", "M"], jigglePhase: 0.20) {
+                    QuestCard(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
+                }
+            }
+            .staggerReveal(delay: revealDelay)
+
+        case .buildPhase:
+            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
+                BuildPhaseCard(phase: home.phase)
+            }
+            .staggerReveal(delay: revealDelay)
+
+        case .recentSessions:
+            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
+                RecentSessionsCard(
+                    sessions: home.sessions,
+                    compact: true,
+                    onOpenActivities: { navigationPath.append(.activities) },
+                    onOpen: { entry in
+                        Haptics.tap()
+                        navigationPath.append(.activity(entry))
+                    },
+                    onUnavailable: {
+                        toast = Toast(kind: .info, message: "Sync this session to open it.")
+                    }
+                )
+            }
+            .staggerReveal(delay: revealDelay)
         }
-        .staggerReveal(delay: 0.80)
     }
 
     // MARK: - Header / states
