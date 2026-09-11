@@ -1,104 +1,431 @@
-# Workouts: evidence
+# Workouts: evidence and execution detail
 
 > Status: Proposal · Owner: Tech Lead · Created: 2026-09-11 · Issue: #727
 >
-> Drill-down for [`workouts-redesign.md`](workouts-redesign.md). Every claim checked against
-> `main` at 94f0965 on 2026-09-11. `workouts-season-model.md` (Akash's plan) is read and critiqued
-> here, never edited.
+> Drill-down for [`workouts-redesign.md`](workouts-redesign.md). Merges and replaces
+> `workouts-stack-a-lld.md`, Akash's original execution detail. Read this file's row for your PR
+> and §1's mechanics; skip the rest unless your row cites it. Every claim checked against `main`
+> at 94f0965 on 2026-09-11.
 
-## First Session findings
+## Corrections folded into this merge
 
-- **No week is written.** First Session's closing step only asks whether the athlete wants a week
-  plan or just to talk (`platform/soul/B_engine.md`, `s10_first_session_transition`). The only
-  week writer is `buildCurrentWeekWrite`, driven by a later conversation.
-- **The template dump is automatic.** On the profile-complete transition,
-  `generateTemplatesAfterCompletion` calls `generateInitialTemplates`, which scores 4-6 library
-  entries and commits them (`ui/api/coach-chat/_lib/coachTurn.ts:1270-1300`,
-  `decide/coachWorkoutFiles.ts:404-467`). This is bug 1.
-- **The carved templates are orphaned.** Carve ships `foundation.json` and `strength_a.json`
-  (`platform/scripts/carve-skeleton.mjs`), but `_manifest.json` doesn't list them, and the
-  manifest is what every write path validates against (`validTemplateIdsFromManifest`). They're
-  invisible to `template_edit` and `session_plan`.
-- **No structured availability.** `MEMORY_NOTE_LABELS` has no frequency or schedule field
-  (`decide/coachMemoryFiles.ts:28-35`). Intake asks how often they train; the answer lands as prose
-  in `fitness_baseline`.
+The original two documents disagreed with each other, and one claim in them was flat wrong. Both
+are fixed here, not just noted, so nobody builds against the stale version.
 
-What a first-week compiler needs, and where it already is:
+| What was wrong | What's true, and reflected in this merge |
+|---|---|
+| The high-level doc said the create action needed its own separate commit. The low-level doc said the opposite and explained why the first claim was based on a bug that had since been fixed elsewhere in the codebase | The create action commits through the same single atomic commit every other action in a turn already uses. No special case. See A2 below. |
+| A claim that no code reads the per-repo feature-flag file, used to justify budgeting extra work for whichever gated PR needs it first | `engine/lib/plugins.mjs`'s `isPluginEnabled` already reads it, already in use for the badminton plugin. Whichever gated PR needs the flag reuses this, no new helper needed. |
+| iOS file paths cited without the app's doubled directory structure | Corrected below wherever iOS paths are named. |
+
+## First Session and the new first-week scope
+
+- **No week is written today.** First Session's closing step only asks whether the athlete wants a
+  week plan or just to talk. The only writer of the week file is triggered by a later, separate
+  conversation.
+- **The template dump is automatic.** On the moment an athlete's profile becomes complete, a
+  function scores and commits 4-6 library workouts for them. This is bug 1.
+- **The carved starter templates are orphaned.** A freshly carved repo ships two starter workout
+  files, but the manifest that every write path checks against doesn't list them, so they're
+  invisible to editing or prescribing.
+- **No structured availability exists.** Intake asks how often an athlete trains, but the answer
+  lands as unstructured prose inside a note field, not anywhere a compiler could read it.
+
+What A3's first-week compile needs, and where each input already lives:
 
 | Input | Source today |
 |---|---|
-| Sports | `memory.json.sports[]` |
-| Injuries | `injuries.json` flags |
-| Goal and shape | `seasons.json` plus `quests.json.main_quest` (`type`, `target`) |
-| Workouts to draw from | `shared/workout-library/index.json`, tagged by sport, equipment, goal, level |
-| Recent volume | `gen/athlete_insights.json`, history-only |
-| Days per week and which days | **Missing** |
+| Sports | the athlete's recorded sports list |
+| Injuries | active injury flags |
+| Goal and its shape | the season and its main goal |
+| Workouts to draw from | the tagged workout library, already tagged by sport, equipment, goal, and level |
+| Recent training volume | pipeline-generated insights, history-only |
+| Days per week, and which days | **the one new field A3 adds** |
 
-## Defects in `workouts-season-model.md` (not edited, only read)
+## Order and ownership
 
-| Defect | Why it matters |
+```mermaid
+flowchart LR
+  A5["A5 page (web)"] -.->|independent| done["Near-term stack done"]
+  A5ios["A5-ios"] -.->|independent| done
+  A1["A1 compiler"] --> A2["A2 workout_create"]
+  A2 --> A3["A3 benchmark + first week"]
+  A2 --> A4["A4 soul + carve"]
+  A2 --> A7["A7 reconciler"]
+  A4 --> A6["A6 migrate BYO repo"]
+  A7 --> A8["A8 weekly rollover"]
+  A3 --> done
+  A4 --> done
+  A6 --> done
+  A7 --> done
+  A8 --> done
+```
+
+| PR | Branch | Owner | Base | Files it may touch |
+|---|---|---|---|---|
+| A5 | `feat/727-workouts-day-view-v2` | UI Expert | `main` | `ui/client/` only |
+| A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | `main`, after A5 | `ios/` only |
+| A1 | `feat/727-compile-workout` (rebase #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
+| A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/scripts/`, `ui/package.json` |
+| A3 | `feat/727-first-session-benchmark` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts`, `shared/workout-library/` (deleted here) |
+| A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
+| A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo, a PR against it |
+| A7 | `feat/727-reconciler` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, a new sync-pipeline module |
+| A8 | `feat/727-weekly-rollover` | Bob | A7 | the sync-pipeline workflow |
+
+A diff outside your file column fails review. Every PR: `Refs: #727`. Nothing in the near-term
+stack closes #727 on its own.
+
+## Worktree and PR mechanics
+
+```bash
+git fetch origin main
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> origin/main   # A5, A5-ios, A1
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> <base-branch>  # A2, A3, A4, A7, A8
+# ... work, commit ...
+git push -u origin feat/727-<brief>
+git worktree remove /tmp/wt-<brief> --force
+```
+
+Never switch branches in the primary checkout. Commit prefix per `.github/CONVENTIONS.md`: `feat:`
+for A1, A2, A3, A7, A8; `core:` for A4, A6; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
+
+---
+
+## A1: `compileWorkout()` in `engine/`
+
+**Goal:** a pure function that turns a minimal exercise list into timer-ready JSON. Nothing calls
+it yet in this PR. Rebase from #732, which is already this exact PR, unmerged since Aug 31.
+
+**Files:** `engine/lib/compileWorkout.mts` (new), `engine/lib/compileWorkout.test.mts` (new),
+`engine/scripts/compile-dryrun.mts` (new, the verification tool referenced in the rollout section
+of the HLD).
+
+**Why `engine/`, not the API folder:** the server-side coach is already documented as a second
+engine re-implementing Layer B rules in TypeScript. A compiler placed in the API folder repeats
+that mistake specifically for workouts. It reaches `ui/api/` the same way the Current Week
+validator does: a bundled shim added in A2, not a raw cross-folder import.
+
+**Contract:**
+
+```js
+/** @typedef {{ name, type: "reps"|"timed", reps?, duration_secs?, sets,
+ *              form_cue, why, both_sides?, optional?, progression_id? }} SpecExercise */
+/** @typedef {{ name, exercises: SpecExercise[], circuit?, rounds?, coaching_note? }} SpecPhase */
+/** @typedef {{ id, title, subtitle, workout_type, location, equipment,
+ *              coaching_note, phases: SpecPhase[], progression_notes? }} WorkoutSpec */
+export function compileWorkout(spec, opts = {}) // -> Workout
+```
+
+**Fills, deterministically:**
+
+| Field | Rule |
 |---|---|
-| The HLD §8 table and its commit-rule paragraph mandate an own `commitFilesAtomic` and cite a retracted argument. The LLD §4 explicitly retracts both | Highest risk in the pair - an agent is told to read both, and §8 is the row it's pointed at |
-| "No `isPluginEnabled` reader exists, grepped the whole repo" is false. It's at `engine/lib/plugins.mjs:28`, and line 51 already calls it for badminton | Invents Stack B work, undercuts the other verification claims |
-| iOS paths omit the doubled directory. Real paths are `ios/CoachHQ/CoachHQ/Services/WorkoutService.swift` and `.../Views/WorkoutListView.swift` | An agent following §2b won't find the files |
-| `B_engine.md:36` no longer points at the season-shape sentence the storage argument rests on | The §4 citation doesn't resolve |
-| §4 refuses to slim `current_week.json` | Blocks the Current Week redesign directly |
-| The reconciler (B3) and the non-chat week roll (B4) sit behind the Stack B gate | Neither depends on the churn question that gates B, and B4 fixes the dark week |
-| #727's done-when requires a widget both stacks explicitly cut | The issue can't close as written |
-| `scaling-plan.md` is cited without a path. It's in `docs/eng-docs/`, not `docs/plans/` | A reader assumes a sibling |
+| `num` | sequential from 1 across all phases, in order, no gaps |
+| `prep_secs` | `timed` -> 5; `reps` -> omitted |
+| `rest_between_sets_secs` | omitted when `sets === 1`; else 60 (`reps`) / 45 (`timed`) |
+| `rest_after_exercise_secs` | 30; 0 on the last exercise of the last phase |
+| `default_rest_secs` (phase) | max `rest_between_sets_secs` in the phase, else 30 |
+| `duration` (phase) | `"<n> min"`, from the phase's computed seconds, rounded up |
+| `estimated_duration_mins` | sum of phase seconds divided by 60, rounded up |
 
-**What to keep, unedited.** §2 ("Coach writes exercises, code writes timer physics"), §5 ("Rules
-always, Coach only on a flagged row"), §7 (the invariant table). Reused as guidance here, not
-changed in his file.
+Work seconds per exercise: `timed` gives `duration_secs * sets * (both_sides ? 2 : 1)`; `reps`
+gives `reps * 3s * sets`. Add rest time on top. `circuit` multiplies the whole phase by `rounds`.
 
-## PR triage detail
+Every default is overridable. A value already present in the spec is never recomputed.
 
-Checked directly with `gh pr view`/`gh pr diff` and a scratch three-way merge against `main`, not
-by title or by the plan's own claims.
+**Tests:**
+- A golden fixture compiles byte-identically to a checked-in expected JSON.
+- Compiling the same spec twice deep-equals.
+- Exercise numbering across three phases has no gaps after a skip.
+- A known spec yields the expected estimated duration.
+- A spec that sets `prep_secs: 0` on a timed exercise keeps 0.
+- `both_sides` doubles work seconds without doubling `sets`.
 
-**#732 - `feat/727-compile-workout`.** 10 files, +812/-3. Touches only
-`engine/lib/compileWorkout.mts` (+tests, golden fixtures), `engine/scripts/compile-dryrun.mts`,
-and CI wiring (`ui/vitest.config.ts`, `.github/workflows/ui-tests.yml` path filter). The only
-conflict against current `main` is 7 lines in `workouts-stack-a-lld.md`, a table-row edit on both
-sides. No dependency on `current_week.json` anywhere in the diff. **Rebase, keep.**
+**Dry-run tool:** reads every existing workout template, reduces it to a spec, recompiles,
+diffs against the original, prints a per-file summary. Read-only, writes nothing. Existing
+templates have hand-tuned rests, so the bar is explainable, not byte-identical to production
+files. The golden fixture is the byte-identical test.
 
-**#733 - `feat/727-workouts-day-view`.** 7 files, +1390/-105. Adds `ui/client/src/lib/
-workoutPage.ts` and rewrites `ui/client/src/pages/Workouts.tsx` into the three-band layout. Both
-new files import `parseCurrentWeek` and read `CurrentWeekSession` fields directly - checked in the
-PR's diff, not against `main`, since the file doesn't exist there yet. Conflict against `main` is
-37 lines across two hunks in `Workouts.tsx`, from unrelated
-changes landing there since Aug 31 - mechanical, not a design clash, but real. **Close as a merge
-candidate, keep the branch as reference** for the selector shape and CSS once the new week
-contract lands.
+**Validate:** `cd ui && npm run test`, and the dry-run tool run against each of the four live
+repos. **Done when:** tests are green, and the dry-run diff across all four repos is explainable
+line by line. An unexplained diff blocks the merge.
 
-**#734 - `feat/ios-727-workouts-day-view`.** 3 files, +763/-38, mergeable with no conflict. Adds a
-hand-rolled Swift `parseCurrentWeek` in `WorkoutService.swift` that reads the same fields as #733.
-**Close as a merge candidate, keep as reference** - same schema dependency, and iOS is sequenced
-after web regardless.
+---
 
-## Files touched
+## A2: `workout_create`, on ordinary turns
 
-| File | Why |
+**Goal:** an athlete asks mid-conversation and a routine file is committed on that same turn.
+
+**Files:** the response schema file, a new builder function beside the existing routine-editing
+builders, an applier function, the pre-write invariant checker, and the prompt text file. Also a
+new bundle shim exporting the compiler, a new script copying the existing bundling pattern, and
+one new test file for the create path.
+
+**No dedicated commit-path change is needed.** Every action a turn produces, including this new
+one, assembles into one atomic commit the same way every other action field already does. There is
+no special case, no separate commit call, and no closing-turn concept to work around, since that
+concept doesn't exist in the current codebase at all.
+
+**Schema.** Added beside the existing routine-editing action. Coach sends the spec, never timer
+physics:
+
+```
+workout_create: { type: "object", properties: {
+  title, workout_type, location, coaching_note: {type:"string"},
+  equipment: {type:"array", items:{type:"string"}},
+  phases: {type:"array", items:{type:"object", properties:{
+    name: {type:"string"},
+    exercises: {type:"array", items:{type:"object", properties:{
+      name, type, form_cue, why: {type:"string"},
+      reps, duration_secs, sets: {type:"number"},
+      both_sides: {type:"boolean"}, progression_id: {type:"string"},
+    }, required:["name","type","sets","form_cue","why"]}},
+  }, required:["name","exercises"]}},
+  injury_ack: {type:"array", items:{type:"object", properties:{
+    flag: {type:"string"}, accommodation: {type:"string"},
+  }, required:["flag","accommodation"]}},
+}, required:["title","workout_type","phases"] }
+```
+
+**Turn wiring.** The new action is added to the same array that already gives a returning athlete
+every other routine-editing action on every ordinary turn. Nothing else needs wiring: no new mode,
+no second array for a special closing path. It's kept off the First Session action set, since A3
+supersedes the First Session flow with the benchmark path below; this action is
+returning-athlete-only in the near-term stack.
+
+**Applier steps:**
+1. Derive an id by slugifying the title, suffixing on collision with existing ids.
+2. Invariant 7, injury acknowledgment: a generated routine carries no library tags, so the old
+   injury-conflict filter can't be reused as-is. The applier reads active injury flags and throws
+   unless every one has a matching entry in the spec's acknowledgment array. The acknowledgment
+   field becomes required in the schema whenever any flag is active.
+3. Invariant 1: every progression id referenced must already exist, or the applier throws.
+4. Compile the spec, validate the structural result, write it to the existing routine storage
+   path, no rename in this stack.
+5. Append the new id to the manifest, in the same atomic commit.
+
+**Tests:**
+- The happy path writes a valid file.
+- An id collision gets suffixed.
+- An active flag with no acknowledgment throws.
+- An acknowledged flag passes.
+- An unknown progression id throws.
+- Ordinary turn mode exposes the action.
+- The committed file passes structural validation.
+- A returning athlete still commits correctly, the case that used to silently no-op.
+
+**Validate:** `cd ui && npm run test`, plus a manual turn asking for an upper-body workout.
+**Done when:** a mid-conversation ask produces a committed, valid file the timer can open. This
+kills bug 2.
+
+---
+
+## A3: benchmark, plus a compiled first week
+
+**Goal:** first session ends with a benchmark, seeded progressions, and a real first week, not six
+guessed workouts and an empty week.
+
+**Files:**
+- Delete the library-selection and template-generation functions from the workout files module.
+- Rename the function that fires on profile completion to reflect what it now does.
+- Add progression seeding, and delete the workout library directory and its test entirely.
+- Add one new structured field to the athlete's memory record for training availability.
+- Add a first-week compile step, plus new test files for the benchmark and the compile.
+
+**Flow.** Coach asks during intake what the athlete can already do, and how many days a week and
+which days they train, both already natural intake questions. The days-per-week answer now lands
+in a structured field instead of only in prose. On the profile-complete transition, Coach emits
+one `workout_create` spec tagged as the benchmark, covering 4-6 movement patterns, each exercise
+carrying an easier and a harder alternative in its coaching cue. The same transition also triggers
+a first-week compile: code places the benchmark and any other sport-appropriate anchor sessions
+onto the athlete's stated training days, using the season's goal and the tagged workout library to
+pick sport-appropriate sessions. The athlete picks their real entry level for the benchmark inside
+the app; nothing branches in the timer.
+
+**Progression seeding.** For each benchmarked movement pattern, write a progression record with an
+id, name, current value, target, unit, and an empty history. `current: null` is legal and means
+"not yet," so a true beginner and an athlete working around a flare-up use the same field.
+
+**Invariant 2** is enforced here: a starting dose may not exceed the benchmarked value.
+
+**Tests:**
+- First Session's close writes exactly one benchmark file, with progressions seeded one per
+  pattern.
+- `current: null` is accepted, and a dose above the benchmark throws.
+- No reference to the deleted workout library directory survives anywhere in the codebase.
+- A first-week compile places sessions on the athlete's stated training days and nowhere else.
+- An athlete who stated zero available days still gets a valid, if minimal, week, not an error.
+
+**Validate:** `cd ui && npm run test`, plus a repo-wide grep confirming the deleted library has no
+remaining references. **Done when:** a fresh athlete's first close writes a benchmark, populated
+progressions, and a real compiled first week. This stops bug 1 recurring for every future athlete;
+A5 is what fixes it for the four athletes who already have it.
+
+---
+
+## A4: soul and carve
+
+**Goal:** Coach knows the new rules, and the BYO Claude Code path gets the compiler.
+
+**Files:** the engine-rules soul layer, both composed soul builds (regenerated, never hand-edited),
+one entry in the soul version history, a new thin command-line wrapper around the compiler, and
+the carve script that seeds a fresh athlete repo.
+
+**Soul edits:**
+1. Retire the instruction that has Coach hand-write session files with exact timer physics.
+   Delete the section that spells out rest-second and prep-second rules for the model to follow;
+   the compiler owns that now.
+2. Add one line: Coach may create a routine when none of the existing ones fit. This one line is
+   the absence that caused bug 2.
+3. Confirm every existing workout-storage path reference still resolves, since there's no rename
+   in this stack.
+
+**Order inside the PR:** edit the soul layer, run the compose script, commit the layer and both
+generated builds together, then add the version history entry.
+
+**Validate:** soul validation clean, plus an end-to-end check: carve a scratch repo and create a
+routine through the new command-line wrapper. **Done when:** validation is clean and a freshly
+carved repo can create a routine. This PR references the issue but does not close it.
+
+---
+
+## A5, A5-ios: three-band Workouts page
+
+Rebuilt fresh rather than merging #733 or #734, since both hand-parse Current Week fields in a way
+that needs rework once the Current Week schema changes. The design contract from those two PRs is
+worth reading before starting, even though neither merges as-is.
+
+**Web goal:** today, this week, and library, read-only over data that already exists. No new
+storage, no schema change, no backend change.
+
+**Files:** a new pure selector module and its tests, a rewrite of the Workouts page component into
+the three bands, reusing the existing session-row component for the week list. Do not reuse Home's
+weekly plan widget, which is Coach's own draft and a different thing entirely.
+
+**Rules:** not live, or missing, means no hero and the week band shows only logged activity for
+that ISO week if any exists, else hides entirely. Live plus a session with a real routine means a
+runnable card, whether or not it's already marked done. Live plus a day with no routine, like a
+match or a hike, is a one-line mention, never "Rest." Live with nothing scheduled today is Rest.
+Every day in the week list is either the plan's row, a logged activity that day, or blank; blank
+means unplanned, not Rest. The library band is unchanged. "Today" is always computed from the
+week's own timezone when live, or the athlete's known timezone otherwise, never the browser's.
+
+**iOS goal:** the same three bands, fetching the week file the way the existing workout service
+already fetches routine and session files. Files live under the app's own services and views
+directories, not at the top level of the iOS folder. Duplicate the selector logic in Swift; don't
+invent a shared package across languages for this.
+
+**Validate:** `npm run test` and `npm run build` for web; `ios-build.yml` green for iOS.
+**Done when:** each page opens on today plus this week, not an undifferentiated list of every
+routine.
+
+---
+
+## A6: migrate the BYO athlete's repo
+
+Carving updates the skeleton for future athletes, not anyone who already forked their own repo.
+The athlete who reported bug 2 is on a repo carved before A4 exists, so A4 alone leaves their bug
+unfixed. This PR opens against their repo specifically, carrying the recomposed soul build and the
+compiler's command-line wrapper, nothing else.
+
+**Done when:** that athlete, in their own repo, asks for an upper-body workout and gets one.
+
+---
+
+## A7: deterministic reconciler
+
+**Goal:** every row of the reconciliation table in the HLD runs automatically, with Coach only
+seeing the genuinely ambiguous case.
+
+**Files:** a new reconciliation module in the backend's decide layer, called whenever an activity
+syncs, plus its own test suite.
+
+**Behavior:** on each synced activity, check it against that day's planned sessions. An exact type
+match on the planned day marks it done and appends the completion id. A planned day that passes
+with nothing matching becomes missed, never skipped, since skipping without the athlete saying so
+would misrepresent a decision that was never made. An activity with no planned match at all
+attaches to its day as unplanned. Two plausible matches, or an activity landing a day either side
+of a planned session, stays planned and gets flagged for Coach to resolve in conversation, rather
+than guessed at automatically.
+
+**Tests:** one per row of the reconciliation table, each written to fail if that row's rule is
+violated.
+
+**Validate:** the new test suite, plus a replay of one real athlete's actual sync history against
+the new rules, checked by hand against what really happened that week.
+
+**Done when:** every reconciliation rule has a test, and the replay matches reality.
+
+---
+
+## A8: weekly rollover with no chat required
+
+**Goal:** an athlete who doesn't talk to Coach at all in a given week still has a real week the
+next morning, not a blank screen.
+
+**Files:** a new step in the existing sync pipeline workflow, gated behind nothing since this is
+part of the near-term, unflagged stack.
+
+**Behavior:** on the week boundary, if there's no live week already in place for the new week,
+generate one using whatever the athlete's current season, goal, and (once A3 exists) stated
+training days already support. This reuses the same compile logic A3 uses for a first week, just
+triggered by the calendar instead of a conversation.
+
+**Tests:** a week with no chat activity all week still has a valid, live week the following
+Monday; a week that already has a live plan from a real conversation is left untouched by the
+rollover.
+
+**Validate:** the new test suite, plus a manual check against one of the four live repos showing
+the rollover firing correctly on a quiet week.
+
+**Done when:** no live athlete has ever opened Current Week to nothing because they didn't chat
+that week.
+
+---
+
+## What happens to #732, #733, #734: the evidence
+
+Checked directly with the GitHub CLI's diff and file views, and a real three-way merge attempt
+against current `main` in a scratch worktree, not assumed from titles or the original plan's own
+claims.
+
+**#732, the compiler.** 10 files changed, roughly 812 lines added and 3 removed. Touches only the
+new compiler module and its tests, the dry-run tool, and two lines of CI path-filter wiring. The
+only conflict against current `main` is 7 lines in a documentation file's table row, both sides
+editing the same row. No dependency anywhere in the diff on the week file's schema. **Rebase and
+keep**, folded into A1 above.
+
+**#733, the web page.** 7 files changed, roughly 1390 lines added and 105 removed. Adds a new
+selector module and rewrites the Workouts page into the three-band layout. Both new files import
+the current week's runtime parser and read its session type directly. Once the Current Week schema
+changes, this data layer needs rework regardless of whether the PR merges first. The conflict
+against `main` is real: 37 lines across two spots in the page component, from unrelated changes
+that landed on `main` since this PR was opened. **Close as a merge candidate. Keep the branch as
+reference** for A5's rebuild, since the layout and selector shape are good starting points even
+though the code underneath needs to change.
+
+**#734, the iOS tab.** 3 files changed, roughly 763 lines added and 38 removed, and this one has no
+conflict at all against current `main`. Adds a hand-written parser for the week file that reads the
+same fields as #733 reads on web. **Close as a merge candidate. Keep as reference** for A5-ios,
+for the same reason as #733, and because iOS is sequenced after web regardless of this PR's state.
+
+## Validation, all PRs
+
+| PR | Evidence required |
 |---|---|
-| `engine/lib/compileWorkout.mts` (from #732, rebased) | The compiler - spec in, timer-ready JSON out |
-| `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | New `workout_create` action |
-| `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | Prompt text for the create path |
-| `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts` | `generateInitialTemplates` → benchmark generation; new applier for `workout_create` |
-| `ui/api/coach-chat/_lib/decide/turnWrites/validateActions.ts` | Invariant checks: progression id exists, dose within benchmark, injury flags addressed |
-| `platform/soul/B_engine.md` | First Session benchmark step; compose + both builds + `SOUL_HISTORY.md` entry, never hand-edit a composed build |
-| `platform/scripts/carve-skeleton.mjs` | Fix the orphaned-template manifest gap |
-| `shared/workout-library/index.json` | Already tagged by sport, equipment, goal, level - the input the benchmark selector reads |
+| A1 | Byte-identical golden fixture; dry-run diff across all four live repos, explainable line by line |
+| A2 | Eight-case test suite; one manual mid-conversation create |
+| A3 | Five-plus test suite covering benchmark, progressions, and the first-week compile; a grep confirming the deleted library has no remaining references |
+| A4 | Soul validation clean; an end-to-end carve-and-create check on a scratch repo |
+| A5, A5-ios | `npm run test` and `npm run build` for web; `ios-build.yml` green for iOS |
+| A6 | The reporting athlete's own repo, verified by hand that the ask now works |
+| A7 | One test per reconciliation rule; a replay of one real athlete's sync history against the new rules |
+| A8 | A quiet-week test; a manual check on one live repo |
 
-## Validation
-
-| Stage | Evidence required |
-|---|---|
-| Compiler | Byte-identical golden fixture, plus a dry run across all four live repos with every diff explainable line by line |
-| Reconciler | Every row of the reconciliation table (see `current-week-redesign-lld.md`) covered by a test that fails when violated |
-| First Session | Carve a scratch repo, complete First Session, confirm a benchmark and a compiled first week, no template dump |
-| Web | `ui-tests.yml` green |
-| iOS | `ios-build.yml` green, once web lands |
-
-Cross-cutting: live-test on `test/close-verification` in `coach-skanda-2003` before calling any
-chat change done. `npm run eval:coach-chat` once after the soul change, not per PR (ADR 0024).
-`bash platform/scripts/check.sh --quiet` after committing.
+Cross-cutting for every PR that touches the coach-chat prompt or schema: `npm run eval:coach-chat`
+runs once, after A4, before the whole near-term stack merges, not per PR (ADR 0024). PRs that don't
+touch the prompt or schema state that plainly rather than running the eval unnecessarily.
+Live-test any coach-chat-facing change on `test/close-verification` in `coach-skanda-2003` before
+calling it done. `bash platform/scripts/check.sh --quiet` after committing, since the prose gates
+read the committed diff, not the working tree.
