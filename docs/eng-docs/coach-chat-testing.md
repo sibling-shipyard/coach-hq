@@ -19,13 +19,16 @@ real interface only once a second implementation of either actually exists.
 
 ## The layered test suite (`npm test`, no network)
 
-Lives under `ui/api/coach-chat/_tests/`, see that directory's own `README.md` for the map. In
-short:
+`layer1-gemini/`, `layer2-fields/`, and `integration/` live under `ui/api/coach-chat/_tests/`, see
+that directory's own `README.md` for the map. `layer3-commit`'s real test file is
+`ui/api/_lib/_tests/githubGitData.test.ts`, outside `coach-chat/` entirely - `commitFilesAtomic` is
+shared beyond coach-chat (also used by `coach-message.ts`/`waitlist.ts`), so its test stays with
+its source rather than moving under a `coach-chat/_tests/layer3-commit/` directory. In short:
 
 - **`layer1-gemini/`** - the Gemini HTTP call (`geminiClient.ts::askGemini`). Mocks `fetch` only.
 - **`layer2-fields/`** - decision -> file content, the pure appliers (`coachIntents.ts`,
   `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `turnWrites/*.ts`). No network at all.
-- **`layer3-commit/`** - file content -> git commit (`githubGitData.ts::commitFilesAtomic`). Mocks
+- **`layer3-commit`** - file content -> git commit (`githubGitData.ts::commitFilesAtomic`). Mocks
   `fetch` only.
 - **`integration/`** - `fullTurnPipeline.test.ts` wires all three together, `fetch` mocked only at
   the Gemini/GitHub boundary; `coachTurn.test.ts` / `coachTurn-reprompt.test.ts` /

@@ -111,9 +111,9 @@ is exempt from the cleanup that removes past-day unreplied greetings; unrelated 
 still drop. Invalid, missing, or account-mismatched routes clear and fall through to normal greet.
 
 The opener rides in `messages` as prior context on the athlete's first reply. From there sending
-is the ordinary path: that reply's commit writes the same thread id through `chat_history.json`
-and applies ADR 0012's seven-thread cap. An unopened proactive seed remains local and consumes no
-retention slot.
+is the ordinary path: that reply's commit writes the same thread id through `chat_history.json`,
+which now retains every thread (ADR 0037) - the seven-thread cap only trims the response payload,
+not storage. An unopened proactive seed remains local and consumes no retention slot.
 
 ### 3. Ordinary turns
 
@@ -181,8 +181,7 @@ sequenceDiagram
 There is no closing-turn concept any more — a session never "closes," it just keeps having
 turns, and every one of them commits whatever it produced. This replaced the old
 `CLOSE_SESSION_PATTERN`/`session_closed`/End Conversation button machinery entirely (deleted
-`closeSignal.ts`; see `docs/plans/ccr-c1-remove-closing-turn-lld.md`'s history for the removal, or
-git blame if that plan doc is gone by the time you read this).
+`closeSignal.ts` - see git blame on this doc for the removal's history).
 
 On every returning-athlete turn:
 - The response schema carries every action field at once. Data-fact fields (`profile_update`,
