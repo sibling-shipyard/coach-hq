@@ -173,6 +173,8 @@ export interface InjuryEvent {
   flag_id: string;
 }
 
+const INJURY_EVENT_STATUSES: readonly InjuryEvent["status"][] = ["active", "resolved"];
+
 // Array (workout-backend-wiring live verification, same bug class issue #410 fixed for
 // quest_event): a single object silently dropped every injury update past the first when an
 // athlete reported more than one in the same message (e.g. two separate flags resolving) -
@@ -188,6 +190,12 @@ export function applyInjuryEvent(
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
   for (const event of events) {
+    // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+    // coachReplySchema.ts's injury_event.status already constrains on the Gemini path - defense
+    // in depth, same reasoning as applyProfileUpdate's PROFILE_UPDATE_FIELDS guard above.
+    if (!INJURY_EVENT_STATUSES.includes(event.status)) {
+      throw new Error(`injury_event: "${event.status}" is not a valid status`);
+    }
     if (!flags.some((flag) => flag.id === event.flag_id)) {
       // Gemini reported a flag_id that doesn't exist in the current file - either it
       // hallucinated one or the flags list changed underneath it since its context was built.
@@ -244,6 +252,8 @@ export interface QuestEvent {
   value?: string;
 }
 
+const QUEST_EVENT_STATUSES: readonly QuestEvent["status"][] = ["completed", "missed", "excused"];
+
 export function applyQuestEvent(
   content: string | null,
   events: QuestEvent[],
@@ -263,6 +273,12 @@ export function applyQuestEvent(
     // guards its field enum, this had no equivalent guard at all.
     if (!validQuestIds.has(event.quest_id)) {
       throw new Error(`quest_event: no quest with id "${event.quest_id}" in quests.json`);
+    }
+    // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+    // coachReplySchema.ts's quest_event.status already constrains on the Gemini path - defense
+    // in depth, same reasoning as applyProfileUpdate's PROFILE_UPDATE_FIELDS guard above.
+    if (!QUEST_EVENT_STATUSES.includes(event.status)) {
+      throw new Error(`quest_event: "${event.status}" is not a valid status`);
     }
     const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
     const row: ProgressRow = {
