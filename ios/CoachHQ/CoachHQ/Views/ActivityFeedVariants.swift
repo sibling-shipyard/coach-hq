@@ -208,19 +208,68 @@ private struct WeekStatCell: View {
 
 // MARK: - Ledger row
 
-/// Receipt-style activity row — date · sport vein · title · load. Mirrors `SessionRow` for
-/// `SyncCacheEntry` data from the local sync cache.
+struct ActivityRowViewModel: Identifiable {
+    let id: String
+    let sport: String
+    let title: String
+    let category: String?
+    let hrZones: [String: HRZoneEntry]?
+    let startDateLocal: String
+    let elapsedTime: Int
+    let calories: Int?
+    let load: Int?
+    let needsScores: Bool
+}
+
+extension SyncCacheEntry {
+    var asRowViewModel: ActivityRowViewModel {
+        ActivityRowViewModel(
+            id: id,
+            sport: sportType,
+            title: name,
+            category: activity?.category,
+            hrZones: activity?.hrZones,
+            startDateLocal: startDateLocal,
+            elapsedTime: elapsedTime,
+            calories: activity?.calories ?? calories,
+            load: nil,
+            needsScores: sportType == "Badminton" && !hasDescription
+        )
+    }
+}
+
+extension SyncedActivityRow {
+    var asRowViewModel: ActivityRowViewModel {
+        ActivityRowViewModel(
+            id: id,
+            sport: sport,
+            title: title.isEmpty ? Theme.sportBadge(for: sport).label.capitalized : title,
+            category: nil,
+            hrZones: nil,
+            startDateLocal: start,
+            elapsedTime: durationSeconds,
+            calories: nil,
+            load: load,
+            needsScores: false
+        )
+    }
+}
+
+/// Receipt-style activity row used in the home feed and inline in Coach Chat post-sync turns.
 struct ActivityLedgerRow: View {
-    let entry: SyncCacheEntry
+    let vm: ActivityRowViewModel
 
-    private var sportColor: Color { Theme.sportBadge(for: entry.sportType).color }
+    private var sportColor: Color { Theme.sportBadge(for: vm.sport).color }
 
-    private var calories: Int? { entry.activity?.calories ?? entry.calories }
-
-    private var trailingValue: String {
-        if let cal = calories { return "\(cal)" }
-        let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
+    private var trailingText: String {
+        if let load = vm.load { return "+\(load)" }
+        if let cal = vm.calories { return "\(cal)" }
+        let h = vm.elapsedTime / 3600, m = (vm.elapsedTime % 3600) / 60
         return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    private var trailingColor: Color {
+        vm.load != nil ? WarmInstrument.accent : sportColor
     }
 
     var body: some View {
@@ -229,13 +278,13 @@ struct ActivityLedgerRow: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(sportColor.opacity(0.12))
                     .frame(width: 28, height: 28)
-                Image(systemName: Theme.sportIcon(for: entry.sportType))
+                Image(systemName: Theme.sportIcon(for: vm.sport))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(sportColor)
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.name)
+                Text(vm.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
@@ -245,9 +294,9 @@ struct ActivityLedgerRow: View {
 
             Spacer(minLength: 8)
 
-            Text(trailingValue)
+            Text(trailingText)
                 .font(WarmInstrument.figures(14, weight: .bold))
-                .foregroundColor(sportColor)
+                .foregroundColor(trailingColor)
                 .contentTransition(.numericText())
         }
         .padding(.vertical, 8)
@@ -256,22 +305,46 @@ struct ActivityLedgerRow: View {
 
     @ViewBuilder
     private var subtitleRow: some View {
-        let category = entry.activity?.category
-        let zones = entry.activity?.hrZones
-        let needsScores = entry.sportType == "Badminton" && !entry.hasDescription
-        if category != nil || zones != nil || needsScores {
+        if vm.category != nil || vm.hrZones != nil || vm.needsScores {
             HStack(spacing: 6) {
-                if let category {
+                if let category = vm.category {
                     MonoLabel(category, size: 9, color: sportColor, tracking: 0.5)
                 }
-                if let zones {
+                if let zones = vm.hrZones {
                     ZoneDots(zones: zones)
                 }
-                if needsScores {
+                if vm.needsScores {
                     Circle().fill(Theme.attentionOrange).frame(width: 5, height: 5)
                 }
             }
+        } else if !metaLine.isEmpty {
+            Text(metaLine)
+                .font(WarmInstrument.monoLabel(9.5))
+                .foregroundStyle(WarmInstrument.inkFaint)
         }
+    }
+
+    private var metaLine: String {
+        [Self.timeLabel(vm.startDateLocal), Self.durationLabel(vm.elapsedTime)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    private static func timeLabel(_ start: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        formatter.timeZone = .current
+        guard let date = formatter.date(from: String(start.prefix(19))) else { return "" }
+        let out = DateFormatter()
+        out.dateFormat = "h:mm a"
+        return out.string(from: date)
+    }
+
+    private static func durationLabel(_ seconds: Int) -> String {
+        let minutes = max(0, seconds) / 60
+        if minutes < 60 { return "\(minutes)m" }
+        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
@@ -333,7 +406,7 @@ struct ActivityFeedView: View {
                         Button {
                             onSelect(entry)
                         } label: {
-                            ActivityLedgerRow(entry: entry)
+                            ActivityLedgerRow(vm: entry.asRowViewModel)
                                 .frame(minHeight: 44)
                         }
                         .buttonStyle(RowPressButtonStyle())
