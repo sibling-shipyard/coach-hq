@@ -891,10 +891,16 @@ function formatDroppedActionsNote(droppedActions: DroppedAction[]): string | und
 // back this turn, not a rewrite of the model's own prose (that's fragile string surgery on
 // generated text) - just an honest addendum naming what didn't stick. Undefined when nothing was
 // dropped, same as formatDroppedActionsNote.
+// Live-verified (#727): this was hardcoded to claim every drop was "didn't match anything on
+// file" - true for a stale quest_id/flag_id/template_id reference, false for a workout_create
+// dropped over a structural validation failure (e.g. a model-omitted field), which read as an
+// athlete-facing lie about why nothing saved. Never surfaces the raw internal reason text either
+// (schema/field names an athlete has no reason to see) - just an honest, generic "something about
+// that request didn't go through."
 function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string | undefined {
   if (droppedActions.length === 0) return undefined;
   const fields = droppedActions.map((dropped) => dropped.field).join(", ");
-  return `(Note: couldn't save ${fields} - it didn't match anything on file.)`;
+  return `(Note: couldn't save ${fields} this turn - something about that request didn't go through. If it's still relevant, ask again.)`;
 }
 
 // Finding E: the athlete-facing counterpart to synthesizeQuestEventFromUnrecordedFacts - same

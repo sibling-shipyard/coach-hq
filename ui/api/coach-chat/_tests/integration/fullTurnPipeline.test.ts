@@ -353,7 +353,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     // own "All set for today." would otherwise stand alone and imply the edit landed.
     expect(body).toMatchObject({
       reply:
-        "All set for today.\n\n(Note: couldn't save template_edit - it didn't match anything on file.)",
+        "All set for today.\n\n(Note: couldn't save template_edit this turn - something about that request didn't go through. If it's still relevant, ask again.)",
     });
     expect(body.droppedActions).toEqual([
       expect.objectContaining({
@@ -390,7 +390,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     const body = await response.json();
     expect(body).toMatchObject({
       reply:
-        "Logged your weight and marked the quest.\n\n(Note: couldn't save quest_event - it didn't match anything on file.)",
+        "Logged your weight and marked the quest.\n\n(Note: couldn't save quest_event this turn - something about that request didn't go through. If it's still relevant, ask again.)",
     });
     expect(body.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
     const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
@@ -566,7 +566,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     const body = await response.json();
     expect(body).toMatchObject({
       reply:
-        "Updated your weight and looked into those.\n\n(Note: couldn't save template_edit, week_update - it didn't match anything on file.)",
+        "Updated your weight and looked into those.\n\n(Note: couldn't save template_edit, week_update this turn - something about that request didn't go through. If it's still relevant, ask again.)",
     });
     expect(body.droppedActions).toEqual(
       expect.arrayContaining([
