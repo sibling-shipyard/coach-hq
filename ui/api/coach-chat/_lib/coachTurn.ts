@@ -1129,15 +1129,28 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
   droppedActions.push(...droppedWeekUpdate);
 
-  const currentWeekWrite = buildCurrentWeekWrite(
-    repo,
-    token,
-    timezone,
-    traceId,
-    validatedWeekUpdate,
-    validTemplateIds,
-    currentWeekContent,
-  );
+  // Live-verified (#727): a full-week-kickoff week_update is built and structurally validated
+  // eagerly inside buildCurrentWeekWrite (not deferred behind a resolve()), so a real validation
+  // failure - reproduced live: two days missing/empty `intent` - threw straight out of this
+  // function with no error boundary, crashing the whole turn. Every other action field in this
+  // pipeline drops just the one bad action and keeps the rest of the turn; week_update didn't.
+  let currentWeekWrite: FileEntry | undefined;
+  try {
+    currentWeekWrite = buildCurrentWeekWrite(
+      repo,
+      token,
+      timezone,
+      traceId,
+      validatedWeekUpdate,
+      validTemplateIds,
+      currentWeekContent,
+    );
+  } catch (err) {
+    droppedActions.push({
+      field: "week_update",
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   for (const dropped of droppedActions) {
     console.error("[coach-chat] dropped a structured-fact action - bad reference:", dropped, {
