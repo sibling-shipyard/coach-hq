@@ -47,6 +47,24 @@ describe("loadExerciseCatalog", () => {
 });
 
 describe("buildBenchmarkSpec", () => {
+  it("regression: never picks a full_gym exercise when a bodyweight alternative is on file, even for a fresh athlete with no stated equipment", () => {
+    // Live-verified (#727 review): equipment.length alone ties ["bodyweight"] and ["full_gym"]
+    // at 1 item each, and a full_gym entry could win the id tie-break - real content
+    // (chest_fly_cable) did exactly this for the "push" pattern.
+    const spec = buildBenchmarkSpec(memory(), injuries());
+    const catalog = loadExerciseCatalog();
+    for (const ex of spec.phases.flatMap((p) => p.exercises)) {
+      const entry = catalog.find((e) => e.name === ex.name);
+      const pattern = entry?.movement_pattern;
+      const hasBodyweightOption = catalog.some(
+        (e) => e.movement_pattern === pattern && e.equipment.includes("bodyweight"),
+      );
+      if (hasBodyweightOption) {
+        expect(entry?.equipment).toContain("bodyweight");
+      }
+    }
+  });
+
   it("covers 4-6 movement patterns, one exercise each", () => {
     const spec = buildBenchmarkSpec(memory(), injuries());
     const exercises = spec.phases.flatMap((p) => p.exercises);
