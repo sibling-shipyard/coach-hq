@@ -58,7 +58,7 @@ discount. A harness that re-sends one prompt will report caching that production
 
 Several DeepSeek hosts behave the opposite way. Venice, Parasail, NextBit and DeepInfra all
 returned 74–99% cache hits **with a varying tail**, which is the vLLM/SGLang prefix-caching
-pattern. That is the discount `coach-message-rebuild.md` M2 wants, without building a cache.
+pattern. This is real prefix caching without building a cache ourselves.
 
 ## Explicit cache marker (#890)
 
