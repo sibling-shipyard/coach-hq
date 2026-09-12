@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
 
 ## Context
 
@@ -87,7 +87,7 @@ provider, and one of them needs no work at all.
   description on the coach-message path.** Two prompts sharing a 6,876-token prefix, differing only in their tail, returned
   `cached_tokens: 0` on the second. A discount appeared only when the whole prompt repeated byte
   for byte. Measured 2026-09-05 on `google/gemini-3.8-flash` through OpenRouter, pinned to Vertex;
-  the run is in `docs/plans/coach-message-rebuild.md`. Chat runs a different
+  the measurement is in `docs/eng-docs/chat-provider-bench.md`. Chat runs a different
   path — direct AI Studio, not Vertex — so this does not disprove the row above for chat. It does
   mean **nobody should assume the prefix discount without measuring it on their own path**, with a
   varying tail.
