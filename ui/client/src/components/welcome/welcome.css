@@ -1973,7 +1973,7 @@ button.welcome-cta__submit--inline {
 }
 
 .welcome-cta__note.is-success {
-  color: #6d7d4e;
+  color: var(--wi-status-success, #6d7d4e);
 }
 
 .welcome-cta__note.is-error {
