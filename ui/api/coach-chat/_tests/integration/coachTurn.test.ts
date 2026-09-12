@@ -125,7 +125,7 @@ describe("coach turn stages", () => {
     expect(turn.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
     // The reply commitTurn actually returns to the athlete this turn.
     expect(turn.finalReplyText).toBe(
-      "Marked that quest complete.\n\n(Note: couldn't save quest_event - it didn't match anything on file.)",
+      "Marked that quest complete.\n\n(Note: couldn't save quest_event this turn - something about that request didn't go through. If it's still relevant, ask again.)",
     );
     // The persisted chat transcript carries the same correction, not the model's raw claim -
     // otherwise reopening this thread later would still show the uncorrected message.
