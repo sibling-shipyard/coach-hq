@@ -37,73 +37,73 @@ export function buildTemplateEditWrite(
   };
 }
 
-// A2 (#727): workout_create - builds the new routine's file write plus the manifest append, or
-// reports invariant 1/2/7/8's throw as a dropped action, same "one bad action, not the whole
-// turn" discipline as validateActions.ts's own functions. Returns two writes (the routine file
-// and the manifest), not one - unlike template_edit/session_plan above, this action touches the
-// manifest itself.
-export function buildWorkoutCreateWrite(
+// A2 (#727): workout_create and workout_remove, combined into one write function because both
+// can touch TEMPLATES_MANIFEST_PATH in the same turn and commitFilesAtomic does not merge
+// duplicate paths (same constraint injuryWrite.ts's buildInjuryWrites already documents for
+// INJURIES_PATH) - two independent manifest writes here would let whichever lands last silently
+// drop the other's change. Each action's own failure (invariant 1/2/7/8's throw, or an unknown
+// routine_id) is still reported as its own dropped action, same "one bad action, not the whole
+// turn" discipline as validateActions.ts's own functions - only the manifest write itself is
+// shared.
+export function buildWorkoutCreateAndRemoveWrites(
   traceId: string,
-  spec: WorkoutCreateSpec | undefined,
+  create: WorkoutCreateSpec | undefined,
+  remove: { routine_id: string } | undefined,
   existingRoutineIds: ReadonlySet<string>,
   activeInjuryFlagIds: ReadonlySet<string>,
   progressions: ProgressionsJson | null,
 ): { writes: FileEntry[]; dropped: DroppedAction[] } {
-  if (!spec) return { writes: [], dropped: [] };
-  try {
-    const { id, content } = applyWorkoutCreate(
-      spec,
-      existingRoutineIds,
-      activeInjuryFlagIds,
-      progressions,
-      traceId,
-    );
-    return {
-      writes: [
-        { path: templatePath(id), content },
-        {
-          path: TEMPLATES_MANIFEST_PATH,
-          content: buildManifestContent([...existingRoutineIds, id], traceId),
-        },
-      ],
-      dropped: [],
-    };
-  } catch (err) {
-    return {
-      writes: [],
-      dropped: [
-        { field: "workout_create", reason: err instanceof Error ? err.message : String(err) },
-      ],
-    };
-  }
-}
+  const writes: FileEntry[] = [];
+  const dropped: DroppedAction[] = [];
+  const finalIds = new Set(existingRoutineIds);
+  let manifestNeeded = false;
 
-// A2 (#727): workout_remove - deletes the routine file and drops its manifest entry, or reports
-// an unknown routine_id as a dropped action. progressions.json is deliberately untouched (see
-// applyWorkoutRemove's own comment).
-export function buildWorkoutRemoveWrite(
-  traceId: string,
-  remove: { routine_id: string } | undefined,
-  existingRoutineIds: ReadonlySet<string>,
-): { writes: FileEntry[]; dropped: DroppedAction[] } {
-  if (!remove?.routine_id) return { writes: [], dropped: [] };
-  try {
-    const { remainingIds } = applyWorkoutRemove(remove.routine_id, existingRoutineIds);
-    return {
-      writes: [
-        { path: templatePath(remove.routine_id), delete: true },
-        { path: TEMPLATES_MANIFEST_PATH, content: buildManifestContent(remainingIds, traceId) },
-      ],
-      dropped: [],
-    };
-  } catch (err) {
-    return {
-      writes: [],
-      dropped: [
-        { field: "workout_remove", reason: err instanceof Error ? err.message : String(err) },
-      ],
-    };
+  if (create) {
+    try {
+      const { id, content } = applyWorkoutCreate(
+        create,
+        existingRoutineIds,
+        activeInjuryFlagIds,
+        progressions,
+        traceId,
+      );
+      writes.push({ path: templatePath(id), content });
+      finalIds.add(id);
+      manifestNeeded = true;
+    } catch (err) {
+      dropped.push({
+        field: "workout_create",
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
+
+  if (remove?.routine_id) {
+    try {
+      // Validates routine_id existed before this turn (the same hallucinated-id guard as
+      // everything else in this file). finalIds is built here rather than from the applier's own
+      // returned remainingIds, since it needs to reflect create's effect too when both actions
+      // land in the same turn.
+      applyWorkoutRemove(remove.routine_id, existingRoutineIds);
+      writes.push({ path: templatePath(remove.routine_id), delete: true });
+      finalIds.delete(remove.routine_id);
+      manifestNeeded = true;
+    } catch (err) {
+      dropped.push({
+        field: "workout_remove",
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (manifestNeeded) {
+    writes.push({
+      path: TEMPLATES_MANIFEST_PATH,
+      content: buildManifestContent([...finalIds], traceId),
+    });
+  }
+
+  return { writes, dropped };
 }
 
 export function buildSessionPlanWrite(

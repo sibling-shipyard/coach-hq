@@ -85,8 +85,7 @@ import {
 import {
   buildTemplateEditWrite,
   buildSessionPlanWrite,
-  buildWorkoutCreateWrite,
-  buildWorkoutRemoveWrite,
+  buildWorkoutCreateAndRemoveWrites,
 } from "./decide/turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
 
@@ -1052,25 +1051,22 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
 
   // A2 (#727): workout_create/workout_remove's own invariants (1/2/7/8) are business-logic
-  // checks, not stale-reference lookups like quest_id/template_id above - buildWorkoutCreateWrite/
-  // buildWorkoutRemoveWrite catch applyWorkoutCreate/applyWorkoutRemove's throw themselves and
-  // report it as a dropped action, same "one bad action never costs the rest of the turn"
-  // discipline as every other entry in droppedActions here.
-  const { writes: workoutCreateWrites, dropped: droppedWorkoutCreate } = buildWorkoutCreateWrite(
-    traceId,
-    reply.workout_create,
-    validTemplateIds,
-    turn.activeInjuryFlagIds,
-    turn.context.progressions,
-  );
-  droppedActions.push(...droppedWorkoutCreate);
-
-  const { writes: workoutRemoveWrites, dropped: droppedWorkoutRemove } = buildWorkoutRemoveWrite(
-    traceId,
-    reply.workout_remove,
-    validTemplateIds,
-  );
-  droppedActions.push(...droppedWorkoutRemove);
+  // checks, not stale-reference lookups like quest_id/template_id above -
+  // buildWorkoutCreateAndRemoveWrites catches applyWorkoutCreate/applyWorkoutRemove's throw
+  // itself and reports it as a dropped action, same "one bad action never costs the rest of the
+  // turn" discipline as every other entry in droppedActions here. Combined into one call because
+  // both actions can touch TEMPLATES_MANIFEST_PATH in the same turn - see that function's own
+  // comment for why two separate manifest writes would silently drop one.
+  const { writes: workoutCreateAndRemoveWrites, dropped: droppedWorkoutCreateAndRemove } =
+    buildWorkoutCreateAndRemoveWrites(
+      traceId,
+      reply.workout_create,
+      reply.workout_remove,
+      validTemplateIds,
+      turn.activeInjuryFlagIds,
+      turn.context.progressions,
+    );
+  droppedActions.push(...droppedWorkoutCreateAndRemove);
 
   // Same pre-validate-before-build discipline as template_id above, applied to a patch-shaped
   // week_update's session_id references. Reuses requestCoachReply's own prefetch (Finding A fix)
@@ -1294,8 +1290,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     profileUpdateWrite,
     templateEditWrite,
     sessionPlanWrite,
-    ...workoutCreateWrites,
-    ...workoutRemoveWrites,
+    ...workoutCreateAndRemoveWrites,
     currentWeekWrite,
     seasonStartWrites?.seasonWrite,
     seasonStartWrites?.questWrite,
