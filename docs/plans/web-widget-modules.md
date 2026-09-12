@@ -1,6 +1,6 @@
 # Web widget modules
 
-> Status: Draft · Owner: UI Expert · Verified: 2026-09-08
+> Status: In progress · Owner: UI Expert · Verified: 2026-09-08
 >
 > Tracking: #930. Milestone and epic placement is a Tech Lead call — filed under `Later` to stay
 > clear of the M3/M4 epic-parent gate, same as iOS's #928.
@@ -87,10 +87,13 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| U1 | Shared module | Move `WidgetSnapshotsFile`, the 10 gallery-rendered cards, `SessionRow`, `ActivityGlyph`, and `formatUtils.ts` into `components/widgets/`. Keep `CoachMessageCard` and `DesktopHomeGrid` in `home-warm/` | `main` | `components/widgets/*` (new); `home-warm/widgets/{BuildPhaseCard,CaloriesCard,CoachReadCard,EngineCard,QuestCard,RecentSessionsCard,SportCommitmentCard,TrainingActivityCard,Vo2Card,WeeklyPlanCard}.tsx`; `home-warm/atoms/SessionRow.tsx`; `home-warm/{ActivityGlyph,formatUtils,snapshots,WarmInstrumentWidgets}.{ts,tsx}`; `kdb/decisions/{0038-shared-web-widget-module.md,README.md}` | UI Expert | — | Chat can import the contract or a portable card from `components/widgets/`; zero visual change |
+| U1 | Shared module | Move `WidgetSnapshotsFile`, the 10 gallery-rendered cards, `SessionRow`, `ActivityGlyph`, and `formatUtils.ts` into `components/widgets/`. Keep `CoachMessageCard` and `DesktopHomeGrid` in `home-warm/` | `main` | `components/widgets/*` (new); `home-warm/widgets/{BuildPhaseCard,CaloriesCard,CoachReadCard,EngineCard,QuestCard,RecentSessionsCard,SportCommitmentCard,TrainingActivityCard,Vo2Card,WeeklyPlanCard}.tsx`; `home-warm/atoms/SessionRow.tsx`; `home-warm/{ActivityGlyph,formatUtils,snapshots,WarmInstrumentWidgets}.{ts,tsx}`; `kdb/decisions/{0043-shared-web-widget-module.md,README.md}` | UI Expert | — | Chat can import the contract or a portable card from `components/widgets/`; zero visual change |
 | U2 | One vocabulary | Extract only the duplicate `disciplineFor` into `home-warm/trainingMappings.ts` as `trainingCategoryToSessionDiscipline`. Keep `trainingCategoryToWarmSport`, `sessionDisciplineToSnapshotSport`, and `normaliseRuntimeDiscipline` separate. Rename duration helpers to `formatMinutesInstrumentLabel` and `formatSecondsDurationLabel` | U1 | `home-warm/{trainingMappings,warmHomeSnapshots,currentWeekAdapter,liveWeekContract}.ts`; `components/widgets/formatUtils.ts`; `lib/activities.ts`; `coach-chat/CoachChatWidgets.tsx`; affected tests | UI Expert | — | One Home data-mapping implementation; distinct mappings and duration formats stay behaviour-identical |
 | U3 | Dead code | Delete unread `CommitmentModel.accent`, its four hardcoded hex values, and the unimported `GOLDEN_SIZES` export | U2 | `home-warm/warmHomeModel.ts`; `lib/goldenDataset.ts`; affected tests | UI Expert | — | Neither dead value remains; `warmHomeModel.ts` computes nothing its caller discards |
 | U4 | Token the colours | Add missing tokens to `tokens.json`, run `generate.mjs`, and replace the remaining ~86 component hex values with generated CSS variables. Commit generated CSS; commit generated Swift only if its bytes change | U3 | `shared/warm-instrument/{tokens.json,generate.mjs}`; `home-warm/{wi-tokens.generated.css,warm-instrument.css,widget-gallery.css,warmHomeSnapshots.ts}`; `coach-chat/coach-chat.css`; `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` (only if changed) | UI Expert | — | The generator is reproducible and the issue #930 hex grep is empty |
+
+**Progress:** U1 is implemented on the stack base. Its PR and CI run are still pending; U2–U4
+have not started.
 
 U1 makes `components/widgets/` the canonical import path and adds the UI ADR. The existing
 `home-warm/{WarmInstrumentWidgets,snapshots,ActivityGlyph,formatUtils}` files become explicit

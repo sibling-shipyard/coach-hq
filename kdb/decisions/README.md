@@ -42,6 +42,7 @@
 | 0040 | One post-sync Coach generator, one chat thread | cross-cutting (coach message, coach chat, iOS) |
 | 0041 | Terracotta is load and primary action, never decorative or status | cross-cutting (ios, ui) |
 | 0042 | `current_week.json` collapses to one write action, code owns reconciliation and rollover | cross-cutting (coach-chat backend, SOUL, web) |
+| 0043 | Shared web widget module | ui |
 
 <details>
 <summary>Superseded / historical (4) — kept for the citations, not for the boot read</summary>

@@ -1,7 +1,7 @@
 import { type CSSProperties, useState } from "react";
-import { ActivityGlyph } from "../ActivityGlyph";
-import { clamp } from "../formatUtils";
-import type { CommitmentSnapshot } from "../snapshots";
+import { ActivityGlyph } from "./ActivityGlyph";
+import { clamp } from "./formatUtils";
+import type { CommitmentSnapshot } from "./snapshots";
 
 function CommitmentBody({
   item,

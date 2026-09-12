@@ -1,6 +1,6 @@
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useState } from "react";
-import { clamp } from "../formatUtils";
-import type { EngineSnapshot, LoadMixSnapshot, TrendPointSnapshot } from "../snapshots";
+import { clamp } from "./formatUtils";
+import type { EngineSnapshot, LoadMixSnapshot, TrendPointSnapshot } from "./snapshots";
 
 function EngineGauge({ engine }: { engine: EngineSnapshot }) {
   const width = 500;

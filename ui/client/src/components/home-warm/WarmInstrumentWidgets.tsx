@@ -1,4 +1,4 @@
-/** Barrel re-exports — import from here for backward compatibility. */
+/** Compatibility barrel. Shared widget code imports from `@/components/widgets`. */
 
 export type {
   ActivityCellState,
@@ -27,21 +27,21 @@ export type {
   WarmSportId,
   WeeklyPlanSnapshot,
   WidgetSnapshotsFile,
-} from "./snapshots";
+} from "../widgets";
 
 export { DEFAULT_SPORT_ANALYTICS_LINKS, InstrumentHeader } from "./InstrumentHeader";
-export { BuildPhaseCard } from "./widgets/BuildPhaseCard";
-export { CaloriesCard } from "./widgets/CaloriesCard";
+export { BuildPhaseCard } from "../widgets/BuildPhaseCard";
+export { CaloriesCard } from "../widgets/CaloriesCard";
 export { CoachMessageCard } from "./widgets/CoachMessageCard";
-export { CoachReadCard } from "./widgets/CoachReadCard";
+export { CoachReadCard } from "../widgets/CoachReadCard";
 export { DesktopHomeGrid } from "./widgets/DesktopHomeGrid";
-export { EngineCard } from "./widgets/EngineCard";
-export { QuestCard } from "./widgets/QuestCard";
-export { RecentSessionsCard } from "./widgets/RecentSessionsCard";
-export { SportCommitmentCard } from "./widgets/SportCommitmentCard";
-export { TrainingActivityCard } from "./widgets/TrainingActivityCard";
-export { Vo2Card } from "./widgets/Vo2Card";
-export { WeeklyPlanCard } from "./widgets/WeeklyPlanCard";
+export { EngineCard } from "../widgets/EngineCard";
+export { QuestCard } from "../widgets/QuestCard";
+export { RecentSessionsCard } from "../widgets/RecentSessionsCard";
+export { SportCommitmentCard } from "../widgets/SportCommitmentCard";
+export { TrainingActivityCard } from "../widgets/TrainingActivityCard";
+export { Vo2Card } from "../widgets/Vo2Card";
+export { WeeklyPlanCard } from "../widgets/WeeklyPlanCard";
 
 export {
   buildActivityEvidenceSnapshots,

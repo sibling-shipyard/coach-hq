@@ -1,4 +1,4 @@
-import type { CoachReadSnapshot } from "../snapshots";
+import type { CoachReadSnapshot } from "./snapshots";
 
 export function CoachReadCard({ read }: { read: CoachReadSnapshot }) {
   return (

@@ -1,6 +1,6 @@
 import { type CSSProperties } from "react";
-import { clamp } from "../formatUtils";
-import type { QuestSnapshot } from "../snapshots";
+import { clamp } from "./formatUtils";
+import type { QuestSnapshot } from "./snapshots";
 
 export function QuestCard({ quest, compact = false }: { quest: QuestSnapshot; compact?: boolean }) {
   const progress = quest.target > 0 ? clamp((quest.completed / quest.target) * 100, 0, 100) : 0;

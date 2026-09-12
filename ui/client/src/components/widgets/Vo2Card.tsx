@@ -1,6 +1,6 @@
 import { type MouseEvent as ReactMouseEvent, useState } from "react";
-import { clamp } from "../formatUtils";
-import type { TrendPointSnapshot, Vo2Snapshot } from "../snapshots";
+import { clamp } from "./formatUtils";
+import type { TrendPointSnapshot, Vo2Snapshot } from "./snapshots";
 
 function Vo2Trend({ points }: { points: TrendPointSnapshot[] }) {
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);

@@ -1,4 +1,4 @@
-import type { BuildPhaseSnapshot } from "../snapshots";
+import type { BuildPhaseSnapshot } from "./snapshots";
 
 export function BuildPhaseCard({ phase }: { phase: BuildPhaseSnapshot }) {
   return (
