@@ -143,10 +143,12 @@
   color: var(--wi-surface);
 }
 
-.sa-toggle button:not(.is-active):hover,
+.sa-toggle button:not(.is-active):hover {
+  color: var(--wi-ink);
+}
+
 .sa-toggle button:not(.is-active):focus-visible {
   color: var(--wi-ink);
-  outline: none;
 }
 
 .sa-toggle button:focus-visible {
@@ -1266,7 +1268,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-running-coach-read {
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   border-color: transparent;
 }
 
@@ -1931,7 +1933,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-cal-coach-read {
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   border-color: transparent;
 }
 

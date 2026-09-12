@@ -116,7 +116,7 @@ export default function WidgetGallery() {
         <GallerySection
           id="engine"
           index="00/01 · 08 · 10"
-          title="ENGINE · MAIN &amp; SIDE QUESTS · COACH'S READ"
+          title="ENGINE · MAIN & SIDE QUESTS · COACH'S READ"
           meaning="The Engine is weekly load vs. the athlete's own 8-week rhythm band — a band to stay inside, not a score to maximize. Quest and Coach's Read share its right rail on Home, same as here: quiet progress bars, then the coach's signed interpretation of the day."
           interaction={
             <>

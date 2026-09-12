@@ -240,7 +240,7 @@
 }
 
 .welcome-btn--primary:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark, #652b20);
   color: var(--wi-surface) !important;
 }
 
@@ -482,7 +482,7 @@
 }
 
 .welcome-feature__index {
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   font-weight: 700;
@@ -517,7 +517,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   border-color: rgba(84, 76, 65, 0.12);
 }
 
@@ -531,7 +531,7 @@
 .welcome-feature__card-label {
   display: block;
   margin-bottom: 8px;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -608,7 +608,7 @@
 }
 
 .welcome-quest__value span {
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-size: 12px;
 }
 
@@ -629,12 +629,12 @@
 
 .welcome-quest__bar--cal span {
   height: 7px;
-  background: #4f587a;
+  background: var(--wi-calisthenics, #4f587a);
 }
 
 .welcome-quest__bar--fdn span {
   height: 7px;
-  background: #6d7d4e;
+  background: var(--wi-foundation, #6d7d4e);
 }
 
 .welcome-quest__subs {
@@ -655,7 +655,7 @@
 }
 
 .welcome-quest__sub-meta {
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -712,7 +712,7 @@
 
 .welcome-timer-card {
   padding: 32px 36px;
-  border: 1px solid rgba(84, 76, 65, 0.16);
+  border: 1px solid var(--wi-line, rgba(84, 76, 65, 0.16));
   border-radius: 26px;
   background: var(--wi-surface);
   box-shadow: 0 16px 34px rgba(57, 52, 42, 0.1);
@@ -733,7 +733,7 @@
 }
 
 .welcome-timer-card__sport {
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -793,7 +793,7 @@
 
 .welcome-timer-card__cue {
   margin-top: 4px;
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-family: "Space Mono", monospace;
   font-size: 12px;
 }
@@ -828,11 +828,11 @@
 }
 
 .welcome-timer-card__panel--coach {
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
 }
 
 .welcome-timer-card__panel-label {
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -861,7 +861,7 @@
 
 .welcome-timer-card__nav {
   width: 110px;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 12px;
 }
@@ -896,7 +896,7 @@ button.welcome-timer-card__run:hover {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid #efe9dc;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -926,7 +926,7 @@ button.welcome-timer-card__run:hover {
 
 .welcome-phone__timer-head span:last-child {
   margin-left: auto;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-size: 13px;
 }
 
@@ -955,7 +955,7 @@ button.welcome-timer-card__run:hover {
 
 .welcome-phone__timer-sub {
   margin-top: 6px;
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-family: "Space Mono", monospace;
   font-size: 10.5px;
 }
@@ -980,7 +980,7 @@ button.welcome-timer-card__run:hover {
 .welcome-phone__timer-coach {
   padding: 13px;
   border-radius: 14px;
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   color: #54564e;
   font-family: "Newsreader", Georgia, serif;
   font-size: 12.5px;
@@ -1074,7 +1074,7 @@ button.welcome-cta__primary {
 }
 
 button.welcome-cta__primary:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark, #652b20);
 }
 
 button.welcome-cta__peek {
@@ -1179,7 +1179,7 @@ input.welcome-cta__input:focus {
 }
 
 input.welcome-cta__input::placeholder {
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
 }
 
 button.welcome-cta__submit {
@@ -1196,7 +1196,7 @@ button.welcome-cta__submit {
 }
 
 button.welcome-cta__submit:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark, #652b20);
 }
 
 .welcome-cta__success {
@@ -1233,7 +1233,7 @@ button.welcome-cta__submit:hover {
 
 .welcome-cta__success-sub {
   margin-top: 2px;
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -1241,7 +1241,7 @@ button.welcome-cta__submit:hover {
 
 .welcome-cta__footer {
   margin-top: 64px;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.1em;
@@ -1410,7 +1410,7 @@ button.welcome-adapt__scenario {
 }
 
 button.welcome-adapt__scenario.is-active {
-  border-color: #652b20;
+  border-color: var(--wi-rust-dark, #652b20);
   color: var(--wi-surface);
   background: var(--wi-rust);
 }
@@ -1489,7 +1489,7 @@ button.welcome-adapt__scenario.is-active {
 
 .welcome-adapt__plan-meta {
   margin-top: 6px;
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-family: "Space Mono", monospace;
   font-size: 11px;
 }
@@ -1542,7 +1542,7 @@ button.welcome-adapt__scenario.is-active {
   padding: 16px 18px;
   border-radius: 16px;
   color: var(--wi-ink);
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   font-family: "Newsreader", Georgia, serif;
   font-size: 17px;
   font-style: italic;
@@ -1673,7 +1673,7 @@ button.welcome-adapt__scenario.is-active {
   padding: 60px 70px;
   border: 1px solid rgba(84, 76, 65, 0.1);
   border-radius: 30px;
-  background: var(--wi-coach-tint, #f3eee3);
+  background: var(--wi-surface-muted, #f3eee3);
   box-sizing: border-box;
   grid-template-columns: 400px 1fr;
   scroll-snap-align: center;
@@ -1777,7 +1777,7 @@ button.welcome-adapt__scenario.is-active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -1826,12 +1826,12 @@ button.welcome-adapt__scenario.is-active {
 
 @media (hover: hover) and (pointer: fine) {
   .welcome-hl-metrics__row:hover {
-    background: var(--wi-coach-tint, #f3eee3);
+    background: var(--wi-surface-muted, #f3eee3);
   }
 }
 
 .welcome-hl-metrics__row span:first-child {
-  color: #75746b;
+  color: var(--wi-ink-muted, #75746b);
   font-size: 10px;
   letter-spacing: 0.08em;
 }
@@ -1966,7 +1966,7 @@ button.welcome-cta__submit--inline {
 .welcome-cta__note {
   min-height: 14px;
   margin-top: 14px;
-  color: #98998f;
+  color: var(--wi-ink-faint, #98998f);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.08em;
