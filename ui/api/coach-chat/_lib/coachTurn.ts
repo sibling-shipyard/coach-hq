@@ -1332,15 +1332,23 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 // (firstWeekCompile.ts) that places the benchmark and anchor sessions on the athlete's stated
 // training days. All one commit, and never allowed to block or fail the athlete's reply - none of
 // this is on the critical path of the turn's own response, so a failure here only logs and moves
-// on - and it retries on every later turn (not just the false->true transition), so a transient
-// failure never leaves the athlete permanently stuck with no benchmark (P0, #727 review).
+// on.
 //
-// Gated on the benchmark's own routine id being in the manifest, not on the manifest merely
-// existing - carve-skeleton now seeds a manifest with two starter templates at carve time (A4),
-// so "does a manifest exist" was always true and this never ran for a freshly carved repo (P0,
-// #727 review).
+// Gated on the false->true profileComplete transition (never just "profileComplete is true"):
+// isAthleteProfileComplete (coachChatFiles.ts) is a field-presence check recomputed every turn
+// from current profile/memory/seasons content, so it stays true forever once an athlete's profile
+// is complete - a live-verified regression (#727 review) found that dropping the transition
+// requirement here made this fire, and commit a synthetic first week, on every single ordinary
+// turn from any already-established athlete, since it has no reason to ever get the benchmark's
+// id into its manifest otherwise. ALSO gated on the benchmark's own routine id being absent from
+// the manifest, not on the manifest merely existing - carve-skeleton now seeds a manifest with two
+// starter templates at carve time (A4), so "does a manifest exist" was always true and this never
+// ran for a freshly carved repo either (the original P0, #727 review). A dropped invariant on the
+// transition turn itself still means no automatic retry - a known, narrower gap than the one this
+// replaces, tracked as follow-up rather than papered over with something unsafe for existing
+// athletes.
 export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrites): Promise<void> {
-  if (!turn.profileComplete) return;
+  if (turn.wasProfileComplete || !turn.profileComplete) return;
   try {
     const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
     const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
