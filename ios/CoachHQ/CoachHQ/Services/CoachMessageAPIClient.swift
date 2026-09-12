@@ -166,10 +166,19 @@ final class CoachMessageAPIClient: CoachMessageGenerating {
               bodyIsValid,
               timestampIsValid,
               message.activityIds == expectedActivityIds,
-              message.conversationSeedId == "local-proactive-\(message.id)" else {
+              isValidConversationSeedId(message.conversationSeedId, messageId: message.id) else {
             throw GitHubAPIError.decodingFailed(operation: "Invalid Coach message response")
         }
         return decoded
+    }
+
+    /// Mirrors the server's `isValidConversationSeedId` (`coach-message/_lib/coachMessage.ts`).
+    /// Two shapes are both valid: `t-<epoch ms>` (`buildActivitySyncThread`'s id) when the batch
+    /// already has an open chat thread, or `local-proactive-<messageId>` when the server had to
+    /// mint one itself. One generator, one thread id (#918).
+    static func isValidConversationSeedId(_ seedId: String, messageId: String) -> Bool {
+        if seedId == "local-proactive-\(messageId)" { return true }
+        return seedId.range(of: CoachThreadID.persistedSeedPattern, options: .regularExpression) != nil
     }
 
     private static func parseISO8601(_ raw: String) -> Date? {

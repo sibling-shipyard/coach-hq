@@ -244,6 +244,37 @@ final class ActivitySyncCoachTurnTests: XCTestCase {
         )
     }
 
+    // MARK: - One notification decision per sync (#918)
+
+    /// Foreground, chat visible or not: activitySyncTurn reached .complete either way -
+    /// coach-message's own notify must not fire again, whether or not the turn itself announced.
+    func testCompletedTurnSuppressesCoachMessageNotifyRegardlessOfWhetherItAnnounced() {
+        XCTAssertTrue(PostSyncFanout.turnAlreadyAnnounced(
+            turnStartedThisRound: true,
+            turnPhase: .complete
+        ))
+    }
+
+    /// Backgrounded sync where activitySyncTurn's own call is still retrying (or failed) this
+    /// round - coach-message's independent success is the only signal produced, so it must still
+    /// be allowed to notify.
+    func testUnsettledTurnLeavesCoachMessageFreeToNotify() {
+        for phase: ActivitySyncTurn.Phase? in [.waitingForSnapshots, .requestingCoach, .retryWait, .retryPost, nil] {
+            XCTAssertFalse(
+                PostSyncFanout.turnAlreadyAnnounced(turnStartedThisRound: true, turnPhase: phase),
+                "phase \(String(describing: phase)) must not count as already announced"
+            )
+        }
+    }
+
+    /// Onboarding: the turn was never started this round at all (syncNotificationsEnabled false
+    /// keeps activitySyncTurn nil) - coach-message's own syncNotificationsEnabled gate is what
+    /// actually blocks notification there, not this one.
+    func testTurnNeverStartedLeavesCoachMessageFreeToNotify() {
+        XCTAssertFalse(PostSyncFanout.turnAlreadyAnnounced(turnStartedThisRound: false, turnPhase: .complete))
+        XCTAssertFalse(PostSyncFanout.turnAlreadyAnnounced(turnStartedThisRound: false, turnPhase: nil))
+    }
+
     private static func committed(id: String, file: String) -> (fileName: String, activity: Activity) {
         (fileName: file, activity: Activity(
             name: "Badminton #12",
