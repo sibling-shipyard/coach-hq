@@ -37,7 +37,7 @@ flowchart TD
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| V1 | M1 | Add real dark variants for shared Warm Instrument and Chat tokens. | `main` | `CoachHQ/Views/Theme.swift` | iOS Builder | none | Main screens no longer use light chat fills or muddy text in dark mode. |
+| V1 | M1 | Add real dark variants for shared Warm Instrument and Chat tokens; propagate `onAccent` across all views that place text on filled surfaces. | `main` | `CoachHQ/Views/Theme.swift`, `CoachHQ/Views/ActivityDetailView.swift`, `CoachHQ/Views/CoachChatWarmUI.swift`, `CoachHQ/Views/HealthSettingsView.swift`, `CoachHQ/Views/InstrumentHeaderView.swift`, `CoachHQ/Views/LoginView.swift`, `CoachHQ/Views/MainTabView.swift`, `CoachHQ/Views/PersonalizeView.swift`, `CoachHQ/Views/SessionExpiredView.swift`, `CoachHQ/Views/SettingsView.swift`, `CoachHQ/Views/SetupView.swift` | iOS Builder | none | Main screens no longer use light chat fills or muddy text in dark mode; no `paper` token on accent/ink fills anywhere in the app. |
 | V2 | M2 | Align Train backgrounds, timer support colors, and completion surfaces. | V1 | `CoachHQ/Views/WorkoutTimerWarm.swift`, `CoachHQ/Views/WorkoutTimerView.swift`, `CoachHQ/Views/WorkoutCompleteView.swift`, `CoachHQ/Views/WorkoutListView.swift` | iOS Builder | none | Train feels intentionally focused, not visually separate from the app. |
 | V3 | M3 | Capture light/dark visual QA and fix only small token or spacing misses. | V2 | `CoachHQ/Views/**`, `ios/DESIGN.md` if rules change | iOS Builder | none | Screenshots pass, and any deferred design calls are named. |
 

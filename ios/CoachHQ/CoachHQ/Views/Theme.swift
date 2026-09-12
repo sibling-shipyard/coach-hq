@@ -644,7 +644,7 @@ struct WarmDialogActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
+                .foregroundColor(style == .primary ? WarmInstrument.onAccent : Theme.ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(style == .primary ? resolvedPrimaryColor : WarmInstrument.paper)

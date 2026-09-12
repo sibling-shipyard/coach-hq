@@ -192,7 +192,7 @@ struct WarmSidePills: View {
         Text(label)
             .font(WarmInstrument.monoLabel(10))
             .kerning(0.8)
-            .foregroundColor(active ? WarmInstrument.paper : WarmInstrument.inkFaint)
+            .foregroundColor(active ? WarmInstrument.onAccent : WarmInstrument.inkFaint)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
             .background(active ? WorkoutTimerWarm.rust : WarmInstrument.surfaceMuted)
