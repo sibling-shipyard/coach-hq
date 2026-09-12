@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
 
 ## Context
 
@@ -298,7 +298,7 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_update`, plus `pending_clarification`/`unrecorded_facts` (see below) |
+| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_update`, `workout_create`, `workout_remove`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 | First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 
 `coach_note` (C2) is a day-keyed row, not the old closing-only append — see the

@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
 
 ## Context
 
@@ -193,14 +193,16 @@ turns, and every one of them commits whatever it produced. This replaced the old
 On every returning-athlete turn:
 - The response schema carries every action field at once. Data-fact fields (`profile_update`,
   `memory_update`, `injury_flag`/`injury_event`, `quest_event`, `sports_update`, `season_start`,
-  `quest_create`) and session-artifact fields (`template_edit`, `session_plan`, `week_update`)
-  sit together. See `coach-data-schema.md`'s "What Gemini can write" table for the full list.
+  `quest_create`) and session-artifact fields (`template_edit`, `session_plan`, `week_update`,
+  `workout_create`, `workout_remove`) sit together. The last two (A2 #727) are
+  returning-athlete-only. See `coach-data-schema.md`'s "What Gemini can write" table for the full
+  list.
 - The templates manifest and `current_week.json` are **not** fetched up front any more. Gemini's
   prompt carries no pre-fetched template/session id list — that fetch is lazy now, triggered in
   `buildTurnWrites()` (`coachTurn.ts`) only when the reply actually contains `template_edit`,
-  `session_plan`, or `week_update`. Most ordinary turns never touch those fields and never pay
-  for the extra GitHub reads. A wrong or invented template/session id just fails validation and
-  drops that one write; it doesn't corrupt anything.
+  `session_plan`, `week_update`, `workout_create`, or `workout_remove`. Most ordinary turns never
+  touch those fields and never pay for the extra GitHub reads. A wrong or invented template/session
+  id just fails validation and drops that one write; it doesn't corrupt anything.
 - If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
   back over its length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that
   field before proceeding — one extra `askGemini()` round trip on this turn only. See
