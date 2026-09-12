@@ -80,4 +80,15 @@ describe("ActivityDetailSheet focus management", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByText("Morning run").closest("button")).toHaveFocus();
   });
+
+  it("returns focus to the triggering pane when desktop and mobile copies are mounted", () => {
+    renderPane();
+    renderPane();
+    const triggers = screen.getAllByText("Morning run").map((title) => title.closest("button"));
+    fireEvent.click(triggers[1]!);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close activity detail" }));
+
+    expect(screen.getAllByText("Morning run")[1].closest("button")).toHaveFocus();
+  });
 });

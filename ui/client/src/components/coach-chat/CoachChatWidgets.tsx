@@ -594,6 +594,7 @@ export function ConversationPane({
   onRetrySync?: () => void;
 }) {
   const [openActivity, setOpenActivity] = useState<SyncedActivityRow | null>(null);
+  const paneRef = useRef<HTMLElement>(null);
   // The sheet replaces this pane's whole message list in place of the sync-row list, so the
   // triggering row's DOM node is gone by the time the sheet closes - remember its id instead of
   // a ref, and refocus the freshly remounted row by that id once MessageList is back.
@@ -603,11 +604,11 @@ export function ConversationPane({
     if (openActivity || !closedActivityIdRef.current) return;
     const id = closedActivityIdRef.current;
     closedActivityIdRef.current = null;
-    document.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(id)}"]`)?.focus();
+    paneRef.current?.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(id)}"]`)?.focus();
   }, [openActivity]);
 
   return (
-    <section className="cc-pane" aria-label={thread.title}>
+    <section ref={paneRef} className="cc-pane" aria-label={thread.title}>
       {openActivity ? (
         <ActivityDetailSheet
           row={openActivity}
