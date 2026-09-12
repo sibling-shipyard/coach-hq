@@ -51,8 +51,8 @@ What A3's first-week compile needs, and where each input already lives:
 
 ```mermaid
 flowchart LR
-  A5["A5 page (web)"] -.->|independent| done["Near-term stack done"]
-  A5ios["A5-ios"] -.->|independent| done
+  A4 --> A5["A5 page (web)"]
+  A5 --> A5ios["A5-ios"]
   A1["A1 compiler"] --> A1b["A1b exercise catalog"]
   A1b --> A2["A2 workout_create/remove"]
   A2 --> A3["A3 benchmark + first week"]
@@ -62,17 +62,19 @@ flowchart LR
   A1 --> A9["A9 update migration doc"]
   A2 --> A9
   A3 --> A9
+  A5ios --> A9
   A6 --> A9
   A3 --> done
   A4 --> done
+  A5ios --> done
   A6 --> done
   A9 --> done
 ```
 
 | PR | Branch | Owner | Base | Files it may touch |
 |---|---|---|---|---|
-| A5 | `feat/727-workouts-day-view-v2` | UI Expert | `main` | `ui/client/` only |
-| A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | `main`, after A5 | `ios/` only |
+| A5 | `feat/727-workouts-day-view-v2` | UI Expert | A4 (stacked, not `main` - the athlete wants one continuous stack) | `ui/client/` only |
+| A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | A5 | `ios/` only |
 | A1 | `feat/727-compile-workout-a1` (fresh, not a rebase of closed #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
 | A1b | `feat/727-exercise-catalog` | Bob | A1 | `shared/workout-library/` only |
 | A2 | `feat/727-workout-create` | Bob | A1b | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/scripts/`, `ui/package.json` |
@@ -81,7 +83,7 @@ flowchart LR
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo, a PR against it |
 | ~~A7~~ | shipped as `core/973-reconciler` (PR #978) | - | - | `engine/scripts/reconcile-current-week.mjs` |
 | ~~A8~~ | shipped as `core/973-rollover` (PR #979) | - | - | `engine/scripts/rollover-current-week.mjs`, `.github/workflows/sync.user.yml` |
-| A9 | `core/727-migration-doc` | Tech Lead | A1, A1b, A2, A3, A6 | `docs/plans/athlete-repo-migration-973.md` only |
+| A9 | `core/727-migration-doc` | Tech Lead | everything above (last in the stack) | `docs/plans/athlete-repo-migration-973.md` only |
 
 A diff outside your file column fails review. Every PR: `Refs: #727`. Nothing in the near-term
 stack closes #727 on its own. A7 and A8 no longer need a PR here - Refs: #973's stack already
@@ -91,8 +93,8 @@ closes them; see below.
 
 ```bash
 git fetch origin main
-git worktree add -b feat/727-<brief> /tmp/wt-<brief> origin/main   # A5, A5-ios, A1
-git worktree add -b feat/727-<brief> /tmp/wt-<brief> <base-branch>  # A1b, A2, A3, A4, A7, A8
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> origin/main   # A1 only
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> <base-branch>  # everything else - one continuous stack, A5/A5-ios included
 # ... work, commit ...
 git push -u origin feat/727-<brief>
 git worktree remove /tmp/wt-<brief> --force
