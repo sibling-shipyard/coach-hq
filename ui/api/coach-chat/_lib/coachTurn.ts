@@ -34,6 +34,7 @@ import {
   buildBenchmarkSpec,
   seedBenchmarkProgressions,
   inferTrainingAvailability,
+  BENCHMARK_ROUTINE_ID,
 } from "./decide/coachFirstSessionBenchmark.js";
 import { compileFirstWeek } from "./decide/firstWeekCompile.js";
 import { PROGRESSIONS_PATH } from "./decide/coachQuestFiles.js";
@@ -1324,18 +1325,26 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
-// On the false->true profileComplete transition, writes one benchmark routine
-// (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled through the same
-// applyWorkoutCreate/buildWorkoutCreateWrite path an ordinary workout_create turn uses), seeds one
-// progression per benchmarked pattern, derives the structured training_availability field from
-// memory's existing intake prose, and compiles a real first week (firstWeekCompile.ts) that places
-// the benchmark and anchor sessions on the athlete's stated training days. All one commit, and
-// never allowed to block or fail the athlete's reply - none of this is on the critical path of the
-// turn's own response, so a failure here only logs and moves on.
+// Writes one benchmark routine (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled
+// through the same applyWorkoutCreate/buildWorkoutCreateAndRemoveWrites path an ordinary
+// workout_create turn uses), seeds one progression per benchmarked pattern, derives the structured
+// training_availability field from memory's existing intake prose, and compiles a real first week
+// (firstWeekCompile.ts) that places the benchmark and anchor sessions on the athlete's stated
+// training days. All one commit, and never allowed to block or fail the athlete's reply - none of
+// this is on the critical path of the turn's own response, so a failure here only logs and moves
+// on - and it retries on every later turn (not just the false->true transition), so a transient
+// failure never leaves the athlete permanently stuck with no benchmark (P0, #727 review).
+//
+// Gated on the benchmark's own routine id being in the manifest, not on the manifest merely
+// existing - carve-skeleton now seeds a manifest with two starter templates at carve time (A4),
+// so "does a manifest exist" was always true and this never ran for a freshly carved repo (P0,
+// #727 review).
 export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrites): Promise<void> {
-  if (turn.wasProfileComplete || !turn.profileComplete) return;
+  if (!turn.profileComplete) return;
   try {
-    if ((await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token)) != null) return;
+    const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
+    const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
+    if (existingRoutineIds.has(BENCHMARK_ROUTINE_ID)) return;
 
     const memory = turn.projectedMemory;
     const injuries = turn.context.injuries ?? { flags: [] };
@@ -1345,10 +1354,11 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
     const progressions = turn.context.progressions ?? null;
 
     const spec = buildBenchmarkSpec(memory, injuries);
-    const { writes: benchmarkWrites, dropped } = buildWorkoutCreateWrite(
+    const { writes: benchmarkWrites, dropped } = buildWorkoutCreateAndRemoveWrites(
       turn.traceId,
       spec,
-      new Set<string>(),
+      undefined,
+      existingRoutineIds,
       activeInjuryFlagIds,
       progressions,
     );

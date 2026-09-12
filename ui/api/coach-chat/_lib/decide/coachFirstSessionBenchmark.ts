@@ -57,19 +57,48 @@ export function loadExerciseCatalog(): ExerciseCatalogEntry[] {
 // has at least one catalog entry per A1b's coverage table.
 export const BENCHMARK_MOVEMENT_PATTERNS = ["push", "pull", "squat", "hinge", "core"] as const;
 
+// The benchmark's spec.title is always this exact string, so its slugified routine id is always
+// this exact id (slugifyRoutineId has nothing to collide with on a repo's first-ever benchmark) -
+// used by coachTurn.ts to check "has the benchmark already been written" directly, instead of
+// "does any manifest exist at all" (P0, #727 review: carve-skeleton now seeds a manifest with the
+// two starter templates at carve time, so that check was always true for a freshly carved repo).
+export const BENCHMARK_ROUTINE_ID = "first_session_benchmark";
+
+// The catalog has no explicit injury/contraindication tag, but muscle_group and an injury flag's
+// own text are both plain English - a flag whose text names the same muscle group as a candidate
+// (P1, #727 review: e.g. an active shoulder flag and a push-pattern candidate with
+// muscle_group "shoulders") steers selection to a different candidate in the same movement
+// pattern when one exists, without needing a new catalog field. Code still can't judge whether the
+// alternative is actually safe - the spec's injury_ack still carries the real acknowledgment - this
+// only avoids the plainly mismatched pick when a same-pattern alternative is on file.
+function conflictsWithInjury(entry: ExerciseCatalogEntry, activeInjuryTexts: string[]): boolean {
+  const muscleGroup = entry.muscle_group.toLowerCase();
+  // Injury text is written in ordinary prose ("sore shoulder"), catalog muscle_group values are
+  // plural ("shoulders") - check both forms so a real flag's wording still matches.
+  const singular = muscleGroup.endsWith("s") ? muscleGroup.slice(0, -1) : muscleGroup;
+  return activeInjuryTexts.some((text) => {
+    const lower = text.toLowerCase();
+    return lower.includes(muscleGroup) || lower.includes(singular);
+  });
+}
+
 // Prefers the entry with the fewest equipment requirements (bodyweight/no-equipment first) so a
 // benchmark is always answerable by a brand-new athlete who hasn't reported what they own yet -
 // intake's equipment question lands later in the conversation than the benchmark does. Ties break
-// on id for determinism.
+// on id for determinism. Among equally-cheap candidates, one that doesn't textually conflict with
+// an active injury flag is preferred; if every candidate for this pattern conflicts, falls back to
+// the equipment-only pick rather than dropping benchmark coverage for that pattern.
 function pickPrimary(
   catalog: ExerciseCatalogEntry[],
   pattern: string,
   exclude: ReadonlySet<string>,
+  activeInjuryTexts: string[],
 ): ExerciseCatalogEntry | null {
   const candidates = catalog
     .filter((e) => e.movement_pattern === pattern && !exclude.has(e.id))
     .sort((a, b) => a.equipment.length - b.equipment.length || a.id.localeCompare(b.id));
-  return candidates[0] ?? null;
+  const safe = candidates.filter((e) => !conflictsWithInjury(e, activeInjuryTexts));
+  return safe[0] ?? candidates[0] ?? null;
 }
 
 // The easier/harder alternative folded into the exercise's own coaching cue (the LLD's explicit
@@ -121,10 +150,13 @@ export function buildBenchmarkSpec(
   injuries: InjuriesJson,
   catalog: ExerciseCatalogEntry[] = loadExerciseCatalog(),
 ): WorkoutCreateSpec {
+  const activeInjuryTexts = (injuries.flags ?? [])
+    .filter((f) => f.status === "active")
+    .map((f) => f.text);
   const used = new Set<string>();
   const exercises: WorkoutCreateSpecExercise[] = [];
   for (const pattern of BENCHMARK_MOVEMENT_PATTERNS) {
-    const entry = pickPrimary(catalog, pattern, used);
+    const entry = pickPrimary(catalog, pattern, used, activeInjuryTexts);
     if (!entry) continue;
     used.add(entry.id);
     exercises.push(toSpecExercise(entry, catalog));
@@ -132,14 +164,15 @@ export function buildBenchmarkSpec(
 
   // Every active injury flag needs an ack (invariant 7) - this is a system-authored spec, not
   // Gemini's, so there's no real per-flag accommodation text to relay. Stating the mechanical
-  // fact (this benchmark used the lowest-equipment, most accessible variant of every pattern) is
-  // honest about what actually happened, not a fabricated coaching judgment.
+  // fact (this benchmark steered away from any movement naming the same muscle group, and used
+  // the lowest-equipment variant otherwise) is honest about what actually happened, not a
+  // fabricated coaching judgment.
   const injuryAck = (injuries.flags ?? [])
     .filter((f) => f.status === "active")
     .map((f) => ({
       flag: f.id,
       accommodation:
-        "Benchmark uses the lowest-impact variant of each pattern; scale further in-app if this flares it up.",
+        "Benchmark avoids movements naming this flag's body part where an alternative was on file, and uses the lowest-impact variant otherwise; scale further in-app if this flares it up.",
     }));
 
   return {

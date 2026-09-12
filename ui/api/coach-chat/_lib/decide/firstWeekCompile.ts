@@ -118,12 +118,20 @@ export function compileFirstWeek(params: FirstWeekCompileParams): WeekUpdate {
   const discipline = primaryDiscipline(sports);
   const startDate = mondayOfWeekContaining(today);
 
+  // The benchmark (and every anchor session) only ever lands on today or a later day this week.
+  // A training day earlier in the week than today has already passed - the UI's today-band
+  // selector matches on date === today, so a session placed there would be permanently
+  // unreachable (P0, #727 review). If every training day this week is already in the past, the
+  // benchmark routine still gets written and committed - it's just not scheduled on this week's
+  // calendar, same as any other day with nothing scheduled.
+  let benchmarkPlaced = false;
   const days: WeekUpdateDay[] = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(startDate, i);
     const weekday = WEEKDAYS[i];
     const sessions: WeekUpdateSessionPatch[] = [];
-    if (trainingDays.includes(weekday)) {
-      const isBenchmarkDay = weekday === trainingDays[0];
+    if (trainingDays.includes(weekday) && date >= today) {
+      const isBenchmarkDay = !benchmarkPlaced;
+      if (isBenchmarkDay) benchmarkPlaced = true;
       sessions.push(
         isBenchmarkDay
           ? {
