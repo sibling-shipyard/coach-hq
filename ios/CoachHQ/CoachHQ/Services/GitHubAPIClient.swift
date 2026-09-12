@@ -647,9 +647,14 @@ struct GitHubFileContent: Codable {
 
 struct CoachProfileSummary: Codable {
     let coachSince: String?
+    /// A5-ios: the athlete's own known IANA timezone identifier, read by the Workouts page
+    /// selector when the current week isn't live. Nil on a profile written before this field
+    /// existed.
+    let timezone: String?
 
     enum CodingKeys: String, CodingKey {
         case coachSince = "coach_since"
+        case timezone
     }
 }
 
