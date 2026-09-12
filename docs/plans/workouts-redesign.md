@@ -260,17 +260,18 @@ at the end of this section.
 | A2 | `workout_create` and `workout_remove` actions, available on any ordinary turn | A1b | Bob | A returning athlete's mid-conversation request writes a valid routine file in that same turn, dosed from their own progressions/injuries, and can remove one on request |
 | A3 | First Session writes a benchmark, and a compiled first week | A2 | Bob | A fresh athlete's first close writes a benchmark, populated progressions, and a real first week assembled from the catalog and dosed from the benchmark - not a template dump |
 | A4 | Soul and carve updated for the new rules | A2 | Tech Lead | Soul validation is clean, and a freshly carved repo can create a routine |
-| A5 | Three-band Workouts page, web | `main` | UI Expert | Today, this week, and library all render from a live repo |
-| A5-ios | Same three bands, iOS | `main`, after A5 | iOS Builder | The Workouts tab shows the same three bands from live repo data |
+| A5 | Three-band Workouts page, web | A4 | UI Expert | Today, this week, and library all render from a live repo |
+| A5-ios | Same three bands, iOS | A5 | iOS Builder | The Workouts tab shows the same three bands from live repo data |
 | A6 | Recomposed soul and the compiler CLI, into the BYO athlete's own repo | A4 | Tech Lead | That athlete asks for an upper-body workout in their own repo and gets one |
 | ~~A7~~ | ~~Deterministic reconciler~~ - **done**, shipped as PR #978 in the #973 stack | - | - | Every row of the reconciliation table above has a test in `engine/scripts/reconcile-current-week.test.mjs` |
 | ~~A8~~ | ~~Weekly rollover with no chat required~~ - **done**, shipped as PR #979 in the #973 stack | - | - | Verified live: a stale week was replaced with a real current-week frame with no chat involved |
-| A9 | Update `athlete-repo-migration-973.md` for whatever this stack adds to the migration | A1, A1b, A2, A3, A6 | Tech Lead | The doc covers every field/script this stack introduces, not just #973's, and stays deferred until an athlete repo actually migrates |
+| A9 | Update `athlete-repo-migration-973.md` for whatever this stack adds to the migration | everything above | Tech Lead | The doc covers every field/script this stack introduces, not just #973's, and stays deferred until an athlete repo actually migrates |
 
-A1, A5, and A5-ios can start at the same time, since they touch disjoint files. A5 and A5-ios no
-longer wait on anything from #732/#733/#734: see "What happened to #732, #733, and #734" below.
-A9 is last on purpose - the migration doc should describe the finished shape of both stacks
-(#973 and this one) in one pass, not get edited once per PR.
+A5 and A5-ios are stacked on top of A4, not `main` - one continuous stack, at the athlete's
+request, rather than parallel branches. They no longer wait on anything from #732/#733/#734: see
+"What happened to #732, #733, and #734" below. A9 is last on purpose - the migration doc should
+describe the finished shape of both stacks (#973 and this one) in one pass, not get edited once
+per PR.
 
 ### Gated stack: periodization
 
