@@ -171,7 +171,13 @@ function SyncedActivityList({
   return (
     <div className="cc-sync-list" aria-label="Synced activities">
       {rows.map((row) => (
-        <button className="cc-sync-row" key={row.id} onClick={() => onOpen(row)} type="button">
+        <button
+          className="cc-sync-row"
+          key={row.id}
+          data-activity-id={row.id}
+          onClick={() => onOpen(row)}
+          type="button"
+        >
           <span className="cc-sync-row__title">{row.title || "Untitled"}</span>
           <span className="cc-sync-row__meta">{formatSyncRowMeta(row)}</span>
           {row.load != null ? <span className="cc-sync-row__load">+{row.load}</span> : null}
@@ -196,11 +202,25 @@ function ActivityDetailSheet({
   const sport = row.sport || extra?.sport_type || "";
   const title = row.title || extra?.name || "Untitled";
   const load = row.load;
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
 
   return (
     <div className="cc-activity-sheet" role="dialog" aria-label="Activity detail">
       <div className="cc-activity-sheet__head">
         <button
+          ref={closeButtonRef}
           aria-label="Close activity detail"
           className="cc-back"
           onClick={onClose}
@@ -574,6 +594,17 @@ export function ConversationPane({
   onRetrySync?: () => void;
 }) {
   const [openActivity, setOpenActivity] = useState<SyncedActivityRow | null>(null);
+  // The sheet replaces this pane's whole message list in place of the sync-row list, so the
+  // triggering row's DOM node is gone by the time the sheet closes - remember its id instead of
+  // a ref, and refocus the freshly remounted row by that id once MessageList is back.
+  const closedActivityIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (openActivity || !closedActivityIdRef.current) return;
+    const id = closedActivityIdRef.current;
+    closedActivityIdRef.current = null;
+    document.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(id)}"]`)?.focus();
+  }, [openActivity]);
 
   return (
     <section className="cc-pane" aria-label={thread.title}>
@@ -581,7 +612,10 @@ export function ConversationPane({
         <ActivityDetailSheet
           row={openActivity}
           activities={activities}
-          onClose={() => setOpenActivity(null)}
+          onClose={() => {
+            closedActivityIdRef.current = openActivity.id;
+            setOpenActivity(null);
+          }}
         />
       ) : (
         <>

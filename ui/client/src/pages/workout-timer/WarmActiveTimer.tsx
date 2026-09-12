@@ -44,6 +44,8 @@ export function WarmActiveTimer({
 
   const stateRef = useRef(state);
   stateRef.current = state;
+  const quitDialogRef = useRef<HTMLDivElement>(null);
+  const quitTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -79,11 +81,32 @@ export function WarmActiveTimer({
 
   useEffect(() => {
     if (!showQuitDialog) return;
+    const focusables = Array.from(
+      quitDialogRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    );
+    focusables[0]?.focus();
+
     const handleDialogKey = (e: KeyboardEvent) => {
-      if (e.code === "Escape") setShowQuitDialog(false);
+      if (e.code === "Escape") {
+        setShowQuitDialog(false);
+        return;
+      }
+      if (e.code !== "Tab" || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", handleDialogKey);
-    return () => window.removeEventListener("keydown", handleDialogKey);
+    return () => {
+      window.removeEventListener("keydown", handleDialogKey);
+      quitTriggerRef.current?.focus();
+    };
   }, [showQuitDialog]);
 
   if (!phase || !exercise) return null;
@@ -107,7 +130,10 @@ export function WarmActiveTimer({
     <div className="wi-shell">
       <div className="wi-board wtx-active-board">
         <TimerTopBar
-          onBack={() => setShowQuitDialog(true)}
+          onBack={() => {
+            quitTriggerRef.current = document.activeElement as HTMLElement;
+            setShowQuitDialog(true);
+          }}
           title={workout.title}
           sportLabel={workout.workout_type.toUpperCase()}
           sportAccent={accentFor(workout.workout_type)}
@@ -148,6 +174,7 @@ export function WarmActiveTimer({
       {showQuitDialog ? (
         <div className="wtx-dialog-backdrop">
           <div
+            ref={quitDialogRef}
             className="wtx-dialog"
             role="dialog"
             aria-modal="true"
