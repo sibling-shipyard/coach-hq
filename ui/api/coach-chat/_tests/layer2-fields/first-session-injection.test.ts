@@ -64,6 +64,11 @@ describe("mode-specific response schemas", () => {
       "template_edit",
       "session_plan",
       "week_update",
+      // A2 (#727): workout_create/workout_remove, returning-athlete-only in this stack - kept off
+      // First Session's own field list above since A3 supersedes First Session with the
+      // benchmark path.
+      "workout_create",
+      "workout_remove",
       "reply",
       "pending_clarification",
       "unrecorded_facts",
@@ -155,7 +160,9 @@ describe("cache safety", () => {
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
     expect(dynamic).toContain("season_start as soon as the first season and goal are agreed");
     expect(dynamic).toContain("main_quest (the goal) and new_habits");
-    expect(dynamic).toContain("Do not set template_edit, session_plan, or week_update");
+    expect(dynamic).toContain(
+      "Do not set template_edit, session_plan, week_update, workout_create, or",
+    );
   });
 
   // C1: the closing turn is gone, so there is no separate closing+FSP checklist any more - the

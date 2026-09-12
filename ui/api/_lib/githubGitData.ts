@@ -106,10 +106,22 @@ export interface ResolvedFileWrite {
   resolve: () => Promise<string>;
 }
 
-export type FileEntry = FileWrite | ResolvedFileWrite;
+/** A2 (#727): workout_remove is this codebase's first caller that needs to delete a path in the
+ * same atomic commit as everything else a turn writes - nothing before it ever removed a file.
+ * The Git Trees API deletes a path by setting its blob `sha` to `null` in the tree entry. */
+export interface FileDelete {
+  path: string;
+  delete: true;
+}
+
+export type FileEntry = FileWrite | ResolvedFileWrite | FileDelete;
 
 function isResolvedEntry(entry: FileEntry): entry is ResolvedFileWrite {
   return typeof (entry as ResolvedFileWrite).resolve === "function";
+}
+
+function isDeleteEntry(entry: FileEntry): entry is FileDelete {
+  return (entry as FileDelete).delete === true;
 }
 
 /**
@@ -127,8 +139,10 @@ export async function commitFilesAtomic(
 ): Promise<{ commitSha: string }> {
   if (files.length === 0) throw new Error("commitFilesAtomic called with no files");
 
-  const staticEntries = files.filter((f): f is FileWrite => !isResolvedEntry(f));
-  const resolvedEntries = files.filter(isResolvedEntry);
+  const deleteEntries = files.filter(isDeleteEntry);
+  const writeEntries = files.filter((f): f is FileWrite | ResolvedFileWrite => !isDeleteEntry(f));
+  const staticEntries = writeEntries.filter((f): f is FileWrite => !isResolvedEntry(f));
+  const resolvedEntries = writeEntries.filter(isResolvedEntry);
 
   const staticBlobs: { path: string; sha: string }[] = [];
   for (const file of staticEntries) {
@@ -161,7 +175,17 @@ export async function commitFilesAtomic(
 
     const tree = await ghPost("/git/trees", ctx, {
       base_tree: baseTreeSha,
-      tree: blobs.map((b) => ({ path: b.path, mode: "100644", type: "blob", sha: b.sha })),
+      tree: [
+        ...blobs.map((b) => ({ path: b.path, mode: "100644", type: "blob", sha: b.sha })),
+        // sha: null removes the path from the tree - the Git Trees API's documented delete
+        // recipe, no separate endpoint exists for it.
+        ...deleteEntries.map((d) => ({
+          path: d.path,
+          mode: "100644",
+          type: "blob",
+          sha: null,
+        })),
+      ],
     });
 
     const commit = await ghPost("/git/commits", ctx, {
