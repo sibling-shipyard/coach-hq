@@ -33,6 +33,7 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["Badminton"],
     coaching_style: "analysis",
+    training_availability: null,
     notes: {
       fitness_baseline: { text: "", updated_at: "", trace_id: "" },
       coaching_priorities: { text: "", updated_at: "", trace_id: "" },

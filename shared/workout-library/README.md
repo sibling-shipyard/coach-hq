@@ -1,22 +1,14 @@
 # Workout library
 
-Two shapes live here side by side right now, on purpose.
+`exercises.json` is the only shape here now - a catalog of individual movements, not premade
+workouts. One entry per exercise: a name, the muscle group and movement pattern it trains, its
+`type` (`reps` | `timed`), the equipment it needs, a real form cue, and a `why`. Tracked movements
+also carry a `progression_id`. `workout_create`/`workout_remove` (A2) and the first-session
+benchmark plus first-week compiler (A3) all read from this file.
 
-`templates/*.json` + `index.json` - the old, complete premade `Workout` files. These are still
-live: `coachWorkoutFiles.ts`'s automatic template-dump selector reads them on signup to commit 4-6
-starter templates to a new athlete's repo, and nothing else in this PR touches that path.
-
-`exercises.json` - the new catalog of individual movements, not premade workouts. One entry per
-exercise: a name, the muscle group and movement pattern it trains, its `type` (`reps` | `timed`),
-the equipment it needs, a real form cue, and a `why`. Tracked movements also carry a
-`progression_id`. Nothing reads this file yet - `workout_create`/`workout_remove` (A2) and the
-first-week compiler (A3) wire it in.
-
-**This is temporary.** A3 deletes `templates/`, `index.json`, the dump selector in
-`coachWorkoutFiles.ts`, and this file's own `workoutLibrary.test.ts` in one commit, since removing
-the selector is what makes the old files actually dead - keeping them around unread would just be
-clutter. Until then, treat `index.json`/`templates/` as frozen: fix a bug in them if you must, but
-build all new coverage into `exercises.json` instead.
+The old shape - complete premade `Workout` files under `templates/` plus a selection `index.json`
+- is gone (A3, #727). `coachWorkoutFiles.ts`'s automatic template-dump selector that read them on
+signup is deleted too, since removing the selector is what made those files actually dead.
 
 ## Why a catalog of movements, not workouts
 
@@ -80,6 +72,3 @@ also keeping the surrounding group covered.
    real athlete `progressions.json` files.
 4. `ui/api/coach-chat/_tests/exerciseCatalog.test.ts` validates the schema, checks for duplicate
    `id`s, and checks that the coverage table still holds. Run it before committing.
-
-The old `templates/`/`index.json` pair keeps its own test, `workoutLibrary.test.ts`, unchanged -
-don't add new templates there; that shape is frozen until A3 removes it.

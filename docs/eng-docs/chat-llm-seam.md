@@ -80,9 +80,10 @@ the running total after every attempt, not once per attempt with just that attem
    nesting five levels deep). Owns its own JSON-parse retry on top of the adapter's own retry - see
    `gemini-flow.md` § Retries for the full worst-case timing across every layer.
 3. **Template adjustment** (`coachWorkoutFiles.ts`'s `adjustTemplatesWithGemini`) - moved onto the
-   seam in M2 PR 3, the last direct-`fetch` caller in the codebase. Deliberately non-fatal: a
-   failure here falls back to unadjusted library templates rather than blocking First Session
-   completion.
+   seam in M2 PR 3, the last direct-`fetch` caller in the codebase at the time. Deliberately
+   non-fatal: a failure here fell back to unadjusted library templates rather than blocking First
+   Session completion. **Removed entirely in A3 (#727)** along with the automatic template-dump
+   path it personalized - First Session close no longer makes this call at all.
 
 Every caller resolves its own adapter via `selectLlmAdapter({...process.env, GEMINI_API_KEY: apiKey})`
 - the API key arrives as a parameter, threaded down from whichever auth context loaded it, never
@@ -98,9 +99,8 @@ read from `process.env` directly inside a caller.
   answering different failure shapes on their respective providers - a third adapter needs its own
   reasoning about what's actually retryable there, not a copy-paste of either.
 - Tag `.model` onto any thrown error if the caller resolves its own adapter and has its own
-  `captureGeminiFailure` call site downstream, the same way `askGemini` and
-  `adjustTemplatesWithGemini` do - the two-line pattern is worth copying exactly, not
-  reinventing per caller.
+  `captureGeminiFailure` call site downstream, the same way `askGemini` does - the two-line
+  pattern is worth copying exactly, not reinventing per caller.
 - A third adapter's usage tracking must follow the accumulation pattern above the moment it has
   any retry of its own, even if the first version doesn't.
 
