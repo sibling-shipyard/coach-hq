@@ -55,6 +55,39 @@ export interface GeminiReply {
     skip_phases?: string[];
     note?: string;
   };
+  // See responseSchema's workout_create for rationale and wire shape. A generated routine, dosed
+  // from the athlete's own progressions/injuries - never timer physics, that's compileWorkout()'s
+  // job (engine/lib/compileWorkout.mts, reached through compile-workout.bundle.js).
+  workout_create?: {
+    title: string;
+    workout_type: "foundation" | "strength" | "recovery" | "realign" | "calisthenics";
+    location?: string;
+    coaching_note?: string;
+    equipment?: string[];
+    phases: {
+      name: string;
+      exercises: {
+        name: string;
+        type: "reps" | "timed";
+        form_cue: string;
+        why: string;
+        reps?: number;
+        duration_secs?: number;
+        sets: number;
+        both_sides?: boolean;
+        progression_id?: string;
+        // Required when progression_id has no existing entry in progressions.json (invariant
+        // 8) - what the dose was scaled from.
+        scaled_from?: string;
+      }[];
+    }[];
+    // One entry per active injury flag (invariant 7) - required whenever the athlete has any
+    // active flag, enforced dynamically via withReferenceEnums below, not by this static type.
+    injury_ack?: { flag: string; accommodation: string }[];
+  };
+  // See responseSchema's workout_remove for rationale - the applier resolves routine_id against
+  // the manifest and throws on an unknown one (coachWorkoutFiles.ts's applyWorkoutRemove).
+  workout_remove?: { routine_id: string };
   // See responseSchema's week_update and coachWeekFiles.ts's applyWeekUpdate (ADR 0042). One
   // field replaces the old week_plan/session_reconcile/plan_edit trio - a full headline/body/
   // 7-day payload commits a fresh week, anything else is a sparse per-day/per-session patch.
@@ -240,6 +273,81 @@ const RESPONSE_PROPERTIES = {
     // can't set this field at all without it, same "no silently-partial commitment object"
     // discipline as template_edit above.
     required: ["template_id"],
+    additionalProperties: false,
+  },
+  // A2 (#727): mid-conversation ask for a brand-new routine, dosed from the athlete's own
+  // benchmark/progressions/injuries. Coach sends the spec, never timer physics - compileWorkout()
+  // fills sets/rest timing server-side. injury_ack's required-ness and flag enum are added
+  // dynamically per request by withReferenceEnums below, when the athlete has an active flag -
+  // Gemini's structured-output mode has no conditional-required support, same limitation
+  // coachWeekFiles.ts's applyWeekUpdate comment already notes for week_update.
+  workout_create: {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      workout_type: {
+        type: "string",
+        enum: ["foundation", "strength", "recovery", "realign", "calisthenics"],
+      },
+      location: { type: "string" },
+      coaching_note: { type: "string" },
+      equipment: { type: "array", items: { type: "string" } },
+      phases: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            exercises: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  type: { type: "string", enum: ["reps", "timed"] },
+                  form_cue: { type: "string" },
+                  why: { type: "string" },
+                  reps: { type: "number" },
+                  duration_secs: { type: "number" },
+                  sets: { type: "number" },
+                  both_sides: { type: "boolean" },
+                  progression_id: { type: "string" },
+                  scaled_from: { type: "string" },
+                },
+                required: ["name", "type", "sets", "form_cue", "why"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["name", "exercises"],
+          additionalProperties: false,
+        },
+      },
+      injury_ack: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            flag: { type: "string" },
+            accommodation: { type: "string" },
+          },
+          required: ["flag", "accommodation"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["title", "workout_type", "phases"],
+    additionalProperties: false,
+  },
+  // A2 (#727): the athlete asks for a routine to go. routine_id is free text in the schema
+  // itself, same convention as template_id above - coachWorkoutFiles.ts's applyWorkoutRemove
+  // against the real manifest is the actual enforcement point.
+  workout_remove: {
+    type: "object",
+    properties: {
+      routine_id: { type: "string" },
+    },
+    required: ["routine_id"],
     additionalProperties: false,
   },
   // ADR 0042 - one action field replaces week_plan/session_reconcile/plan_edit. A full
@@ -431,6 +539,10 @@ const RETURNING_ACTIONS = [
   "template_edit",
   "session_plan",
   "week_update",
+  // A2 (#727): kept off FSP_ACTIONS deliberately - A3 supersedes First Session with the
+  // benchmark path, so these two stay returning-athlete-only in the near-term stack.
+  "workout_create",
+  "workout_remove",
 ] as const satisfies readonly ResponseField[];
 
 function responsePropertiesFor(
@@ -467,6 +579,13 @@ function responsePropertiesFor(
 export interface AthleteReferenceIds {
   questIds?: readonly string[];
   injuryFlagIds?: readonly string[];
+  // A2 (#727) invariant 7: distinct from injuryFlagIds above, which is every flag on file
+  // (injury_event can update or resolve any of them) - this is only the currently-active ones,
+  // the set workout_create's injury_ack must cover. Non-empty flips injury_ack from optional to
+  // structurally required on workout_create, and enum-constrains its flag field to real ids -
+  // same D1 layer 1 discipline as questIds/injuryFlagIds, applied to a required-ness toggle
+  // instead of just an enum.
+  activeInjuryFlagIds?: readonly string[];
 }
 
 function withReferenceEnums(
@@ -517,6 +636,42 @@ function withReferenceEnums(
           flag_id: { type: "string", enum: [...ids.injuryFlagIds] },
         },
       },
+    };
+  }
+  if (ids.activeInjuryFlagIds && ids.activeInjuryFlagIds.length > 0 && next.workout_create) {
+    const workoutCreate = next.workout_create as {
+      type: "object";
+      properties: Record<string, LlmJsonSchemaNode>;
+      required: readonly string[];
+      additionalProperties: false;
+    };
+    const injuryAck = workoutCreate.properties.injury_ack as {
+      type: "array";
+      items: {
+        type: "object";
+        properties: Record<string, LlmJsonSchemaNode>;
+        required: readonly string[];
+        additionalProperties: false;
+      };
+    };
+    next.workout_create = {
+      ...workoutCreate,
+      properties: {
+        ...workoutCreate.properties,
+        injury_ack: {
+          ...injuryAck,
+          items: {
+            ...injuryAck.items,
+            properties: {
+              ...injuryAck.items.properties,
+              flag: { type: "string", enum: [...ids.activeInjuryFlagIds] },
+            },
+          },
+        },
+      },
+      required: workoutCreate.required.includes("injury_ack")
+        ? workoutCreate.required
+        : [...workoutCreate.required, "injury_ack"],
     };
   }
   return next;

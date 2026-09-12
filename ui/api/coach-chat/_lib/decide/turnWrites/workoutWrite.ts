@@ -1,13 +1,20 @@
-// template_edit / session_plan: template and session-snapshot writes - see coachWorkoutFiles.ts
-// for the appliers this wraps with I/O.
-import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
+// template_edit / session_plan / workout_create / workout_remove: template, session-snapshot, and
+// routine writes - see coachWorkoutFiles.ts for the appliers this wraps with I/O.
+import type { FileEntry, ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
+import type { ProgressionsJson } from "../coachQuestFiles.js";
+import type { DroppedAction } from "./validateActions.js";
 import {
   applyTemplateEdit,
   applySessionPlan,
+  applyWorkoutCreate,
+  applyWorkoutRemove,
+  buildManifestContent,
   templatePath,
   sessionPath,
+  TEMPLATES_MANIFEST_PATH,
+  type WorkoutCreateSpec,
 } from "../coachWorkoutFiles.js";
 
 export function buildTemplateEditWrite(
@@ -28,6 +35,75 @@ export function buildTemplateEditWrite(
         traceId,
       ),
   };
+}
+
+// A2 (#727): workout_create - builds the new routine's file write plus the manifest append, or
+// reports invariant 1/2/7/8's throw as a dropped action, same "one bad action, not the whole
+// turn" discipline as validateActions.ts's own functions. Returns two writes (the routine file
+// and the manifest), not one - unlike template_edit/session_plan above, this action touches the
+// manifest itself.
+export function buildWorkoutCreateWrite(
+  traceId: string,
+  spec: WorkoutCreateSpec | undefined,
+  existingRoutineIds: ReadonlySet<string>,
+  activeInjuryFlagIds: ReadonlySet<string>,
+  progressions: ProgressionsJson | null,
+): { writes: FileEntry[]; dropped: DroppedAction[] } {
+  if (!spec) return { writes: [], dropped: [] };
+  try {
+    const { id, content } = applyWorkoutCreate(
+      spec,
+      existingRoutineIds,
+      activeInjuryFlagIds,
+      progressions,
+      traceId,
+    );
+    return {
+      writes: [
+        { path: templatePath(id), content },
+        {
+          path: TEMPLATES_MANIFEST_PATH,
+          content: buildManifestContent([...existingRoutineIds, id], traceId),
+        },
+      ],
+      dropped: [],
+    };
+  } catch (err) {
+    return {
+      writes: [],
+      dropped: [
+        { field: "workout_create", reason: err instanceof Error ? err.message : String(err) },
+      ],
+    };
+  }
+}
+
+// A2 (#727): workout_remove - deletes the routine file and drops its manifest entry, or reports
+// an unknown routine_id as a dropped action. progressions.json is deliberately untouched (see
+// applyWorkoutRemove's own comment).
+export function buildWorkoutRemoveWrite(
+  traceId: string,
+  remove: { routine_id: string } | undefined,
+  existingRoutineIds: ReadonlySet<string>,
+): { writes: FileEntry[]; dropped: DroppedAction[] } {
+  if (!remove?.routine_id) return { writes: [], dropped: [] };
+  try {
+    const { remainingIds } = applyWorkoutRemove(remove.routine_id, existingRoutineIds);
+    return {
+      writes: [
+        { path: templatePath(remove.routine_id), delete: true },
+        { path: TEMPLATES_MANIFEST_PATH, content: buildManifestContent(remainingIds, traceId) },
+      ],
+      dropped: [],
+    };
+  } catch (err) {
+    return {
+      writes: [],
+      dropped: [
+        { field: "workout_remove", reason: err instanceof Error ? err.message : String(err) },
+      ],
+    };
+  }
 }
 
 export function buildSessionPlanWrite(
