@@ -171,10 +171,19 @@ line by line. An unexplained diff blocks the merge.
 of individual movements, with real coverage - not a placeholder set. See
 `workouts-redesign.md`'s "The exercise catalog" section for the reasoning.
 
-**Files:** `shared/workout-library/exercises.json` (new, replaces `index.json` and `templates/`),
-`shared/workout-library/README.md` (rewritten), `ui/api/coach-chat/_tests/workoutLibrary.test.ts`
-(rewritten to validate the new shape), `engine/lib/README.md` (drop the entry pointing at the old
-shape once A2 adds the compiler's own row).
+**Files:** `shared/workout-library/exercises.json` (new, additive), `shared/workout-library/README.md`
+(rewritten to document both shapes), a new test file for the catalog, e.g.
+`ui/api/coach-chat/_tests/exerciseCatalog.test.ts`.
+
+**Additive, not a replacement, in this PR.** `index.json` and `templates/` stay exactly as they
+are here. `coachWorkoutFiles.ts`'s live template-dump selector (`loadWorkoutLibraryIndex`,
+`loadWorkoutLibraryTemplate`) still reads them, and its own test still passes unmodified - this PR
+does not touch `ui/api/coach-chat/_lib/decide/`, staying inside its file column. A3 is the PR that
+deletes the dump selector itself (that's bug 1's actual fix), and it deletes `index.json`,
+`templates/`, and the existing `workoutLibrary.test.ts` in the same commit, since removing the
+selector is what makes them dead. Two catalogs briefly coexist between A1b and A3; that's the
+`templates/` \-\> `routines/` dual-read pattern this plan already uses elsewhere, applied here so
+this PR's own gate stays green without depending on A2/A3 landing first.
 
 **Schema, one entry per movement:**
 
@@ -320,8 +329,10 @@ This kills bug 2.
 guessed workouts and an empty week.
 
 **Files:**
-- Delete the automatic template-dump function from the workout files module (bug 1) - not the
-  catalog itself, A1b already reshaped that into movements, not premade workouts.
+- Delete the automatic template-dump function from the workout files module (bug 1), along with
+  `shared/workout-library/index.json`, `templates/`, and `workoutLibrary.test.ts` - the dump
+  function was their last reader, so deleting it is what makes them dead. A1b's
+  `exercises.json` is the only catalog left after this PR.
 - Rename the function that fires on profile completion to reflect what it now does.
 - Add progression seeding.
 - Add one new structured field to the athlete's memory record for training availability.
