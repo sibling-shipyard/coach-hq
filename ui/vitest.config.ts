@@ -19,6 +19,7 @@ export default defineConfig({
       "client/src/**/*.{test,spec}.{ts,tsx}",
       "api/**/_tests/**/*.{test,spec}.{ts,tsx}",
       "observability/**/*.{test,spec}.{ts,tsx}",
+      "../engine/lib/**/*.test.mts",
     ],
     // Stays node by default - the api/ suites (e.g. sentry-trace.test.ts) use real Node crypto
     // (jose) that breaks under jsdom's globals. A test file that needs a DOM (CoachChatWidgets
