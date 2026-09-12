@@ -78,6 +78,12 @@ export type ChatThread = {
 
 const PROACTIVE_SEED_PREFIX = "local-proactive-cm-";
 const PROACTIVE_SNAPSHOT_TIMEOUT_MS = 5_000;
+// A batch synced with a thread already open when the sync completed points conversation_seed_id
+// at that real chat-thread id (activitySync.ts's buildActivitySyncThread, `t-<epoch ms>`) instead
+// of minting `local-proactive-<id>` - one generator, one thread id (#918). Mirrors
+// generate-widget-snapshots-from-dashboard-snapshot.ts's THREAD_SEED_ID and
+// coachMessage.ts's isValidConversationSeedId.
+const THREAD_SEED_ID = /^t-[0-9]+$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -91,9 +97,19 @@ function isProactiveSeed(value: string): boolean {
   );
 }
 
+function isThreadSeed(value: string): boolean {
+  return value.length <= 200 && THREAD_SEED_ID.test(value);
+}
+
+/** Either valid conversation_seed_id shape (#918): a `local-proactive-<id>` stub seed, or a real,
+ * already-persisted thread id. */
+function isConversationSeed(value: string): boolean {
+  return isProactiveSeed(value) || isThreadSeed(value);
+}
+
 export function parseProactiveSeed(search: string): string | null {
   const values = new URLSearchParams(search).getAll("seed");
-  if (values.length !== 1 || !isProactiveSeed(values[0])) return null;
+  if (values.length !== 1 || !isConversationSeed(values[0])) return null;
   return values[0];
 }
 
@@ -101,7 +117,7 @@ export function selectProactiveCoachMessage(
   payload: unknown,
   requestedSeed: string,
 ): CoachMessageSnapshot | null {
-  if (!isProactiveSeed(requestedSeed) || !isRecord(payload)) return null;
+  if (!isConversationSeed(requestedSeed) || !isRecord(payload)) return null;
   const home = payload.home;
   if (!isRecord(home) || !isRecord(home.coachMessage)) return null;
   const message = home.coachMessage;
@@ -114,7 +130,8 @@ export function selectProactiveCoachMessage(
     message.body.trim().length === 0 ||
     typeof message.conversation_seed_id !== "string" ||
     message.conversation_seed_id !== requestedSeed ||
-    message.conversation_seed_id !== `local-proactive-${message.id}`
+    (message.conversation_seed_id !== `local-proactive-${message.id}` &&
+      !isThreadSeed(message.conversation_seed_id))
   )
     return null;
   return {
@@ -129,7 +146,7 @@ export async function fetchProactiveCoachMessage(
   requestedSeed: string,
   fetcher: typeof fetch = fetch,
 ): Promise<CoachMessageSnapshot | null> {
-  if (!isProactiveSeed(requestedSeed)) return null;
+  if (!isConversationSeed(requestedSeed)) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROACTIVE_SNAPSHOT_TIMEOUT_MS);
   try {
@@ -182,9 +199,17 @@ export function resolveProactiveThread(
   existingThreads: readonly ChatThread[],
   cachedMessages: ChatMessage[] | null = null,
 ): ChatThread | null {
-  if (!requestedSeed || !isProactiveSeed(requestedSeed)) return null;
+  if (!requestedSeed || !isConversationSeed(requestedSeed)) return null;
+  // A `t-<epoch ms>` seed already names a persisted thread (#918: activity-sync turns persist
+  // immediately, so the common case is this thread already exists in fetchThreads()'s list) - open
+  // it directly, same as an already-materialized `local-proactive-` stub found here.
   const existing = existingThreads.find((thread) => thread.id === requestedSeed);
   if (existing) return existing;
+  // Only a `local-proactive-<id>` seed can be materialized into a local stub - a thread-id seed
+  // not yet present in existingThreads has nothing to build a stub from (no cm-id/body
+  // relationship to the thread id), so fall through to the caller's normal fallback instead of
+  // fabricating a fake thread for a real id.
+  if (!isProactiveSeed(requestedSeed)) return null;
   if (!latestMessage || latestMessage.conversation_seed_id !== requestedSeed) {
     return null;
   }

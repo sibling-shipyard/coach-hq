@@ -331,9 +331,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
           // than let it linger forever as a single-message "ghost" thread (correctly dated by
           // the fix above, but still shown), drop it here: clear its cache entry and don't
           // materialize it at all. A same-day unreplied greeting is untouched by this - that's
-          // still "come back to what Coach just said," not clutter. An explicitly requested
-          // proactive seed is also retained: that URL is the athlete asking to reopen the exact
-          // notification thread, even after the latest snapshot has advanced. A list-only
+          // still "come back to what Coach just said," not clutter. An explicitly requested seed
+          // is also retained, whichever shape it is - a local-proactive stub or a real thread-id
+          // (#918): that URL is the athlete asking to reopen the exact notification thread, even
+          // after the latest snapshot has advanced. A list-only
           // activity-sync turn is kept so Retry still has something to re-POST.
           if (!firstUser && dayOffset > 0 && id !== requestedProactiveSeed && !restoredList) {
             clearThreadLocally(id);
