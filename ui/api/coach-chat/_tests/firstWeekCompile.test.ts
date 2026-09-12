@@ -11,7 +11,10 @@ import type { TrainingAvailability } from "../_lib/decide/coachMemoryFiles.js";
 // applyWeekUpdate (coachWeekFiles.ts) - the same machinery a real week_update kickoff uses - so
 // these tests check the compiled week is actually commit-ready, not just shaped right.
 
-const TODAY = "2026-09-12"; // a Saturday
+const TODAY = "2026-09-07"; // a Monday - the earliest day of its own week, so every later
+// training day this suite exercises (Tuesday, Wednesday, Friday) is still in the future relative
+// to today. See the dedicated "today or later" describe block below for the case where a training
+// day has already passed this week.
 
 describe("mondayOfWeekContaining", () => {
   it("finds the Monday of the week containing a mid-week date", () => {
@@ -115,5 +118,31 @@ describe("compileFirstWeek", () => {
     expect(parsed.week.end_date).toBe("2026-09-13");
     const sessionDays = parsed.days.filter((d: { sessions: unknown[] }) => d.sessions.length > 0);
     expect(sessionDays.length).toBe(3);
+  });
+
+  describe("regression: a training day already passed this week", () => {
+    const lateWeekToday = "2026-09-10"; // a Thursday, same week as TODAY (Monday 09-07)
+
+    it("places nothing on a training day earlier in the week than today", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["monday", "tuesday"], // both already passed by Thursday
+      };
+      const update = compileFirstWeek({ ...base, today: lateWeekToday, availability });
+      const withSessions = update.days.filter((d) => (d.sessions?.length ?? 0) > 0);
+      expect(withSessions).toEqual([]);
+    });
+
+    it("still places the benchmark on a training day that's today or later, skipping only the passed ones", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 3,
+        preferred_days: ["monday", "thursday", "friday"], // monday already passed
+      };
+      const update = compileFirstWeek({ ...base, today: lateWeekToday, availability });
+      const thursday = update.days.find((d) => d.date === "2026-09-10")!;
+      expect(thursday.sessions?.[0]?.template_id).toBe("first_session_benchmark");
+      const monday = update.days.find((d) => d.date === "2026-09-07")!;
+      expect(monday.sessions ?? []).toEqual([]);
+    });
   });
 });

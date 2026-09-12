@@ -90,6 +90,38 @@ describe("buildBenchmarkSpec", () => {
     const parsed = JSON.parse(content);
     expect(() => validateWorkout(parsed, "benchmark test")).not.toThrow();
   });
+
+  it("regression: an active flag steers the pick away from a matching muscle group when an alternative is on file", () => {
+    const catalog = loadExerciseCatalog();
+    const cheapestPushPick = catalog
+      .filter((e) => e.movement_pattern === "push")
+      .sort((a, b) => a.equipment.length - b.equipment.length || a.id.localeCompare(b.id))[0];
+    // Confirms the fixture actually exercises the mismatch: without any injury filter, the
+    // cheapest push candidate on file targets a real, specific muscle group.
+    const flaggedGroup = cheapestPushPick.muscle_group;
+    const hasAlternative = catalog.some(
+      (e) => e.movement_pattern === "push" && e.muscle_group !== flaggedGroup,
+    );
+    expect(hasAlternative).toBe(true);
+
+    const withFlag = buildBenchmarkSpec(
+      memory(),
+      injuries([
+        {
+          id: "flag_1",
+          text: `sore ${flaggedGroup.replace(/s$/, "")}`,
+          status: "active",
+          opened_at: "2026-09-01",
+          resolved_at: null,
+        },
+      ]),
+    );
+    const pushWithFlag = withFlag.phases
+      .flatMap((p) => p.exercises)
+      .find((ex) => catalog.find((e) => e.name === ex.name)?.movement_pattern === "push");
+    const pushEntry = catalog.find((e) => e.name === pushWithFlag?.name);
+    expect(pushEntry?.muscle_group).not.toBe(flaggedGroup);
+  });
 });
 
 describe("seedBenchmarkProgressions", () => {
