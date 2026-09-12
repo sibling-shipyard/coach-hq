@@ -788,8 +788,14 @@ export function slugifyRoutineId(title: string, existingIds: ReadonlySet<string>
 // call site for why that's the safe default, not a silent invariant skip.
 function parseLeadingNumber(value: string | null | undefined): number | null {
   if (!value) return null;
-  const match = value.match(/-?\d+(\.\d+)?/);
-  return match ? Number(match[0]) : null;
+  const match = value.match(/^\s*(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) return null;
+  // "3x8 clean, no band" - the leading digit is a set count, not a dose. Anything of the form
+  // "<number>x<number>" right after the leading digit is exactly the composite case the comment
+  // above already calls out as unparseable; matching only the first digit run (the old bug) read
+  // the "3" out of "3x8" as if it were a real dose.
+  if (/^\s*[x×]\s*\d/i.test(match[2])) return null;
+  return Number(match[1]);
 }
 
 function exerciseDose(ex: WorkoutCreateSpecExercise): number {

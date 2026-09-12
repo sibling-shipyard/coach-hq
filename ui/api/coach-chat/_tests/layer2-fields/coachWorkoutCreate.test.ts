@@ -6,10 +6,7 @@ import {
   buildManifestContent,
   type WorkoutCreateSpec,
 } from "../../_lib/decide/coachWorkoutFiles.js";
-import {
-  buildWorkoutCreateWrite,
-  buildWorkoutRemoveWrite,
-} from "../../_lib/decide/turnWrites/workoutWrite.js";
+import { buildWorkoutCreateAndRemoveWrites } from "../../_lib/decide/turnWrites/workoutWrite.js";
 import { validateWorkout } from "../../_lib/decide/workoutSchema.js";
 import type { ProgressionsJson } from "../../_lib/decide/coachQuestFiles.js";
 import { generationConfigFor } from "../../_lib/gemini/coachReplySchema.js";
@@ -253,6 +250,38 @@ describe("applyWorkoutCreate", () => {
     ]);
     expect(() => applyWorkoutCreate(spec, new Set(), new Set(), progs, "t1")).not.toThrow();
   });
+
+  it('regression: a composite dose like "3x8" is treated as unparseable, not read as the number 3', () => {
+    const spec = minimalSpec({
+      phases: [
+        {
+          name: "Main",
+          exercises: [
+            {
+              name: "Dumbbell row",
+              type: "reps",
+              reps: 10,
+              sets: 3, // dose 30 - would wrongly throw if "3x8" parsed as current=3
+              form_cue: "Squeeze the shoulder blade.",
+              why: "Back strength.",
+              progression_id: "row_dumbbell",
+            },
+          ],
+        },
+      ],
+    });
+    const progs = progressions([
+      {
+        id: "row_dumbbell",
+        name: "Dumbbell row",
+        current: "3x8 clean, no band (Aug 19)",
+        target: "50",
+        unit: "reps",
+        history: [],
+      },
+    ]);
+    expect(() => applyWorkoutCreate(spec, new Set(), new Set(), progs, "t1")).not.toThrow();
+  });
 });
 
 describe("applyWorkoutRemove", () => {
@@ -278,16 +307,24 @@ describe("buildManifestContent", () => {
   });
 });
 
-describe("buildWorkoutCreateWrite", () => {
-  it("returns no writes when workout_create is absent", () => {
-    const result = buildWorkoutCreateWrite("t1", undefined, new Set(), new Set(), null);
+describe("buildWorkoutCreateAndRemoveWrites", () => {
+  it("returns no writes when both actions are absent", () => {
+    const result = buildWorkoutCreateAndRemoveWrites(
+      "t1",
+      undefined,
+      undefined,
+      new Set(),
+      new Set(),
+      null,
+    );
     expect(result).toEqual({ writes: [], dropped: [] });
   });
 
   it("builds the routine file write and the manifest write together, in the same commit", () => {
-    const { writes, dropped } = buildWorkoutCreateWrite(
+    const { writes, dropped } = buildWorkoutCreateAndRemoveWrites(
       "t1",
       minimalSpec(),
+      undefined,
       new Set(["existing_routine"]),
       new Set(),
       null,
@@ -306,9 +343,10 @@ describe("buildWorkoutCreateWrite", () => {
   });
 
   it("reports a thrown invariant as a dropped action instead of propagating - one bad action never costs the rest of the turn", () => {
-    const { writes, dropped } = buildWorkoutCreateWrite(
+    const { writes, dropped } = buildWorkoutCreateAndRemoveWrites(
       "t1",
       minimalSpec(),
+      undefined,
       new Set(),
       new Set(["inj_shoulder"]),
       null,
@@ -316,21 +354,15 @@ describe("buildWorkoutCreateWrite", () => {
     expect(writes).toEqual([]);
     expect(dropped).toEqual([expect.objectContaining({ field: "workout_create" })]);
   });
-});
-
-describe("buildWorkoutRemoveWrite", () => {
-  it("returns no writes when workout_remove is absent", () => {
-    expect(buildWorkoutRemoveWrite("t1", undefined, new Set())).toEqual({
-      writes: [],
-      dropped: [],
-    });
-  });
 
   it("deletes the routine file and drops the manifest entry, in the same commit", () => {
-    const { writes, dropped } = buildWorkoutRemoveWrite(
+    const { writes, dropped } = buildWorkoutCreateAndRemoveWrites(
       "t1",
+      undefined,
       { routine_id: "old_routine" },
       new Set(["old_routine", "keep_routine"]),
+      new Set(),
+      null,
     );
     expect(dropped).toEqual([]);
     expect(writes).toHaveLength(2);
@@ -348,13 +380,38 @@ describe("buildWorkoutRemoveWrite", () => {
   });
 
   it("reports an unknown routine_id as a dropped action instead of throwing", () => {
-    const { writes, dropped } = buildWorkoutRemoveWrite(
+    const { writes, dropped } = buildWorkoutCreateAndRemoveWrites(
       "t1",
+      undefined,
       { routine_id: "ghost_routine" },
       new Set(["keep_routine"]),
+      new Set(),
+      null,
     );
     expect(writes).toEqual([]);
     expect(dropped).toEqual([expect.objectContaining({ field: "workout_remove" })]);
+  });
+
+  it("regression: create and remove in the same turn produce exactly one manifest write reflecting both", () => {
+    const { writes, dropped } = buildWorkoutCreateAndRemoveWrites(
+      "t1",
+      minimalSpec(),
+      { routine_id: "old_routine" },
+      new Set(["old_routine", "keep_routine"]),
+      new Set(),
+      null,
+    );
+    expect(dropped).toEqual([]);
+    const manifestWrites = writes.filter((w) => w.path.endsWith("_manifest.json"));
+    expect(manifestWrites).toHaveLength(1);
+    expect(
+      JSON.parse((manifestWrites[0] as { content: string }).content).template_ids.sort(),
+    ).toEqual(["keep_routine", "upper_body_pump"].sort());
+    const deleteEntry = writes.find((w) => w.path.endsWith("old_routine.json"));
+    expect(deleteEntry).toEqual({
+      path: "user_data/activities/workout_plans/templates/old_routine.json",
+      delete: true,
+    });
   });
 });
 

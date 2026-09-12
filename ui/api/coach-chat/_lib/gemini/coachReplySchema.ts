@@ -9,6 +9,7 @@
  */
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "../decide/coachMemoryFiles.js";
 import type { WeekUpdate } from "../decide/coachWeekFiles.js";
+import { WORKOUT_TYPES_LIST, EXERCISE_TYPES_LIST } from "../decide/workoutSchema.js";
 import { SESSION_DISCIPLINES } from "../current-week.bundle.js";
 import {
   COACH_LOG_TEXT_CAP,
@@ -287,7 +288,7 @@ const RESPONSE_PROPERTIES = {
       title: { type: "string" },
       workout_type: {
         type: "string",
-        enum: ["foundation", "strength", "recovery", "realign", "calisthenics"],
+        enum: WORKOUT_TYPES_LIST,
       },
       location: { type: "string" },
       coaching_note: { type: "string" },
@@ -304,7 +305,7 @@ const RESPONSE_PROPERTIES = {
                 type: "object",
                 properties: {
                   name: { type: "string" },
-                  type: { type: "string", enum: ["reps", "timed"] },
+                  type: { type: "string", enum: EXERCISE_TYPES_LIST },
                   form_cue: { type: "string" },
                   why: { type: "string" },
                   reps: { type: "number" },
