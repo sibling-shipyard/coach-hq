@@ -301,9 +301,15 @@ export function combineExtraContext(...blocks: (string | undefined)[]): string |
 export function activeTemplatesContext(templateIds: ReadonlySet<string>): string | undefined {
   if (templateIds.size === 0) return undefined;
   const lines = [...templateIds].map((id) => `- template_id: ${id}`);
-  return ["Current templates (use these exact template_ids for template_edit):", ...lines].join(
-    "\n",
-  );
+  // Named all three consumers explicitly (#727 live-test finding): this list only mentioned
+  // template_edit, from before workout_remove/session_plan existed. A real "remove that routine"
+  // request went unanswered in the model's structured reply - Coach's own text claimed success,
+  // nothing was ever deleted - because nothing here told it these ids were valid for anything but
+  // an edit.
+  return [
+    "Current templates/routines (use these exact ids for template_edit, workout_remove, or session_plan):",
+    ...lines,
+  ].join("\n");
 }
 
 export function activitySyncBatchContext(
