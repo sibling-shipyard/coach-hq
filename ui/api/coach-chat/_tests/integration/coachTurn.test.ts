@@ -174,26 +174,62 @@ describe("coach turn stages", () => {
   // session anyway. requestCoachReply sets stillUnconfirmedAssumption when its own reprompt
   // couldn't resolve it - these tests confirm buildTurnWrites actually holds back the write.
   describe("stillUnconfirmedAssumption (Bug 3 Primary)", () => {
+    // A real, fully schema-valid current_week.json - #727 live-testing found that Coach's own
+    // patch write path validates its result eagerly now (a real week_update kickoff crashed the
+    // whole turn otherwise), so this fixture needs to actually pass that validation like a real
+    // repo's current_week.json always would, not just carry the one field this test's patch
+    // touches.
+    const weekDates = [
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-12",
+      "2026-09-13",
+    ];
     const currentWeekContent = JSON.stringify({
       schema_version: 1,
       data_status: "live",
       timezone: "UTC",
-      week: { id: "2026-W37", start_date: "2026-09-07", end_date: "2026-09-13" },
-      coach_read: null,
-      days: [
-        {
-          date: "2026-09-12",
-          sessions: [
-            {
-              id: "s_saturday",
-              discipline: "football",
-              kind: "match",
-              title: "Football - away game",
-              status: "planned",
-            },
-          ],
-        },
-      ],
+      week: {
+        id: "2026-W37",
+        start_date: "2026-09-07",
+        end_date: "2026-09-13",
+        focus: "Base week",
+        guardrails: [],
+      },
+      coach_read: {
+        headline: "Steady week.",
+        body: "Keep the volume honest.",
+        valid_from: "2026-09-07",
+        valid_until: "2026-09-13",
+      },
+      days: weekDates.map((date) => ({
+        date,
+        intent: "Training",
+        coach_note: "Standard day.",
+        sessions:
+          date === "2026-09-12"
+            ? [
+                {
+                  id: "s_saturday",
+                  discipline: "football",
+                  kind: "match",
+                  title: "Football - away game",
+                  status: "planned",
+                  origin: "planned",
+                  priority: "anchor",
+                  planned_duration_min: 90,
+                  template_id: "match_day",
+                  session_file: "sessions/2026-09-12_match_day.json",
+                  coach_note: "Away game.",
+                  original_date: null,
+                  completion_activity_ids: [],
+                },
+              ]
+            : [],
+      })),
       updated_at: "2026-09-10T00:00:00.000Z",
       updated_by: "model",
       trace_id: "seed",
