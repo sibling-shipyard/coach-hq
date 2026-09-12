@@ -118,7 +118,8 @@ const ASSEMBLY = [
       "s10_contract_safety",
       "s10_contract_validator",
       "s10_session_files",
-      "s10_timer_fields",
+      "s10_routine_create",
+      "s10_routine_create_claude_runtime",
       "s10_logging_intro",
       "s10_logging_lookup",
       "s10_logging_rpe",
@@ -170,6 +171,11 @@ const ASSEMBLY = [
       // id-minting rule that actually applies to it (Akash's #694 review comment).
       s12_updates_memory_chat_runtime: CHAT_ONLY,
       s12_updates_memory_claude_runtime: CLAUDE_ONLY,
+      // A4 (#727): chat already learns to create a routine from the workout_create action's own
+      // schema field description (coachReplySchema.ts) - the shared line here just tells Coach
+      // the capability exists. BYOB has no structured action field, so it needs the extra line
+      // naming the CLI it compiles through instead.
+      s10_routine_create_claude_runtime: CLAUDE_ONLY,
       // C2: coach_note is a server-owned day-keyed overwrite in chat (coachIntents.ts's
       // applyCoachNote), still a git-committed append-only row in BYOB - the two variants tell
       // each runtime the mechanic that actually applies to it, same split as the memory pair above.
