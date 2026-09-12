@@ -1,9 +1,14 @@
 import SwiftUI
 
+/// A5-ios: three bands — today, this week, library — read-only over the same data the web
+/// Workouts page reads (`ui/client/src/pages/Workouts.tsx`). Band selection itself is pure
+/// and lives in `WorkoutsPageSelector`; this view just fetches what that selector needs and
+/// renders whichever band it returns.
 struct WorkoutListView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var workoutService: WorkoutService
     @State private var navigationPath: [Workout] = []
+    @State private var selection = WorkoutsPageSelector.Selection(today: .none, week: nil)
 
     /// Re-fetch once repo discovery finishes (same pattern as WarmInstrumentHomeView).
     private var workoutFetchToken: String {
@@ -13,44 +18,34 @@ struct WorkoutListView: View {
         ].joined(separator: "|")
     }
 
-    private var allWorkouts: [(workout: Workout, isSession: Bool)] {
+    private static let libraryOrder: [WorkoutType] = [.foundation, .strength, .calisthenics, .recovery, .realign]
+
+    /// Library band: every template plus any standalone coach session with no matching
+    /// template, grouped by workout_type. Today's plan lives in its own band above, not
+    /// folded in here — unchanged from before A5-ios.
+    private var groupedLibrary: [(type: WorkoutType, workouts: [Workout])] {
         let templateIds = Set(workoutService.templates.map(\.id))
-        let templateEntries: [(workout: Workout, isSession: Bool)] = workoutService.templates.compactMap { template in
-            guard let w = workoutService.displayWorkout(for: template.id) else { return nil }
-            return (w, workoutService.todaySessions[template.id] != nil)
+        let standalone = workoutService.todaySessions.values.filter { !templateIds.contains($0.id) }
+        var byType: [WorkoutType: [Workout]] = [:]
+        for workout in workoutService.templates + standalone {
+            byType[workout.workoutType, default: []].append(workout)
         }
-        // A one-off session for a workout type with no matching template (e.g. Coach gives a
-        // cali session to an athlete with no cali template) has no template entry to piggyback
-        // on above — surface it directly, always as "today's" (isSession: true).
-        let standaloneSessions: [(workout: Workout, isSession: Bool)] = workoutService.todaySessions
-            .filter { !templateIds.contains($0.key) }
-            .map { (_, workout) in (workout, true) }
-        return templateEntries + standaloneSessions
-    }
-
-    private var todayWorkout: Workout? {
-        allWorkouts.first { $0.isSession }?.workout
-    }
-
-    private var groupedWorkouts: [(type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])] {
-        let order: [WorkoutType] = [.foundation, .strength, .calisthenics, .recovery, .realign]
-        let ordered = order.compactMap { type -> (type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])? in
-            let entries = allWorkouts.filter { $0.workout.workoutType == type }
-            return entries.isEmpty ? nil : (type, entries)
+        let ordered = Self.libraryOrder.compactMap { type -> (WorkoutType, [Workout])? in
+            guard let entries = byType[type], !entries.isEmpty else { return nil }
+            return (type, entries)
         }
-        // Anything not in `order` (a future workout_type the app doesn't know how to place yet,
-        // decoded via WorkoutType.other) still gets its own section instead of vanishing.
-        let orderedTypes = Set(order)
-        var leftoverGroups: [WorkoutType: [(workout: Workout, isSession: Bool)]] = [:]
-        for entry in allWorkouts where !orderedTypes.contains(entry.workout.workoutType) {
-            leftoverGroups[entry.workout.workoutType, default: []].append(entry)
-        }
-        // Dictionary iteration order is unspecified — sort by rawValue so leftover sections
-        // stay in a stable order across renders/launches instead of shuffling.
-        let leftover = leftoverGroups
-            .map { (type: $0.key, entries: $0.value) }
-            .sorted { $0.type.rawValue < $1.type.rawValue }
+        // Any workout_type not in libraryOrder (a future type the UI has no dedicated slot
+        // for yet) still gets its own section instead of silently disappearing. Dictionary
+        // iteration order is unspecified, so sort for a stable order across renders/launches.
+        let leftover = byType.keys
+            .filter { !Self.libraryOrder.contains($0) }
+            .sorted { $0.rawValue < $1.rawValue }
+            .compactMap { type in byType[type].map { (type, $0) } }
         return ordered + leftover
+    }
+
+    private var isEmpty: Bool {
+        selection.today == .none && selection.week == nil && groupedLibrary.isEmpty
     }
 
     var body: some View {
@@ -58,55 +53,46 @@ struct WorkoutListView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     workoutsHeader
-                    if let today = todayWorkout {
-                        TodayWorkoutHero(workout: today) {
-                            navigationPath.append(today)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
-                        .staggerReveal(delay: 0.05)
+
+                    bandSection(label: "TODAY") {
+                        TodayBandView(band: selection.today) { navigationPath.append($0) }
                     }
 
-                    if todayWorkout != nil && !groupedWorkouts.isEmpty {
-                        Text("ALL WORKOUTS")
-                            .font(WarmInstrument.monoLabel(9))
-                            .kerning(1.2)
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 22)
-                            .padding(.top, 12)
-                    }
-
-                    VStack(alignment: .leading, spacing: 20) {
-                        ForEach(groupedWorkouts, id: \.type) { group in
-                            workoutGroup(type: group.type, entries: group.entries)
+                    if let week = selection.week {
+                        bandSection(label: "THIS WEEK") {
+                            VStack(spacing: 6) {
+                                ForEach(week, id: \.date) { row in
+                                    WeekRowView(row: row)
+                                }
+                            }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, todayWorkout != nil ? 4 : 16)
+
+                    bandSection(label: "LIBRARY") {
+                        VStack(alignment: .leading, spacing: 20) {
+                            ForEach(groupedLibrary, id: \.type) { group in
+                                workoutGroup(type: group.type, workouts: group.workouts)
+                            }
+                        }
+                    }
                 }
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
-            .refreshable {
-                await workoutService.fetchTemplates()
-                await workoutService.fetchTodaySessions()
-            }
+            .refreshable { await refreshAll() }
             .task(id: workoutFetchToken) {
-                guard authManager.isSessionReady else { return }
-                guard authManager.repoFullName != nil else { return }
-                await workoutService.fetchTemplates()
-                await workoutService.fetchTodaySessions()
+                guard authManager.isSessionReady, authManager.repoFullName != nil else { return }
+                await refreshAll()
             }
             .overlay {
-                if workoutService.isLoading && allWorkouts.isEmpty {
+                if workoutService.isLoading && workoutService.templates.isEmpty && isEmpty {
                     ProgressView()
-                } else if let error = workoutService.fetchError, allWorkouts.isEmpty {
+                } else if let error = workoutService.fetchError, workoutService.templates.isEmpty {
                     // A fetch failure must never look identical to "you genuinely have no
                     // plan" — that false-empty state is what sent Skanda's real workouts
                     // missing on refresh.
                     errorState(error)
-                } else if allWorkouts.isEmpty {
+                } else if isEmpty {
                     emptyState
                 }
             }
@@ -119,6 +105,57 @@ struct WorkoutListView: View {
                 WorkoutOverviewView(workout: workout)
             }
         }
+    }
+
+    // MARK: - Fetch + selection
+
+    private func refreshAll() async {
+        await workoutService.fetchTemplates()
+        await workoutService.fetchCurrentWeek()
+        await workoutService.fetchAthleteTimezone()
+        await recomputeSelection()
+    }
+
+    /// "Today" is always computed from the week's own timezone when live, or the athlete's
+    /// known timezone otherwise — never the device's local zone.
+    private func recomputeSelection() async {
+        let plan = workoutService.currentWeek
+        let availability = workoutService.currentWeekAvailability
+        let live = (availability?.available ?? false) && plan != nil
+
+        let todayZone: String
+        if live, let plan {
+            todayZone = plan.timezone
+        } else {
+            todayZone = workoutService.athleteTimezone ?? "UTC"
+        }
+        let today = dateString(for: Date(), inTimeZoneIdentifier: todayZone)
+
+        await workoutService.fetchTodaySessions(forDate: today)
+
+        selection = WorkoutsPageSelector.select(WorkoutsPageSelector.Input(
+            currentWeek: plan,
+            availability: availability,
+            templates: workoutService.templates,
+            sessionsForToday: workoutService.todaySessions,
+            loggedActivities: SyncCache.load(),
+            today: today
+        ))
+    }
+
+    // MARK: - Bands
+
+    @ViewBuilder
+    private func bandSection<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(label)
+                .font(WarmInstrument.monoLabel(9))
+                .kerning(1.2)
+                .foregroundColor(WarmInstrument.inkFaint)
+            content()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 18)
     }
 
     private var emptyState: some View {
@@ -150,10 +187,7 @@ struct WorkoutListView: View {
                 .foregroundColor(WarmInstrument.inkMuted)
                 .multilineTextAlignment(.center)
             Button("Retry") {
-                Task {
-                    await workoutService.fetchTemplates()
-                    await workoutService.fetchTodaySessions()
-                }
+                Task { await refreshAll() }
             }
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(WarmInstrument.ink)
@@ -181,10 +215,7 @@ struct WorkoutListView: View {
         .padding(.bottom, 6)
     }
 
-    private func workoutGroup(
-        type: WorkoutType,
-        entries: [(workout: Workout, isSession: Bool)]
-    ) -> some View {
+    private func workoutGroup(type: WorkoutType, workouts: [Workout]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(Theme.workoutLabel(for: type))
                 .font(WarmInstrument.monoLabel(11))
@@ -192,16 +223,117 @@ struct WorkoutListView: View {
                 .foregroundColor(WarmInstrument.inkMuted)
 
             VStack(spacing: 12) {
-                ForEach(entries, id: \.workout.id) { entry in
+                ForEach(workouts, id: \.id) { workout in
                     WarmWorkoutListCard(
-                        workout: entry.workout,
-                        isSession: entry.isSession,
-                        isToday: entry.isSession,
-                        onTap: { navigationPath.append(entry.workout) }
+                        workout: workout,
+                        isSession: false,
+                        isToday: false,
+                        onTap: { navigationPath.append(workout) }
                     )
                 }
             }
         }
+    }
+}
+
+// MARK: - Today band
+
+/// The only band with a timer button. Never labeled "Rest" for a day that has real content.
+private struct TodayBandView: View {
+    let band: WorkoutsPageSelector.TodayBand
+    let onSelect: (Workout) -> Void
+
+    var body: some View {
+        switch band {
+        case .runnable(let workout, let isSession, let done):
+            TodayWorkoutHero(workout: workout, isSession: isSession, done: done) {
+                onSelect(workout)
+            }
+        case .mention(let title, let durationMin):
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Theme.ink)
+                if let durationMin {
+                    Text("\(durationMin) min")
+                        .font(WarmInstrument.figures(12))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+            }
+        case .rest:
+            Text("Rest")
+                .font(.system(size: 15))
+                .foregroundColor(WarmInstrument.inkMuted)
+        case .none:
+            Text("No live plan right now.")
+                .font(.system(size: 15))
+                .foregroundColor(WarmInstrument.inkFaint)
+        }
+    }
+}
+
+// MARK: - Week row
+
+private struct WeekRowView: View {
+    let row: WorkoutsPageSelector.WeekRow
+
+    private var accent: Color {
+        guard let discipline = row.discipline else { return WarmInstrument.inkFaint }
+        return WarmInstrument.sportColor(discipline.asWarmSport)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(Self.weekdayLabel(row.date))
+                .font(WarmInstrument.monoLabel(10))
+                .foregroundColor(row.isToday ? Theme.ink : WarmInstrument.inkFaint)
+                .frame(width: 32, alignment: .leading)
+
+            Circle()
+                .fill(row.isFilled ? accent : WarmInstrument.inkFaint.opacity(0.25))
+                .frame(width: 8, height: 8)
+
+            Text(row.title ?? "—")
+                .font(.system(size: 14, weight: row.isFilled ? .semibold : .regular))
+                .foregroundColor(row.isFilled ? Theme.ink : WarmInstrument.inkFaint)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            if let durationMin = row.durationMin {
+                Text("\(durationMin)M")
+                    .font(WarmInstrument.figures(11))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(row.isToday ? WarmInstrument.paper : Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(row.isToday ? WarmInstrument.border : Color.clear, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// `row.date` is a bare `YYYY-MM-DD` calendar day with no time component, so the
+    /// weekday is computed in UTC — matches web's `weekDateLabel`, never the device's zone.
+    private static func weekdayLabel(_ date: String) -> String {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let parser = DateFormatter()
+        parser.calendar = utcCalendar
+        parser.timeZone = utcCalendar.timeZone
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let parsed = parser.date(from: date) else { return date }
+
+        let label = DateFormatter()
+        label.calendar = utcCalendar
+        label.timeZone = utcCalendar.timeZone
+        label.locale = Locale(identifier: "en_US_POSIX")
+        label.dateFormat = "EEE d"
+        return label.string(from: parsed).uppercased()
     }
 }
 
@@ -367,6 +499,9 @@ private struct FlowLayout: Layout {
 /// prepared for today. Tapping navigates to WorkoutOverview.
 struct TodayWorkoutHero: View {
     let workout: Workout
+    /// True when this is a coach-adjusted session file rather than the base template.
+    var isSession: Bool = false
+    var done: Bool = false
     let onTap: () -> Void
 
     private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
@@ -374,21 +509,28 @@ struct TodayWorkoutHero: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
-                // Accent top strip + TODAY badge
+                // Accent top strip + TODAY/DONE badge
                 HStack(spacing: 8) {
-                    Text("TODAY")
+                    Text(done ? "DONE" : "TODAY")
                         .font(WarmInstrument.monoLabel(9))
                         .kerning(1.2)
                         .foregroundColor(WarmInstrument.paper)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(accent)
+                        .background(done ? WarmInstrument.inkFaint : accent)
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                     Text(Theme.workoutLabel(for: workout.workoutType))
                         .font(WarmInstrument.monoLabel(9))
                         .kerning(1.1)
                         .foregroundColor(accent)
+
+                    if isSession {
+                        Text("COACH")
+                            .font(WarmInstrument.monoLabel(9))
+                            .kerning(1)
+                            .foregroundColor(WarmInstrument.sportColor(.badminton))
+                    }
 
                     Spacer(minLength: 0)
 
