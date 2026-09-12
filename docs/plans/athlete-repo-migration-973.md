@@ -207,6 +207,65 @@ Every repo needs the same re-carve of `engine/lib/` and `engine/scripts/` once i
 post-A4 HQ SHA - that's ordinary carve hygiene, not a special step. The manifest backfill and the
 `shared/workout-library/` carve are the two items that need doing by hand, on top of that.
 
+## Everything outside `user_data/` - drift check against a fresh carve
+
+This stack (#973 and #727) only tracked the files each PR itself touched. It never asked the
+broader question: how far has each real repo's non-`user_data/` content drifted from current HQ,
+full stop. HQ keeps shipping carve-affecting changes these repos never automatically receive - a
+repo only picks up a new carve when someone re-runs it by hand. Checked that broader question here,
+once, against a dry-run carve of this whole stack's tip.
+
+**Method:** `node platform/scripts/carve-skeleton.mjs --dry-run --out-dir <dir>` with no `--sha`,
+so it carves from `a6e047e2` (this PR stack's own HEAD at the time of this check, 2026-09-12) -
+the state every real repo should converge on once #727 merges. Diffed each repo's own
+non-`user_data/` tree against that output: `CLAUDE.md`, `README.md`, `SETUP.md`,
+`SOUL.claude.md`, `.gitignore`, `.coach-engine-version`, `.claude/`, `.github/workflows/`,
+`engine/`, `propagated/docs/`. `user_data/` itself is out of scope for this check - see the next
+section for why.
+
+**Every one of the five real repos is behind, on all of the above except `CLAUDE.md`.** None have
+picked up a carve since before the #973 stack, so none carry either #973's or #727's changes yet:
+
+| Repo | `.coach-engine-version` pinned SHA | `SOUL.claude.md` diff | `sync.yml` has reconcile/rollover steps? | `engine/lib`, `engine/scripts` |
+|---|---|---|---|---|
+| `coach-skanda-2003` | `df3d1423` (#461) | 124 lines behind | no | missing `compileWorkout.mts`, `compile-workout-cli.mts`, `reconcile-current-week*`, `rollover-current-week*`, `hrZones.mjs`, `hr_zones.py`, `projectActivity.d.mts`, `text-caps.mts`, `validate-text-caps.py`, `vs_usual.py`; `current-week.mts` on the pre-#973 schema |
+| `coach-akash-suresh` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
+| `coach-prateekdevaraju` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
+| `coach-date2022` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
+| `coach-shreyas-95-cyber` | `b731c3c3` (#663) - a later carve than the other four, but still pre-#973 | 113 lines behind | no | has `hrZones.mjs`, `projectActivity.d.mts`, `text-caps.mts`, `vs_usual.py` already (from its later carve); still missing `compileWorkout.mts`, `compile-workout-cli.mts`, `reconcile-current-week*`, `rollover-current-week*`; `current-week.mts` still on the pre-#973 schema |
+
+`README.md`, `SETUP.md`, and `.gitignore` also drifted in `coach-skanda-2003` and
+`coach-akash-suresh` specifically - both predate a `gen/aggregate.json` to
+`gen/dashboard_snapshot.json` rename and the retired `propagated/SOUL.md` reference, neither of
+which this stack introduced. `coach-prateekdevaraju`, `coach-date2022`, and
+`coach-shreyas-95-cyber` already match the skeleton on those three files.
+
+This confirms the doc's existing per-file findings above (manifest, `shared/`, `training_availability`)
+still hold - none of the pulled branches touched anything this check reads. The new finding is
+broader: once #727 merges, all five repos need a full re-carve, not just the specific files
+#973 and #727 called out.
+
+## Next step, not yet done: re-stamp the skeleton, then reconcile each repo
+
+The dry-run above previewed what a carve *would* produce. It did not touch
+`sibling-shipyard/coach-skeleton` - no live clone of that repo exists locally right now, and
+nobody has run `carve-skeleton.mjs --push` since before this stack started. Three steps, strictly
+in this order, once #727 merges:
+
+1. **Re-stamp the skeleton first.** Run `carve-skeleton.mjs --push` from a current HQ `main`
+   checkout so `sibling-shipyard/coach-skeleton` reflects post-#727 HQ, not the pre-#973 state it's
+   pinned to today. Nothing below is valid until this runs.
+2. **Then diff each of the five real repos' non-`user_data/` tree against the refreshed skeleton**
+   and reconcile drift by hand - the same file list checked in the section above, using the real
+   skeleton repo instead of a dry-run preview.
+3. **Only after both of those, the skeleton becomes a valid reference for `user_data/`'s
+   *structure*** - directory shape and expected file names, not content, since each athlete's data
+   is obviously different from a fresh carve's placeholders. Checking `user_data/` structure
+   against a stale skeleton would just re-detect the same staleness as step 1, not real drift.
+
+None of this has run yet. It's a documented next step for whoever picks up the migration after
+#727 merges, not a completed check.
+
 ## Done when
 
 - All six repos above pass `./engine/scripts/validate-current-week` on `main`.
@@ -214,6 +273,8 @@ post-A4 HQ SHA - that's ordinary carve hygiene, not a special step. The manifest
   Rollover steps both green.
 - `ATHLETE_REPOS` in `run-manual-coach-chat-test.ts` lists all five athletes, not two.
 - `carve-skeleton.mjs` carves `shared/workout-library/exercises.json` into new and re-carved repos.
+- `sibling-shipyard/coach-skeleton` is re-stamped to post-#727 HQ (`carve-skeleton.mjs --push`).
+- All five real repos' non-`user_data/` tree has been re-carved and matches that refreshed skeleton.
 - All five real repos' `templates/_manifest.json` lists every starter template file actually on
   disk.
 - This file is deleted in the finishing PR, per the plan-delete-on-last-PR rule.
