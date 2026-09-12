@@ -1,4 +1,4 @@
-# Athlete repo migration: the Current Week stack (#973)
+# Athlete repo migration: the Current Week and Workouts stacks (#973, #727)
 
 > Status: Ready, not started · Owner: Tech Lead · Created: 2026-09-11
 >
@@ -146,10 +146,74 @@ regardless, since a future session write could otherwise reintroduce it. Same lo
 discipline: run the normalization step on prateek and shreyas too even though today's placeholder
 weeks have nothing to normalize - the step is a no-op on valid enum values and free otherwise.
 
+## The Workouts stack (#727) additions
+
+Covers A1 through A5-ios, near-term PRs #983-#992. A6 (migrating one athlete's repo by hand) was
+skipped by the athlete's own decision, so it's not counted as shipped anywhere below. Audited each
+PR's own diff against its own base branch, not the whole stack at once, so each finding below
+traces to the PR that actually introduced it.
+
+**Two things need carrying into each repo. Three more looked like gaps and aren't.**
+
+1. **`shared/workout-library/exercises.json` (A1b) needs carving - it isn't today.** The hosted
+   coach-chat backend reads its own HQ-local copy at request time
+   (`coachFirstSessionBenchmark.ts`'s `EXERCISES_PATH` resolves five directories up from HQ's own
+   `ui/api/`), so the web and iOS apps never need this file in an athlete repo. The BYOB Claude
+   Code path does: `SOUL.claude.md`'s new "Creating a New Routine" section (A4) tells Coach to
+   read `shared/workout-library/exercises.json` directly from the repo it's running in. Checked
+   `carve-skeleton.mjs` - it has no `shared/` handling at all, and none of the five real athlete
+   repos have a `shared/` directory. Carving this (and updating `carve-skeleton.mjs` to do it
+   going forward) is real follow-up work, not covered by this doc's file column.
+2. **`engine/scripts/compile-workout-cli.mts` (A4) is absent from every repo carved before A4.**
+   A4 already added it to `carve-skeleton.mjs`'s `SKELETON_SCRIPT_FILES`, same pattern as #973's
+   reconcile/rollover fix. A plain re-carve of `engine/scripts/` picks it up - no doc gap, just
+   don't forget the step.
+
+**Not gaps, checked directly:**
+
+- **`engine/lib/compileWorkout.mts` (A1) needs no carve-skeleton change.** `SKELETON_ENGINE_DIRS`
+  already copies `engine/lib/` wholesale (`fs.cpSync` with `recursive: true`), so any new file
+  under it, including this one and its golden fixtures, comes along on the next ordinary re-carve.
+- **A4's `_manifest.json` fix only matters for repos with the orphaned-template bug, and not all
+  of them have it.** `carve-skeleton.mjs` now writes `_manifest.json` with both starter templates
+  listed at carve time. Checked all five real repos' own `templates/_manifest.json`:
+  `coach-skanda-2003` and `coach-akash-suresh` already list `foundation` (skanda also lists
+  `strength_a`) in their existing manifests, so nothing to backfill there. `coach-prateekdevaraju`
+  and `coach-shreyas-95-cyber` both have `foundation.json` and `strength_a.json` on disk but
+  neither id in their manifest's `template_ids` - the exact orphan bug A4 fixes. `coach-date2022`
+  has both template files and no manifest file at all, same invisibility, one step worse. All
+  three need `foundation` and `strength_a` added to (or the file created with) `template_ids`.
+- **`memory.json`'s new `training_availability` field (A3) needs no migration transform.** Every
+  read site in `coachIntents.ts` reads it as `parsed.training_availability ?? null` off a
+  `Partial<MemoryJson>` parse. A key that's missing entirely - true for all five real repos today -
+  just resolves to `null`, same as an explicit `null`. Nothing throws, nothing to backfill. It
+  fills in naturally the next time First Session Protocol intake runs.
+- **A2's `FileDelete` capability (`githubGitData.ts`) is HQ-only.** `workout_remove` runs inside
+  the hosted coach-chat backend; nothing about it touches an athlete repo's own files or scripts.
+
+## Repos in scope, Workouts stack
+
+Checked directly against each local clone on 2026-09-12:
+
+| Repo | `shared/workout-library/`? | `engine/lib/compileWorkout.mts`? | `compile-workout-cli.mts`? | Manifest orphan bug? | `training_availability` present? |
+|---|---|---|---|---|---|
+| `skanda-2003/coach-skanda-2003` | absent | absent | absent | no - already listed | absent (defaults `null`) |
+| `akash-suresh/coach-akash-suresh` | absent | absent | absent | no - already listed | absent (defaults `null`) |
+| `prateekdevaraju/coach-prateekdevaraju` | absent | absent | absent | yes - needs backfill | absent (defaults `null`) |
+| `date2022/coach-date2022` | absent | absent | absent | yes - no manifest at all | absent (defaults `null`) |
+| `shreyas-95-cyber/coach-shreyas-95-cyber` | absent | absent | absent | yes - needs backfill | absent (defaults `null`) |
+
+Every repo needs the same re-carve of `engine/lib/` and `engine/scripts/` once it picks up a
+post-A4 HQ SHA - that's ordinary carve hygiene, not a special step. The manifest backfill and the
+`shared/workout-library/` carve are the two items that need doing by hand, on top of that.
+
 ## Done when
 
 - All six repos above pass `./engine/scripts/validate-current-week` on `main`.
 - Each athlete repo's `sync.yml` has run at least once post-migration with the Reconcile and
   Rollover steps both green.
 - `ATHLETE_REPOS` in `run-manual-coach-chat-test.ts` lists all five athletes, not two.
+- `carve-skeleton.mjs` carves `shared/workout-library/exercises.json` into new and re-carved repos.
+- All five real repos' `templates/_manifest.json` lists every starter template file actually on
+  disk.
 - This file is deleted in the finishing PR, per the plan-delete-on-last-PR rule.
