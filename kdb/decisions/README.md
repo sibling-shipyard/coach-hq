@@ -39,6 +39,7 @@
 | 0037 | Chat history: full retention in storage, display still capped at 7 | cross-cutting (coach-chat API, web, iOS) |
 | 0038 | Coaching style restored, this time wired into SOUL's voice rules | cross-cutting (coach-chat backend, SOUL) |
 | 0039 | Widgets are modules, not screen-embedded views | ios |
+| 0040 | One post-sync Coach generator, one chat thread | cross-cutting (coach message, coach chat, iOS) |
 | 0041 | Terracotta is load and primary action, never decorative or status | cross-cutting (ios, ui) |
 | 0042 | `current_week.json` collapses to one write action, code owns reconciliation and rollover | cross-cutting (coach-chat backend, SOUL, web) |
 
