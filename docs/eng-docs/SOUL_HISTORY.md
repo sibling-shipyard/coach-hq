@@ -25,6 +25,21 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.28 — "Build the Workout, Don't Time It" · Sep 12, 2026
+**Superpower gained:** Coach can build a genuinely new routine when nothing on file fits, and
+stops hand-computing rest and prep seconds.
+
+Coach used to be told, in prose, exactly how many seconds of rest and prep belong on a timed
+exercise - the kind of arithmetic a person gets wrong under a deadline and a compiler never does.
+And when no existing template covered what an athlete asked for, Coach had no line telling it a
+new one was even allowed, so it either forced an ill-fitting template or quietly declined.
+
+- Timer physics (rest/prep seconds) is the compiler's job now, not something Coach writes by hand.
+- Coach can name a routine from the exercise catalog and dose it from the athlete's own
+  progressions/injuries/age when nothing existing fits, in either runtime.
+**Why it mattered:** an absent "you may create one" line was the actual bug - the machinery to
+build and dose a routine already existed, Coach just never knew it could reach for it.
+
 ## v5.27 — "Read the Code, Not the Old Memo" · Sep 11, 2026
 **Superpower gained:** nothing athlete-visible - Coach's own weekly-contract instructions stop
 pointing at a doc it can't always reach.

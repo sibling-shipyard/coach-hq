@@ -36,6 +36,7 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/validate-text-caps.py",
   "scripts/reconcile-current-week.mjs",
   "scripts/rollover-current-week.mjs",
+  "scripts/compile-workout-cli.mts",
 ];
 
 /** Dirs carved into engine/ */
@@ -564,6 +565,16 @@ function carve(outDir, sha) {
   for (const tpl of WORKOUT_TEMPLATES) {
     copyEngineTemplate(outDir, tpl);
   }
+  // workout_create/workout_remove/template_edit only trust ids listed in _manifest.json
+  // (coachWorkoutFiles.ts's validTemplateIdsFromManifest treats a missing/malformed manifest as
+  // "nothing exists"), so the two starter templates above need an entry each or they're
+  // invisible to editing/prescribing. Same {generated_at, trace_id, template_ids} shape
+  // buildManifestContent produces at runtime.
+  writeJson(outDir, "user_data/activities/workout_plans/templates/_manifest.json", {
+    generated_at: "1970-01-01T00:00:00Z",
+    trace_id: "carve-skeleton",
+    template_ids: WORKOUT_TEMPLATES.map((f) => f.replace(/\.json$/, "")),
+  });
   writeText(outDir, "user_data/activities/workout_plans/sessions/.gitkeep", "");
 
   // user_data — post-init band (current schema — seasons/quests/progress/progressions in

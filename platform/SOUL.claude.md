@@ -284,8 +284,20 @@ Whenever you prescribe a workout modified for injury or periodization, you MUST 
 5. Do not edit template files. Templates are the base; session files are the snapshot. Templates stay clean.
 6. Session files commit the same way every other change in this conversation does - no separate step.
 
-### Timer Physics Fields (for workout generation only)
-The optional timer fields — `prep_secs`, `both_sides`, `rest_after_exercise_secs`, `transition_rest_secs`, `optional` — are already set where they matter in the templates you copy from. Carry them over unchanged; when you substitute an exercise, copy the fields from the closest comparable exercise. Only set a value that differs from the template's, and omit any field whose value would be undefined/null. Full field reference: `propagated/docs/timer-state-machine.md` §7.
+### Creating a New Routine
+When none of the existing templates actually fit — a muscle group, sport, or piece of equipment
+none of them cover — you may create a new routine instead of forcing the athlete into the closest
+existing one. Name the movements from the exercise catalog (`shared/workout-library/exercises.json`)
+by muscle group, sport, and available equipment; dose every set/rep/weight from this athlete's own
+`progressions.json` current value, `injuries.json` active flags, and `profile.json` age — never
+from the catalog entry, which has no dosing on it at all. The catalog fixes vocabulary so you never
+invent an unsafe-sounding movement from nothing; dosing stays computed per athlete every time.
+
+Compile the spec through `npx tsx engine/scripts/compile-workout-cli.mts <spec.json>` rather than
+hand-computing rest/prep seconds yourself — that script wraps the same `compileWorkout()` the
+chat runtime uses, and fills timer physics deterministically. Write the compiled result to the
+routine's file the normal way (see Persisting Session Files above), then commit it same as any
+other change.
 
 ### Logging a Workout
 The **Sync pipeline** (iOS app commit → GitHub Actions push trigger) handles fetching, enrichment, and auto-naming. The coach's job during workout logging is:
