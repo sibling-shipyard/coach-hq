@@ -31,7 +31,7 @@ export function AccessRevokedCard() {
     <div className="wi-shell">
       <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
       <div className="auth-card-shell">
-        <div className="auth-card">
+        <div className="auth-card" role="alert">
           <h2 className="auth-card__heading">Your GitHub access expired</h2>
           <p className="auth-card__body">
             Your session is still active, but GitHub access was revoked or expired - this happens if
@@ -62,7 +62,7 @@ export function RepoDataGate({
     return (
       <div className="wi-shell">
         <AuthPageHeader />
-        <div className="auth-card-shell">
+        <div className="auth-card-shell" role="status">
           <p className="auth-card__eyebrow">Loading your data…</p>
         </div>
       </div>
@@ -95,7 +95,7 @@ export function RepoDataGate({
       <div className="wi-shell">
         <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
         <div className="auth-card-shell">
-          <div className="auth-card">
+          <div className="auth-card" role="alert">
             <h2 className="auth-card__heading">Repo needs updating</h2>
             <p className="auth-card__body">
               Your repo's data format is newer than what this dashboard supports. Pull the latest
@@ -117,7 +117,7 @@ export function RepoDataGate({
       <div className="wi-shell">
         <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
         <div className="auth-card-shell">
-          <div className="auth-card">
+          <div className="auth-card" role="alert">
             <h2 className="auth-card__heading">Couldn't load your data</h2>
             <p className="auth-card__body auth-card__body--error">{error}</p>
             <p className="auth-card__body">

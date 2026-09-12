@@ -137,32 +137,34 @@ function WorkoutsContent({ data }: { data: RepoData }) {
           syncLabel={syncStatusData.status}
           workoutsHref="/workouts"
         />
-        {hasTodaySession ? (
-          <div className="wtx-list-banner">
-            <div className="wtx-list-banner__title">Coach has customized workouts for today</div>
-            <div className="wtx-list-banner__body">
-              Session-specific modifications are applied. Look for the TODAY badge.
+        <main>
+          {hasTodaySession ? (
+            <div className="wtx-list-banner">
+              <div className="wtx-list-banner__title">Coach has customized workouts for today</div>
+              <div className="wtx-list-banner__body">
+                Session-specific modifications are applied. Look for the TODAY badge.
+              </div>
             </div>
+          ) : null}
+          <div className="wtx-list-groups">
+            {groups.map((group) => (
+              <div key={group.type}>
+                <div className="wtx-list-group__label">
+                  {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
+                </div>
+                <div className="wtx-list-grid">
+                  {group.cards.map((card) => (
+                    <WorkoutCard
+                      key={card.workout.id}
+                      workout={card.workout}
+                      hasSession={card.hasSession}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-        ) : null}
-        <div className="wtx-list-groups">
-          {groups.map((group) => (
-            <div key={group.type}>
-              <div className="wtx-list-group__label">
-                {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
-              </div>
-              <div className="wtx-list-grid">
-                {group.cards.map((card) => (
-                  <WorkoutCard
-                    key={card.workout.id}
-                    workout={card.workout}
-                    hasSession={card.hasSession}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        </main>
       </div>
     </div>
   );

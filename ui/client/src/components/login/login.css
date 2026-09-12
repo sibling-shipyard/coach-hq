@@ -9,7 +9,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid #d8d2c6;
+  border-bottom: 1px solid var(--wi-header-rule, #d8d2c6);
   background: rgba(232, 226, 215, 0.82);
   backdrop-filter: blur(12px);
 }

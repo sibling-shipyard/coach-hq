@@ -9,7 +9,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 0;
-  border-bottom: 1px solid #d8d2c6;
+  border-bottom: 1px solid var(--wi-header-rule, #d8d2c6);
 }
 
 .wtx-topbar__left {
@@ -26,7 +26,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 9px;
   color: var(--wi-ink-faint-text, #635f55);
   background: var(--wi-surface);
@@ -413,7 +413,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 16px;
   color: #4a4c45;
   background: var(--wi-surface);
@@ -484,7 +484,7 @@
   align-items: center;
   gap: 12px;
   padding: 9px 0;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .wtx-uplist-row:last-child {
@@ -838,7 +838,7 @@
   align-items: flex-start;
   gap: 14px;
   padding: 12px 18px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .wtx-ov-row:last-child {
@@ -1139,7 +1139,7 @@
 }
 
 .wtx-dialog__actions button.is-continue {
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   color: var(--wi-ink);
   background: var(--wi-surface);
 }

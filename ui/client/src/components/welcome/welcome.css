@@ -50,7 +50,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid #d8d2c6;
+  border-bottom: 1px solid var(--wi-header-rule, #d8d2c6);
   background: rgba(232, 226, 215, 0.82);
   backdrop-filter: blur(12px);
 }
@@ -92,7 +92,7 @@
   height: 40px;
   margin-left: auto;
   padding: 0;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 8px;
   background: rgba(251, 248, 241, 0.72);
   cursor: pointer;
@@ -140,7 +140,7 @@
 
 .welcome-nav__sections a,
 .welcome-nav__actions a {
-  color: #6e7068;
+  color: var(--wi-text-secondary, #6e7068);
 }
 
 .welcome-nav__sections a:hover,
@@ -259,7 +259,7 @@
   flex-wrap: wrap;
   gap: 34px;
   margin-top: 44px;
-  color: #8a8b81;
+  color: var(--wi-text-soft, #8a8b81);
   font-family: "Space Mono", monospace;
   font-size: 10.5px;
   letter-spacing: 0.06em;
@@ -507,7 +507,7 @@
 
 .welcome-feature__card {
   padding: 26px 28px;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 24px;
   background: var(--wi-page);
   box-shadow: 0 14px 30px rgba(43, 45, 41, 0.1);
@@ -554,8 +554,8 @@
 }
 
 .welcome-memory-tags__alarm {
-  background: #e4e4ec !important;
-  color: #4b5578 !important;
+  background: var(--wi-alarm-bg, #e4e4ec) !important;
+  color: var(--wi-alarm-fg, #4b5578) !important;
 }
 
 .welcome-feature__card--coach blockquote {
@@ -802,7 +802,7 @@
   height: 9px;
   margin-top: 20px;
   border-radius: 5px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
   overflow: hidden;
 }
 
@@ -895,7 +895,7 @@ button.welcome-timer-card__run:hover {
   gap: 10px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #efe9dc;
+  border-top: 1px solid var(--wi-rule-soft, #efe9dc);
   color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
@@ -965,7 +965,7 @@ button.welcome-timer-card__run:hover {
   height: 8px;
   margin-top: 22px;
   border-radius: 5px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
   overflow: hidden;
 }
 
@@ -1390,7 +1390,7 @@ button.welcome-adapt__scenario {
   flex-direction: column;
   gap: 12px;
   padding: 20px 18px;
-  border: 1.5px solid #d8d2c6;
+  border: 1.5px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 18px;
   color: var(--wi-ink);
   background: var(--wi-page);
@@ -1497,7 +1497,7 @@ button.welcome-adapt__scenario.is-active {
 .welcome-adapt__intensity-head {
   display: flex;
   justify-content: space-between;
-  color: #8a8b81;
+  color: var(--wi-text-soft, #8a8b81);
   font-family: "Space Mono", monospace;
   font-size: 9.5px;
   letter-spacing: 0.1em;
@@ -1508,7 +1508,7 @@ button.welcome-adapt__scenario.is-active {
   height: 9px;
   margin-top: 8px;
   border-radius: 5px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
   overflow: hidden;
 }
 
@@ -1528,7 +1528,7 @@ button.welcome-adapt__scenario.is-active {
 
 .welcome-adapt__chips span {
   padding: 6px 10px;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 6px;
   color: #54564e;
   background: var(--wi-surface);
@@ -1622,7 +1622,7 @@ button.welcome-adapt__scenario.is-active {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 999px;
   background: var(--wi-page);
   box-shadow: 0 4px 12px rgba(43, 45, 41, 0.08);
@@ -1857,7 +1857,7 @@ button.welcome-adapt__scenario.is-active {
   padding: 12px 18px;
   border: 1px solid #e2dbcb;
   border-radius: 999px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
 }
 
 button.welcome-highlights__dot {
@@ -2053,7 +2053,7 @@ button.welcome-cta__submit--inline {
     order: 10;
     margin: 0 -20px -14px;
     padding: 8px 20px 12px;
-    border-top: 1px solid #d8d2c6;
+    border-top: 1px solid var(--wi-header-rule, #d8d2c6);
     background: rgba(232, 226, 215, 0.96);
   }
 

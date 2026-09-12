@@ -37,7 +37,7 @@ function WorkoutTimerContent({ data }: { data: RepoData }) {
   if (!workout) {
     return (
       <div className="wi-shell">
-        <div
+        <main
           className="wi-board"
           style={{
             display: "flex",
@@ -47,7 +47,7 @@ function WorkoutTimerContent({ data }: { data: RepoData }) {
           }}
         >
           <p>Workout not found.</p>
-        </div>
+        </main>
       </div>
     );
   }

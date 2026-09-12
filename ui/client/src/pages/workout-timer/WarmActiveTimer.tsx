@@ -77,6 +77,15 @@ export function WarmActiveTimer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [showQuitDialog, exercise, handleExerciseDone, setIsPaused, handleSkip, handleGoBack]);
 
+  useEffect(() => {
+    if (!showQuitDialog) return;
+    const handleDialogKey = (e: KeyboardEvent) => {
+      if (e.code === "Escape") setShowQuitDialog(false);
+    };
+    window.addEventListener("keydown", handleDialogKey);
+    return () => window.removeEventListener("keydown", handleDialogKey);
+  }, [showQuitDialog]);
+
   if (!phase || !exercise) return null;
 
   const total = countExercises(workout);
@@ -106,7 +115,7 @@ export function WarmActiveTimer({
             <TimerHeaderRight muted={muted} onToggleMute={toggleMute} seconds={totalElapsed} />
           }
         />
-        <div className="wtx-grid">
+        <main className="wtx-grid">
           <FocusCard
             blockLabel={phase.name}
             exOfBlock={exOfBlock}
@@ -133,13 +142,18 @@ export function WarmActiveTimer({
             <UpNextCard rows={upNext} />
             <SessionNoteCard note={workout.coaching_note} />
           </div>
-        </div>
+        </main>
       </div>
 
       {showQuitDialog ? (
         <div className="wtx-dialog-backdrop">
-          <div className="wtx-dialog">
-            <h3>Quit workout?</h3>
+          <div
+            className="wtx-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="wtx-quit-dialog-title"
+          >
+            <h3 id="wtx-quit-dialog-title">Quit workout?</h3>
             <p>Your progress will be lost.</p>
             <div className="wtx-dialog__actions">
               <button

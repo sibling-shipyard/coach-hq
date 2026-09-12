@@ -54,7 +54,7 @@
 
 .ma-year-button {
   padding: 9px 18px;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 9px;
   background: var(--wi-surface);
   color: var(--wi-ink-muted);
@@ -87,7 +87,7 @@
   flex-direction: column;
   align-items: flex-start;
   padding: 14px 16px;
-  border: 1px solid #d8d2c6;
+  border: 1px solid var(--wi-header-rule, #d8d2c6);
   border-radius: 14px;
   background: var(--wi-surface);
   color: inherit;
@@ -552,7 +552,7 @@ button.ma-sleep-card__connect {
   gap: 14px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #efe9dc;
+  border-top: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .ma-breakdown__subline > span:first-child {
@@ -564,7 +564,7 @@ button.ma-sleep-card__connect {
   margin-left: auto;
   font-family: "Space Mono", monospace;
   font-size: 11px;
-  color: #4b5578;
+  color: var(--wi-alarm-fg, #4b5578);
 }
 
 .ma-breakdown__sports {
@@ -594,7 +594,7 @@ button.ma-sleep-card__connect {
   height: 14px;
   overflow: hidden;
   border-radius: 7px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
 }
 
 .ma-breakdown__sport-bar > span {
@@ -622,7 +622,7 @@ button.ma-sleep-card__connect {
 .ma-side-quests__head {
   margin-top: 18px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -659,7 +659,7 @@ button.ma-sleep-card__connect {
 
 .ma-side-quests__row {
   padding: 16px 0;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .ma-side-quests__name {
@@ -672,7 +672,7 @@ button.ma-sleep-card__connect {
 }
 
 .ma-side-quests__num.is-miss {
-  color: #4b5578;
+  color: var(--wi-alarm-fg, #4b5578);
 }
 
 .ma-side-quests__delta-row {
@@ -687,7 +687,7 @@ button.ma-sleep-card__connect {
   flex: 1;
   height: 7px;
   border-radius: 4px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
 }
 
 .ma-side-quests__delta-bar > span {
@@ -699,7 +699,7 @@ button.ma-sleep-card__connect {
 .ma-side-quests__delta-label {
   font-family: "Space Mono", monospace;
   font-size: 10px;
-  color: #4b5578;
+  color: var(--wi-alarm-fg, #4b5578);
 }
 
 .ma-side-quests__read small {

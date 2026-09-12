@@ -49,7 +49,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 18px 22px;
-  border: 1px solid #e2dcd0;
+  border: 1px solid var(--wi-rule-dashed-soft, #e2dcd0);
   border-radius: 20px;
   background: var(--wi-surface);
   transition:
@@ -242,6 +242,7 @@
 }
 
 .sa-winrate-hero__pager button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid rgba(251, 248, 241, 0.3);
@@ -251,6 +252,14 @@
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Visible glyph stays 22px; pads the tap/click target toward the WCAG 2.5.8 24px
+   baseline without exceeding the 4px inter-button gap, so targets meet but never overlap. */
+.sa-winrate-hero__pager button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-winrate-hero__pager button:hover:not(:disabled) {
@@ -529,7 +538,7 @@
 
 .sa-h2h__head {
   padding: 0 2px 5px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -538,7 +547,7 @@
 
 .sa-h2h__row {
   padding: 8px 2px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .sa-h2h__name {
@@ -615,7 +624,7 @@ button.sa-h2h__toggle {
 
 .sa-improving__head {
   padding: 0 2px 5px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -624,7 +633,7 @@ button.sa-h2h__toggle {
 
 .sa-improving__row {
   padding: 8px 2px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
   font-family: "Space Mono", monospace;
 }
 
@@ -742,7 +751,7 @@ button.sa-h2h__toggle {
   flex-direction: column;
   gap: 0;
   padding: 18px 22px 16px;
-  border: 1px solid #e2dcd0;
+  border: 1px solid var(--wi-rule-dashed-soft, #e2dcd0);
   border-radius: 20px;
   background: var(--wi-surface);
 }
@@ -814,6 +823,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-badminton-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -833,6 +843,12 @@ button.sa-h2h__toggle {
 .sa-badminton-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-badminton-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-badminton-heatmap__body {
@@ -1190,7 +1206,7 @@ button.sa-h2h__toggle {
   align-items: center;
   justify-content: space-between;
   padding: 4px 0;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .sa-running-pbs__distance {
@@ -1289,7 +1305,7 @@ button.sa-h2h__toggle {
   flex-direction: column;
   gap: 0;
   padding: 18px 22px 16px;
-  border: 1px solid #e2dcd0;
+  border: 1px solid var(--wi-rule-dashed-soft, #e2dcd0);
   border-radius: 20px;
   background: var(--wi-surface);
 }
@@ -1345,6 +1361,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-running-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -1364,6 +1381,12 @@ button.sa-h2h__toggle {
 .sa-running-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-running-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-running-heatmap__body {
@@ -1505,7 +1528,7 @@ button.sa-h2h__toggle {
   flex-direction: column;
   gap: 8px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #efe9dc;
+  border-bottom: 1px solid var(--wi-rule-soft, #efe9dc);
 }
 
 .sa-cal-skill-track:last-of-type {
@@ -1767,7 +1790,7 @@ button.sa-h2h__toggle {
 .sa-cal-improving__bar {
   height: 7px;
   border-radius: 99px;
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
   overflow: hidden;
 }
 
@@ -1912,7 +1935,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-cal-consistency__grid > span.is-miss {
-  background: #efe9dc;
+  background: var(--wi-rule-soft, #efe9dc);
 }
 
 .sa-cal-consistency__axis {
@@ -1952,7 +1975,7 @@ button.sa-h2h__toggle {
   flex-direction: column;
   gap: 0;
   padding: 18px 22px 16px;
-  border: 1px solid #e2dcd0;
+  border: 1px solid var(--wi-rule-dashed-soft, #e2dcd0);
   border-radius: 20px;
   background: var(--wi-surface);
 }
@@ -2008,6 +2031,7 @@ button.sa-h2h__toggle {
 }
 
 .sa-cal-heatmap__paging button {
+  position: relative;
   width: 22px;
   height: 22px;
   border: 1px solid #d8d1c2;
@@ -2027,6 +2051,12 @@ button.sa-h2h__toggle {
 .sa-cal-heatmap__paging button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.sa-cal-heatmap__paging button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
 }
 
 .sa-cal-heatmap__body {
