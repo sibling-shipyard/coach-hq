@@ -121,6 +121,14 @@ export interface FreshSession {
   setCookie?: string;
 }
 
+// Keyed by the raw (still-encrypted) cookie value. Concurrent requests that arrive before any
+// refresh completes all carry the same stale cookie, so this is exactly the set of callers who'd
+// otherwise race GitHub's refresh_token rotation against each other (#804) - only one exchange
+// can win, and the losers used to fall back to their already-stale access token and 401 for real.
+// Sharing one in-flight refresh per warm instance closes that race for the common case (parallel
+// requests hitting the same lambda); it does not span across cold instances.
+const inFlightRefreshes = new Map<string, Promise<FreshSession | Response>>();
+
 /**
  * The one place session cookies get read and, if needed, silently refreshed (ADR 0009).
  * Every handler should call this instead of parseCookies + decryptSession directly.
@@ -137,6 +145,17 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     return { session };
   }
 
+  const existing = inFlightRefreshes.get(raw);
+  if (existing) return existing;
+
+  const refreshPromise = refreshSession(session).finally(() => {
+    inFlightRefreshes.delete(raw);
+  });
+  inFlightRefreshes.set(raw, refreshPromise);
+  return refreshPromise;
+}
+
+async function refreshSession(session: SessionPayload): Promise<FreshSession | Response> {
   if (!CLIENT_ID || !CLIENT_SECRET) {
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
