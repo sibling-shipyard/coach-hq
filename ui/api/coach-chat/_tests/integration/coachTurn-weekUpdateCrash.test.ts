@@ -15,7 +15,7 @@ const { commitFilesAtomic } = vi.hoisted(() => ({
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 
 const { getFileRaw } = vi.hoisted(() => ({
-  getFileRaw: vi.fn(async () => null),
+  getFileRaw: vi.fn(async (_repo: string, _path: string) => null as string | null),
 }));
 vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
@@ -102,6 +102,43 @@ describe("coach turn stages - week_update kickoff failure (#727 live-test regres
             headline: "Trek prep week",
             body: "Strength and stairs.",
             days,
+          },
+        },
+      }) as never,
+    );
+
+    expect(turn.droppedActions).toEqual([
+      expect.objectContaining({ field: "week_update", reason: expect.stringContaining("intent") }),
+    ]);
+    expect(turn.optionalWrites.some((write) => write.path.includes("current_week"))).toBe(false);
+  });
+
+  it("regression: a bad patch-mode result is caught eagerly too, never reaching commitFilesAtomic's un-caught resolve()", async () => {
+    const currentWeekJson = JSON.stringify({
+      schema_version: 1,
+      data_status: "live",
+      timezone: "UTC",
+      week: { id: "2026-W38", start_date: "2026-09-14", end_date: "2026-09-20" },
+      days: [{ date: "2026-09-15", intent: "Easy", sessions: [] }],
+    });
+    // buildTurnWrites fetches the templates manifest before current_week.json for a patch-shaped
+    // week_update - match by path, not call order, so this doesn't depend on knowing that
+    // sequence exactly.
+    getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+      path.includes("current_week") ? currentWeekJson : null,
+    );
+
+    const turn = await buildTurnWrites(
+      baseTurn({
+        reply: {
+          reply: "Added that session.",
+          week_update: {
+            days: [
+              {
+                date: "2026-09-15",
+                sessions: [{ discipline: "run", kind: "easy", title: "Easy run" }],
+              },
+            ],
           },
         },
       }) as never,

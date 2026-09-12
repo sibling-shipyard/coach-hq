@@ -65,6 +65,7 @@ import {
   weekDayDatesFromCurrentWeek,
   isFullWeekKickoff,
   applyWeekUpdate,
+  assertCurrentWeekCommitReady,
 } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
@@ -1134,8 +1135,32 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // failure - reproduced live: two days missing/empty `intent` - threw straight out of this
   // function with no error boundary, crashing the whole turn. Every other action field in this
   // pipeline drops just the one bad action and keeps the rest of the turn; week_update didn't.
+  //
+  // The patch-mode path has the same shape of risk one level later: buildCurrentWeekWrite defers
+  // its own applyWeekUpdate/assertCurrentWeekCommitReady call behind an async resolve(), which
+  // commitFilesAtomic calls with no try/catch of its own - a bad patch result wouldn't just drop
+  // week_update, it could crash the whole atomic commit and lose every other write in this turn.
+  // Not yet live-reproduced (patch mode's surface is narrower than kickoff's), but the same
+  // eager-validate-first shape closes it before it needs to be: run the exact same
+  // applyWeekUpdate + assertCurrentWeekCommitReady pass once, synchronously, against the content
+  // already fetched above - if it throws, skip the write entirely rather than betting on
+  // commitFilesAtomic's resolve() surviving it. buildCurrentWeekWrite still redoes this same work
+  // against a possibly-fresher read at actual commit time for the real write, preserving its
+  // retry-safety for the happy path this validates.
   let currentWeekWrite: FileEntry | undefined;
   try {
+    if (validatedWeekUpdate != null && !isFullWeekKickoff(validatedWeekUpdate)) {
+      assertCurrentWeekCommitReady(
+        applyWeekUpdate(
+          currentWeekContent ?? null,
+          validatedWeekUpdate,
+          validTemplateIds,
+          timezone,
+          traceId,
+          new Date(),
+        ),
+      );
+    }
     currentWeekWrite = buildCurrentWeekWrite(
       repo,
       token,
