@@ -26,12 +26,20 @@ import {
   type ClosingFileContext,
 } from "./decide/coachSinceStamp.js";
 import {
-  generateInitialTemplates,
   validTemplateIdsFromManifest,
   TEMPLATES_MANIFEST_PATH,
+  TEMPLATES_PATH_PREFIX,
 } from "./decide/coachWorkoutFiles.js";
 import {
+  buildBenchmarkSpec,
+  seedBenchmarkProgressions,
+  inferTrainingAvailability,
+} from "./decide/coachFirstSessionBenchmark.js";
+import { compileFirstWeek } from "./decide/firstWeekCompile.js";
+import { PROGRESSIONS_PATH } from "./decide/coachQuestFiles.js";
+import {
   PROFILE_PATH,
+  MEMORY_PATH,
   type ProfileJson,
   type MemoryJson,
   type CoachLogJson,
@@ -55,6 +63,7 @@ import {
   weekSessionsFromCurrentWeek,
   weekDayDatesFromCurrentWeek,
   isFullWeekKickoff,
+  applyWeekUpdate,
 } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
@@ -77,7 +86,7 @@ import { buildMemoryFileWrite } from "./decide/turnWrites/memoryWrite.js";
 import { buildInjuryWrites } from "./decide/turnWrites/injuryWrite.js";
 import { buildQuestEventWrite, buildQuestCreateWrite } from "./decide/turnWrites/questWrite.js";
 import { buildSeasonStartWrite } from "./decide/turnWrites/seasonWrite.js";
-import { applyQuestCreate } from "./decide/coachIntents.js";
+import { applyQuestCreate, applyTrainingAvailabilityUpdate } from "./decide/coachIntents.js";
 import {
   buildProfileUpdateWrite,
   projectProfileCompletion,
@@ -1315,30 +1324,98 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
-export async function generateTemplatesAfterCompletion(turn: TurnWrites): Promise<void> {
+// On the false->true profileComplete transition, writes one benchmark routine
+// (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled through the same
+// applyWorkoutCreate/buildWorkoutCreateWrite path an ordinary workout_create turn uses), seeds one
+// progression per benchmarked pattern, derives the structured training_availability field from
+// memory's existing intake prose, and compiles a real first week (firstWeekCompile.ts) that places
+// the benchmark and anchor sessions on the athlete's stated training days. All one commit, and
+// never allowed to block or fail the athlete's reply - none of this is on the critical path of the
+// turn's own response, so a failure here only logs and moves on.
+export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrites): Promise<void> {
   if (turn.wasProfileComplete || !turn.profileComplete) return;
   try {
     if ((await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token)) != null) return;
-    const { templates } = await generateInitialTemplates(
-      turn.projectedProfile,
-      turn.projectedMemory,
-      turn.context.injuries ?? { flags: [] },
+
+    const memory = turn.projectedMemory;
+    const injuries = turn.context.injuries ?? { flags: [] };
+    const activeInjuryFlagIds = new Set(
+      injuries.flags.filter((f) => f.status === "active").map((f) => f.id),
+    );
+    const progressions = turn.context.progressions ?? null;
+
+    const spec = buildBenchmarkSpec(memory, injuries);
+    const { writes: benchmarkWrites, dropped } = buildWorkoutCreateWrite(
+      turn.traceId,
+      spec,
+      new Set<string>(),
+      activeInjuryFlagIds,
+      progressions,
+    );
+    if (dropped.length > 0 || benchmarkWrites.length === 0) {
+      throw new Error(
+        dropped.map((d) => d.reason).join("; ") || "workout_create produced no writes",
+      );
+    }
+    const benchmarkRoutineId = benchmarkWrites[0].path
+      .slice(TEMPLATES_PATH_PREFIX.length)
+      .replace(/\.json$/, "");
+
+    const nowIso = new Date().toISOString();
+    const { content: progressionsContent } = seedBenchmarkProgressions(
+      progressions,
+      spec,
+      nowIso,
+      turn.traceId,
+    );
+
+    const trainingAvailability = inferTrainingAvailability(memory);
+    const memoryWrite: FileEntry = {
+      path: MEMORY_PATH,
+      content: applyTrainingAvailabilityUpdate(
+        JSON.stringify(memory),
+        trainingAvailability,
+        todayDateString(turn.timezone, new Date()),
+        turn.traceId,
+      ),
+    };
+
+    const weekUpdate = compileFirstWeek({
+      today: turn.today,
+      availability: trainingAvailability,
+      benchmarkRoutineId,
+      benchmarkTitle: spec.title,
+      sports: memory.sports ?? [],
+    });
+    const weekContent = applyWeekUpdate(
+      null,
+      weekUpdate,
+      new Set([benchmarkRoutineId]),
       turn.timezone,
       turn.traceId,
-      turn.apiKey,
+      new Date(),
     );
-    await commitFilesAtomic(templates, "coach: initial workout templates generated", {
+
+    const writes: FileEntry[] = [
+      ...benchmarkWrites,
+      { path: PROGRESSIONS_PATH, content: progressionsContent },
+      memoryWrite,
+      { path: CURRENT_WEEK_PATH, content: weekContent },
+    ];
+
+    await commitFilesAtomic(writes, "coach: first session benchmark and first week", {
       repo: turn.repo,
       branch: resolveCoachChatBranch(),
       token: turn.token,
     });
-    console.log("[coach-chat] initial workout templates committed", {
+    console.log("[coach-chat] first session benchmark and first week committed", {
       traceId: turn.traceId,
-      count: templates.length,
+      benchmarkRoutineId,
+      files: writes.length,
     });
   } catch (err) {
     console.error(
-      "[coach-chat] initial workout template generation failed - continuing without it:",
+      "[coach-chat] first session benchmark generation failed - continuing without it:",
       err,
       {
         traceId: turn.traceId,
@@ -1432,7 +1509,7 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
     );
   }
 
-  await generateTemplatesAfterCompletion(turn);
+  await generateFirstSessionWorkoutsAfterCompletion(turn);
   return Response.json({
     reply: turn.finalReplyText,
     threadId: turn.finalThreadId,

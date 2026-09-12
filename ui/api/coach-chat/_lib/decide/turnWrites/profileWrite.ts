@@ -90,6 +90,10 @@ export function projectProfileCompletion(params: {
     },
     sports: hasSportsUpdate ? sportsUpdate : (memory?.sports ?? []),
     coaching_style: coachingStyleUpdate ?? memory?.coaching_style ?? null,
+    // A3 (#727): no action field projects this (it's derived, not Gemini-reported - see
+    // coachMemoryFiles.ts's TrainingAvailability comment), so the projection just carries the
+    // stored value through unchanged.
+    training_availability: memory?.training_availability ?? null,
     notes:
       memory?.notes ??
       (Object.fromEntries(

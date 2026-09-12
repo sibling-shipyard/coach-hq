@@ -155,8 +155,8 @@ that names an existing season. Quests are optional.
 `coachTurn.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
 writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
 GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is what gates
-`coach_since` stamping (ADR 0018) and initial workout template generation
-(`generateInitialTemplates`) on the real false→true transition.
+`coach_since` stamping (ADR 0018) and the first-session benchmark plus first-week compile
+(`generateFirstSessionWorkoutsAfterCompletion`, A3 #727) on the real false→true transition.
 
 `isFirstSessionRitualDone()` additionally requires `quests.main_quest` to be set — once the very
 first one lands, this resolves to `true` forever, matching `isAthleteProfileComplete()`'s own

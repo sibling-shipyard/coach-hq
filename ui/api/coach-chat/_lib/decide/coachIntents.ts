@@ -9,6 +9,7 @@ import {
   type InjuryFlag,
   type CoachLogRow,
   type ProfileJson,
+  type TrainingAvailability,
 } from "./coachMemoryFiles.js";
 import {
   type ProgressRow,
@@ -84,6 +85,7 @@ export function applyMemoryUpdate(
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
     coaching_style: parsed.coaching_style ?? null,
+    training_availability: parsed.training_availability ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
@@ -116,6 +118,36 @@ export function applyCoachingStyleUpdate(
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
     coaching_style: style as CoachingStyle,
+    training_availability: parsed.training_availability ?? null,
+    notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
+  };
+
+  return JSON.stringify(result, null, 2);
+}
+
+// A3 (#727): training_availability - not a Gemini action field (no schema change in this PR's
+// file column), just the write side of inferTrainingAvailability's deterministic parse. Same
+// reconstruct-with-emptyNotes shape as every other applier in this file, so a first-session
+// athlete with no memory.json yet still gets a well-formed one.
+export function applyTrainingAvailabilityUpdate(
+  content: string | null,
+  availability: TrainingAvailability | null,
+  updatedAt: string,
+  traceId: string,
+): string {
+  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
+
+  const emptyNotes = () =>
+    Object.fromEntries(
+      MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+    ) as MemoryJson["notes"];
+
+  const result: MemoryJson = {
+    version: 1,
+    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
+    sports: parsed.sports ?? [],
+    coaching_style: parsed.coaching_style ?? null,
+    training_availability: availability,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
@@ -149,6 +181,7 @@ export function applySportsUpdate(
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: cleaned,
     coaching_style: parsed.coaching_style ?? null,
+    training_availability: parsed.training_availability ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
