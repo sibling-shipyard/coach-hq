@@ -59,7 +59,7 @@ struct LoginView: View {
 
                 Link("Open GitHub settings", destination: URL(string: "https://github.com/settings/installations")!)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(Theme.ink)
@@ -103,7 +103,7 @@ struct LoginView: View {
                     HStack(spacing: 10) {
                         if isLoading {
                             ProgressView()
-                                .tint(WarmInstrument.paper)
+                                .tint(WarmInstrument.onAccent)
                                 .scaleEffect(0.85)
                                 .transition(.scale.combined(with: .opacity))
                         } else {
@@ -161,7 +161,7 @@ private struct WarmLoginButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .background(Theme.ink.opacity(configuration.isPressed ? 0.85 : 1))
-            .foregroundColor(WarmInstrument.paper)
+            .foregroundColor(WarmInstrument.onAccent)
             .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
             .shadow(color: WarmInstrument.cardShadow, radius: 10, y: 5)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)

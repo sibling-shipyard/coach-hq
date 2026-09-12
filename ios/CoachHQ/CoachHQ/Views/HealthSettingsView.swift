@@ -116,7 +116,7 @@ struct HealthSettingsView: View {
                 } label: {
                     Text("Try again")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(WarmInstrument.paper)
+                        .foregroundColor(WarmInstrument.onAccent)
                         .frame(minWidth: 120)
                         .frame(height: 38)
                         .background(WorkoutTimerWarm.rust)
@@ -278,11 +278,11 @@ private struct WorkoutImportRow: View {
                     if isImporting {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(WarmInstrument.paper)
+                            .tint(WarmInstrument.onAccent)
                     } else {
                         Text("Import")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(WarmInstrument.paper)
+                            .foregroundColor(WarmInstrument.onAccent)
                     }
                 }
                 .frame(minWidth: 64)

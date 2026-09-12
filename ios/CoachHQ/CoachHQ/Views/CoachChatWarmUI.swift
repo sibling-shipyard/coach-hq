@@ -164,7 +164,7 @@ struct CoachChatInlineChipView: View {
                     .tracking(0.8)
                     .opacity(0.8)
             }
-            .foregroundStyle(WarmInstrument.paper)
+            .foregroundStyle(WarmInstrument.onAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(WarmInstrument.accent)
@@ -248,7 +248,7 @@ struct CoachChatEmptyThreadPrompt: View {
             Button(action: onBackToToday) {
                 Text("Back to today")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(WarmInstrument.paper)
+                    .foregroundStyle(WarmInstrument.onAccent)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(WarmInstrument.accent)
@@ -303,7 +303,7 @@ struct CoachChatSyncRetryRow: View {
         Button(action: action) {
             Text("Retry")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(WarmInstrument.paper)
+                .foregroundStyle(WarmInstrument.onAccent)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(WarmInstrument.ink)
@@ -465,7 +465,7 @@ struct CoachChatComposer: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(WarmInstrument.paper)
+                    .foregroundStyle(WarmInstrument.onAccent)
                     .frame(width: 28, height: 28)
                     .background(canSend ? WarmInstrument.accent : WarmInstrument.inkFaint)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -721,7 +721,7 @@ struct CoachChatHistorySheet: View {
             } label: {
                 Text("New conversation")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(WarmInstrument.paper)
+                    .foregroundStyle(WarmInstrument.onAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(WarmInstrument.ink)

@@ -15,7 +15,7 @@ struct CompactInstrumentHeader: View {
             Text("BUILD · \(phase.weekLabel.uppercased())")
                 .font(WarmInstrument.monoLabel(9))
                 .tracking(1.0)
-                .foregroundColor(WarmInstrument.paper)
+                .foregroundColor(WarmInstrument.onAccent)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(WarmInstrument.accent)

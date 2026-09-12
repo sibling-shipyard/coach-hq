@@ -3,19 +3,20 @@ import SwiftUI
 // MARK: - Helpers (mirrors ui/client/src/components/workout-timer-warm/WorkoutTimerWidgets.tsx)
 
 enum WorkoutTimerWarm {
-    static let amber = Color(red: 0xA8 / 255, green: 0x70 / 255, blue: 0x2C / 255)
+    static let amber = WarmInstrument.sportColor(.cycling)
     static let rust = WarmInstrument.accent
     static let restAccent = WarmInstrument.alarmFg
 
-    // MARK: - W4 tokenization — shared across this file, WorkoutOverviewView, and WorkoutListView
-    // (the timer and its pre-workout overview share the same exercise-list chrome).
-    static let ink = Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255)
-    static let inkMuted = Color(red: 0x6B / 255, green: 0x6D / 255, blue: 0x64 / 255)
-    static let numberFaint = Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255)
-    static let labelFaint = Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255)
-    static let divider = Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255)
-    static let exerciseCardBorder = Color(red: 0xCA / 255, green: 0xBF / 255, blue: 0xA9 / 255)
-    static let listItemBorder = Color(red: 0xDC / 255, green: 0xD5 / 255, blue: 0xC6 / 255)
+    // MARK: - Timer tokens
+    // The timer keeps these aliases for its own vocabulary, but the values come from the
+    // app-wide Warm Instrument palette so dark mode follows the rest of iOS.
+    static let ink = WarmInstrument.ink
+    static let inkMuted = WarmInstrument.inkMuted
+    static let numberFaint = WarmInstrument.inkFaintText
+    static let labelFaint = WarmInstrument.inkFaintText
+    static let divider = WarmInstrument.headerRule
+    static let exerciseCardBorder = WarmInstrument.border
+    static let listItemBorder = WarmInstrument.headerRule
 
     struct UpNextItem: Identifiable {
         var id: Int { num }
@@ -137,7 +138,7 @@ struct WarmWorkoutTypeBadge: View {
         Text(label)
             .font(WarmInstrument.monoLabel(9))
             .kerning(1)
-            .foregroundColor(WarmInstrument.paper)
+            .foregroundColor(WarmInstrument.onAccent)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(accent)
@@ -194,7 +195,7 @@ struct WarmSidePills: View {
             .foregroundColor(active ? WarmInstrument.paper : WarmInstrument.inkFaint)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
-            .background(active ? WorkoutTimerWarm.rust : Theme.mutedBackground)
+            .background(active ? WorkoutTimerWarm.rust : WarmInstrument.surfaceMuted)
             .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 }
@@ -277,7 +278,7 @@ struct WarmTimerControls: View {
             Button(action: onPrimary) {
                 Text(primaryLabel)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity)
@@ -336,7 +337,7 @@ struct WarmPrimaryCTA: View {
             Text(title)
                 .font(.system(size: 15, weight: .bold))
                 .kerning(0.3)
-                .foregroundColor(WarmInstrument.paper)
+                .foregroundColor(WarmInstrument.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
                 .background(WorkoutTimerWarm.rust)
@@ -419,7 +420,7 @@ struct WarmWorkoutExerciseListSheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
-            .background(Theme.mutedBackground)
+            .background(WarmInstrument.desk)
             .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -487,7 +488,7 @@ private struct WarmExerciseListPhaseBlock: View {
                                 Text("NOW")
                                     .font(WarmInstrument.monoLabel(8))
                                     .kerning(1)
-                                    .foregroundColor(WarmInstrument.paper)
+                                    .foregroundColor(WarmInstrument.onAccent)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(accent)

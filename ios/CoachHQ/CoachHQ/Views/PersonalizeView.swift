@@ -104,7 +104,7 @@ struct NamePromptView: View {
                             } label: {
                                 Image(systemName: "arrow.up")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(WarmInstrument.paper)
+                                    .foregroundStyle(WarmInstrument.onAccent)
                                     .frame(width: 28, height: 28)
                                     .background(canSend ? WarmInstrument.accent : WarmInstrument.inkFaint)
                                     .clipShape(Circle())

@@ -267,7 +267,7 @@ private struct WarmTimerFocusBody: View {
                 Text(shortBlockName(phase.name))
                     .font(WarmInstrument.monoLabel(9))
                     .kerning(1)
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(accent)
@@ -356,7 +356,7 @@ private struct WarmTimerFocusBody: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Theme.mutedBackground)
+                            .fill(WarmInstrument.headerRule)
                         Capsule()
                             .fill(readoutColor)
                             .frame(width: geo.size.width * engine.segmentProgressPct)
