@@ -28,7 +28,7 @@
   justify-content: center;
   border: 1px solid #d8d2c6;
   border-radius: 9px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   background: var(--wi-surface);
   text-decoration: none;
   cursor: pointer;
@@ -105,7 +105,7 @@
 .wtx-mute-btn.is-muted {
   border-color: #d8d1c2;
   background: var(--wi-surface-muted);
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
 }
 
 .wtx-elapsed {
@@ -116,7 +116,7 @@
 }
 
 .wtx-elapsed__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -175,7 +175,7 @@
 
 .wtx-of-block,
 .wtx-ex-total {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   white-space: nowrap;
@@ -188,7 +188,7 @@
 }
 
 .wtx-exercise-meta__num {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
 }
@@ -206,7 +206,7 @@
   border: 1px solid var(--wi-line);
   border-radius: 5px;
   padding: 2px 7px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -227,7 +227,7 @@
 .wtx-side-pill {
   padding: 4px 12px;
   border-radius: 7px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   background: var(--wi-page);
   font-family: "Space Mono", monospace;
   font-size: 10px;
@@ -277,7 +277,7 @@
 }
 
 .wtx-countdown-caption {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -304,7 +304,7 @@
 }
 
 .wtx-reps-readout__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -326,7 +326,7 @@
 }
 
 .wtx-cue-card__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -348,7 +348,7 @@
 }
 
 .wtx-why-card__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -374,7 +374,7 @@
 
 .wtx-mobile-next__label {
   flex: none;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 8.5px;
   font-weight: 700;
@@ -518,7 +518,7 @@
 
 .wtx-uplist-row__block {
   overflow: hidden;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   text-overflow: ellipsis;
@@ -533,7 +533,7 @@
 }
 
 .wtx-uplist-empty {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -549,7 +549,7 @@
 }
 
 .wtx-note-card__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -588,7 +588,7 @@
 }
 
 .wtx-list-banner__body {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 13px;
 }
 
@@ -600,7 +600,7 @@
 }
 
 .wtx-list-group__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   font-weight: 700;
@@ -674,7 +674,7 @@
 
 .wtx-list-card__subtitle {
   margin-top: 2px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 13px;
 }
 
@@ -697,7 +697,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10.5px;
 }
@@ -712,7 +712,7 @@
   padding: 3px 7px;
   border: 1px solid #dcd5c6;
   border-radius: 5px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
 }
@@ -740,14 +740,14 @@
 
 .wtx-ov-subtitle {
   margin: 0;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 14px;
 }
 
 .wtx-ov-stats {
   display: flex;
   gap: 16px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
 }
@@ -774,7 +774,7 @@
 }
 
 .wtx-ov-equipment__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -828,7 +828,7 @@
 }
 
 .wtx-ov-block__duration {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -881,7 +881,7 @@
 }
 
 .wtx-ov-row__cue {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -969,7 +969,7 @@
 }
 
 .wtx-complete-title__subtitle {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -993,7 +993,7 @@
 }
 
 .wtx-complete-time__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -1024,7 +1024,7 @@
 }
 
 .wtx-complete-stat span {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.1em;
@@ -1119,7 +1119,7 @@
 
 .wtx-dialog p {
   margin: 0 0 20px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 13.5px;
 }
 

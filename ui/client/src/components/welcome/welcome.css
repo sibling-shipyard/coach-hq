@@ -482,7 +482,7 @@
 }
 
 .welcome-feature__index {
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 11px;
   font-weight: 700;
@@ -531,7 +531,7 @@
 .welcome-feature__card-label {
   display: block;
   margin-bottom: 8px;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -608,7 +608,7 @@
 }
 
 .welcome-quest__value span {
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 12px;
 }
 
@@ -733,7 +733,7 @@
 }
 
 .welcome-timer-card__sport {
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -832,7 +832,7 @@
 }
 
 .welcome-timer-card__panel-label {
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
   font-weight: 700;
@@ -861,7 +861,7 @@
 
 .welcome-timer-card__nav {
   width: 110px;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 12px;
 }
@@ -896,7 +896,7 @@ button.welcome-timer-card__run:hover {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid #efe9dc;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -926,7 +926,7 @@ button.welcome-timer-card__run:hover {
 
 .welcome-phone__timer-head span:last-child {
   margin-left: auto;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 13px;
 }
 
@@ -1179,7 +1179,7 @@ input.welcome-cta__input:focus {
 }
 
 input.welcome-cta__input::placeholder {
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
 }
 
 button.welcome-cta__submit {
@@ -1241,7 +1241,7 @@ button.welcome-cta__submit:hover {
 
 .welcome-cta__footer {
   margin-top: 64px;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.1em;
@@ -1777,7 +1777,7 @@ button.welcome-adapt__scenario.is-active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -1966,7 +1966,7 @@ button.welcome-cta__submit--inline {
 .welcome-cta__note {
   min-height: 14px;
   margin-top: 14px;
-  color: var(--wi-ink-faint, #98998f);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.08em;

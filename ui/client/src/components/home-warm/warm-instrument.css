@@ -358,7 +358,7 @@
 
 .wi-card-label,
 .wi-card-kicker {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 700;
@@ -627,7 +627,7 @@ button.wi-engine-card {
 }
 
 .wi-quest-card__main small {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 12px;
 }
 
@@ -793,7 +793,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-commitment-card__top small {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 16px;
 }
 
@@ -906,7 +906,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-plan-day__label {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9.5px;
 }
@@ -1047,7 +1047,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-calories-card__value span {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 13px;
 }
@@ -1085,7 +1085,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-calories-card__meta span {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
 }
 
 .wi-training-card {
@@ -1228,7 +1228,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-activity-month > strong {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 8.5px;
   letter-spacing: 0.1em;
@@ -1479,7 +1479,7 @@ button.wi-commitment-card:hover {
 }
 
 .wi-vo2-card__trend text {
-  fill: var(--wi-ink-faint);
+  fill: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
 }
@@ -1518,7 +1518,7 @@ button.wi-commitment-card:hover {
 .wi-session-row__date {
   width: 52px;
   flex: none;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 10px;
 }
@@ -1733,7 +1733,7 @@ button.wi-commitment-card:hover {
 
 .wi-build-card__rail > div:last-child {
   margin-top: 7px;
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-family: "Space Mono", monospace;
   font-size: 9px;
 }
@@ -2349,7 +2349,7 @@ button.wi-commitment-card:hover {
   }
 
   .wi-open-engine > header span {
-    color: var(--wi-ink-faint);
+    color: var(--wi-ink-faint-text, #635f55);
     font-family: "Space Mono", monospace;
     font-size: 10px;
     font-weight: 700;
@@ -2441,7 +2441,7 @@ button.wi-commitment-card:hover {
   .wi-open-engine__dose > div > span {
     width: 30px;
     flex: none;
-    color: var(--wi-ink-faint);
+    color: var(--wi-ink-faint-text, #635f55);
     font-family: "Space Mono", monospace;
     font-size: 10px;
   }
@@ -2455,7 +2455,7 @@ button.wi-commitment-card:hover {
 
   .wi-open-engine__dose > div > strong small {
     margin-left: 7px;
-    color: var(--wi-ink-faint);
+    color: var(--wi-ink-faint-text, #635f55);
     font-family: "Space Mono", monospace;
     font-size: 9px;
     font-weight: 400;
@@ -2520,7 +2520,7 @@ button.wi-commitment-card:hover {
 
   .wi-open-engine__dose > div.is-rest strong,
   .wi-open-engine__dose > div.is-rest b {
-    color: var(--wi-ink-faint);
+    color: var(--wi-ink-faint-text, #635f55);
   }
 
   .wi-open-engine .wi-coach-read-card {
@@ -2718,7 +2718,7 @@ div.wi-trend-scrub__chip {
 
 .wi-calories-card__hover > span,
 .wi-calories-card__hover > small {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
 }
 
 .wi-calories-card__hover > b {
@@ -2823,7 +2823,7 @@ div.wi-trend-scrub__chip {
 
 .wi-build-card__badge > span,
 .wi-build-card__badge > small {
-  color: var(--wi-ink-faint);
+  color: var(--wi-ink-faint-text, #635f55);
   font-size: 7px;
 }
 
