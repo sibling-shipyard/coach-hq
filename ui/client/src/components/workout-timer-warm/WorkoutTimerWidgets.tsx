@@ -56,7 +56,9 @@ export function TimerTopBar({
             ←
           </Link>
         )}
-        <span className="wtx-title">{title}</span>
+        <span className="wtx-title" title={title}>
+          {title}
+        </span>
         {sportLabel ? (
           <span
             className="wtx-sport-pill"
@@ -255,7 +257,9 @@ export function FocusCard(props: FocusCardProps) {
       {nextUp ? (
         <div className="wtx-mobile-next">
           <span className="wtx-mobile-next__label">NEXT</span>
-          <span className="wtx-mobile-next__name">{nextUp.name}</span>
+          <span className="wtx-mobile-next__name" title={nextUp.name}>
+            {nextUp.name}
+          </span>
           <span className="wtx-mobile-next__dose">{nextUp.dose}</span>
         </div>
       ) : null}
@@ -326,7 +330,9 @@ export function UpNextCard({ rows }: { rows: UpNextRow[] }) {
           <div className="wtx-uplist-row" key={`${row.n}-${row.name}`}>
             <span className="wtx-uplist-row__n">{row.n}</span>
             <div className="wtx-uplist-row__body">
-              <span className="wtx-uplist-row__name">{row.name}</span>
+              <span className="wtx-uplist-row__name" title={row.name}>
+                {row.name}
+              </span>
               <span className="wtx-uplist-row__block">{row.block}</span>
             </div>
             <span className="wtx-uplist-row__dose">{row.dose}</span>

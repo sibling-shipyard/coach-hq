@@ -37,7 +37,7 @@ function CommitmentBody({
           />
         </div>
         <div className="wi-commitment-card__meta">
-          <span>{record ?? item.note}</span>
+          <span title={record ?? item.note}>{record ?? item.note}</span>
           {onToggle ? (
             <button
               type="button"

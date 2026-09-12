@@ -37,7 +37,7 @@ export function BuildPhaseCard({ phase }: { phase: BuildPhaseSnapshot }) {
           const hasProgress = milestone.progressPercent != null;
           return (
             <div className="wi-build-card__milestone" key={key}>
-              <strong>{milestone.name}</strong>
+              <strong title={milestone.name}>{milestone.name}</strong>
               <span>
                 {current} → <b>{milestone.target}</b>
               </span>
