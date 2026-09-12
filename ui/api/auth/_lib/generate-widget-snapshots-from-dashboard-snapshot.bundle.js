@@ -1827,6 +1827,7 @@ function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, data
 // api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts
 var HEALTHKIT_ACTIVITY_ID = /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 var STRAVA_ACTIVITY_ID = /^strava:[0-9]{1,32}$/;
+var THREAD_SEED_ID = /^t-[0-9]+$/;
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1842,7 +1843,7 @@ function isLatestCoachMessageFile(value) {
   const message = value.message;
   if (!hasExactKeys(message, ["activity_ids", "body", "conversation_seed_id", "created_at", "id"]))
     return false;
-  if (typeof message.id !== "string" || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) || typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)) || typeof message.body !== "string" || message.body.trim().length === 0 || message.body.length > 360 || message.conversation_seed_id !== `local-proactive-${message.id}` || !Array.isArray(message.activity_ids) || message.activity_ids.length === 0 || message.activity_ids.length > 20)
+  if (typeof message.id !== "string" || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) || typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)) || typeof message.body !== "string" || message.body.trim().length === 0 || message.body.length > 360 || typeof message.conversation_seed_id !== "string" || message.conversation_seed_id !== `local-proactive-${message.id}` && !THREAD_SEED_ID.test(message.conversation_seed_id) || !Array.isArray(message.activity_ids) || message.activity_ids.length === 0 || message.activity_ids.length > 20)
     return false;
   const activityIds = message.activity_ids;
   if (activityIds.some(

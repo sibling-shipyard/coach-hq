@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FileEntry } from "../../_lib/githubGitData.js";
 import type { LlmAdapter } from "../../_lib/llmClient.js";
+import { activitySyncBatchId } from "../../coach-chat/_lib/decide/activitySync.js";
+import type { ChatThread } from "../../coach-chat/_lib/chatThreads.js";
 import {
   CoachMessageError,
   MAX_ACTIVITY_IDS,
@@ -463,6 +465,65 @@ describe("generated message validation", () => {
   });
 });
 
+describe("one generator, one thread id (#918)", () => {
+  it("reuses an already-open activity-sync thread instead of generating a second reply", async () => {
+    const batchId = activitySyncBatchId([ACTIVITY_ID]);
+    const existingThread: ChatThread = {
+      id: "t-1700000000000",
+      createdAt: 1_700_000_000_000,
+      title: "Ride #12",
+      preview: "Already said in chat.",
+      messages: [
+        { id: "d-1", role: "divider", label: "TODAY" },
+        {
+          id: "c-1",
+          role: "coach",
+          paragraphs: ["Already said in chat."],
+          attachments: [
+            { version: 1, kind: "synced_activity_list", batch_id: batchId, activities: [] },
+          ],
+        },
+      ],
+    };
+    const files = repoFiles();
+    files.set("user_data/coach/chat_history.json", JSON.stringify({ threads: [existingThread] }));
+    const deps = dependencies({
+      readFile: vi.fn(async (path: string) =>
+        path === "user_data/coach/latest_message.json"
+          ? latestFile(null)
+          : (files.get(path) ?? null),
+      ),
+    });
+
+    const result = await generateAndStoreCoachMessage([ACTIVITY_ID], deps);
+
+    expect(deps.generateBody).not.toHaveBeenCalled();
+    expect(result.message).toMatchObject({
+      body: "Already said in chat.",
+      conversation_seed_id: "t-1700000000000",
+      activity_ids: [ACTIVITY_ID],
+    });
+    expect(deps.commitFiles).toHaveBeenCalledOnce();
+    const writes = (deps.commitFiles as ReturnType<typeof vi.fn>).mock.calls[0][0] as FileEntry[];
+    expect(writes.map((write) => write.path)).toEqual(["user_data/coach/latest_message.json"]);
+  });
+
+  it("mints a chat thread when no thread matches the batch yet, and seeds from it", async () => {
+    const deps = dependencies();
+
+    const result = await generateAndStoreCoachMessage([ACTIVITY_ID], deps);
+
+    expect(deps.generateBody).toHaveBeenCalledOnce();
+    expect(deps.commitFiles).toHaveBeenCalledOnce();
+    const writes = (deps.commitFiles as ReturnType<typeof vi.fn>).mock.calls[0][0] as FileEntry[];
+    expect(writes.map((write) => write.path)).toEqual([
+      "user_data/coach/chat_history.json",
+      "user_data/coach/latest_message.json",
+    ]);
+    expect(result.message.conversation_seed_id).toMatch(/^t-\d+$/);
+  });
+});
+
 describe("idempotency and resolved writes", () => {
   it("returns an existing identical batch without generation or a write", async () => {
     const existing = latestMessage();
@@ -554,11 +615,16 @@ describe("idempotency and resolved writes", () => {
     });
     let latestReads = 0;
     const files = repoFiles();
+    // Mirrors commitFilesAtomic's real retry semantics: every resolved entry in `writes`
+    // (chat_history.json's mint alongside latest_message.json in the no-existing-thread
+    // fallback) is re-resolved on every attempt, in array order.
     const commitFiles = vi.fn(async (writes: FileEntry[]) => {
-      const resolved = writes[0];
-      if (!("resolve" in resolved)) throw new Error("expected resolved write");
-      await resolved.resolve();
-      await resolved.resolve();
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        for (const write of writes) {
+          if (!("resolve" in write)) throw new Error("expected resolved write");
+          await write.resolve();
+        }
+      }
       return { commitSha: "retry-sha" };
     });
     const deps = dependencies({

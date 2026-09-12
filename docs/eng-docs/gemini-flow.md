@@ -21,7 +21,9 @@ no streaming (issue #270).
 `gemini` is the same direct call described above, and `openrouter` sends the request to OpenRouter
 instead (#713). Its separate message-only schema gets bounded repo-owned activity context,
 including `effort_shape` but never raw HR points; it does not use chat actions, history, or the
-explicit chat cache.
+explicit chat cache. `activitySyncTurn.ts`'s post-sync thread now generates its opening reply
+through this same path (#918) instead of its own `askGemini()` call — activity_sync is no longer
+one of the `askGemini()` modes above.
 
 Chat moved onto `llmClient` too (#713 M2 PR 2). `coach-chat/_lib/gemini/geminiClient.ts`'s
 `askGemini()` now only builds the prompt/request and parses the reply. The actual
@@ -44,7 +46,7 @@ flowchart LR
     end
     subgraph dynamic["Dynamic (fresh every call)"]
         state["split athlete + quest context\n+ optional Fitness Snapshot"]
-        mode["mode-specific instructions\ngreeting / activity_sync / ordinary\n(no more closing mode - C1)"]
+        mode["mode-specific instructions\ngreeting / ordinary\n(no more closing mode - C1)"]
         schema["mode-specific response schema"]
         ts["todayContextLine()\nchanges every minute"]
     end

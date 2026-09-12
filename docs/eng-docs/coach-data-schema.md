@@ -96,6 +96,12 @@ A fresh carve seeds `{ "schema_version": 1, "message": null }`.
 `home.coachMessage` widget-snapshot projection carries `id`, `created_at`, `body`, and
 `conversation_seed_id`; this file remains canonical.
 
+`conversation_seed_id` is `local-proactive-<id>` only when no `chat_history.json` thread exists
+yet for this batch (a genuinely backgrounded sync). When one does — the common case, since
+activity-sync turns persist immediately (#918) — it is that thread's real id (`t-<epoch ms>`)
+instead, so notification/Home/chat all open the exact same conversation. Both shapes are valid;
+a reader must accept either, not assume the `local-proactive-` prefix.
+
 ### `user_data/coach/chat_history.json`
 
 Threads Coach Chat persists. Activity-sync turns write immediately (not on close). A Coach
@@ -103,7 +109,10 @@ message may carry `attachments`. M0 kind:
 
 `synced_activity_list` `{ version: 1, batch_id, activities[] }`
 
-`batch_id` is the first 16 hex of sha256 of the sorted unique `hk:<uuid>` ids. Rows:
+`batch_id` is the first 16 hex of sha256 of the sorted unique activity ids, canonicalized to
+`healthkit:<UUID>`/`strava:<id>` first. `/api/coach-chat`'s `hk:<uuid>` request format and
+`/api/coach-message`'s `healthkit:<UUID>` format must hash to the same batch id for the same
+sync (`canonicalSyncActivityId` in `activitySync.ts`, #918). Rows:
 `id, title, sport, start, duration_s, load`. Server rereads `user_data/activities/hist/`;
 Gemini cannot set these. Unknown kinds/versions are ignored, never fatal. Tap a row opens
 Activity Detail by `id`.

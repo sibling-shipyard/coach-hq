@@ -34,6 +34,15 @@ describe("projectLatestCoachMessage", () => {
     expect(projected?.body).toBe(VALID_LATEST_MESSAGE.message.body);
   });
 
+  // #918: a batch synced with a thread already open points conversation_seed_id at that real
+  // chat-thread id (`t-<epoch ms>`) instead of minting `local-proactive-<id>` - this projector
+  // must accept both shapes, not just the local-proactive one.
+  it("accepts a real chat-thread seed id", () => {
+    const message = { ...VALID_LATEST_MESSAGE.message, conversation_seed_id: "t-1756540800000" };
+    const projected = projectLatestCoachMessage(JSON.stringify({ schema_version: 1, message }));
+    expect(projected?.conversation_seed_id).toBe("t-1756540800000");
+  });
+
   it("omits a null message", () => {
     expect(projectLatestCoachMessage({ schema_version: 1, message: null })).toBeUndefined();
   });

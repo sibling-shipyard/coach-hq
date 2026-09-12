@@ -188,7 +188,7 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;
   if (isGreetRequest(parsed)) return handleGreet(repo, token, apiKey, parsed.onboardingHints);
-  if (isActivitySyncRequest(parsed)) return handleActivitySync(repo, token, apiKey, parsed);
+  if (isActivitySyncRequest(parsed)) return handleActivitySync(repo, token, parsed);
 
   const state = await withProcessingSpan("load_turn_state", () =>
     loadTurnState(parsed, repo, token, apiKey),
