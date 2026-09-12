@@ -4,7 +4,18 @@ import Combine
 @MainActor
 class WorkoutService: ObservableObject {
     @Published private(set) var templates: [Workout] = []
+    /// Coach session files for whichever date was last fetched (see `fetchTodaySessions`),
+    /// keyed by filename with the date prefix and `.json` dropped.
     @Published private(set) var todaySessions: [String: Workout] = [:]
+    /// A5-ios: `current_week.json`, decoded, or nil if missing/unreadable. Nil also just
+    /// means "no live plan" to every caller — same lenient-decode-failure story `Workout`
+    /// already has for template/session files.
+    @Published private(set) var currentWeek: CurrentWeek? = nil
+    /// Set alongside `currentWeek` — nil exactly when `currentWeek` is nil.
+    @Published private(set) var currentWeekAvailability: CurrentWeekAvailability? = nil
+    /// The athlete's own known timezone (`user_data/coach/profile.json`'s `timezone`), used
+    /// by the Workouts page selector only when the current week isn't live.
+    @Published private(set) var athleteTimezone: String? = nil
     @Published private(set) var isLoading = false
     @Published private(set) var fetchError: String? = nil
 
@@ -20,6 +31,9 @@ class WorkoutService: ObservableObject {
     func reset() {
         templates = []
         todaySessions = [:]
+        currentWeek = nil
+        currentWeekAvailability = nil
+        athleteTimezone = nil
         fetchError = nil
     }
 
@@ -72,13 +86,17 @@ class WorkoutService: ObservableObject {
         templates = loaded
     }
 
-    func fetchTodaySessions() async {
+    /// Fetches coach session files for `dateString` (`YYYY-MM-DD`), defaulting to the
+    /// device's own local date. The Workouts page always passes an explicit date computed
+    /// from the plan's own timezone (live) or the athlete's known timezone (not live) — see
+    /// `WorkoutsPageSelector` — never the device's local zone.
+    func fetchTodaySessions(forDate dateString: String? = nil) async {
         guard let apiClient else { return }
         isLoading = true
         fetchError = nil
         defer { isLoading = false }
 
-        let today = Self.localDateKey(from: Date())
+        let today = dateString ?? Self.localDateKey(from: Date())
         let prefix = "\(today)_"
 
         // List the sessions directory directly instead of only probing paths for known
@@ -118,6 +136,50 @@ class WorkoutService: ObservableObject {
             }
         }
         todaySessions = sessions
+    }
+
+    /// Fetches and decodes `user_data/ledger/current_week.json`. A missing file (never
+    /// confirmed a week) or a decode failure both resolve the same way: `currentWeek` and
+    /// `currentWeekAvailability` go to nil, which the selector treats as "no live plan" —
+    /// same lenient story `fetchTemplates`/`fetchTodaySessions` already have.
+    func fetchCurrentWeek(now: Date = Date()) async {
+        guard let apiClient else { return }
+
+        let data: Data
+        do {
+            data = try await apiClient.readFile(path: "user_data/ledger/current_week.json")
+        } catch {
+            currentWeek = nil
+            currentWeekAvailability = nil
+            return
+        }
+
+        guard let week = try? JSONDecoder().decode(CurrentWeek.self, from: data) else {
+            currentWeek = nil
+            currentWeekAvailability = nil
+            return
+        }
+
+        // Availability itself always reads the plan's own timezone (matches
+        // engine/lib/current-week.mts's getAvailability) — the athlete's timezone only
+        // comes into play later, for "today" when the plan turns out not to be live.
+        let todayInPlanTimezone = dateString(for: now, inTimeZoneIdentifier: week.timezone)
+        currentWeek = week
+        currentWeekAvailability = computeCurrentWeekAvailability(for: week, today: todayInPlanTimezone)
+    }
+
+    /// Fetches the athlete's known timezone from `user_data/coach/profile.json`, used by the
+    /// Workouts page selector only when the current week isn't live. A missing field or
+    /// unreadable file just leaves this nil — the selector falls back to UTC in that case.
+    func fetchAthleteTimezone() async {
+        guard let apiClient else { return }
+        do {
+            let data = try await apiClient.readFile(path: "user_data/coach/profile.json")
+            let profile = try JSONDecoder().decode(CoachProfileSummary.self, from: data)
+            athleteTimezone = profile.timezone
+        } catch {
+            athleteTimezone = nil
+        }
     }
 
     /// Local calendar date for session filenames (`YYYY-MM-DD_workout_a.json`).
