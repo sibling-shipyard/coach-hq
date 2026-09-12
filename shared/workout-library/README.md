@@ -1,37 +1,85 @@
 # Workout library
 
-Generic, athlete-agnostic workout templates. Seed content for the post-first-session
-template generation flow (`coach-redesign-part5-wiring-plan.md` section 1/2): once an athlete
-finishes onboarding, backend logic picks a handful of these by tag, then a light Gemini pass
-tunes load/reps to the athlete and swaps out anything they lack equipment for. Selection logic
-itself isn't built yet — this is just the raw material.
+Two shapes live here side by side right now, on purpose.
 
-## What's here
+`templates/*.json` + `index.json` - the old, complete premade `Workout` files. These are still
+live: `coachWorkoutFiles.ts`'s automatic template-dump selector reads them on signup to commit 4-6
+starter templates to a new athlete's repo, and nothing else in this PR touches that path.
 
-`templates/*.json` — one `Workout` object per file, same schema as
-`ui/client/src/lib/workouts.ts` (`Workout`/`Phase`/`Exercise`). Written in the same voice as the
-real per-athlete templates in `coach-skanda`/`coach-akash`'s `user_data/` — real form cues and
-`why` rationale, not filler. These are never read directly by an athlete; they get copied and
-adapted into an athlete's own `templates/` on first-session close.
+`exercises.json` - the new catalog of individual movements, not premade workouts. One entry per
+exercise: a name, the muscle group and movement pattern it trains, its `type` (`reps` | `timed`),
+the equipment it needs, a real form cue, and a `why`. Tracked movements also carry a
+`progression_id`. Nothing reads this file yet - `workout_create`/`workout_remove` (A2) and the
+first-week compiler (A3) wire it in.
 
-`index.json` — one entry per template file, selection metadata that isn't part of the `Workout`
-type itself:
+**This is temporary.** A3 deletes `templates/`, `index.json`, the dump selector in
+`coachWorkoutFiles.ts`, and this file's own `workoutLibrary.test.ts` in one commit, since removing
+the selector is what makes the old files actually dead - keeping them around unread would just be
+clutter. Until then, treat `index.json`/`templates/` as frozen: fix a bug in them if you must, but
+build all new coverage into `exercises.json` instead.
+
+## Why a catalog of movements, not workouts
+
+The old shape here is ~30 complete `Workout` files, picked automatically by tag at signup time.
+The only fix that shape allowed was picking a different canned file - dosing still came from
+whichever file matched an athlete's tags, never from their own benchmark or progressions. That's
+the bug this catalog exists to close.
+
+Coach names exercises from the catalog. Coach doses them from the athlete. Every workout spec, a
+first-session benchmark, a first-week anchor session, or "give me an upper-body workout" months
+later, picks movements from here by muscle group, sport, and available equipment. Sets, reps, and
+weight are computed from that athlete's own `progressions.json` current value, `injuries.json`
+active flags, and `profile.json` age, never read off this file. That's why no entry below carries
+`sets`, `reps`, `duration_secs`, or a weight: a catalog entry describes what the movement is,
+never how much of it.
+
+## Schema
 
 ```json
-{ "id": "strength_dumbbells_intermediate", "sport_tags": ["general_fitness"], "equipment": ["dumbbells"], "goal_tags": ["build_strength"], "level": "intermediate" }
+{
+  "id": "back_row_dumbbell",
+  "name": "Single-arm dumbbell row",
+  "muscle_group": "back",
+  "movement_pattern": "pull",
+  "type": "reps",
+  "equipment": ["dumbbells"],
+  "sport_tags": ["general_fitness", "strength_training"],
+  "form_cue": "...",
+  "why": "...",
+  "progression_id": "row_dumbbell"
+}
 ```
 
-- `id` must match the template file's own `id` field exactly.
-- `equipment` is what's actually required to run the workout as written (`bodyweight`,
-  `dumbbells`, `resistance_band`, `full_gym`, `pull_up_bar`, `parallettes` — combine as needed).
-- `sport_tags` / `goal_tags` are free-form but keep them to the existing vocabulary in the file
-  where possible, so selection logic doesn't have to fuzzy-match synonyms.
-- `level` is `beginner` | `intermediate` | `advanced`.
+- `id` is unique across the file and used to reference the entry, never a filename.
+- `muscle_group` / `movement_pattern` are how Coach and any selection logic filter the catalog -
+  keep them to the existing vocabulary in the file rather than inventing new ones.
+- `type` is `reps` or `timed`, the same split the compiler uses everywhere else.
+- `equipment` is what the movement as written actually requires (`bodyweight`, `dumbbells`,
+  `resistance_band`, `full_gym`, `pull_up_bar`, `bench`, combine as needed).
+- `form_cue` and `why` are written in the same voice as the real per-athlete session files in
+  `coach-skanda`/`coach-akash`'s `user_data/`, real cues and real rationale, not filler.
+- `progression_id` is present only when the movement is worth tracking over time. A warm-up or
+  mobility entry omits it. Where it's set, it should match the `progression_id` naming already in
+  use in real `progressions.json` files so it resolves at write time. This file doesn't validate
+  against any one athlete's ledger, only that the shape is a plausible identifier.
 
-## Adding a template
+## Coverage
 
-1. Write the `Workout` JSON in `templates/`, matching the real schema exactly — check
-   `ui/client/src/lib/workouts.ts` for required vs. optional fields.
-2. Add one matching entry to `index.json`.
-3. `ui/api/coach-chat/_tests/workoutLibrary.test.ts` validates both — schema conformance and
-   that `index.json` and `templates/` stay in exact 1:1 correspondence. Run it before committing.
+The catalog needs real entries across every movement pattern Coach reaches for: push, pull,
+squat, hinge, core, and calves, plus the calisthenics skill families already tracked in real
+`progressions.json` files (pull-up, handstand, front lever) and prehab entries for the injury
+sites already on file (hip/glute, shoulder, posture). Thin coverage just pushes Coach back to
+inventing exercises outside the catalog, which defeats the point, so don't add an entry without
+also keeping the surrounding group covered.
+
+## Adding an entry
+
+1. Add one object to `exercises.json`, matching the schema above exactly.
+2. Give it a real form cue and `why`, no placeholder text.
+3. If it's a tracked movement, use a `progression_id` that matches the naming already in use in
+   real athlete `progressions.json` files.
+4. `ui/api/coach-chat/_tests/exerciseCatalog.test.ts` validates the schema, checks for duplicate
+   `id`s, and checks that the coverage table still holds. Run it before committing.
+
+The old `templates/`/`index.json` pair keeps its own test, `workoutLibrary.test.ts`, unchanged -
+don't add new templates there; that shape is frozen until A3 removes it.
