@@ -212,6 +212,10 @@ enum WarmInstrument {
             : UIColor(red: 0x63 / 255, green: 0x5f / 255, blue: 0x55 / 255, alpha: 1)
     })
 
+    /// Light text for terracotta, ink, and sport-colored fills. This stays light in both
+    /// appearances; `paper` is a surface token and becomes dark in dark mode.
+    static let onAccent = Color(red: 0xfb / 255, green: 0xf8 / 255, blue: 0xf1 / 255)
+
     /// Terracotta — load and primary action (ADR 0041): Engine hero, commitment cube fills
     /// tied to load, and primary CTAs (timer actions, Sync Now). Never decorative, never a
     /// status color.
@@ -261,7 +265,11 @@ enum WarmInstrument {
     /// Success/positive text color. Same value `Sport.foundation` happens
     /// to use — coincidental reuse, now named for its own role (matches web's `--wi-status-success`).
     /// No iOS call site yet.
-    static let statusSuccess = Color(red: 0x6d / 255, green: 0x7d / 255, blue: 0x4e / 255)
+    static let statusSuccess = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xa8 / 255, green: 0xbb / 255, blue: 0x82 / 255, alpha: 1)
+            : UIColor(red: 0x6d / 255, green: 0x7d / 255, blue: 0x4e / 255, alpha: 1)
+    })
 
     /// Same warm-grey base `cardBorder`/`borderDashed`/`cardShadow` above already use at
     /// different opacities — named so a caller needing a different opacity doesn't re-type
@@ -284,19 +292,19 @@ enum WarmInstrument {
     /// Build-phase rail segments — `Views/Widgets/BuildPhaseCard.swift`.
     static let buildPhaseDeload = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255, alpha: 1)
+            ? UIColor(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255, alpha: 1)
             : UIColor(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255, alpha: 1)
     })
     static let buildPhaseUpcoming = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255, alpha: 1)
+            ? UIColor(red: 0x5a / 255, green: 0x56 / 255, blue: 0x4d / 255, alpha: 1)
             : UIColor(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255, alpha: 1)
     })
 
     /// Recent-sessions swipe-to-edit action background — `Views/Widgets/RecentSessionsCard.swift`.
     static let editAction = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255, alpha: 1)
+            ? UIColor(red: 0xd2 / 255, green: 0x99 / 255, blue: 0x43 / 255, alpha: 1)
             : UIColor(red: 0xc4 / 255, green: 0x8a / 255, blue: 0x2e / 255, alpha: 1)
     })
 
@@ -305,62 +313,62 @@ enum WarmInstrument {
     enum Chat {
         static let ink = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255, alpha: 1)
+                ? UIColor(red: 0xed / 255, green: 0xea / 255, blue: 0xe2 / 255, alpha: 1)
                 : UIColor(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255, alpha: 1)
         })
         static let inkMuted = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255, alpha: 1)
+                ? UIColor(red: 0xb8 / 255, green: 0xb2 / 255, blue: 0xa6 / 255, alpha: 1)
                 : UIColor(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255, alpha: 1)
         })
         static let inkFaint = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255, alpha: 1)
+                ? UIColor(red: 0x8f / 255, green: 0x89 / 255, blue: 0x7d / 255, alpha: 1)
                 : UIColor(red: 0xa8 / 255, green: 0xa5 / 255, blue: 0x96 / 255, alpha: 1)
         })
         static let border = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255, alpha: 1)
+                ? UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 0.45)
                 : UIColor(red: 0xe2 / 255, green: 0xdb / 255, blue: 0xcd / 255, alpha: 1)
         })
         static let borderLight = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255, alpha: 1)
+                ? UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 0.32)
                 : UIColor(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255, alpha: 1)
         })
         static let borderMuted = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255, alpha: 1)
+                ? UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 0.28)
                 : UIColor(red: 0xe0 / 255, green: 0xd8 / 255, blue: 0xc8 / 255, alpha: 1)
         })
         static let borderFocus = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255, alpha: 1)
+                ? UIColor(red: 0xb8 / 255, green: 0xa2 / 255, blue: 0x82 / 255, alpha: 1)
                 : UIColor(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255, alpha: 1)
         })
         static let goldAccent = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255, alpha: 1)
+                ? UIColor(red: 0xd5 / 255, green: 0xc1 / 255, blue: 0x89 / 255, alpha: 1)
                 : UIColor(red: 0xb0 / 255, green: 0x9a / 255, blue: 0x6a / 255, alpha: 1)
         })
         static let goldMuted = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255, alpha: 1)
+                ? UIColor(red: 0xa9 / 255, green: 0x98 / 255, blue: 0x72 / 255, alpha: 1)
                 : UIColor(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255, alpha: 1)
         })
         static let surfaceBright = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255, alpha: 1)
+                ? UIColor(red: 0x2b / 255, green: 0x29 / 255, blue: 0x23 / 255, alpha: 1)
                 : UIColor(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255, alpha: 1)
         })
         static let surfaceMuted = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255, alpha: 1)
+                ? UIColor(red: 0x27 / 255, green: 0x25 / 255, blue: 0x20 / 255, alpha: 1)
                 : UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdd / 255, alpha: 1)
         })
         static let fillMuted = Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255, alpha: 1)
+                ? UIColor(red: 0x3a / 255, green: 0x36 / 255, blue: 0x2e / 255, alpha: 1)
                 : UIColor(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255, alpha: 1)
         })
     }
@@ -535,7 +543,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(fill.opacity(configuration.isPressed ? 0.8 : 1))
-            .foregroundColor(WarmInstrument.paper)
+            .foregroundColor(WarmInstrument.onAccent)
             .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
@@ -636,7 +644,7 @@ struct WarmDialogActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
+                .foregroundColor(style == .primary ? WarmInstrument.onAccent : Theme.ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(style == .primary ? resolvedPrimaryColor : WarmInstrument.paper)

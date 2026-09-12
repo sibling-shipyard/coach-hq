@@ -483,7 +483,7 @@ private struct WarmDockStartCTA: View {
                     .font(.system(size: 15, weight: .bold))
                     .kerning(0.3)
             }
-            .foregroundColor(WarmInstrument.paper)
+            .foregroundColor(WarmInstrument.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: WarmDockMetrics.pillHeight)
                 .background(WorkoutTimerWarm.rust)

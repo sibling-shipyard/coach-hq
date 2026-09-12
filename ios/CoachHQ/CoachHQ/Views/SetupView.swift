@@ -184,7 +184,7 @@ struct SetupView: View {
                 HStack(spacing: 10) {
                     if isInstalling {
                         ProgressView()
-                            .tint(WarmInstrument.paper)
+                            .tint(WarmInstrument.onAccent)
                             .scaleEffect(0.85)
                             .transition(.scale.combined(with: .opacity))
                     }

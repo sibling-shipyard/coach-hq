@@ -170,7 +170,7 @@ struct SettingsView: View {
                         } label: {
                             Text("Save custom zones")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(WarmInstrument.paper)
+                                .foregroundColor(WarmInstrument.onAccent)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 40)
                                 .background(WarmInstrument.accent)
@@ -264,7 +264,7 @@ struct SettingsView: View {
                     Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(WarmInstrument.paper)
+                .foregroundColor(WarmInstrument.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(WorkoutTimerWarm.rust)
@@ -285,7 +285,7 @@ struct SettingsView: View {
                         Text("Connect Health")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.heartRateColor)
@@ -513,12 +513,12 @@ struct SettingsView: View {
                         if isResetting {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(WarmInstrument.paper)
+                                .tint(WarmInstrument.onAccent)
                         }
                         Text(isResetting ? "Resetting..." : "Reset Test Branch")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(WorkoutTimerWarm.rust)

@@ -8,41 +8,34 @@ struct WorkoutCompleteView: View {
     private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
 
     var body: some View {
-        ZStack {
-            accent.ignoresSafeArea()
+        ScrollView {
+            VStack(spacing: 0) {
+                completeBadge
+                    .staggerReveal(delay: 0.15, offset: 10)
+                    .padding(.top, 52)
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    completeBadge
-                        .staggerReveal(delay: 0.15, offset: 10)
-                        .padding(.top, 52)
+                titleBlock
+                    .staggerReveal(delay: 0.25, offset: 10)
+                    .padding(.top, 20)
 
-                    titleBlock
-                        .staggerReveal(delay: 0.25, offset: 10)
+                summaryCard
+                    .staggerReveal(delay: 0.40, offset: 14)
+                    .padding(.top, 28)
+
+                if !workout.coachingNote.isEmpty {
+                    coachNoteCard
+                        .staggerReveal(delay: 0.68, offset: 10)
                         .padding(.top, 20)
-
-                    timeTrophy
-                        .staggerReveal(delay: 0.40, offset: 14)
-                        .padding(.top, 28)
-
-                    statsRow
-                        .staggerReveal(delay: 0.55, offset: 10)
-                        .padding(.top, 22)
-
-                    if !workout.coachingNote.isEmpty {
-                        coachNoteCard
-                            .staggerReveal(delay: 0.68, offset: 10)
-                            .padding(.top, 20)
-                    }
-
-                    ctaButtons
-                        .staggerReveal(delay: 0.78, offset: 10)
-                        .padding(.top, 36)
-                        .padding(.bottom, 48)
                 }
-                .padding(.horizontal, 28)
+
+                ctaButtons
+                    .staggerReveal(delay: 0.78, offset: 10)
+                    .padding(.top, 32)
+                    .padding(.bottom, 48)
             }
+            .padding(.horizontal, 24)
         }
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .onAppear {
             playCompletionHaptics()
         }
@@ -54,10 +47,10 @@ struct WorkoutCompleteView: View {
         Text("WORKOUT COMPLETE")
             .font(WarmInstrument.monoLabel(10))
             .kerning(1.4)
-            .foregroundColor(accent)
+            .foregroundColor(WarmInstrument.onAccent)
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.95))
+            .background(accent)
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
@@ -65,25 +58,41 @@ struct WorkoutCompleteView: View {
         VStack(spacing: 7) {
             Text(workout.title)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.ink)
                 .multilineTextAlignment(.center)
             Text("\(Theme.workoutLabel(for: workout.workoutType)) · \(workout.subtitle.uppercased())")
                 .font(WarmInstrument.figures(11))
-                .foregroundColor(Color.white.opacity(0.6))
+                .foregroundColor(WarmInstrument.inkMuted)
                 .multilineTextAlignment(.center)
+        }
+    }
+
+    private var summaryCard: some View {
+        WarmCard(padding: 0) {
+            VStack(spacing: 0) {
+                timeTrophy
+                    .padding(.top, 20)
+                    .padding(.bottom, 18)
+
+                WarmInstrument.border
+                    .frame(height: 1)
+
+                statsRow
+                    .padding(.vertical, 14)
+            }
         }
     }
 
     private var timeTrophy: some View {
         VStack(spacing: 4) {
             Text(WorkoutTimerWarm.formatTimer(elapsed))
-                .font(WarmInstrument.figures(80, weight: .bold))
-                .foregroundColor(.white)
+                .font(WarmInstrument.figures(72, weight: .bold))
+                .foregroundColor(accent)
                 .monospacedDigit()
             Text("TOTAL TIME")
                 .font(WarmInstrument.monoLabel(10))
                 .kerning(1.4)
-                .foregroundColor(Color.white.opacity(0.5))
+                .foregroundColor(WarmInstrument.inkFaint)
         }
     }
 
@@ -99,42 +108,37 @@ struct WorkoutCompleteView: View {
         VStack(spacing: 5) {
             Text(value)
                 .font(WarmInstrument.figures(24, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.ink)
             Text(label)
                 .font(WarmInstrument.monoLabel(9))
                 .kerning(1)
-                .foregroundColor(Color.white.opacity(0.5))
+                .foregroundColor(WarmInstrument.inkFaint)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color.white.opacity(0.12))
+        .background(WarmInstrument.surfaceMuted)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
     }
 
     private var coachNoteCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(workout.coachingNote)
-                .font(WarmInstrument.coachVoice(16))
-                .foregroundColor(Color.white.opacity(0.92))
-                .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(3)
-            Text("— Coach Phelps")
-                .font(WarmInstrument.monoLabel(9))
-                .tracking(1.2)
-                .foregroundColor(Color.white.opacity(0.45))
+        WarmCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(workout.coachingNote)
+                    .font(WarmInstrument.coachVoice(16))
+                    .foregroundColor(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
+                Text("— Coach Phelps")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(1.2)
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Color.white.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-        )
     }
 
     private var ctaButtons: some View {
@@ -150,10 +154,10 @@ struct WorkoutCompleteView: View {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 13, weight: .bold))
                 }
-                .foregroundColor(accent)
+                .foregroundColor(WarmInstrument.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(Color.white)
+                .background(accent)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(CompletePressStyle())
@@ -165,14 +169,14 @@ struct WorkoutCompleteView: View {
             } label: {
                 Text("Back to Home")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.white.opacity(0.15))
+                    .background(WarmInstrument.paper)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
+                            .strokeBorder(WarmInstrument.border, lineWidth: 1)
                     )
             }
             .buttonStyle(CompletePressStyle())

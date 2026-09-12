@@ -842,7 +842,7 @@ private struct DescriptionEditorSheet: View {
                 }
                 .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                .overlay { if isSaving { ProgressView().tint(WarmInstrument.paper) } }
+                .overlay { if isSaving { ProgressView().tint(WarmInstrument.onAccent) } }
             }
             .padding(.horizontal, 16)
             .padding(.top, 24)

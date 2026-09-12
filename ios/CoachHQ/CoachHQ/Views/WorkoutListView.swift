@@ -113,7 +113,7 @@ struct WorkoutListView: View {
             .onChange(of: workoutService.fetchError) { _, newError in
                 authManager.noteAPIError(newError)
             }
-            .background(Theme.mutedBackground)
+            .background(WarmInstrument.desk)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutOverviewView(workout: workout)
@@ -231,7 +231,7 @@ struct WarmWorkoutListCard: View {
                             Text("TODAY")
                                 .font(WarmInstrument.monoLabel(9))
                                 .kerning(1)
-                                .foregroundColor(WarmInstrument.paper)
+                                .foregroundColor(WarmInstrument.onAccent)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
                                 .background(Theme.ink)
@@ -379,7 +379,7 @@ struct TodayWorkoutHero: View {
                     Text("TODAY")
                         .font(WarmInstrument.monoLabel(9))
                         .kerning(1.2)
-                        .foregroundColor(WarmInstrument.paper)
+                        .foregroundColor(WarmInstrument.onAccent)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(accent)

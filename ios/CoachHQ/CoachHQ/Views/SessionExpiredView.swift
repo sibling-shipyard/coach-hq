@@ -24,7 +24,7 @@ struct SessionExpiredView: View {
             } label: {
                 Text("Sign in again")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.paper)
+                    .foregroundColor(WarmInstrument.onAccent)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .background(WarmInstrument.ink)
