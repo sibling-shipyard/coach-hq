@@ -48,7 +48,6 @@ export interface CommitmentModel {
   value: string;
   unit: string;
   secondary: string;
-  accent: string;
   allRecord?: string;
   rankedRecord?: string;
   hasRankedRecord?: boolean;
@@ -301,7 +300,6 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
       secondary: formatDistanceKm(
         rides.reduce((sum, activity) => sum + (activity.distance ?? 0), 0),
       ),
-      accent: "#9c5d2e",
     },
     {
       id: "foundation",
@@ -312,7 +310,6 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
       ),
       unit: "active days",
       secondary: foundation.length > 0 ? "rhythm intact" : "start gently",
-      accent: "#496d64",
     },
     {
       id: "badminton",
@@ -324,7 +321,6 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
       allRecord: `${allWins}W-${allLosses}L`,
       rankedRecord: `${rankedWins}W-${rankedLosses}L`,
       hasRankedRecord: rankedWins + rankedLosses > 0,
-      accent: "#2f7058",
     },
     {
       id: "calisthenics",
@@ -333,7 +329,6 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
       value: String(calisthenics.length),
       unit: calisthenics.length === 1 ? "session" : "sessions",
       secondary: calisthenicsFocus(calisthenics),
-      accent: "#76556f",
     },
   ];
 }
