@@ -100,7 +100,11 @@ export interface ProgressionHistoryEntry {
 export interface Progression {
   id: string;
   name: string;
-  current: string;
+  // A3 (#727): `null` is legal and means "not yet benchmarked" - a true beginner and an athlete
+  // working around a flare-up use the same field. Real progressions.json rows written by hand
+  // hold free text ("3x8 clean, no band"), never a bare number - null is the only non-string
+  // state this field can be in.
+  current: string | null;
   target: string;
   unit: string | null;
   history: ProgressionHistoryEntry[];

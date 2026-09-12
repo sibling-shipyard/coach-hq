@@ -32,8 +32,10 @@ in `ui/api/_lib/llmAdapters/geminiAdapter.ts`, reached via `selectLlmAdapter` li
 caller. `LLM_PROVIDER` stays unset/`gemini` in production throughout M2, so this is a plumbing
 move, not a behavior change — chat's wire requests are unchanged. Template adjustment
 (`coachWorkoutFiles.ts`'s `adjustTemplatesWithGemini`) moved onto `llmClient` too (#713 M2 PR 3) -
-every direct-Gemini caller in the codebase now goes through `selectLlmAdapter`, none open their
-own socket.
+every direct-Gemini caller in the codebase at the time went through `selectLlmAdapter`, none opened
+their own socket. `adjustTemplatesWithGemini` itself no longer exists (A3, #727, deleted the
+automatic template-dump path it personalized) - the seam point above still holds for every caller
+that remains.
 
 ## Prompt shape: static prefix + dynamic block
 

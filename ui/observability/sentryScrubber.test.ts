@@ -157,8 +157,9 @@ describe("scrubSentryEvent", () => {
   });
 
   it("keeps a GEMINI_API_KEY out of a captured template-adjustment failure", () => {
-    // adjustTemplatesWithGemini (coachWorkoutFiles.ts) also builds its own request URL and
-    // attaches the raw upstream body to its error message - same two leak points apply.
+    // A generic Gemini caller that builds its own request URL and attaches the raw upstream body
+    // to its error message - same two leak points apply to any such caller in this codebase, not
+    // one specific one.
     const apiKey = `AIza${"E".repeat(35)}`;
     const upstreamBody = JSON.stringify({
       error: { message: `API key not valid: ${apiKey}`, status: "INVALID_ARGUMENT" },
