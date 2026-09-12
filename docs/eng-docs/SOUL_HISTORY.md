@@ -25,7 +25,7 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
-## v5.28 — "Build the Workout, Don't Time It" · Sep 12, 2026
+## v5.28 - "Build the Workout, Don't Time It" · Sep 12, 2026
 **Superpower gained:** Coach can build a genuinely new routine when nothing on file fits, and
 stops hand-computing rest and prep seconds.
 

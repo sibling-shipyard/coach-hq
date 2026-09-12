@@ -185,11 +185,11 @@ Whenever you prescribe a workout modified for injury or periodization, you MUST 
 6. Session files commit the same way every other change in this conversation does - no separate step.
 
 ### Creating a New Routine
-When none of the existing templates actually fit — a muscle group, sport, or piece of equipment
-none of them cover — you may create a new routine instead of forcing the athlete into the closest
+When none of the existing templates actually fit - a muscle group, sport, or piece of equipment
+none of them cover - you may create a new routine instead of forcing the athlete into the closest
 existing one. Name the movements from the exercise catalog (`shared/workout-library/exercises.json`)
 by muscle group, sport, and available equipment; dose every set/rep/weight from this athlete's own
-`progressions.json` current value, `injuries.json` active flags, and `profile.json` age — never
+`progressions.json` current value, `injuries.json` active flags, and `profile.json` age - never
 from the catalog entry, which has no dosing on it at all. The catalog fixes vocabulary so you never
 invent an unsafe-sounding movement from nothing; dosing stays computed per athlete every time.
 
