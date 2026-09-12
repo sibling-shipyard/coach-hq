@@ -318,9 +318,9 @@ enum DiagnosticsManager {
         guard isEnabled else { return }
         let breadcrumb = Breadcrumb(level: .info, category: category)
         breadcrumb.message = message
-        breadcrumb.data = DiagnosticsScrubber.scrub(
+        DiagnosticsScrubber.scrub(
             metadata.merging(operationID.map { ["operation_id": $0.uuidString] } ?? [:]) { current, _ in current }
-        )
+        ).forEach { breadcrumb.setData(value: $0.value, key: $0.key) }
         SentrySDK.addBreadcrumb(breadcrumb)
     }
 
@@ -394,7 +394,7 @@ enum DiagnosticsManager {
         event.exceptions?.forEach { $0.value = $0.value.map(DiagnosticsScrubber.scrub) }
         event.breadcrumbs?.forEach { breadcrumb in
             breadcrumb.message = breadcrumb.message.map(DiagnosticsScrubber.scrub)
-            breadcrumb.data = breadcrumb.data.map(DiagnosticsScrubber.scrub)
+            breadcrumb.data.map(DiagnosticsScrubber.scrub)?.forEach { breadcrumb.setData(value: $0.value, key: $0.key) }
         }
         if let userData = event.user?.data {
             event.user?.data = DiagnosticsScrubber.scrub(userData)
