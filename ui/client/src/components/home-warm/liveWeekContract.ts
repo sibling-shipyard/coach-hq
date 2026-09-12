@@ -4,12 +4,8 @@ import {
   type Activity,
   type TrainingCategory,
 } from "@/lib/activities";
-import type {
-  CurrentWeekContract,
-  CurrentWeekDay,
-  PlanIntent,
-  SessionDiscipline,
-} from "./currentWeek.fixture";
+import type { CurrentWeekContract, CurrentWeekDay, PlanIntent } from "./currentWeek.fixture";
+import { trainingCategoryToSessionDiscipline } from "./trainingMappings";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,24 +23,6 @@ function localDateKey(date: Date) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
-}
-
-function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
 }
 
 function intentFor(categories: TrainingCategory[]): PlanIntent {
@@ -77,7 +55,7 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
         const category = getTrainingCategory(activity);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: trainingCategoryToSessionDiscipline(category),
           kind: category,
           title: activity.name,
           priority: "support" as const,
@@ -115,7 +93,9 @@ export function buildLiveWeekContract(
     0,
   );
   const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity))),
+    weekActivities.map((activity) =>
+      trainingCategoryToSessionDiscipline(getTrainingCategory(activity)),
+    ),
   ).size;
   const latestTimestamp =
     weekActivities

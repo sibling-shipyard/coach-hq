@@ -2,6 +2,15 @@ import fs from "fs";
 import path from "path";
 import { describe, it, expect } from "vitest";
 import { ACTIVITY_ALLOWLIST } from "../../../../engine/lib/projectActivity.mjs";
+import { formatSecondsDurationLabel } from "./activities";
+
+describe("formatSecondsDurationLabel", () => {
+  it("formats second values with spaced duration units", () => {
+    expect(formatSecondsDurationLabel(5400)).toBe("1h 30m");
+    expect(formatSecondsDurationLabel(2400)).toBe("40m");
+    expect(formatSecondsDurationLabel(0)).toBe("0m");
+  });
+});
 
 describe("Activity allowlist", () => {
   it("ACTIVITY_ALLOWLIST is a superset of Activity interface keys to prevent silent drops", () => {

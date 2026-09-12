@@ -8,7 +8,7 @@ export { BuildPhaseCard } from "./BuildPhaseCard";
 export { CaloriesCard } from "./CaloriesCard";
 export { CoachReadCard } from "./CoachReadCard";
 export { EngineCard } from "./EngineCard";
-export { clamp, formatCompact, formatMinutesLabel } from "./formatUtils";
+export { clamp, formatCompact, formatMinutesInstrumentLabel } from "./formatUtils";
 export { QuestCard } from "./QuestCard";
 export { RecentSessionsCard } from "./RecentSessionsCard";
 export { SessionRow } from "./SessionRow";

@@ -278,7 +278,7 @@ export const DISPLAY_SPORT_TYPES = [
 
 // ─── Formatting ─────────────────────────────────────────────────────────────
 
-export function formatDuration(seconds: number): string {
+export function formatSecondsDurationLabel(seconds: number): string {
   if (!seconds) return "0m";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);

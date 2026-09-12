@@ -1,9 +1,4 @@
-import {
-  getTrainingCategory,
-  parseLocal,
-  type Activity,
-  type TrainingCategory,
-} from "@/lib/activities";
+import { getTrainingCategory, parseLocal, type Activity } from "@/lib/activities";
 import type {
   CurrentWeek as RuntimeCurrentWeek,
   CurrentWeekAvailability,
@@ -16,32 +11,15 @@ import type {
   CurrentWeekDay,
   CurrentWeekSession,
   PlanIntent,
-  SessionDiscipline,
   SessionPriority,
   SessionStatus,
   WeekStatus,
 } from "./currentWeek.fixture";
+import { trainingCategoryToSessionDiscipline } from "./trainingMappings";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PLAN_INTENTS: readonly PlanIntent[] = ["train", "recovery", "open", "rest", "review"];
-function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
-}
 
 function mapDataStatus(status: RuntimeCurrentWeek["data_status"]): CurrentWeekDataStatus {
   return status;
@@ -118,7 +96,7 @@ function overlaySession(activity: Activity): CurrentWeekSession {
   const category = getTrainingCategory(activity);
   return {
     id: `activity-${activity.id}`,
-    discipline: disciplineFor(category),
+    discipline: trainingCategoryToSessionDiscipline(category),
     kind: category,
     title: activity.name,
     priority: "support",

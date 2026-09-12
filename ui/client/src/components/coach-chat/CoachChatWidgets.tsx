@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Link } from "wouter";
 import ReactMarkdown from "react-markdown";
-import { formatDate, formatDuration, formatTime } from "@/lib/activities";
+import { formatDate, formatSecondsDurationLabel, formatTime } from "@/lib/activities";
 import {
   type ChatThread,
   type CoachChip,
@@ -153,9 +153,11 @@ function formatSyncStart(start: string): string {
 }
 
 export function formatSyncRowMeta(row: SyncedActivityRow): string {
-  const bits = [row.sport, formatSyncStart(row.start), formatDuration(row.duration_s)].filter(
-    (bit) => bit.length > 0,
-  );
+  const bits = [
+    row.sport,
+    formatSyncStart(row.start),
+    formatSecondsDurationLabel(row.duration_s),
+  ].filter((bit) => bit.length > 0);
   return bits.join(" · ");
 }
 
@@ -224,7 +226,7 @@ function ActivityDetailSheet({
         {duration ? (
           <div className="cc-activity-sheet__row">
             <span className="cc-activity-sheet__label">Duration</span>
-            <span>{formatDuration(duration)}</span>
+            <span>{formatSecondsDurationLabel(duration)}</span>
           </div>
         ) : null}
         {load != null ? (
