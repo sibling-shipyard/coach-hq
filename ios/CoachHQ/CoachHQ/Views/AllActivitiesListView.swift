@@ -38,33 +38,30 @@ struct AllActivitiesListView: View {
     }
 
     private var hasMore: Bool { loadedEntries.count < allFileNames.count }
-    private var grouped: [DayGroup] { groupByDay(loadedEntries) }
 
     var body: some View {
         VStack(spacing: 0) {
-            warmHeader
-
             ScrollView {
                 if isLoadingInitial && loadedEntries.isEmpty {
+                    fallbackHeader
                     loadingState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
                 } else if let loadError, loadedEntries.isEmpty {
+                    fallbackHeader
                     errorState(loadError)
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
                 } else if loadedEntries.isEmpty {
+                    fallbackHeader
                     emptyState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
                 } else {
-                    ActivityFeedView(
+                    ActivityLedgerView(
                         entries: loadedEntries,
-                        grouped: grouped,
                         onSelect: onSelectEntry,
-                        animateEntrance: false,
-                        kickerLabel: "ALL ACTIVITY",
-                        showWeekSummary: false,
+                        onBack: { dismiss() },
                         footer: AnyView(loadMoreFooter)
                     )
                 }
@@ -83,38 +80,31 @@ struct AllActivitiesListView: View {
         }
     }
 
-    private var warmHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Button {
-                    Haptics.tap()
-                    dismiss()
-                } label: {
+    private var fallbackHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                Haptics.tap()
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(WarmInstrument.inkMuted)
+                        .font(.system(size: 10, weight: .bold))
+                    Text("HQ")
                 }
-                .buttonStyle(.plain)
-
-                Text("HQ")
-                    .font(WarmInstrument.monoLabel(12))
-                    .tracking(1.4)
-                    .foregroundColor(WarmInstrument.ink)
-            }
-
-            Text("Activity ledger")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Theme.ink)
-
-            Text("Every entry earns its load — nothing invented.")
-                .font(WarmInstrument.coachVoice(14))
+                .font(WarmInstrument.monoLabel(10, weight: .bold))
+                .tracking(1.2)
                 .foregroundColor(WarmInstrument.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.plain)
+
+            Text("Activity Ledger")
+                .font(.system(size: 30, weight: .semibold))
+                .tracking(-0.9)
+                .foregroundColor(WarmInstrument.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
+        .padding(.horizontal, 22)
+        .padding(.top, 64)
     }
 
     // MARK: - Load more
