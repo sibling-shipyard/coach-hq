@@ -675,7 +675,8 @@ struct ActivityDetailView: View {
     /// A missing sidecar is the normal case, not an error: every activity synced before the
     /// stream format existed has none, and one will only appear for those after a backfill.
     /// Failures are swallowed on purpose — the screen still has zones to show.
-    /// Hits and misses live in `HRStreamCache` so a second open this session skips GitHub.
+    /// Hits and 404 misses live in `HRStreamCache` so a second open this session skips GitHub.
+    /// Timeouts and decode errors stay uncached so reopen retries.
     private func loadHRStream(for activity: Activity) async {
         guard let uuid = activity.activityId, hrStream == nil else { return }
         if HRStreamCache.contains(uuid) {
@@ -688,7 +689,9 @@ struct ActivityDetailView: View {
             HRStreamCache.store(uuid, stream: decoded)
             hrStream = decoded
         } catch {
-            HRStreamCache.store(uuid, stream: nil)
+            if HRStreamCache.shouldCacheAsMiss(error) {
+                HRStreamCache.store(uuid, stream: nil)
+            }
             hrStream = nil
         }
     }

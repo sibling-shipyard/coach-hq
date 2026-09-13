@@ -150,6 +150,13 @@ enum HRStreamCache {
         slots[uuid] = stream.map { .file($0) } ?? .missing
     }
 
+    /// Only a GitHub 404 is a durable miss. A timeout or decode error must not
+    /// poison the uuid for the rest of the process.
+    static func shouldCacheAsMiss(_ error: Error) -> Bool {
+        if case GitHubAPIError.notFound = error { return true }
+        return false
+    }
+
     static func reset() {
         lock.lock()
         defer { lock.unlock() }

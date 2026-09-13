@@ -29,6 +29,21 @@ final class HRStreamCacheTests: XCTestCase {
         XCTAssertFalse(HRStreamCache.contains("hit"))
     }
 
+    func testOnlyNotFoundIsACachedMiss() {
+        XCTAssertTrue(
+            HRStreamCache.shouldCacheAsMiss(GitHubAPIError.notFound(operation: "Reading stream"))
+        )
+        XCTAssertFalse(
+            HRStreamCache.shouldCacheAsMiss(
+                GitHubAPIError.requestFailed(operation: "Reading stream", status: nil, detail: nil)
+            )
+        )
+        XCTAssertFalse(
+            HRStreamCache.shouldCacheAsMiss(GitHubAPIError.decodingFailed(operation: "Reading stream"))
+        )
+        XCTAssertFalse(HRStreamCache.shouldCacheAsMiss(URLError(.timedOut)))
+    }
+
     private static func sampleStream(id: String) -> HRStreamFile {
         HRStreamFile(
             schemaVersion: 1, generator: "hk-stream/1", activityId: id,

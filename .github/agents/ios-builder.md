@@ -46,3 +46,4 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
   cannot hold the curve (ADR 0027).
 - All Activity hist listing lives on `AllActivitiesStore` (`CoachHQApp` `@StateObject`), never
   `SyncCache` (7-day backfill / 30-day eviction) and never the pushed view's `@State`.
+  `fetchPage` advances `nextFetchIndex` by attempted names, not `loadedEntries.count`.

@@ -44,11 +44,13 @@ final class AllActivitiesStore: ObservableObject {
     @Published private(set) var isLoadingMore = false
     @Published private(set) var loadError: String?
 
-    var hasMore: Bool { loadedEntries.count < allFileNames.count }
+    /// True until every listed name has been attempted, including failed reads.
+    var hasMore: Bool { nextFetchIndex < allFileNames.count }
 
     private struct RepoState {
         var allFileNames: [String] = []
         var loadedEntries: [SyncCacheEntry] = []
+        var nextFetchIndex = 0
         var didInitialLoad = false
         var loadError: String?
     }
@@ -57,6 +59,9 @@ final class AllActivitiesStore: ObservableObject {
     private var currentRepo: String?
     private var serial: Task<Void, Never>?
     private var generation = 0
+    /// First unattempted index in `allFileNames`. Advanced by the page slice, not by
+    /// successful row count, so a failed `readActivity` cannot shift the next page.
+    private var nextFetchIndex = 0
 
     func reset() {
         generation += 1
@@ -66,6 +71,7 @@ final class AllActivitiesStore: ObservableObject {
         currentRepo = nil
         allFileNames = []
         loadedEntries = []
+        nextFetchIndex = 0
         isLoadingInitial = false
         isLoadingMore = false
         loadError = nil
@@ -84,6 +90,7 @@ final class AllActivitiesStore: ObservableObject {
             if self.currentRepo == repo {
                 self.allFileNames = []
                 self.loadedEntries = []
+                self.nextFetchIndex = 0
                 self.loadError = nil
             }
             await self.loadInitialIfNeededUnlocked(repo: repo, client: client)
@@ -109,6 +116,7 @@ final class AllActivitiesStore: ObservableObject {
         let state = RepoState(
             allFileNames: names,
             loadedEntries: entries,
+            nextFetchIndex: names.count,
             didInitialLoad: true,
             loadError: nil
         )
@@ -179,6 +187,7 @@ final class AllActivitiesStore: ObservableObject {
             guard gen == generation else { return }
             let newNames = Self.leadingNewNames(existing: allFileNames, listing: listing)
             allFileNames = listing
+            nextFetchIndex += newNames.count
             guard !newNames.isEmpty else {
                 persist(didInitialLoad: true)
                 return
@@ -208,7 +217,7 @@ final class AllActivitiesStore: ObservableObject {
         count: Int,
         generation gen: Int
     ) async {
-        let start = loadedEntries.count
+        let start = nextFetchIndex
         guard start < allFileNames.count else { return }
         let end = min(start + count, allFileNames.count)
         var newEntries: [SyncCacheEntry] = []
@@ -222,6 +231,7 @@ final class AllActivitiesStore: ObservableObject {
             ))
         }
         guard gen == generation else { return }
+        nextFetchIndex = end
         applyWithoutAnimation {
             loadedEntries.append(contentsOf: newEntries)
         }
@@ -237,6 +247,7 @@ final class AllActivitiesStore: ObservableObject {
         currentRepo = repo
         allFileNames = state.allFileNames
         loadedEntries = state.loadedEntries
+        nextFetchIndex = state.nextFetchIndex
         loadError = state.loadError
     }
 
@@ -245,6 +256,7 @@ final class AllActivitiesStore: ObservableObject {
         caches[repo] = RepoState(
             allFileNames: allFileNames,
             loadedEntries: loadedEntries,
+            nextFetchIndex: nextFetchIndex,
             didInitialLoad: didInitialLoad,
             loadError: loadError
         )

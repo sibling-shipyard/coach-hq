@@ -70,6 +70,30 @@ final class AllActivitiesStoreTests: XCTestCase {
         XCTAssertEqual(store.loadedEntries.map(\.fileName), ["hk_c.json", "hk_b.json"])
     }
 
+    func testFailedReadDoesNotSkewTheNextPage() async {
+        let store = AllActivitiesStore()
+        store.initialPageSize = 2
+        store.loadMorePageSize = 2
+        let client = FakeHistClient(
+            names: ["hk_d.json", "hk_c.json", "hk_b.json", "hk_a.json"],
+            activities: [
+                "hk_d.json": Self.activity(name: "D"),
+                "hk_b.json": Self.activity(name: "B"),
+                "hk_a.json": Self.activity(name: "A"),
+            ]
+        )
+
+        await store.loadInitialIfNeeded(repo: "a/b", client: client)
+        XCTAssertEqual(client.reads, ["hk_d.json", "hk_c.json"])
+        XCTAssertEqual(store.loadedEntries.map(\.fileName), ["hk_d.json"])
+        XCTAssertTrue(store.hasMore)
+
+        await store.loadMore(client: client)
+        XCTAssertEqual(client.reads, ["hk_d.json", "hk_c.json", "hk_b.json", "hk_a.json"])
+        XCTAssertEqual(store.loadedEntries.map(\.fileName), ["hk_d.json", "hk_b.json", "hk_a.json"])
+        XCTAssertFalse(store.hasMore)
+    }
+
     func testIngestFetchesOnlyLeadingNewNames() async {
         let store = AllActivitiesStore()
         store.seedLoaded(
