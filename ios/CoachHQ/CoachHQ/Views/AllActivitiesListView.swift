@@ -5,30 +5,18 @@ import SwiftUI
 /// Deliberately does not reuse the `recentEntries`/`SyncCache` path other feed views take:
 /// that cache only ever backfills the last 7 days and actively evicts anything older than
 /// 30 (see `SyncCache.evictionDays`), so it can never back a genuine "everything" list.
-/// Instead this fetches the full `user_data/activities/hist` file listing once (cheap,
-/// one GitHub Contents API call via `GitHubAPIClient.listFiles`), keeps the sorted
-/// filenames in memory, and lazily fetches activity bodies 50 at a time with a
-/// "Load 20 more" control — nothing here touches `SyncCache`, so nothing here is evicted.
+/// Listing and fetched bodies live on `AllActivitiesStore` (app-lifetime, keyed by repo)
+/// so popping this view does not throw the GitHub work away. Lazy "Load 20 more" still
+/// pages bodies; nothing here is written into `SyncCache`.
 struct AllActivitiesListView: View {
-    private static let initialPageSize = 50
-    private static let loadMorePageSize = 20
-
     /// Row taps call this instead of owning navigation — the same embedded pattern other
     /// feed views use, so this pushes onto the *caller's* NavigationStack (Home's)
     /// rather than nesting a second one.
     var onSelectEntry: (SyncCacheEntry) -> Void
 
     @EnvironmentObject var authManager: GitHubAuthManager
+    @EnvironmentObject var allActivitiesStore: AllActivitiesStore
     @Environment(\.dismiss) private var dismiss
-
-    /// Every filename in `user_data/activities/hist`, sorted newest-first. Fetched once;
-    /// pagination below just slices further into it without re-listing.
-    @State private var allFileNames: [String] = []
-    @State private var loadedEntries: [SyncCacheEntry] = []
-    @State private var isLoadingInitial = false
-    @State private var isLoadingMore = false
-    @State private var loadError: String?
-    @State private var didInitialLoad = false
 
     private var activityFetchToken: String {
         [
@@ -37,29 +25,32 @@ struct AllActivitiesListView: View {
         ].joined(separator: "|")
     }
 
-    private var hasMore: Bool { loadedEntries.count < allFileNames.count }
+    private var histClient: GitHubActivityHistClient {
+        GitHubActivityHistClient(authManager: authManager)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                if isLoadingInitial && loadedEntries.isEmpty {
+                if allActivitiesStore.isLoadingInitial && allActivitiesStore.loadedEntries.isEmpty {
                     fallbackHeader
                     loadingState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else if let loadError, loadedEntries.isEmpty {
+                } else if let loadError = allActivitiesStore.loadError,
+                          allActivitiesStore.loadedEntries.isEmpty {
                     fallbackHeader
                     errorState(loadError)
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else if loadedEntries.isEmpty {
+                } else if allActivitiesStore.loadedEntries.isEmpty {
                     fallbackHeader
                     emptyState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
                 } else {
                     ActivityLedgerView(
-                        entries: loadedEntries,
+                        entries: allActivitiesStore.loadedEntries,
                         onSelect: onSelectEntry,
                         onBack: { dismiss() },
                         footer: { loadMoreFooter }
@@ -75,10 +66,8 @@ struct AllActivitiesListView: View {
         .hidesMainTabBar(true)
         .edgeBackSwipe(enabled: true) { dismiss() }
         .task(id: activityFetchToken) {
-            guard authManager.isSessionReady, authManager.repoFullName != nil else { return }
-            guard !didInitialLoad else { return }
-            didInitialLoad = true
-            await loadInitial()
+            guard authManager.isSessionReady, let repo = authManager.repoFullName else { return }
+            await allActivitiesStore.loadInitialIfNeeded(repo: repo, client: histClient)
         }
     }
 
@@ -109,12 +98,12 @@ struct AllActivitiesListView: View {
 
     @ViewBuilder
     private var loadMoreFooter: some View {
-        if hasMore {
+        if allActivitiesStore.hasMore {
             Button {
                 Haptics.tap()
-                Task { await loadMore() }
+                Task { await allActivitiesStore.loadMore(client: histClient) }
             } label: {
-                if isLoadingMore {
+                if allActivitiesStore.isLoadingMore {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -127,7 +116,7 @@ struct AllActivitiesListView: View {
                 }
             }
             .buttonStyle(.plain)
-            .disabled(isLoadingMore)
+            .disabled(allActivitiesStore.isLoadingMore)
         }
     }
 
@@ -166,64 +155,12 @@ struct AllActivitiesListView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Retry") {
                     Task {
-                        didInitialLoad = false
-                        loadError = nil
-                        await loadInitial()
+                        guard let repo = authManager.repoFullName else { return }
+                        await allActivitiesStore.retry(repo: repo, client: histClient)
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))
             }
-        }
-    }
-
-    // MARK: - Fetching
-
-    private func loadInitial() async {
-        isLoadingInitial = true
-        defer { isLoadingInitial = false }
-        let api = GitHubAPIClient(authManager: authManager)
-        do {
-            let files = try await api.listFiles(path: "user_data/activities/hist")
-            // Filenames encode the activity date (e.g. "hk_2026-08-03_<uuid>.json") so a
-            // plain lexical sort gives newest-first without parsing every entry.
-            allFileNames = files
-                .filter { $0.type == "file" }
-                .map(\.name)
-                .sorted(by: >)
-            loadError = nil
-            await fetchPage(api: api, count: Self.initialPageSize)
-        } catch {
-            loadError = "Couldn't load activity history"
-        }
-    }
-
-    private func loadMore() async {
-        guard !isLoadingMore, hasMore else { return }
-        isLoadingMore = true
-        defer { isLoadingMore = false }
-        let api = GitHubAPIClient(authManager: authManager)
-        await fetchPage(api: api, count: Self.loadMorePageSize)
-    }
-
-    private func fetchPage(api: GitHubAPIClient, count: Int) async {
-        let start = loadedEntries.count
-        guard start < allFileNames.count else { return }
-        let end = min(start + count, allFileNames.count)
-        var newEntries: [SyncCacheEntry] = []
-        for fileName in allFileNames[start..<end] {
-            guard let activity = try? await api.readActivity(fileName: fileName) else { continue }
-            newEntries.append(SyncCacheEntry(
-                fileName: fileName,
-                activity: activity,
-                hasDescription: !(activity.description ?? "").isEmpty
-            ))
-        }
-        // Button taps carry an implicit animation — disable so open weeks don't
-        // re-animate / jump when older sessions append.
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            loadedEntries.append(contentsOf: newEntries)
         }
     }
 }

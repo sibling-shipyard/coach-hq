@@ -43,3 +43,5 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
   is `cacheEntry(for:)` → `SyncCache.load()`. Split computed `entries` / `listedLoads` decode
   UserDefaults twice per render. `listedLoads(for:)` takes that array and uses
   `Dictionary(..., uniquingKeysWith:)` — `uniqueKeysWithValues` fatals on duplicate ids.
+- All Activity hist listing lives on `AllActivitiesStore` (`CoachHQApp` `@StateObject`), never
+  `SyncCache` (7-day backfill / 30-day eviction) and never the pushed view's `@State`.

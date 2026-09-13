@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-08
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-13
 
 ## Context
 
@@ -314,10 +314,11 @@ the safe idempotent check: a no-op if the user already decided.
 ## Client caches — what `SyncCache` is not for
 
 `SyncCache` backfills 7 days and evicts anything past 30, so **"All activity" must never read it**.
-`AllActivitiesListView` lists the full `user_data/activities/hist` directory once via
-`GitHubAPIClient.listFiles` (filenames encode the date, so a lexical sort is enough for
-newest-first) and paginates activity-body fetches in memory. Nothing touches `SyncCache`, so
-nothing gets evicted out from under the list.
+`AllActivitiesStore` (app-lifetime on `CoachHQApp`, keyed by repo) lists
+`user_data/activities/hist` once via `GitHubAPIClient.listFiles` (filenames encode the date,
+so a lexical sort is enough for newest-first) and paginates activity-body fetches in memory.
+Popping All Activity does not refetch. A later hist sync prepends only new names. Sign-out
+and account switch call `reset()`. Nothing is written into `SyncCache`.
 
 Before rebuilding those files, `regenerate_derived.py` adds `vs_usual` to each activity changed
 by the triggering push. The block is the median of up to 20 prior same-sport activities and is
