@@ -39,3 +39,7 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
   `chatThreads.ts`), not an append, so a truncated stub silently discards the real thread's
   history/attachments on the next reply. Only a seed with no server record (`local-proactive-<id>`)
   may be materialized locally — see `CoachChatView.swift`'s `openRequestedProactiveRoute`.
+- `CoachChatSyncedActivityList.body` maps `resolveEntry` once into a `let entries` — that closure
+  is `cacheEntry(for:)` → `SyncCache.load()`. Split computed `entries` / `listedLoads` decode
+  UserDefaults twice per render. `listedLoads(for:)` takes that array and uses
+  `Dictionary(..., uniquingKeysWith:)` — `uniqueKeysWithValues` fatals on duplicate ids.

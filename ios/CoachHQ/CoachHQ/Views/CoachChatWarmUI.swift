@@ -272,17 +272,17 @@ struct CoachChatSyncedActivityList: View {
         activities.count == 1 ? "1 SESSION" : "\(activities.count) SESSIONS"
     }
 
-    private var entries: [SyncCacheEntry] {
-        activities.map { $0.ledgerEntry(from: resolveEntry($0)) }
-    }
-
-    private var listedLoads: [String: Int] {
-        Dictionary(uniqueKeysWithValues: zip(activities, entries).compactMap { row, entry in
-            row.load.map { (entry.id, $0) }
-        })
+    private func listedLoads(for entries: [SyncCacheEntry]) -> [String: Int] {
+        Dictionary(
+            zip(activities, entries).compactMap { row, entry in
+                row.load.map { (entry.id, $0) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     var body: some View {
+        let entries = activities.map { $0.ledgerEntry(from: resolveEntry($0)) }
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
@@ -294,7 +294,7 @@ struct CoachChatSyncedActivityList: View {
                         }
                     },
                     style: .embed,
-                    listedLoads: listedLoads
+                    listedLoads: listedLoads(for: entries)
                 )
             }
             Spacer(minLength: 36)
