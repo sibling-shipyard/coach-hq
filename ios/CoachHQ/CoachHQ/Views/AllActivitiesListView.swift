@@ -29,7 +29,6 @@ struct AllActivitiesListView: View {
     @State private var isLoadingMore = false
     @State private var loadError: String?
     @State private var didInitialLoad = false
-    @State private var isRiffling = false
 
     private var activityFetchToken: String {
         [
@@ -63,12 +62,12 @@ struct AllActivitiesListView: View {
                         entries: loadedEntries,
                         onSelect: onSelectEntry,
                         onBack: { dismiss() },
-                        footer: AnyView(loadMoreFooter),
-                        onRiffleChange: { isRiffling = $0 }
+                        footer: { loadMoreFooter }
                     )
+                    // Keep ledger @State across load-more footer/spinner swaps.
+                    .id("activity-ledger")
                 }
             }
-            .scrollDisabled(isRiffling)
             .scrollClipDisabled()
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
@@ -219,6 +218,12 @@ struct AllActivitiesListView: View {
                 hasDescription: !(activity.description ?? "").isEmpty
             ))
         }
-        loadedEntries.append(contentsOf: newEntries)
+        // Button taps carry an implicit animation — disable so open weeks don't
+        // re-animate / jump when older sessions append.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            loadedEntries.append(contentsOf: newEntries)
+        }
     }
 }
