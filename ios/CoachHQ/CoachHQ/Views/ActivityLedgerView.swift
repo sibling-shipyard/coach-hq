@@ -5,13 +5,10 @@ struct ActivityLedgerView: View {
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
     var footer: AnyView? = nil
-    var onRiffleChange: ((Bool) -> Void)? = nil
 
     @State private var openWeekIDs: Set<String> = []
     @State private var pulledID: String?
-    @State private var riffledID: String?
     @State private var showingLoadSheet = false
-    @State private var justRiffled = false
 
     private var weeks: [ActivityLedgerWeek] {
         ActivityLedgerWeek.group(entries: entries)
@@ -26,23 +23,9 @@ struct ActivityLedgerView: View {
                     week: week,
                     isOpen: openWeekIDs.contains(week.id),
                     pulledID: pulledID,
-                    riffledID: riffledID,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
-                    onOpen: { open($0) },
-                    onRiffleChanged: { id in
-                        if riffledID != id {
-                            riffledID = id
-                            if id != nil {
-                                LedgerHaptics.selection()
-                            }
-                        }
-                    },
-                    onRiffleArmed: { onRiffleChange?($0) },
-                    consumeRiffleEnd: { id in
-                        finishRiffle(id)
-                    },
-                    shouldIgnoreTap: { justRiffled }
+                    onOpen: { open($0) }
                 )
             }
 
@@ -62,8 +45,9 @@ struct ActivityLedgerView: View {
         .onChange(of: entries.map(\.id)) { _, _ in seedInitialState() }
         .sheet(isPresented: $showingLoadSheet) {
             ActivityLedgerLoadSheet()
-                .presentationDetents([.height(420)])
-                .presentationDragIndicator(.hidden)
+                .presentationDetents([.height(430)])
+                .presentationDragIndicator(.visible)
+                .presentationContentInteraction(.resizes)
                 .presentationCornerRadius(28)
                 .presentationBackground(WarmInstrument.paper)
         }
@@ -154,37 +138,15 @@ struct ActivityLedgerView: View {
         LedgerHaptics.medium()
         onSelect(entry)
     }
-
-    private func finishRiffle(_ id: String?) {
-        justRiffled = true
-        onRiffleChange?(false)
-        if let id, let item = weeks.flatMap(\.items).first(where: { $0.id == id }), pulledID != id {
-            pull(item)
-        }
-        riffledID = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            justRiffled = false
-        }
-    }
 }
 
 private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
-    let riffledID: String?
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
-    let onRiffleChanged: (String?) -> Void
-    let onRiffleArmed: (Bool) -> Void
-    let consumeRiffleEnd: (String?) -> Void
-    let shouldIgnoreTap: () -> Bool
-
-    @State private var holdTask: Task<Void, Never>?
-    @State private var riffleArmed = false
-
-    private var stackSpace: String { "ledger-stack-\(week.id)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -267,14 +229,12 @@ private struct ActivityLedgerWeekView: View {
                 ActivityLedgerCard(
                     item: item,
                     isPulled: isPulled,
-                    visibleHeight: height,
-                    isRiffled: riffledID == item.id && !isPulled
+                    visibleHeight: height
                 )
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    guard !shouldIgnoreTap() else { return }
                     if isPulled {
                         onOpen(item.entry)
                     } else {
@@ -284,48 +244,6 @@ private struct ActivityLedgerWeekView: View {
             }
         }
         .padding(.top, 2)
-        .coordinateSpace(.named(stackSpace))
-        .simultaneousGesture(riffleGesture)
-    }
-
-    private var riffleGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named(stackSpace))
-            .onChanged { value in
-                if holdTask == nil && !riffleArmed {
-                    let startY = value.startLocation.y
-                    holdTask = Task {
-                        try? await Task.sleep(for: .milliseconds(180))
-                        guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            riffleArmed = true
-                            onRiffleArmed(true)
-                            onRiffleChanged(week.cardID(at: startY, pulledID: pulledID))
-                        }
-                    }
-                }
-
-                let travel = hypot(value.translation.width, value.translation.height)
-                if !riffleArmed, travel > 12 {
-                    holdTask?.cancel()
-                    holdTask = nil
-                    return
-                }
-
-                guard riffleArmed else { return }
-                onRiffleChanged(week.cardID(at: value.location.y, pulledID: pulledID))
-            }
-            .onEnded { _ in
-                holdTask?.cancel()
-                holdTask = nil
-                let armed = riffleArmed
-                riffleArmed = false
-                onRiffleArmed(false)
-                if armed {
-                    consumeRiffleEnd(riffledID)
-                } else {
-                    onRiffleChanged(nil)
-                }
-            }
     }
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
@@ -347,7 +265,6 @@ private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
     let visibleHeight: CGFloat
-    var isRiffled = false
 
     private var statsHeight: CGFloat {
         max(0, visibleHeight - ActivityLedgerMetrics.peek)
@@ -373,16 +290,14 @@ private struct ActivityLedgerCard: View {
         )
         .compositingGroup()
         .shadow(
-            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : isRiffled ? 0.16 : 0.08),
-            radius: isPulled ? 14 : isRiffled ? 10 : 6,
+            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : 0.08),
+            radius: isPulled ? 14 : 6,
             x: 0,
-            y: isPulled ? 12 : isRiffled ? 8 : 4
+            y: isPulled ? 12 : 4
         )
         .scaleEffect(isPulled ? 1.012 : 1)
-        .offset(y: isRiffled ? -5 : 0)
         .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
         .animation(ActivityLedgerMetrics.cardMotion, value: visibleHeight)
-        .animation(ActivityLedgerMetrics.riffleMotion, value: isRiffled)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
@@ -564,11 +479,6 @@ private struct ActivityLedgerLoadSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Capsule()
-                .fill(WarmInstrument.headerRule)
-                .frame(width: 36, height: 4)
-                .frame(maxWidth: .infinity)
-
             HStack(alignment: .firstTextBaseline) {
                 Text("How load is computed")
                     .font(.system(size: 22, weight: .semibold))
@@ -606,20 +516,22 @@ private struct ActivityLedgerLoadSheet: View {
 
             HStack(spacing: 8) {
                 ForEach(ActivityLedgerMetrics.zoneWeights.indices, id: \.self) { index in
-                    let zone = Theme.hrZoneColors[index]
+                    // Same solid ramp Activity Detail uses (`HRZone.colors` / zone chips).
+                    let zone = HRZone.colors[index]
+                    let onZone = index == 0 ? WarmInstrument.ink : WarmInstrument.onAccent
                     VStack(spacing: 6) {
                         Text("Z\(index + 1)")
                             .font(WarmInstrument.monoLabel(8, weight: .bold))
                             .tracking(1.0)
-                            .foregroundColor(WarmInstrument.inkMuted)
+                            .foregroundColor(onZone.opacity(0.85))
                         Text("×\(ActivityLedgerMetrics.zoneWeights[index])")
                             .font(WarmInstrument.figures(15, weight: .bold))
                             .tracking(-0.45)
-                            .foregroundColor(WarmInstrument.ink)
+                            .foregroundColor(onZone)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(zone.opacity(index >= 3 ? 0.22 : 0.28))
+                    .background(zone)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -630,8 +542,9 @@ private struct ActivityLedgerLoadSheet: View {
                 .foregroundColor(WarmInstrument.inkFaintText)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 14)
-        .padding(.bottom, 28)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(WarmInstrument.paper.ignoresSafeArea())
     }
 }
@@ -670,22 +583,6 @@ private struct ActivityLedgerWeek: Identifiable {
             }
         }
         return height
-    }
-
-    func cardID(at y: CGFloat, pulledID: String?) -> String? {
-        var cursor: CGFloat = 2
-        var frames: [(id: String, range: ClosedRange<CGFloat>)] = []
-        for (index, item) in items.enumerated() {
-            let isPulled = pulledID == item.id
-            let height = index == 0
-                ? (isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek)
-                : ActivityLedgerMetrics.cardHeight
-            let margin = index == 0 ? 0 : (isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek)
-            cursor += margin
-            frames.append((item.id, cursor...(cursor + height)))
-            cursor += height
-        }
-        return frames.first(where: { $0.range.contains(y) })?.id
     }
 
     @MainActor
@@ -926,7 +823,6 @@ private enum ActivityLedgerMetrics {
     static let zoneWeights = [1, 2, 3, 4, 5]
     static let cardMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42)
     static let weekMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.46).delay(0.06)
-    static let riffleMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.22)
 }
 
 private enum LedgerPaper {
@@ -971,9 +867,5 @@ private enum LedgerHaptics {
 
     static func rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-    }
-
-    static func selection() {
-        UISelectionFeedbackGenerator().selectionChanged()
     }
 }

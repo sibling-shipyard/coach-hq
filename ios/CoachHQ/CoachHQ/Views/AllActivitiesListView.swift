@@ -29,7 +29,6 @@ struct AllActivitiesListView: View {
     @State private var isLoadingMore = false
     @State private var loadError: String?
     @State private var didInitialLoad = false
-    @State private var isRiffling = false
 
     private var activityFetchToken: String {
         [
@@ -63,12 +62,10 @@ struct AllActivitiesListView: View {
                         entries: loadedEntries,
                         onSelect: onSelectEntry,
                         onBack: { dismiss() },
-                        footer: AnyView(loadMoreFooter),
-                        onRiffleChange: { isRiffling = $0 }
+                        footer: AnyView(loadMoreFooter)
                     )
                 }
             }
-            .scrollDisabled(isRiffling)
             .scrollClipDisabled()
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
