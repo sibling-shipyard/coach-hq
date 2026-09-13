@@ -47,7 +47,7 @@ Two things write the file with no chat turn at all, both running in the sync pip
 | Lifecycle | `data_status` is `placeholder` or `live` | `draft` was dropped (ADR 0042) - no writer in this pipeline has a multi-turn confirm flow to put a week in it |
 | Calendar | An IANA `timezone`; seven consecutive dates matching the week bounds | Makes freshness deterministic without UTC/local-date drift |
 | Discipline | Closed enum, not free text (ADR 0042) | Removes the client-side substring guessing a free string used to need, and unblocks sport-agnostic Home widgets |
-| Training load | `planned_load` dropped from the schema (ADR 0042) | No writer ever set it to a real value - see the consumer audit in `docs/plans/current-week-redesign-lld.md` |
+| Training load | `planned_load` dropped from the schema (ADR 0042) | No writer ever set it to a real value |
 | `coach_comments` | Dropped from the schema (ADR 0042) | Written `[]` on every plan, never touched again by any writer |
 | Session provenance | `origin: planned \| unplanned` | Supports completed sessions that were not in the original plan |
 | Moves | `week_update`'s `move_to_date` relocates a session to its new day, keeps its stable `id`, and records `original_date` | Avoids duplicate IDs and preserves the current schedule plus provenance |

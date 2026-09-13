@@ -3,12 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// workouts-redesign-lld.md A1b: shared/workout-library/exercises.json is a catalog of
-// individual movements, not premade workouts. Coach picks movements from here by muscle group,
-// sport, and equipment, then doses sets/reps/weight per athlete at write time (A2) - never read
-// off this file. So this test validates catalog shape and coverage only: it never asserts
-// anything about sets, reps, duration, or weight, because the schema itself forbids those
-// fields on a catalog entry.
+// shared/workout-library/exercises.json is a catalog of individual movements, not premade
+// workouts. Coach picks movements from here by muscle group, sport, and equipment, then doses
+// sets/reps/weight per athlete at write time - never read off this file. So this test validates
+// catalog shape and coverage only: it never asserts anything about sets, reps, duration, or
+// weight, because the schema itself forbids those fields on a catalog entry.
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const libraryDir = path.resolve(here, "..", "..", "..", "..", "shared", "workout-library");
@@ -29,8 +28,8 @@ interface ExerciseEntry {
 
 const TYPES = new Set(["reps", "timed"]);
 
-// Coverage table from workouts-redesign-lld.md's A1b section - every group needs at least one
-// entry, and this is also the source of truth the catalog is checked against below.
+// Coverage table - every group needs at least one entry, and this is also the source of truth
+// the catalog is checked against below.
 const REQUIRED_MUSCLE_MOVEMENT_PAIRS: Array<[string, string]> = [
   ["chest", "push"],
   ["shoulders", "push"],
