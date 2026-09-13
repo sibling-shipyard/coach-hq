@@ -81,7 +81,7 @@ Mapped in `Theme.sportIcon(for:)`:
 
 Home → All Activity is `AllActivitiesListView` hosting `ActivityLedgerView`: week groups, one pulled paper card, load sheet, tap → `ActivityDetailView`.
 
-Coach chat's SESSION SYNCED slot embeds the same stack (`ActivityLedgerStyle.embed`) — kicker only, no title or load sheet. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
+Coach chat's SESSION SYNCED slot embeds the same stack (`ActivityLedgerStyle.embed`) — compact metrics, kicker only, no title or load sheet. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
 
 Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card. Riffle is UIKit-only; SwiftUI hold-then-drag stole `ScrollView`.
 

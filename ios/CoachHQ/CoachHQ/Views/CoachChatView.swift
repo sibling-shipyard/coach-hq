@@ -253,6 +253,7 @@ struct CoachChatView: View {
                         chatMessageStack
                             .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .bottom)
                     }
+                    .scrollClipDisabled()
                     .scrollDismissesKeyboard(.interactively)
                     .background(WarmInstrument.chatSurface)
                     .onAppear {

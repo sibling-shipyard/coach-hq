@@ -283,18 +283,21 @@ struct CoachChatSyncedActivityList: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
-            ActivityLedgerView(
-                entries: entries,
-                onSelect: { entry in
-                    if let row = activities.first(where: { $0.matches(entry) }) {
-                        onSelect(row)
-                    }
-                },
-                style: .embed,
-                listedLoads: listedLoads
-            )
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
+                ActivityLedgerView(
+                    entries: entries,
+                    onSelect: { entry in
+                        if let row = activities.first(where: { $0.matches(entry) }) {
+                            onSelect(row)
+                        }
+                    },
+                    style: .embed,
+                    listedLoads: listedLoads
+                )
+            }
+            Spacer(minLength: 36)
         }
     }
 }
