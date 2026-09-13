@@ -16,14 +16,24 @@ struct RecentSessionsCard: View {
         cacheEntries.isEmpty ? SyncCache.load() : cacheEntries
     }
 
-    private var entries: [SyncCacheEntry] {
-        visible.map { $0.ledgerEntry(from: resolved($0)) }
+    private var pairs: [(RecentSessionSnapshot, SyncCacheEntry)] {
+        var seen = Set<String>()
+        return visible.compactMap { session in
+            let entry = session.ledgerEntry(from: resolved(session))
+            guard seen.insert(entry.id).inserted else { return nil }
+            return (session, entry)
+        }
     }
 
+    private var entries: [SyncCacheEntry] { pairs.map(\.1) }
+
     private var listedLoads: [String: Int] {
-        Dictionary(uniqueKeysWithValues: zip(visible, entries).compactMap { session, entry in
-            session.load.map { (entry.id, Int($0.rounded())) }
-        })
+        Dictionary(
+            pairs.compactMap { session, entry in
+                session.load.map { (entry.id, Int($0.rounded())) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     var body: some View {
@@ -73,15 +83,8 @@ struct RecentSessionsCard: View {
     }
 
     private func resolved(_ session: RecentSessionSnapshot) -> SyncCacheEntry? {
-        if let source = session.evidence?.source,
-           let hit = cache.first(where: { $0.fileName == source }) {
-            return hit
-        }
-        if let dateKey = session.evidence?.dateKey,
-           let hit = cache.first(where: { $0.fileName.hasPrefix(dateKey) || $0.startDateLocal.hasPrefix(dateKey) }) {
-            return hit
-        }
-        return nil
+        guard let source = session.evidence?.source else { return nil }
+        return cache.first(where: { $0.fileName == source })
     }
 }
 
@@ -90,7 +93,7 @@ private extension RecentSessionSnapshot {
         if let cache { return cache }
         let dateKey = evidence?.dateKey
         return SyncCacheEntry(
-            fileName: evidence?.source ?? "home:\(id)",
+            fileName: "home:\(id)",
             name: title,
             sportType: sport.ledgerSportType,
             startDateLocal: dateKey.map { "\($0)T12:00:00" } ?? "",
@@ -105,10 +108,6 @@ private extension RecentSessionSnapshot {
 
     func matches(_ entry: SyncCacheEntry) -> Bool {
         if let source = evidence?.source, entry.fileName == source { return true }
-        if let dateKey = evidence?.dateKey,
-           entry.fileName.hasPrefix(dateKey) || entry.startDateLocal.hasPrefix(dateKey) {
-            return true
-        }
         return entry.fileName == "home:\(id)"
     }
 }

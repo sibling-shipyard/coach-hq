@@ -277,9 +277,12 @@ struct CoachChatSyncedActivityList: View {
     }
 
     private var listedLoads: [String: Int] {
-        Dictionary(uniqueKeysWithValues: zip(activities, entries).compactMap { row, entry in
-            row.load.map { (entry.id, $0) }
-        })
+        Dictionary(
+            zip(activities, entries).compactMap { row, entry in
+                row.load.map { (entry.id, $0) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     var body: some View {
