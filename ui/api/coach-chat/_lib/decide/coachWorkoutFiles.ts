@@ -354,7 +354,7 @@ export function parseLeadingNumber(value: string | null | undefined): number | n
   return Number(match[1]);
 }
 
-function exerciseDose(ex: WorkoutCreateSpecExercise): number {
+export function exerciseDose(ex: WorkoutCreateSpecExercise): number {
   return ex.type === "timed" ? (ex.duration_secs ?? 0) * ex.sets : (ex.reps ?? 0) * ex.sets;
 }
 

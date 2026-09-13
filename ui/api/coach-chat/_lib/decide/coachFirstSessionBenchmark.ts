@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import type { InjuriesJson, MemoryJson, TrainingAvailability } from "./coachMemoryFiles.js";
 import type { Progression, ProgressionsJson } from "./coachQuestFiles.js";
 import {
+  exerciseDose,
   parseLeadingNumber,
   type WorkoutCreateSpec,
   type WorkoutCreateSpecExercise,
@@ -260,17 +261,16 @@ export function repairBenchmarkSpecForInvariants(
       // trip normally, cascading to the fixed fallback below rather than writing a 0-rep set.
       if (currentDose == null || currentDose < 1) return ex;
       // Collapses to a single set at the capped value rather than spreading the cap across the
-      // spec's original set count - simplest way to guarantee dose (reps/duration_secs * sets)
-      // never exceeds currentDose regardless of how many sets the generated spec asked for
-      // (dividing the cap across multiple sets and flooring can still overshoot once sets > cap,
-      // e.g. sets: 3 against a cap of 1).
+      // spec's original set count - simplest way to guarantee exerciseDose() never exceeds
+      // currentDose regardless of how many sets the generated spec asked for (dividing the cap
+      // across multiple sets and flooring can still overshoot once sets > cap, e.g. sets: 3
+      // against a cap of 1).
       const cappedValue = Math.floor(currentDose);
-      if (ex.type === "timed") {
-        const dose = (ex.duration_secs ?? 0) * ex.sets;
-        return dose > currentDose ? { ...ex, duration_secs: cappedValue, sets: 1 } : ex;
-      }
-      const dose = (ex.reps ?? 0) * ex.sets;
-      return dose > currentDose ? { ...ex, reps: cappedValue, sets: 1 } : ex;
+      const dose = exerciseDose(ex);
+      if (dose <= currentDose) return ex;
+      return ex.type === "timed"
+        ? { ...ex, duration_secs: cappedValue, sets: 1 }
+        : { ...ex, reps: cappedValue, sets: 1 };
     }),
   }));
 

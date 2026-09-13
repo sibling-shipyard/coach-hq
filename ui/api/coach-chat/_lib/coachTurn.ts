@@ -1371,6 +1371,31 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
+// Standalone commit for the case generateFirstSessionWorkoutsAfterCompletion finds the benchmark
+// already in the manifest but the marker still pending - a prior turn's own clear (below, folded
+// into that turn's benchmark commit) must have dropped. There's no other write to piggyback on
+// here, unlike the main path, so this is its own small commit rather than appended to `writes`.
+async function clearFirstSessionBenchmarkPending(turn: TurnWrites): Promise<void> {
+  const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+  if (!freshProfileContent) return;
+  const cleared = applyJsonMergePatch(
+    freshProfileContent,
+    JSON.stringify({ first_session_benchmark_pending: false }),
+  );
+  if (!cleared.ok) {
+    console.warn(
+      `[coach-chat] could not clear stale first_session_benchmark_pending: ${cleared.error}`,
+      { traceId: turn.traceId },
+    );
+    return;
+  }
+  await commitFilesAtomic(
+    [{ path: PROFILE_PATH, content: cleared.content }],
+    "coach: clear stale first_session_benchmark_pending marker",
+    { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
+  );
+}
+
 // Writes one benchmark routine (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled
 // through the same applyWorkoutCreate/buildWorkoutCreateAndRemoveWrites path an ordinary
 // workout_create turn uses), seeds one progression per benchmarked pattern, derives the structured
@@ -1403,7 +1428,14 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
   try {
     const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
     const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
-    if (existingRoutineIds.has(BENCHMARK_ROUTINE_ID)) return;
+    if (existingRoutineIds.has(BENCHMARK_ROUTINE_ID)) {
+      // The benchmark already landed on some earlier turn, but pending is still true - the
+      // profile write that was supposed to clear it alongside that commit must have dropped
+      // (stale getFileRaw, a bad merge patch). Without this, every future turn would keep
+      // re-fetching the manifest and bailing right here, never reaching the clear below.
+      if (pendingFromEarlierAttempt) await clearFirstSessionBenchmarkPending(turn);
+      return;
+    }
 
     const memory = turn.projectedMemory;
     const injuries = turn.context.injuries ?? { flags: [] };

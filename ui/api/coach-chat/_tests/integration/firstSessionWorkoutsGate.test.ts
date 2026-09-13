@@ -125,6 +125,49 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
     expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
   });
 
+  // P1 fix (#727 review): the benchmark already landed on some earlier turn (it's in the
+  // manifest) but pending never got cleared - the profile write that should have cleared it
+  // alongside that commit must have dropped. Without this, every future turn would keep
+  // re-fetching the manifest and bailing at the existingRoutineIds check, never reaching a clear.
+  it("clears a stale pending marker via its own commit when the benchmark is already in the manifest", async () => {
+    getFileRaw.mockImplementation(async (_repo: string, path: string) => {
+      if (path.endsWith("_manifest.json")) {
+        return JSON.stringify({ template_ids: ["foundation", "first_session_benchmark"] });
+      }
+      if (path.endsWith("profile.json")) {
+        return JSON.stringify({ version: 1, name: "A", first_session_benchmark_pending: true });
+      }
+      return null;
+    });
+    await generateFirstSessionWorkoutsAfterCompletion(
+      baseTurn({
+        wasProfileComplete: true,
+        profileComplete: true,
+        context: {
+          injuries: { flags: [] },
+          progressions: null,
+          profile: { first_session_benchmark_pending: true },
+        },
+      }) as never,
+    );
+    expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
+    const writes = commitFilesAtomic.mock.calls[0][0];
+    expect(writes).toHaveLength(1);
+    expect(JSON.parse(writes[0].content!).first_session_benchmark_pending).toBe(false);
+  });
+
+  it("does nothing at all when the benchmark is already in the manifest and pending is already clear", async () => {
+    getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+      path.endsWith("_manifest.json")
+        ? JSON.stringify({ template_ids: ["foundation", "first_session_benchmark"] })
+        : null,
+    );
+    await generateFirstSessionWorkoutsAfterCompletion(
+      baseTurn({ wasProfileComplete: false, profileComplete: true }) as never,
+    );
+    expect(commitFilesAtomic).not.toHaveBeenCalled();
+  });
+
   it("clears first_session_benchmark_pending in the same commit once the benchmark actually lands", async () => {
     getFileRaw.mockImplementation(async (_repo: string, path: string) => {
       if (path.endsWith("_manifest.json")) {
