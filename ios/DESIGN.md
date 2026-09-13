@@ -69,7 +69,6 @@ Mapped in `Theme.sportIcon(for:)`:
 - **Circular sport icon** — 40×40pt, sport color tint background (opacity 0.1), sport color icon
 - **Color bars** — 5pt wide, flush to card/row left edge, no padding
 - **Zone bar** — `CompactZoneBar`: proportional 5-segment bar, `ClipShape(Capsule())` by default; `rounded: false` for flush-to-card-bottom usage
-- **Zone dots** — `ZoneDots`: 5 × 6pt circles, full opacity if ≥8% time in zone, 18% opacity otherwise
 - **Dividers** — inset to start after icon/bar elements
 
 ### Dark mode
@@ -82,7 +81,7 @@ Mapped in `Theme.sportIcon(for:)`:
 
 Home → All Activity is `AllActivitiesListView` hosting `ActivityLedgerView`: week groups, one pulled paper card, load sheet, tap → `ActivityDetailView`.
 
-Coach chat still draws `ActivityLedgerRow` in the SESSION SYNCED slot. A stacked PR swaps that to the same card. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
+Coach chat's SESSION SYNCED slot embeds the same stack (`ActivityLedgerStyle.embed`) — compact metrics, kicker only, no title or load sheet. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
 
 Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card. Riffle is UIKit-only; SwiftUI hold-then-drag stole `ScrollView`.
 
@@ -92,8 +91,8 @@ Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it m
 
 ### ✅ Phase 1 — Activity Feed Polish
 - All Activity is the paper ledger stack (`ActivityLedgerView`)
-- Old day-grouped `ActivityFeedView` / `WeekSummaryWidget` removed as dead
-- Chat still uses `ActivityLedgerRow` until the follow-up PR
+- Old day-grouped `ActivityFeedView` / `WeekSummaryWidget` / `ActivityLedgerRow` removed
+- Coach chat SESSION SYNCED uses the same cards (`.embed`)
 
 ### ✅ Phase 2 — Activity Detail Upgrade
 - Hero stats card: 3pt sport color stripe, 22pt bold name, 19pt monospace stat columns
@@ -129,10 +128,9 @@ and deleted as dead code. Every live Home widget now lives in `Views/Widgets/`, 
   `ActivityGlyphKind`) across `Theme.sportIcon`/`sportBadge`, `WarmInstrument.sportColor`/
   `sfSymbol`, and `OnboardingRevealFlow.sportDisplayInfo`. Picking one canonical keyspace is a
   design decision, not a mechanical fold (#928's W4).
-- **`SessionRow` (`Views/Widgets/RecentSessionsCard.swift`) vs. `ActivityRowViewModel`+
-  `ActivityLedgerRow` (`ActivityFeedVariants.swift`)** are still two row-rendering paths.
-  Folding them needs the sport-keyspace decision above first, plus a pre-formatted-vs-raw-fields
-  adapter and a compact mode `ActivityLedgerRow` doesn't have yet (#928's W5).
+- **`SessionRow` (`Views/Widgets/RecentSessionsCard.swift`) vs. `ActivityLedgerCard`**
+  are still two rendering paths. Folding Home recent sessions onto the paper card needs
+  the sport-keyspace decision above first (#928's W5).
 - **`SportChip` (`WarmInstrumentAtoms.swift`) has zero call sites.** `WeeklyPlanCard.daySlot`
   redraws its icon-on-tint square inline instead, because `SportChip` is a fixed `size × size`
   square with no stretch-width mode or overridable corner radius — what `daySlot`'s 7-equal-

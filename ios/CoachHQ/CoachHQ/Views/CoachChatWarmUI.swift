@@ -262,36 +262,63 @@ struct CoachChatEmptyThreadPrompt: View {
     }
 }
 
-/// Deterministic synced-batch list rendered in the same WarmCard + CardKicker style as the
-/// home feed's ledger card, so both surfaces share identical visual treatment.
+/// Just-synced batch in Coach Chat — same paper cards as All Activity, no page chrome.
 struct CoachChatSyncedActivityList: View {
     let activities: [SyncedActivityRow]
+    var resolveEntry: (SyncedActivityRow) -> SyncCacheEntry?
     var onSelect: (SyncedActivityRow) -> Void
 
     private var sessionLabel: String {
         activities.count == 1 ? "1 SESSION" : "\(activities.count) SESSIONS"
     }
 
-    var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 0) {
-                CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
-                    .padding(.bottom, 12)
+    private func listedLoads(for entries: [SyncCacheEntry]) -> [String: Int] {
+        Dictionary(
+            zip(activities, entries).compactMap { row, entry in
+                row.load.map { (entry.id, $0) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
 
-                ForEach(Array(activities.enumerated()), id: \.element.id) { index, row in
-                    Button {
-                        onSelect(row)
-                    } label: {
-                        ActivityLedgerRow(vm: row.asRowViewModel)
-                            .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    if index < activities.count - 1 {
-                        Divider().overlay(WarmInstrument.headerRule)
-                    }
-                }
+    var body: some View {
+        let entries = activities.map { $0.ledgerEntry(from: resolveEntry($0)) }
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
+                ActivityLedgerView(
+                    entries: entries,
+                    onSelect: { entry in
+                        if let row = activities.first(where: { $0.matches(entry) }) {
+                            onSelect(row)
+                        }
+                    },
+                    style: .embed,
+                    listedLoads: listedLoads(for: entries)
+                )
             }
+            Spacer(minLength: 36)
         }
+    }
+}
+
+private extension SyncedActivityRow {
+    func ledgerEntry(from cache: SyncCacheEntry?) -> SyncCacheEntry {
+        if let cache { return cache }
+        return SyncCacheEntry(
+            fileName: "chat:\(id)",
+            name: title.isEmpty ? sport : title,
+            sportType: sport,
+            startDateLocal: start,
+            elapsedTime: durationSeconds,
+            hasDescription: false
+        )
+    }
+
+    func matches(_ entry: SyncCacheEntry) -> Bool {
+        entry.activity?.activityId == id
+            || entry.fileName.contains(id)
+            || entry.fileName == "chat:\(id)"
     }
 }
 

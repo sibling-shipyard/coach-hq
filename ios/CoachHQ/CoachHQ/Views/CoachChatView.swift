@@ -253,6 +253,7 @@ struct CoachChatView: View {
                         chatMessageStack
                             .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .bottom)
                     }
+                    .scrollClipDisabled()
                     .scrollDismissesKeyboard(.interactively)
                     .background(WarmInstrument.chatSurface)
                     .onAppear {
@@ -385,7 +386,10 @@ struct CoachChatView: View {
         case .coach:
             VStack(alignment: .leading, spacing: 10) {
                 if let list = message.syncedActivityList {
-                    CoachChatSyncedActivityList(activities: list.activities) { row in
+                    CoachChatSyncedActivityList(
+                        activities: list.activities,
+                        resolveEntry: { cacheEntry(for: $0) }
+                    ) { row in
                         if let entry = cacheEntry(for: row) {
                             openedActivity = entry
                         }

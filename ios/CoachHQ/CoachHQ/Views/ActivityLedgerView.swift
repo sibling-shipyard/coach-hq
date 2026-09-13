@@ -1,9 +1,19 @@
 import SwiftUI
 
+enum ActivityLedgerStyle {
+    /// All Activity page: back link, title, load sheet, week headers.
+    case page
+    /// Chat SESSION SYNCED slot: paper stack only, weeks forced open.
+    case embed
+}
+
 struct ActivityLedgerView<Footer: View>: View {
     let entries: [SyncCacheEntry]
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
+    var style: ActivityLedgerStyle = .page
+    /// Fallback load when `hrZones` are missing (provisional chat rows).
+    var listedLoads: [String: Int] = [:]
     @ViewBuilder var footer: () -> Footer
 
     @State private var openWeekIDs: Set<String> = []
@@ -12,34 +22,42 @@ struct ActivityLedgerView<Footer: View>: View {
     @State private var didSeed = false
 
     private var weeks: [ActivityLedgerWeek] {
-        ActivityLedgerWeek.group(entries: entries)
+        ActivityLedgerWeek.group(entries: entries, listedLoads: listedLoads)
     }
 
+    private var isEmbed: Bool { style == .embed }
+
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 26) {
-            header
+        LazyVStack(alignment: .leading, spacing: isEmbed ? 16 : 26) {
+            if !isEmbed {
+                header
+            }
 
             ForEach(weeks) { week in
                 ActivityLedgerWeekView(
                     week: week,
-                    isOpen: openWeekIDs.contains(week.id),
+                    isOpen: isEmbed || openWeekIDs.contains(week.id),
                     pulledID: pulledID,
+                    showsHeader: !isEmbed,
+                    metrics: isEmbed ? .embed : .page,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
                     onOpen: { open($0) }
                 )
             }
 
-            footer()
-                .padding(.top, 2)
+            if !isEmbed {
+                footer()
+                    .padding(.top, 2)
 
-            Color.clear.frame(height: 8)
+                Color.clear.frame(height: 8)
+            }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, isEmbed ? 0 : 16)
         // Mock's 64px includes the status-bar band inside the device frame.
         // ScrollView content already clears the safe area, so keep this tight.
-        .padding(.top, 12)
-        .padding(.bottom, 40)
+        .padding(.top, isEmbed ? 0 : 12)
+        .padding(.bottom, isEmbed ? 0 : 40)
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in reconcileAfterEntriesChange() }
         .sheet(isPresented: $showingLoadSheet) {
@@ -97,7 +115,7 @@ struct ActivityLedgerView<Footer: View>: View {
         }
         didSeed = true
         guard let firstWeek = weeks.first else { return }
-        openWeekIDs = [firstWeek.id]
+        openWeekIDs = isEmbed ? Set(weeks.map(\.id)) : [firstWeek.id]
         pulledID = firstWeek.items.first?.id
     }
 
@@ -146,11 +164,15 @@ extension ActivityLedgerView where Footer == EmptyView {
     init(
         entries: [SyncCacheEntry],
         onSelect: @escaping (SyncCacheEntry) -> Void,
-        onBack: (() -> Void)? = nil
+        onBack: (() -> Void)? = nil,
+        style: ActivityLedgerStyle = .page,
+        listedLoads: [String: Int] = [:]
     ) {
         self.entries = entries
         self.onSelect = onSelect
         self.onBack = onBack
+        self.style = style
+        self.listedLoads = listedLoads
         self.footer = { EmptyView() }
     }
 }
@@ -159,16 +181,20 @@ private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
+    var showsHeader: Bool = true
+    var metrics: ActivityLedgerMetrics = .page
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button(action: onToggle) {
-                weekHeader
+        VStack(alignment: .leading, spacing: showsHeader ? 12 : 0) {
+            if showsHeader {
+                Button(action: onToggle) {
+                    weekHeader
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             weekBody
         }
@@ -217,23 +243,26 @@ private struct ActivityLedgerWeekView: View {
                 Button(action: onToggle) {
                     ActivityLedgerClosedStack(
                         item: newest,
-                        hiddenCount: max(0, week.items.count - 1)
+                        hiddenCount: max(0, week.items.count - 1),
+                        metrics: metrics
                     )
                 }
                 .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.bottom, ActivityLedgerMetrics.shadowBleed)
-        .frame(height: bodyHeight + ActivityLedgerMetrics.shadowBleed, alignment: .top)
+        .padding(.horizontal, metrics.sideBleed)
+        .padding(.bottom, metrics.shadowBleed)
+        .frame(height: bodyHeight + metrics.shadowBleed, alignment: .top)
         .clipped()
-        .padding(.bottom, -ActivityLedgerMetrics.shadowBleed)
+        .padding(.horizontal, -metrics.sideBleed)
+        .padding(.bottom, -metrics.shadowBleed)
     }
 
     private var bodyHeight: CGFloat {
         isOpen
-            ? week.openBodyHeight(pulledID: pulledID)
-            : ActivityLedgerMetrics.closedHeight
+            ? week.openBodyHeight(pulledID: pulledID, metrics: metrics)
+            : metrics.closedHeight
     }
 
     private var openStack: some View {
@@ -244,7 +273,8 @@ private struct ActivityLedgerWeekView: View {
                 ActivityLedgerCard(
                     item: item,
                     isPulled: isPulled,
-                    visibleHeight: height
+                    visibleHeight: height,
+                    metrics: metrics
                 )
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
@@ -263,14 +293,14 @@ private struct ActivityLedgerWeekView: View {
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
         if index == 0 {
-            return isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek
+            return isPulled ? metrics.cardHeight : metrics.peek
         }
-        return ActivityLedgerMetrics.cardHeight
+        return metrics.cardHeight
     }
 
     private func topMargin(index: Int, isPulled: Bool) -> CGFloat {
         guard index > 0 else { return 0 }
-        return isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek
+        return isPulled ? metrics.pullGap : -metrics.peek
     }
 }
 
@@ -280,15 +310,16 @@ private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
     let visibleHeight: CGFloat
+    var metrics: ActivityLedgerMetrics = .page
 
     private var statsHeight: CGFloat {
-        max(0, visibleHeight - ActivityLedgerMetrics.peek)
+        max(0, visibleHeight - metrics.peek)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             statsStrip
-                .frame(height: ActivityLedgerMetrics.peek, alignment: .bottom)
+                .frame(height: metrics.peek, alignment: .bottom)
                 .frame(height: statsHeight, alignment: .bottom)
                 .clipped()
                 .opacity(statsHeight < 1 ? 0 : 1)
@@ -298,38 +329,38 @@ private struct ActivityLedgerCard: View {
         .frame(maxWidth: .infinity)
         .frame(height: visibleHeight, alignment: .bottom)
         .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
                 .strokeBorder(LedgerPaper.border, lineWidth: 1)
         )
         .compositingGroup()
         .shadow(
-            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : 0.08),
-            radius: isPulled ? 14 : 6,
+            color: LedgerPaper.shadow.opacity(isPulled ? metrics.pulledShadowOpacity : metrics.tuckedShadowOpacity),
+            radius: isPulled ? metrics.pulledShadowRadius : metrics.tuckedShadowRadius,
             x: 0,
-            y: isPulled ? 12 : 4
+            y: isPulled ? metrics.pulledShadowY : metrics.tuckedShadowY
         )
-        .scaleEffect(isPulled ? 1.012 : 1)
+        .scaleEffect(isPulled ? metrics.pulledScale : 1)
         .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
         .animation(ActivityLedgerMetrics.cardMotion, value: visibleHeight)
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
     }
 
     private var row: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: metrics.rowGap) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(item.sportColor)
-                .frame(width: 3, height: 30)
+                .frame(width: metrics.tickWidth, height: metrics.tickHeight)
 
             Image(systemName: item.sportIcon)
-                .font(.system(size: 20, weight: .regular))
+                .font(.system(size: metrics.glyphSize, weight: .regular))
                 .foregroundColor(LedgerPaper.glyph)
-                .frame(width: 20, height: 20)
+                .frame(width: metrics.glyphSize, height: metrics.glyphSize)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: metrics.metaGap) {
                 Text(item.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: metrics.titleSize, weight: .semibold))
                     .tracking(-0.15)
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
@@ -340,13 +371,13 @@ private struct ActivityLedgerCard: View {
             Spacer(minLength: 8)
 
             Text(item.loadLabel)
-                .font(WarmInstrument.figures(17, weight: .bold))
+                .font(WarmInstrument.figures(metrics.loadSize, weight: .bold))
                 .tracking(-0.5)
                 .foregroundColor(WarmInstrument.ink)
                 .contentTransition(.numericText())
         }
-        .frame(height: ActivityLedgerMetrics.peek)
-        .padding(.horizontal, 18)
+        .frame(height: metrics.peek)
+        .padding(.horizontal, metrics.rowPadding)
     }
 
     private var metaLine: some View {
@@ -357,23 +388,23 @@ private struct ActivityLedgerCard: View {
             Text(" · \(item.durationLabel)")
                 .foregroundColor(WarmInstrument.inkMuted)
         }
-        .font(WarmInstrument.monoLabel(9.5, weight: .regular))
+        .font(WarmInstrument.monoLabel(metrics.metaSize, weight: .regular))
         .tracking(0.48)
         .lineLimit(1)
     }
 
     private var statsStrip: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: metrics.statGap) {
             ForEach(item.stats) { stat in
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(stat.value)
-                        .font(WarmInstrument.figures(15, weight: .bold))
+                        .font(WarmInstrument.figures(metrics.statSize, weight: .bold))
                         .tracking(-0.45)
                         .foregroundColor(WarmInstrument.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                     Text(stat.label)
-                        .font(WarmInstrument.monoLabel(8, weight: .bold))
+                        .font(WarmInstrument.monoLabel(metrics.statLabelSize, weight: .bold))
                         .tracking(1.04)
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineLimit(1)
@@ -383,36 +414,37 @@ private struct ActivityLedgerCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: ActivityLedgerMetrics.peek)
-        .padding(.horizontal, 18)
+        .frame(height: metrics.peek)
+        .padding(.horizontal, metrics.rowPadding)
     }
 }
 
 private struct ActivityLedgerClosedStack: View {
     let item: ActivityLedgerItem
     let hiddenCount: Int
+    var metrics: ActivityLedgerMetrics = .page
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
+            HStack(spacing: metrics.rowGap) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(item.sportColor)
-                    .frame(width: 3, height: 30)
+                    .frame(width: metrics.tickWidth, height: metrics.tickHeight)
 
                 Image(systemName: item.sportIcon)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.system(size: metrics.glyphSize, weight: .regular))
                     .foregroundColor(LedgerPaper.glyph)
-                    .frame(width: 20, height: 20)
+                    .frame(width: metrics.glyphSize, height: metrics.glyphSize)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: metrics.metaGap) {
                     Text(item.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: metrics.titleSize, weight: .semibold))
                         .tracking(-0.15)
                         .foregroundColor(WarmInstrument.ink)
                         .lineLimit(1)
 
                     Text(item.metaLine)
-                        .font(WarmInstrument.monoLabel(9.5, weight: .regular))
+                        .font(WarmInstrument.monoLabel(metrics.metaSize, weight: .regular))
                         .tracking(0.48)
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineLimit(1)
@@ -433,20 +465,25 @@ private struct ActivityLedgerClosedStack: View {
                         )
                 } else {
                     Text(item.loadLabel)
-                        .font(WarmInstrument.figures(17, weight: .bold))
+                        .font(WarmInstrument.figures(metrics.loadSize, weight: .bold))
                         .tracking(-0.5)
                         .foregroundColor(WarmInstrument.ink)
                 }
             }
-            .frame(height: ActivityLedgerMetrics.peek)
-            .padding(.horizontal, 18)
+            .frame(height: metrics.peek)
+            .padding(.horizontal, metrics.rowPadding)
             .background(WarmInstrument.paper)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
                     .strokeBorder(LedgerPaper.border, lineWidth: 1)
             )
-            .shadow(color: LedgerPaper.shadow.opacity(0.12), radius: 9, x: 0, y: 8)
+            .shadow(
+                color: LedgerPaper.shadow.opacity(metrics.tuckedShadowOpacity),
+                radius: metrics.tuckedShadowRadius,
+                x: 0,
+                y: metrics.tuckedShadowY
+            )
             .zIndex(2)
 
             if hiddenCount > 0 {
@@ -585,23 +622,23 @@ private struct ActivityLedgerWeek: Identifiable {
         return load >= 250 ? "in the band" : "below the band"
     }
 
-    func openBodyHeight(pulledID: String?) -> CGFloat {
+    func openBodyHeight(pulledID: String?, metrics: ActivityLedgerMetrics = .page) -> CGFloat {
         var height: CGFloat = 2
         for (index, item) in items.enumerated() {
             let isPulled = pulledID == item.id
             height += index == 0
-                ? (isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek)
-                : ActivityLedgerMetrics.cardHeight
+                ? (isPulled ? metrics.cardHeight : metrics.peek)
+                : metrics.cardHeight
             if index > 0 {
-                height += isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek
+                height += isPulled ? metrics.pullGap : -metrics.peek
             }
         }
         return height
     }
 
     @MainActor
-    static func group(entries: [SyncCacheEntry]) -> [ActivityLedgerWeek] {
-        let items = entries.map(ActivityLedgerItem.init(entry:))
+    static func group(entries: [SyncCacheEntry], listedLoads: [String: Int] = [:]) -> [ActivityLedgerWeek] {
+        let items = entries.map { ActivityLedgerItem(entry: $0, listedLoad: listedLoads[$0.id]) }
         let buckets = Dictionary(grouping: items) { $0.weekID }
         return buckets
             .map { _, groupedItems in
@@ -636,11 +673,11 @@ private struct ActivityLedgerItem: Identifiable {
     let load: Int?
     let stats: [ActivityLedgerStat]
 
-    init(entry: SyncCacheEntry) {
+    init(entry: SyncCacheEntry, listedLoad: Int? = nil) {
         let activity = entry.activity
         let badge = Theme.sportBadge(for: entry.sportType)
         let date = ActivityLedgerFormat.parseDate(entry.startDateLocal) ?? .distantPast
-        let load = ActivityLedgerLoad.compute(from: activity?.hrZones)
+        let load = ActivityLedgerLoad.compute(from: activity?.hrZones) ?? listedLoad
 
         self.id = entry.id
         self.entry = entry
@@ -816,12 +853,93 @@ private enum ActivityLedgerFormat {
 }
 
 /// H = 2·PEEK so a tucked card always lands at −PEEK and only its row shows.
-private enum ActivityLedgerMetrics {
-    static let peek: CGFloat = 64
-    static let cardHeight: CGFloat = 128
-    static let pullGap: CGFloat = 12
-    static let closedHeight: CGFloat = 84
-    static let shadowBleed: CGFloat = 30
+private struct ActivityLedgerMetrics: Equatable {
+    var peek: CGFloat
+    var cardHeight: CGFloat
+    var pullGap: CGFloat
+    var closedHeight: CGFloat
+    var shadowBleed: CGFloat
+    var sideBleed: CGFloat
+    var cornerRadius: CGFloat
+    var rowPadding: CGFloat
+    var rowGap: CGFloat
+    var statGap: CGFloat
+    var metaGap: CGFloat
+    var tickWidth: CGFloat
+    var tickHeight: CGFloat
+    var glyphSize: CGFloat
+    var titleSize: CGFloat
+    var loadSize: CGFloat
+    var statSize: CGFloat
+    var statLabelSize: CGFloat
+    var metaSize: CGFloat
+    var pulledScale: CGFloat
+    var tuckedShadowOpacity: Double
+    var tuckedShadowRadius: CGFloat
+    var tuckedShadowY: CGFloat
+    var pulledShadowOpacity: Double
+    var pulledShadowRadius: CGFloat
+    var pulledShadowY: CGFloat
+
+    static let page = ActivityLedgerMetrics(
+        peek: 64,
+        cardHeight: 128,
+        pullGap: 12,
+        closedHeight: 84,
+        shadowBleed: 30,
+        sideBleed: 12,
+        cornerRadius: 20,
+        rowPadding: 18,
+        rowGap: 12,
+        statGap: 10,
+        metaGap: 4,
+        tickWidth: 3,
+        tickHeight: 30,
+        glyphSize: 20,
+        titleSize: 15,
+        loadSize: 17,
+        statSize: 15,
+        statLabelSize: 8,
+        metaSize: 9.5,
+        pulledScale: 1.012,
+        tuckedShadowOpacity: 0.08,
+        tuckedShadowRadius: 6,
+        tuckedShadowY: 4,
+        pulledShadowOpacity: 0.20,
+        pulledShadowRadius: 14,
+        pulledShadowY: 12
+    )
+
+    /// Chat SESSION SYNCED — same stack, smaller so it sits with the bubbles.
+    static let embed = ActivityLedgerMetrics(
+        peek: 44,
+        cardHeight: 88,
+        pullGap: 7,
+        closedHeight: 62,
+        shadowBleed: 12,
+        sideBleed: 8,
+        cornerRadius: 14,
+        rowPadding: 12,
+        rowGap: 8,
+        statGap: 8,
+        metaGap: 2,
+        tickWidth: 2.5,
+        tickHeight: 22,
+        glyphSize: 15,
+        titleSize: 13,
+        loadSize: 14,
+        statSize: 12,
+        statLabelSize: 7,
+        metaSize: 8.5,
+        pulledScale: 1,
+        tuckedShadowOpacity: 0.05,
+        tuckedShadowRadius: 3,
+        tuckedShadowY: 1,
+        pulledShadowOpacity: 0.12,
+        pulledShadowRadius: 7,
+        pulledShadowY: 3
+    )
+
     static let zoneWeights = [1, 2, 3, 4, 5]
     static let cardMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42)
     static let weekMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.46).delay(0.06)
