@@ -504,6 +504,33 @@ function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
   return null;
 }
 
+// Live-verified (#727 review, 2026-09-13): the Weekly Kick-off Ritual intermittently narrates a
+// full 7-day plan in reply text (a day-by-day bulleted breakdown) without ever setting
+// week_update - the athlete reads a plan that was never saved. A generic "did the reply describe
+// something without the matching action" heuristic was rejected elsewhere in this file for real
+// false-positive risk against ordinary conversation (see the rejected gap-2a discussion this PR's
+// history references), but this specific shape isn't that: a reply naming 5+ distinct weekday
+// names is not something ordinary coaching chat produces by accident, only a real day-by-day
+// week narration does. Scoped to non-firstSession turns only, since a first-session athlete never
+// gets week_update at all (see the firstSession prompt branch above).
+const WEEKDAY_NAMES = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+const PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD = 5;
+
+function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
+  if (firstSession || reply.week_update) return false;
+  const lowerReply = reply.reply.toLowerCase();
+  const mentionedWeekdays = WEEKDAY_NAMES.filter((day) => lowerReply.includes(day)).length;
+  return mentionedWeekdays >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
+}
+
 // Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
 // injuries 3/8 times even with unrecorded_facts live - the same same-generation blind spot as
 // everywhere else it's missed a real omission. A general keyword heuristic across every turn was
@@ -555,6 +582,28 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+}
+
+// Live-verified (#727 review, 2026-09-13): reproduced live twice - the athlete stated a goal
+// (and often habits in the same message), the reply/coach_note narrated the season as "launched"
+// or "locked in," but season_start was never actually set. Same three-part scoping as
+// findMissedInjuryLanguage/findMissedHabitLanguage above, and same reason it's safe: checks the
+// ATHLETE's own words for goal-declaring language, not the model's reply phrasing, so this can't
+// misfire on the model's own narration style the way a reply-text keyword match could. Scoped to
+// first-session only - a returning athlete's season_start moment is rarer and less dense
+// (fewer competing facts in one message), and this exact failure was only observed there.
+// Deliberately narrower than the habit/injury patterns above - an earlier draft included bare
+// "target"/"targeting"/"aim(ing) for"/"training for" and two existing tests caught it colliding
+// with ordinary first-session chat ("still reaching my weekly mileage target" isn't a season-start
+// moment). Kept to phrasings specific enough that they essentially only show up when a real
+// goal/season is being declared.
+const GOAL_LANGUAGE_PATTERN =
+  /\b(my goal|the goal is|want to (?:be|get|reach|run|hit|lift|lose|gain|become)|by (?:the )?end of)\b/i;
+
+function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.firstSession) return null;
+  if (reply.season_start) return null;
+  return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
 // Single source of truth for "which fields count as schedule-changing" - both this function and
@@ -699,8 +748,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const unrecordedFacts = findUnrecordedFacts(reply);
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
+    const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
+    const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
     // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
     // RepliedTurn.stillUnrecordedFacts).
@@ -715,8 +766,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       unrecordedFacts ||
       missedInjuryLanguage ||
       missedHabitLanguage ||
+      missedSeasonLanguage ||
       unconfirmedAssumption ||
-      malformedExercise
+      malformedExercise ||
+      proseOnlyWeekPlan
     ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
@@ -724,8 +777,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         unrecordedFacts,
         missedInjuryLanguage,
         missedHabitLanguage,
+        missedSeasonLanguage,
         unconfirmedAssumption,
         malformedExercise,
+        proseOnlyWeekPlan,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -763,6 +818,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " stated, add it now; if it genuinely doesn't describe a new habit, disregard this note",
         );
       }
+      if (missedSeasonLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedSeasonLanguage}" but no season_start was set` +
+            " this turn - if a real goal/season was stated, add it now as season_start; if it" +
+            " genuinely doesn't describe a new goal or season, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
@@ -776,6 +838,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           `your workout_create has a structural problem: ${malformedExercise} - a "reps" exercise` +
             ' needs a real reps number, a "timed" exercise needs a real duration_secs number;' +
             " fix that one field, keep everything else the same",
+        );
+      }
+      if (proseOnlyWeekPlan) {
+        notes.push(
+          "your reply describes a full week's plan (multiple named weekdays) but week_update" +
+            " was never set - if you are genuinely committing this week now, set week_update with" +
+            " the same days/sessions you just described; the athlete cannot see anything you only" +
+            " wrote in the reply text",
         );
       }
       const repromptMessage = [
@@ -805,8 +875,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillUnrecordedFacts = findUnrecordedFacts(reply);
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
+      const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
+      const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
       // - the model stops self-flagging the miss on retry (it now believes its confabulated
       // excuse resolved it), even though the field still isn't captured. Carry forward the
@@ -821,8 +893,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUnrecordedFacts ||
         stillMissedInjuryLanguage ||
         stillMissedHabitLanguage ||
+        stillMissedSeasonLanguage ||
         stillUnconfirmedAssumption ||
-        stillMalformedExercise
+        stillMalformedExercise ||
+        stillProseOnlyWeekPlan
       ) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
@@ -832,8 +906,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnrecordedFacts,
             stillMissedInjuryLanguage,
             stillMissedHabitLanguage,
+            stillMissedSeasonLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
+            stillProseOnlyWeekPlan,
           },
           { traceId: turn.traceId },
         );

@@ -1,0 +1,119 @@
+[
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 1/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        }
+      ],
+      "userMessage": "I'm 28, 178cm, 82kg, based in Mumbai."
+    },
+    "output": {
+      "coach_note": "Athlete is 28 years old, 178 cm, 82 kg, based in Mumbai (Asia/Kolkata). Focus is strength training.",
+      "profile_update": [
+        {
+          "field": "height_cm",
+          "value": "178"
+        },
+        {
+          "field": "weight_kg",
+          "value": "82"
+        },
+        {
+          "field": "timezone",
+          "value": "Asia/Kolkata"
+        }
+      ],
+      "reply": "Got it—178 cm, 82 kg, and locked into Mumbai time. What are we aiming for with your strength training right now? Do you have a specific goal, milestone, or timeline in mind?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "profile.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 2/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        },
+        {
+          "id": "u-1789309119816",
+          "role": "user",
+          "text": "I'm 28, 178cm, 82kg, based in Mumbai."
+        },
+        {
+          "id": "c-1789309119816",
+          "role": "coach",
+          "paragraphs": [
+            "Got it—178 cm, 82 kg, and locked into Mumbai time. What are we aiming for with your strength training right now? Do you have a specific goal, milestone, or timeline in mind?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking."
+    },
+    "output": {
+      "season_start": {
+        "name": "Build Strength & Daily Discipline",
+        "start_date": "2026-09-13",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Build Overall Strength",
+          "type": "weekly_frequency",
+          "target": 3
+        },
+        "new_habits": [
+          {
+            "name": "Read for 10 minutes",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 10,
+            "unit": "mins"
+          },
+          {
+            "name": "No smoking",
+            "type": "daily_streak",
+            "polarity": "default_done",
+            "target": 1
+          }
+        ]
+      },
+      "coaching_style_update": "accountability",
+      "profile_update": [],
+      "reply": "Season locked in through the end of 2026. We have your overall strength quest set up, along with 10 minutes of daily reading and staying smoke-free. To dial in your strength routine, what kind of equipment or gym setup do you currently have access to?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "seasons.json"
+      ]
+    }
+  }
+]

@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Week of Sep 14–20 locked in: focused on aerobic foundation and 10K-specific pacing across running and badminton balance.",
+      "week_update": {
+        "focus": "10K specific aerobic foundation and threshold discipline",
+        "guardrails": [
+          "Keep easy runs strictly conversational",
+          "Protect recovery after hard running sessions"
+        ],
+        "headline": "Dialing in the 10K base",
+        "body": "Six weeks out from sub-45. We establish rhythm early with an aerobic base run, hit target pacing on Tuesday, and balance court time with weekend endurance.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Aerobic base building",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Aerobic Run",
+                "priority": "anchor",
+                "planned_duration_min": 45
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "Threshold work for 10K pacing",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "workout",
+                "title": "10K Threshold Intervals",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "Agility and court fitness",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "game",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Active recovery run",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Recovery Run",
+                "priority": "support",
+                "planned_duration_min": 35
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Full rest and mobility",
+            "sessions": []
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "Aerobic endurance milestone",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Endurance Long Run",
+                "priority": "anchor",
+                "planned_duration_min": 65
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Court play and active flush",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "match",
+                "title": "Badminton Match Play",
+                "priority": "optional",
+                "planned_duration_min": 60
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Your week is locked in. We have three quality run sessions—easy Monday, threshold intervals Tuesday, and a solid long run Saturday—balanced with badminton on Wednesday and Sunday, plus a clean rest day Friday. Let's get after Monday clean.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]

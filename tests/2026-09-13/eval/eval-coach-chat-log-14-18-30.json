@@ -1,0 +1,134 @@
+[
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 1/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        }
+      ],
+      "userMessage": "I'm 28, 178cm, 82kg, based in Mumbai."
+    },
+    "output": {
+      "profile_update": [
+        {
+          "field": "height_cm",
+          "value": "178"
+        },
+        {
+          "field": "weight_kg",
+          "value": "82"
+        },
+        {
+          "field": "timezone",
+          "value": "Asia/Kolkata"
+        }
+      ],
+      "reply": "Got it—178 cm, 82 kg, and timezone set to Mumbai. What are your main goals right now with your strength training?",
+      "unrecorded_facts": [
+        "Athlete mentioned age 28, but profile_update only accepts 'dob' (date of birth), not raw age."
+      ]
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "profile.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 2/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        },
+        {
+          "id": "u-1789309106918",
+          "role": "user",
+          "text": "I'm 28, 178cm, 82kg, based in Mumbai."
+        },
+        {
+          "id": "c-1789309106918",
+          "role": "coach",
+          "paragraphs": [
+            "Got it—178 cm, 82 kg, and timezone set to Mumbai. What are your main goals right now with your strength training?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking."
+    },
+    "output": {
+      "season_start": {
+        "name": "Build Overall Strength 2026",
+        "start_date": "2026-09-13",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Strength Training Sessions",
+          "type": "weekly_frequency",
+          "target": 3
+        },
+        "new_habits": [
+          {
+            "name": "Read for 10 mins",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 10,
+            "unit": "mins"
+          },
+          {
+            "name": "Smoke-free day",
+            "type": "daily_streak",
+            "polarity": "default_done",
+            "target": 1,
+            "unit": "day"
+          }
+        ]
+      },
+      "coaching_style_update": "accountability",
+      "profile_update": [
+        {
+          "field": "height_cm",
+          "value": "178"
+        },
+        {
+          "field": "weight_kg",
+          "value": "82"
+        },
+        {
+          "field": "timezone",
+          "value": "Asia/Kolkata"
+        }
+      ],
+      "reply": "Targeting overall strength through the end of 2026 is locked in, along with 10 minutes of daily reading and staying smoke-free. How many days a week are you planning to lift, and what kind of equipment or gym setup do you have access to?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "seasons.json",
+        "profile.json"
+      ]
+    }
+  }
+]

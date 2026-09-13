@@ -510,8 +510,10 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
 
     await requestCoachReply(
       firstSessionTurnState({
-        trimmed: "I want to run a marathon.",
-        geminiMessage: "I want to run a marathon.",
+        // Deliberately avoids goal-declaring language too ("I want to run a marathon" is a real
+        // trigger for the separate missed-season-language check below, not a false positive).
+        trimmed: "Just checking in, nothing new to report today.",
+        geminiMessage: "Just checking in, nothing new to report today.",
       }),
     );
 
@@ -767,6 +769,213 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
 
   it("does not reprompt when there is no workout_create at all", async () => {
     askGemini.mockResolvedValueOnce({ reply: "Sure, tell me more about what you want." });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Live-verified (#727 review, 2026-09-13): reproduced live twice - a first-session athlete
+// stated a goal (and often habits in the same message), coach_note/reply narrated the season as
+// launched, but season_start was never set. Same shape as the habit-language check above, but
+// keyed on goal-declaring language in the athlete's own message.
+describe("requestCoachReply missed-season-language reprompt (#727 live-test finding)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function firstSessionGoalTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: true,
+      trimmed: "By end of 2026 I want to be stronger overall.",
+      geminiMessage: "By end of 2026 I want to be stronger overall.",
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when goal language is present but season_start was never set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Season locked in.",
+        coach_note: "Athlete committed to a strength season through end of 2026.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Season locked in.",
+        coach_note: "Athlete committed to a strength season through end of 2026.",
+        season_start: {
+          name: "Strength Build",
+          start_date: "2026-09-13",
+          end_date: "2026-12-31",
+          main_quest: { name: "Get stronger", type: "count_target" as const, target: 1 },
+          new_habits: [],
+        },
+      });
+
+    const result = await requestCoachReply(firstSessionGoalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.season_start?.name).toBe("Strength Build");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no season_start was set");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Season locked in.",
+      coach_note: "Athlete committed to a strength season through end of 2026.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await requestCoachReply(firstSessionGoalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedSeasonLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt on a returning-athlete turn even with the same goal language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(firstSessionGoalTurnState({ firstSession: false }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when season_start was already captured", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      season_start: {
+        name: "Season",
+        start_date: "2026-09-13",
+        end_date: "2026-12-31",
+        main_quest: { name: "Goal", type: "count_target" as const, target: 1 },
+        new_habits: [],
+      },
+    });
+
+    await requestCoachReply(firstSessionGoalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on ordinary training chat with no goal-declaring language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      firstSessionGoalTurnState({
+        trimmed: "still reaching my weekly mileage target",
+        geminiMessage: "still reaching my weekly mileage target",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Live-verified (#727 review, 2026-09-13): reproduced live - the Weekly Kick-off Ritual
+// narrated a full 7-day plan in reply text (day-by-day bulleted breakdown) without ever setting
+// week_update. isProseOnlyWeekPlan's weekday-name-count detector catches this deterministically;
+// live reruns are too non-deterministic on their own to prove the reprompt fires on this exact
+// shape (the model sometimes gets it right unprompted), so this is verified here instead.
+function weekPlanProseReply(overrides: Record<string, unknown> = {}) {
+  return {
+    coach_note: "Full weekly plan laid out for the week ahead.",
+    reply:
+      "Here's your roadmap for the week:\n" +
+      "- Monday: Easy Aerobic Run (40 min)\n" +
+      "- Tuesday: Threshold Intervals (45 min)\n" +
+      "- Wednesday: Badminton (60 min)\n" +
+      "- Thursday: Easy Recovery Run (35 min)\n" +
+      "- Friday: Badminton (60 min)\n" +
+      "- Saturday: Long Run (60 min)\n" +
+      "- Sunday: Rest & Recovery\n" +
+      "Keep easy days strictly easy.",
+    unrecorded_facts: [],
+    ...overrides,
+  };
+}
+
+describe("requestCoachReply prose-only week plan reprompt (#727 live-test finding)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once when the reply narrates 5+ weekdays but week_update is absent", async () => {
+    askGemini.mockResolvedValueOnce(weekPlanProseReply()).mockResolvedValueOnce({
+      coach_note: "Full weekly plan laid out for the week ahead.",
+      reply: "Plan is locked in for the week ahead.",
+      week_update: {
+        focus: "Aerobic build",
+        guardrails: [],
+        headline: "Week ahead",
+        body: "Steady week.",
+        days: Array.from({ length: 7 }, (_, i) => ({
+          date: `2026-09-${14 + i}`,
+          intent: "train",
+          sessions: [],
+        })),
+      },
+      unrecorded_facts: [],
+    });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Lay out the full week for me",
+        geminiMessage: "Lay out the full week for me",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect((result as { reply: { week_update?: unknown } }).reply.week_update).toBeDefined();
+  });
+
+  it("does not reprompt when week_update is already set alongside the weekday narration", async () => {
+    askGemini.mockResolvedValueOnce(
+      weekPlanProseReply({
+        week_update: {
+          focus: "Aerobic build",
+          guardrails: [],
+          headline: "Week ahead",
+          body: "Steady week.",
+          days: Array.from({ length: 7 }, (_, i) => ({
+            date: `2026-09-${14 + i}`,
+            intent: "train",
+            sessions: [],
+          })),
+        },
+      }),
+    );
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Lay out the full week for me",
+        geminiMessage: "Lay out the full week for me",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on a firstSession turn even with 5+ weekdays mentioned", async () => {
+    askGemini.mockResolvedValueOnce(weekPlanProseReply());
+
+    await requestCoachReply(baseTurnState({ firstSession: true }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when fewer than 5 weekdays are mentioned", async () => {
+    askGemini.mockResolvedValueOnce({
+      coach_note: "Noted.",
+      reply: "Let's plan Monday and Tuesday first, then see how it goes.",
+      unrecorded_facts: [],
+    });
 
     await requestCoachReply(baseTurnState());
 

@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Set full 7-day training plan for the week of Sep 14 - Sep 20 targeting sub-45 10K preparation with balanced running volume and badminton sessions.",
+      "week_update": {
+        "focus": "10K threshold pace development and endurance base building",
+        "guardrails": [
+          "Keep easy runs strictly in Zone 2 to recover between interval work and badminton",
+          "Do not push interval pace faster than prescribed 10K target pace (4:25-4:30/km)"
+        ],
+        "headline": "Lock in specific 10K work without sacrificing court sharpness",
+        "body": "Six weeks out means threshold intervals become non-negotiable. We're balancing your Tuesday quality workout and Sunday long run around two solid badminton sessions so you maintain agility without burning out your legs.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Aerobic base maintenance",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Aerobic Run",
+                "priority": "support",
+                "planned_duration_min": 45
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "10K pace threshold development",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "intervals",
+                "title": "Threshold Intervals (6x1km @ 4:25-4:30/km)",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "Court agility and cross-training",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "skills_match",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Active recovery and leg shakeout",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "recovery",
+                "title": "Recovery Jog",
+                "priority": "optional",
+                "planned_duration_min": 35
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Full rest and tissue recovery",
+            "sessions": []
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "High-intensity agility and match play",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "match_play",
+                "title": "Badminton Match Play",
+                "priority": "support",
+                "planned_duration_min": 75
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Aerobic capacity and endurance anchor",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Aerobic Long Run",
+                "priority": "anchor",
+                "planned_duration_min": 70
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Week locked in. Tuesday's intervals (6x1km at target 10K pace) and Sunday's long run are your anchors. Badminton fits nicely Wednesday and Saturday. Keep the recovery days truly easy so Tuesday hits where it needs to.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]

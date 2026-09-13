@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Set full 7-day training plan for the week of Sep 14 - Sep 20. Focus on 10K specific pacing, badminton endurance, and aerobic volume.",
+      "week_update": {
+        "focus": "10K threshold pace work and aerobic base with badminton integration",
+        "guardrails": [
+          "Keep easy runs truly conversational",
+          "Do not push intervals faster than 4:30/km target pace"
+        ],
+        "headline": "Locking in 10K rhythm",
+        "body": "Six weeks out from your sub-45 10K goal, we need consistent threshold stimulus without compromising badminton court speed. Execute the quality runs cleanly.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Aerobic maintenance",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Aerobic Run",
+                "priority": "support",
+                "planned_duration_min": 45
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "Court sharpness and agility",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "practice",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "10K race pace intervals",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "intervals",
+                "title": "10K Pace Intervals (5x1km @ 4:25-4:30/km)",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Active recovery",
+            "sessions": [
+              {
+                "discipline": "recovery",
+                "kind": "mobility",
+                "title": "Mobility & Easy Walk",
+                "priority": "optional",
+                "planned_duration_min": 30
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Court endurance and game play",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "match",
+                "title": "Badminton Match Play",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "Aerobic base endurance",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Long Run (12km conversational)",
+                "priority": "anchor",
+                "planned_duration_min": 70
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Full rest and recovery",
+            "sessions": []
+          }
+        ]
+      },
+      "reply": "Your week is locked in:\n\n- **Monday (Sep 14):** Easy Aerobic Run (45 min)\n- **Tuesday (Sep 15):** Badminton (60 min)\n- **Wednesday (Sep 16):** 10K Pace Intervals — 5x1km @ 4:25–4:30/km (50 min total)\n- **Thursday (Sep 17):** Mobility & recovery walk (30 min)\n- **Friday (Sep 18):** Badminton match play (60 min)\n- **Saturday (Sep 19):** Long Run — 12km easy pace (70 min)\n- **Sunday (Sep 20):** Full rest\n\nWednesday's intervals and Saturday's long run are your non-negotiables for the sub-45 goal. Let's get to work.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]

@@ -18,15 +18,23 @@
 
 **The 4th failure (`incremental-injury-disclosure` [turn 3/3]) was investigated, not fixed - see its own section below.**
 
-### New findings surfaced while confirming the fixes (full-suite reruns, `--fresh`)
+### New findings surfaced while confirming the fixes, both now fixed
 
-Re-running the full suite after the fixture fixes surfaced two things worth flagging, neither a fixture bug:
+Re-running the full suite after the fixture fixes surfaced two more real bugs, same class as #999's already-shipped 1a/2b/3a/3b hardening. Both fixed in this same round rather than left open, per direction: don't leave a found gap for later, fix it or bring back a concrete reason not to.
 
-**`week-plan-kickoff-ritual` intermittently fails for a real reason, separate from the field-name issue already fixed.** One full-suite rerun (log `eval-coach-chat-log-13-59-02.json`) had the model describe a complete 7-day week in prose (`reply` text, bulleted days) but never call `week_update` at all - `coach_note`/`reply` present, no structured action, silently nothing gets saved. Two isolated reruns of just this transcript afterward both passed clean. Rough sample: 3/4 pass, 1/4 this specific prose-only skip. **This is the same class of gap as "gap 2" in the technical proposal #999 already hardened** (model describes the thing instead of calling the action) - #999 built a prompt-reinforcement fix (2b) for `workout_create` specifically, but never extended it to the `week_update` kickoff path. Not fixed here - flagging for a decision, not building it unasked.
+**`week-plan-kickoff-ritual` - model narrates the week, never calls `week_update`.** One full-suite rerun (log `eval-coach-chat-log-13-59-02.json`) had the model describe a complete 7-day week in prose (bulleted days) with no structured action at all - `coach_note`/`reply` present, `week_update` absent, silently nothing gets saved. Same class as "gap 2" from the original technical proposal, which #999 already hardened for `workout_create` (2b) but never extended to the kickoff path.
 
-**`fsp-quest-create-after-profile-complete` [turn 2/2] intermittently fails on a missing `season_start`/`season_start.new_habits`.** Reproduced once more on a targeted rerun (1/2 on `--only fsp-quest-create`). This is First Session quest/season creation - unrelated to workouts or current week, outside #999's and this stack's scope. Flagging for awareness only, not investigating further here.
+Fixed two ways:
+1. Prompt reinforcement (same style as 2b) in the Weekly Kick-off Ritual instructions. Verified this alone is not sufficient: 2 reruns after the prompt fix still failed the same way (`eval-coach-chat-log-14-11-09.json` through `-14-12-28.json` are the rerun batch).
+2. A new deterministic reprompt, `isProseOnlyWeekPlan` in `coachTurn.ts`: if the reply mentions 5+ distinct weekday names but `week_update` is absent (and it's not a first-session turn, which never gets `week_update` at all), trigger one corrective reprompt. Chose a weekday-name count specifically because it's a near-zero-false-positive signal - ordinary coaching chat doesn't name 5+ weekdays by accident, only a real day-by-day narration does. This is a different, safer shape than the reply-text heuristic already rejected for `workout_create`'s gap 2a (that one risked misfiring on ordinary conversation describing exercises; this one only fires on a very specific, rare pattern). Verified deterministically with 4 new unit tests in `coachTurn-reprompt.test.ts` (fires on the exact live-captured failure shape, stays silent when `week_update` is present, stays silent on a firstSession turn, stays silent under the 5-weekday threshold) - live eval reruns can't prove the reprompt code itself works, since `eval-coach-chat.ts` never calls `requestCoachReply` (same structural limit as the `incremental-injury-disclosure` finding below).
 
-Both are consistent with the eval script's own documented behavior (live model calls are inherently non-deterministic run to run, per its own header comment) - not evidence either is a new regression from anything in this PR.
+**`fsp-quest-create-after-profile-complete` [turn 2/2] - same bug, for `season_start`.** The athlete states a goal (`"By end of 2026 I want to be stronger overall..."`), the model's `coach_note`/`reply` narrate the season as launched and habits as logged, but `season_start` is never set - `profile_update: []` too, a fully silent skip. Reproduced on a targeted rerun (`eval-coach-chat-log-14-08-24.json`).
+
+Fixed two ways, same pattern:
+1. Prompt reinforcement in both the first-session and returning-athlete `season_start` instructions.
+2. A new deterministic reprompt, `findMissedSeasonLanguage` in `coachTurn.ts` - but scoped like `findMissedInjuryLanguage`/`findMissedHabitLanguage` already in this file, not like the week-plan fix above: it checks the **athlete's own message** for goal-declaring language ("my goal", "want to be/get/run/...", "by end of"), not the model's reply phrasing, first-session only. This sidesteps the false-positive risk a reply-text keyword match would carry. First draft included looser terms (`target`/`targeting`/`training for`/`aim for`) and two *existing* unit tests caught it colliding with ordinary first-session chat ("still reaching my weekly mileage target" isn't a season-start moment) - narrowed the pattern to the phrasings specific enough they essentially only show up on a real goal declaration, confirmed via 5 new unit tests (fires on the real live-captured phrasing, stays silent on a returning-athlete turn, stays silent once `season_start` is already set, stays silent on the generic "target" phrasing that collided during development).
+
+Both fixes: `npx tsc --noEmit` clean, full `api/coach-chat/` suite 566/566 (9 new tests, zero regressions once the two pre-existing tests that collided with the new season-language pattern were updated to use goal/habit-free messages).
 
 ### incremental-injury-disclosure [turn 3/3] - investigated, not fixed
 
@@ -61,15 +69,13 @@ What I can confirm: CI's `iOS Build` job doesn't just compile - it runs `xcodebu
 
 ## Bottom line: what's left before this stack can merge
 
-Nothing found that blocks merging. Everything checked this round either passed clean, got fixed, or turned out to be a pre-existing, out-of-scope gap:
+Nothing found that blocks merging. Everything checked this round either passed clean, got fixed, or turned out to be a pre-existing, correctly-not-fixed gap:
 
-- Paid eval: 3 of the original 4 failures were stale fixtures, now fixed and confirmed passing individually.
+- Paid eval: 3 of the original 4 failures were stale fixtures, now fixed and confirmed passing individually. Two more real bugs surfaced while confirming those fixes (`week-plan-kickoff-ritual`, `fsp-quest-create-after-profile-complete`), both fixed with a prompt reinforcement plus a new deterministic reprompt, both covered by new unit tests.
 - Web Workouts page: manually clicked through, works end to end, zero console errors.
 - iOS Workouts tab: real unit tests ran on a real simulator in CI and passed; visual check isn't possible from this machine.
 
-**Not blocking, but worth a decision (not built here, flagged for the athlete):**
-1. `week-plan-kickoff-ritual` intermittently (~1/4 in today's sample) has the model describe the whole week in prose without calling `week_update` at all - same class of gap as `workout_create`'s "describes it, doesn't call the action," which #999 already hardened with a prompt-reinforcement fix (2b) for `workout_create` specifically but not for the week kickoff path. A parallel fix here would be small (same pattern as 2b) if wanted.
-2. `incremental-injury-disclosure` [turn 3/3] - investigated in depth above. Very likely not a reachable production bug (the real write-time dedup guard would catch it, verified by hand-computing the actual word-overlap ratio), but the eval structurally can't see that guard since it never runs the write path. Recommend keeping the strict check as a canary on the prompt-level layer, and treating "should the eval exercise the real write path" as a separate, bigger question.
-3. `fsp-quest-create-after-profile-complete` - unrelated to workouts/current week, intermittent `season_start` omission, out of scope for this stack.
+**Not blocking, deliberately left as-is:**
+1. `incremental-injury-disclosure` [turn 3/3] - investigated in depth above. Very likely not a reachable production bug (the real write-time dedup guard would catch it, verified by hand-computing the actual word-overlap ratio), but the eval structurally can't see that guard since it never runs the write path. Recommend keeping the strict check as a canary on the prompt-level layer, and treating "should the eval exercise the real write path" as a separate, bigger question - not something to build inside this hardening round.
 
 **Scoped, not yet built - next PR on top of `#999`:** live-test `activity_sync` turns against the #727 stack specifically. `run-manual-coach-chat-test.ts --activity-ids` and `run-manual-coach-message-test.ts` both already exist (added 2026-09-10) - no new harness needed. `coach-message.ts` doesn't touch `workout_create`/`week_update` at all (confirmed by reading it), so it's out of scope. `activity_sync` **does** run through the same `requestCoachReply`/`buildTurnWrites` pipeline as ordinary turns, and is arguably a more likely place to trip the duplicate-session guard than a chat turn (a synced activity reads as a report, not a conversation) - that's the concrete next test to run.

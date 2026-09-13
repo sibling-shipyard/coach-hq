@@ -1,0 +1,37 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Full weekly plan laid out for Sep 14–20, 2026. Sub-45 10K goal in 6 weeks: structured around aerobic volume, 10K-specific threshold intervals, long endurance run, and regular badminton play.",
+      "reply": "Here's your roadmap for the week, dialed directly into that sub-45 10K target in 6 weeks:\n\n- **Monday (Sep 14):** Easy Aerobic Run (40 min) — conversational baseline pace.\n- **Tuesday (Sep 15):** 10K Threshold Intervals (45 min) — structured quality work to build race pace resilience.\n- **Wednesday (Sep 16):** Badminton (60 min) — sharp agility, court fitness.\n- **Thursday (Sep 17):** Easy Recovery Run (35 min) — keep the legs loose.\n- **Friday (Sep 18):** Badminton (60 min) — match play / lateral power.\n- **Saturday (Sep 19):** Long Run (60 min) — aerobic engine builder.\n- **Sunday (Sep 20):** Rest & Recovery — complete reset before the next block.\n\nKeep easy days strictly easy so the interval session and long run hit the numbers they need to. Let's get after it.",
+      "unrecorded_facts": []
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"week_update\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]
