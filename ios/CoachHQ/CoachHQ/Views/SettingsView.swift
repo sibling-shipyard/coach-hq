@@ -20,8 +20,7 @@ struct SettingsView: View {
     @State private var cacheCleared = false
     @State private var toast: Toast?
     @State private var devTapCount = 0
-    @State private var isEditingName = false
-    @State private var nameDraft = ""
+    @State private var advancedExpanded = false
     @State private var showDiagHelp = false
     @State private var showSignOutConfirmation = false
     @State private var showHealthSettings = false
@@ -30,24 +29,29 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 22) {
                     SettingsProfileHeader(
                         user: authManager.user,
                         preferredName: preferredName,
-                        repo: authManager.selectedRepo
+                        repo: authManager.selectedRepo,
+                        syncTitle: syncStatusTitle,
+                        syncDetail: syncStatusDetail,
+                        isSyncing: syncManager.isSyncing,
+                        hasSyncIssue: syncManager.syncError != nil
                     )
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 2)
 
                     trainingSection
                     syncSection
                     appearanceSection
-                    accountSection
                     aboutSection
 
                     if devModeEnabled || testMode.isEnabled {
-                        developerSection
+                        advancedSection
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
+
+                    signedInFooter
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -217,43 +221,6 @@ struct SettingsView: View {
 
     private var syncSection: some View {
         WarmSettingsSection(title: "Sync") {
-            HStack(spacing: 12) {
-                Image(systemName: syncManager.isSyncing ? "arrow.triangle.2.circlepath" : "checkmark.circle")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundColor(syncManager.isSyncing ? WorkoutTimerWarm.amber : WarmInstrument.sportColor(.foundation))
-                    .rotationEffect(syncManager.isSyncing ? .degrees(360) : .zero)
-                    .animation(
-                        syncManager.isSyncing
-                            ? .linear(duration: 1).repeatForever(autoreverses: false)
-                            : .default,
-                        value: syncManager.isSyncing
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(syncManager.isSyncing ? "Syncing..." : "Up to date")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Theme.ink)
-
-                    if let lastSync = syncManager.lastSyncDate {
-                        Text("Last synced \(lastSync.formatted(.relative(presentation: .named)))")
-                            .font(WarmInstrument.figures(11))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                    } else {
-                        Text("Not synced yet")
-                            .font(WarmInstrument.figures(11))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            if let error = syncManager.syncError {
-                Text(error)
-                    .font(.system(size: 12))
-                    .foregroundColor(WarmInstrument.accent)
-            }
-
             Button {
                 Haptics.tap()
                 Task { await syncManager.syncNewWorkouts() }
@@ -275,6 +242,13 @@ struct SettingsView: View {
             .disabled(syncManager.isSyncing)
             .opacity(syncManager.isSyncing ? 0.6 : 1)
 
+            if let error = syncManager.syncError {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundColor(WarmInstrument.accent)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if !syncManager.hkAuthorizationGranted {
                 Button {
                     Task { await syncManager.connectHealthKit() }
@@ -294,7 +268,7 @@ struct SettingsView: View {
                 .buttonStyle(TimerWarmPressStyle())
             }
 
-            Text("Pull down on Home to refresh your dashboard. Sync Now pushes new workouts from HealthKit to GitHub.")
+            Text("Uploads recent workouts from Apple Health.")
                 .font(.system(size: 12))
                 .foregroundColor(WarmInstrument.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)
@@ -312,10 +286,10 @@ struct SettingsView: View {
                         .frame(width: 22)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Health Settings")
+                        Text("Health Data")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.ink)
-                        Text("Every Apple Health workout, and import for anything sync missed")
+                        Text("History, permissions, and manual imports")
                             .font(.system(size: 11))
                             .foregroundColor(WarmInstrument.inkFaint)
                             .multilineTextAlignment(.leading)
@@ -331,20 +305,6 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(RowPressButtonStyle())
-
-            if let repo = authManager.selectedRepo {
-                WarmSettingsDivider()
-                HStack(spacing: 8) {
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .frame(width: 18)
-                    Text(repo)
-                        .font(WarmInstrument.figures(11))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .lineLimit(1)
-                }
-            }
         }
     }
 
@@ -361,75 +321,10 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Account
-
-    private var accountSection: some View {
-        WarmSettingsSection(title: "Account") {
-            HStack(spacing: 12) {
-                Image(systemName: "person.text.rectangle")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .frame(width: 22)
-
-                Text("Name")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Theme.ink)
-
-                Spacer(minLength: 8)
-
-                if isEditingName {
-                    TextField("Sky", text: $nameDraft)
-                        .font(.system(size: 14))
-                        .foregroundColor(WarmInstrument.ink)
-                        .multilineTextAlignment(.trailing)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.words)
-                        .submitLabel(.done)
-                        .onSubmit { commitNameEdit() }
-                        .frame(maxWidth: 140)
-                } else {
-                    Button {
-                        nameDraft = preferredName
-                        isEditingName = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(preferredName.isEmpty ? (authManager.user?.login ?? "—") : preferredName)
-                                .font(.system(size: 14))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                            Image(systemName: "pencil")
-                                .font(.system(size: 11))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            WarmSettingsDivider()
-
-            Button {
-                showSignOutConfirmation = true
-            } label: {
-                Text("Sign Out")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundColor(WarmInstrument.accent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(WarmInstrument.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(TimerWarmPressStyle())
-        }
-    }
-
     // MARK: - About
 
     private var aboutSection: some View {
-        WarmSettingsSection(title: "About") {
+        WarmSettingsSection(title: "App") {
             // 5 taps on the version number unlocks the developer section.
             Button {
                 devTapCount += 1
@@ -437,6 +332,7 @@ struct SettingsView: View {
                     devTapCount = 0
                     if !devModeEnabled {
                         devModeEnabled = true
+                        advancedExpanded = true
                         Haptics.success()
                         toast = Toast(kind: .info, message: "Developer mode unlocked")
                     }
@@ -475,10 +371,76 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Developer (hidden; unlocked by 5-tapping the version number)
+    // MARK: - Signed-in footer
 
-    private var developerSection: some View {
-        WarmSettingsSection(title: "Developer") {
+    private var signedInFooter: some View {
+        VStack(spacing: 0) {
+            Button {
+                showSignOutConfirmation = true
+            } label: {
+                Text("Sign Out")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundColor(WarmInstrument.accent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(WarmInstrument.paper.opacity(0.7))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(TimerWarmPressStyle())
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+    }
+
+    // MARK: - Advanced (hidden; unlocked by 5-tapping the version number)
+
+    private var advancedSection: some View {
+        WarmSettingsSection(title: "Advanced") {
+            Button {
+                Haptics.tap()
+                withAnimation(.spring(duration: 0.28, bounce: 0.1)) {
+                    advancedExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "wrench.and.screwdriver")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .frame(width: 22)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Developer Tools")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.ink)
+                        Text(testMode.isEnabled ? "Test branch sync is active" : "Diagnostics and test controls")
+                            .font(.system(size: 11))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: advancedExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RowPressButtonStyle())
+
+            if advancedExpanded {
+                WarmSettingsDivider()
+                advancedControls
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var advancedControls: some View {
+        VStack(alignment: .leading, spacing: 14) {
             WarmSettingsToggleRow(
                 title: "Dev Mode",
                 icon: "ladybug",
@@ -708,10 +670,17 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
-    private func commitNameEdit() {
-        let name = nameDraft.trimmingCharacters(in: .whitespaces)
-        preferredName = name
-        isEditingName = false
+    private var syncStatusTitle: String {
+        if syncManager.syncError != nil { return "Needs attention" }
+        return syncManager.isSyncing ? "Syncing" : "Up to date"
+    }
+
+    private var syncStatusDetail: String {
+        if syncManager.syncError != nil { return "Open Sync for details" }
+        if let lastSync = syncManager.lastSyncDate {
+            return "Last synced \(lastSync.formatted(.relative(presentation: .named)))"
+        }
+        return "Not synced yet"
     }
 
     private func resetTestBranch() async {
@@ -734,42 +703,98 @@ private struct SettingsProfileHeader: View {
     let user: GitHubUser?
     let preferredName: String
     let repo: String?
+    let syncTitle: String
+    let syncDetail: String
+    let isSyncing: Bool
+    let hasSyncIssue: Bool
 
     var displayName: String {
         if !preferredName.isEmpty { return preferredName }
-        return user?.login ?? "Athlete"
+        return "You"
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            avatarView
-                .frame(width: 60, height: 60)
-                .clipShape(Circle())
-                .overlay(Circle().strokeBorder(WarmInstrument.border, lineWidth: 1))
+        WarmCard(padding: 16) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 14) {
+                    avatarView
+                        .frame(width: 56, height: 56)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(WarmInstrument.border, lineWidth: 1))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(displayName)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(WarmInstrument.ink)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(displayName)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(WarmInstrument.ink)
+                            .lineLimit(1)
 
-                if let login = user?.login {
-                    Text("@\(login)")
-                        .font(WarmInstrument.figures(11))
-                        .foregroundColor(WarmInstrument.inkMuted)
+                        if let login = user?.login {
+                            Text("@\(login)")
+                                .font(WarmInstrument.figures(11))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .lineLimit(1)
+                        }
+
+                        if let repo {
+                            Label {
+                                Text(repo)
+                                    .font(WarmInstrument.figures(10))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            } icon: {
+                                Image(systemName: "folder.fill")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .foregroundColor(WarmInstrument.inkFaint)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
                 }
 
-                if let repo {
-                    Text(repo)
-                        .font(WarmInstrument.figures(10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .lineLimit(1)
+                HStack(spacing: 10) {
+                    Image(systemName: syncIcon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(syncColor)
+                        .rotationEffect(isSyncing ? .degrees(360) : .zero)
+                        .animation(
+                            isSyncing
+                                ? .linear(duration: 1).repeatForever(autoreverses: false)
+                                : .default,
+                            value: isSyncing
+                        )
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(syncTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(WarmInstrument.ink)
+
+                        Text(syncDetail)
+                            .font(WarmInstrument.figures(10))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+
+                    Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(WarmInstrument.surfaceMuted)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 6)
-        .padding(.top, 8)
+        .padding(.top, 4)
+    }
+
+    private var syncIcon: String {
+        if isSyncing { return "arrow.triangle.2.circlepath" }
+        if hasSyncIssue { return "exclamationmark.triangle.fill" }
+        return "checkmark.circle"
+    }
+
+    private var syncColor: Color {
+        if hasSyncIssue { return WarmInstrument.accent }
+        if isSyncing { return WorkoutTimerWarm.amber }
+        return WarmInstrument.sportColor(.foundation)
     }
 
     @ViewBuilder
