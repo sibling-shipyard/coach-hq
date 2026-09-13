@@ -217,6 +217,7 @@ final class AppRouter: ObservableObject {
             workoutService?.reset()
             widgetStore?.reset()
             allActivitiesStore?.reset()
+            HRStreamCache.reset()
         }
         // Same login — no action.
     }

@@ -24,6 +24,7 @@ struct ActivityDetailView: View {
     @State private var showingDescriptionSheet = false
     @State private var toast: Toast?
     @State private var isSavingCategory = false
+    @State private var comparisonEntries: [SyncCacheEntry]
 
     init(entry: SyncCacheEntry) {
         self.entry = entry
@@ -31,6 +32,10 @@ struct ActivityDetailView: View {
         _activity = State(initialValue: cached)
         _statsRevealed = State(initialValue: cached != nil)
         _statsProgress = State(initialValue: cached != nil ? 1.0 : 0)
+        _comparisonEntries = State(initialValue: SyncCache.load())
+        if let uuid = cached?.activityId, HRStreamCache.contains(uuid) {
+            _hrStream = State(initialValue: HRStreamCache.lookup(uuid))
+        }
     }
 
     private var savedDescription: String? {
@@ -348,7 +353,7 @@ struct ActivityDetailView: View {
         }
 
         return UsualRowBuilder.cachedRows(
-            allEntries: SyncCache.load(),
+            allEntries: comparisonEntries,
             currentSportType: entry.sportType,
             currentFileName: entry.fileName,
             currentElapsedTime: entry.elapsedTime,
@@ -670,12 +675,23 @@ struct ActivityDetailView: View {
     /// A missing sidecar is the normal case, not an error: every activity synced before the
     /// stream format existed has none, and one will only appear for those after a backfill.
     /// Failures are swallowed on purpose — the screen still has zones to show.
+    /// Hits and 404 misses live in `HRStreamCache` so a second open this session skips GitHub.
+    /// Timeouts and decode errors stay uncached so reopen retries.
     private func loadHRStream(for activity: Activity) async {
         guard let uuid = activity.activityId, hrStream == nil else { return }
+        if HRStreamCache.contains(uuid) {
+            hrStream = HRStreamCache.lookup(uuid)
+            return
+        }
         do {
             let data = try await apiClient.readFile(path: "user_data/activities/streams/\(uuid).json")
-            hrStream = try JSONDecoder().decode(HRStreamFile.self, from: data)
+            let decoded = try JSONDecoder().decode(HRStreamFile.self, from: data)
+            HRStreamCache.store(uuid, stream: decoded)
+            hrStream = decoded
         } catch {
+            if HRStreamCache.shouldCacheAsMiss(error) {
+                HRStreamCache.store(uuid, stream: nil)
+            }
             hrStream = nil
         }
     }

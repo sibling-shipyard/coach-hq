@@ -114,3 +114,52 @@ struct HRZoneResult: Equatable {
     let uncoveredSeconds: Double
     let coveredSeconds: Double
 }
+
+/// Process-memory shelf for HR stream sidecars. SyncCache cannot hold these (ADR 0027:
+/// the curve stays off the activity record) and a pushed Activity Detail's `@State`
+/// dies on dismiss, so without this every reopen GETs `streams/<uuid>.json` again.
+/// A stored miss is as important as a hit — most history has no sidecar.
+enum HRStreamCache {
+    private enum Slot {
+        case file(HRStreamFile)
+        case missing
+    }
+
+    private static let lock = NSLock()
+    private static var slots: [String: Slot] = [:]
+
+    static func lookup(_ uuid: String) -> HRStreamFile? {
+        lock.lock()
+        defer { lock.unlock() }
+        switch slots[uuid] {
+        case .file(let stream): return stream
+        case .missing, .none: return nil
+        }
+    }
+
+    /// True when this uuid was fetched already this process — hit or known miss.
+    static func contains(_ uuid: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return slots[uuid] != nil
+    }
+
+    static func store(_ uuid: String, stream: HRStreamFile?) {
+        lock.lock()
+        defer { lock.unlock() }
+        slots[uuid] = stream.map { .file($0) } ?? .missing
+    }
+
+    /// Only a GitHub 404 is a durable miss. A timeout or decode error must not
+    /// poison the uuid for the rest of the process.
+    static func shouldCacheAsMiss(_ error: Error) -> Bool {
+        if case GitHubAPIError.notFound = error { return true }
+        return false
+    }
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        slots.removeAll()
+    }
+}

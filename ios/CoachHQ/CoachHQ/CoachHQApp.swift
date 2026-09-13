@@ -114,6 +114,7 @@ struct CoachHQApp: App {
                     workoutService.reset()
                     widgetStore.reset()
                     allActivitiesStore.reset()
+                    HRStreamCache.reset()
                     CoachMessageRoute.clear()
                 }
             }
