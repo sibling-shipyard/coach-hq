@@ -5,17 +5,20 @@ struct ActivityLedgerView: View {
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
     var footer: AnyView? = nil
+    var onRiffleChange: ((Bool) -> Void)? = nil
 
     @State private var openWeekIDs: Set<String> = []
     @State private var pulledID: String?
+    @State private var riffledID: String?
     @State private var showingLoadSheet = false
+    @State private var justRiffled = false
 
     private var weeks: [ActivityLedgerWeek] {
         ActivityLedgerWeek.group(entries: entries)
     }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 24) {
+        LazyVStack(alignment: .leading, spacing: 26) {
             header
 
             ForEach(weeks) { week in
@@ -23,9 +26,23 @@ struct ActivityLedgerView: View {
                     week: week,
                     isOpen: openWeekIDs.contains(week.id),
                     pulledID: pulledID,
+                    riffledID: riffledID,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
-                    onOpen: onSelect
+                    onOpen: { open($0) },
+                    onRiffleChanged: { id in
+                        if riffledID != id {
+                            riffledID = id
+                            if id != nil {
+                                LedgerHaptics.selection()
+                            }
+                        }
+                    },
+                    onRiffleArmed: { onRiffleChange?($0) },
+                    consumeRiffleEnd: { id in
+                        finishRiffle(id)
+                    },
+                    shouldIgnoreTap: { justRiffled }
                 )
             }
 
@@ -37,48 +54,47 @@ struct ActivityLedgerView: View {
             Color.clear.frame(height: 8)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 56)
+        .padding(.top, 64)
         .padding(.bottom, 40)
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in seedInitialState() }
         .sheet(isPresented: $showingLoadSheet) {
             ActivityLedgerLoadSheet()
-                .presentationDetents([.height(438)])
-                .presentationDragIndicator(.visible)
+                .presentationDetents([.height(368)])
+                .presentationDragIndicator(.hidden)
+                .presentationCornerRadius(28)
+                .presentationBackground(WarmInstrument.paper)
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 10) {
             if let onBack {
                 Button {
                     LedgerHaptics.light()
                     onBack()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("HQ")
-                    }
-                    .font(WarmInstrument.monoLabel(10, weight: .bold))
-                    .tracking(1.2)
-                    .foregroundColor(WarmInstrument.inkMuted)
+                    Text("‹ HQ")
+                        .font(WarmInstrument.monoLabel(10, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
                 .buttonStyle(.plain)
             }
 
             Text("Activity Ledger")
-                .font(.system(size: 29, weight: .semibold))
+                .font(.system(size: 30, weight: .semibold))
+                .tracking(-0.9)
                 .foregroundColor(WarmInstrument.ink)
 
             Button {
                 LedgerHaptics.light()
                 showingLoadSheet = true
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text("HOW IS LOAD COMPUTED?")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .bold))
+                    Text("›")
+                        .font(.system(size: 12, weight: .bold))
                 }
                 .font(WarmInstrument.monoLabel(9.5, weight: .bold))
                 .tracking(1.2)
@@ -86,7 +102,7 @@ struct ActivityLedgerView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 6)
     }
 
     private func seedInitialState() {
@@ -106,7 +122,7 @@ struct ActivityLedgerView: View {
     }
 
     private func toggle(_ week: ActivityLedgerWeek) {
-        withAnimation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.46).delay(0.06)) {
+        withAnimation(ActivityLedgerMetrics.weekMotion) {
             if openWeekIDs.contains(week.id) {
                 openWeekIDs.remove(week.id)
             } else {
@@ -119,15 +135,34 @@ struct ActivityLedgerView: View {
 
     private func pull(_ item: ActivityLedgerItem) {
         guard pulledID != item.id else {
-            onSelect(item.entry)
-            LedgerHaptics.medium()
+            open(item.entry)
             return
         }
 
-        withAnimation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42)) {
+        withAnimation(ActivityLedgerMetrics.cardMotion) {
             pulledID = item.id
         }
         LedgerHaptics.light()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            LedgerHaptics.soft()
+        }
+    }
+
+    private func open(_ entry: SyncCacheEntry) {
+        LedgerHaptics.medium()
+        onSelect(entry)
+    }
+
+    private func finishRiffle(_ id: String?) {
+        justRiffled = true
+        onRiffleChange?(false)
+        if let id, let item = weeks.flatMap(\.items).first(where: { $0.id == id }), pulledID != id {
+            pull(item)
+        }
+        riffledID = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            justRiffled = false
+        }
     }
 }
 
@@ -135,43 +170,28 @@ private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
+    let riffledID: String?
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
+    let onRiffleChanged: (String?) -> Void
+    let onRiffleArmed: (Bool) -> Void
+    let consumeRiffleEnd: (String?) -> Void
+    let shouldIgnoreTap: () -> Bool
+
+    @State private var holdTask: Task<Void, Never>?
+    @State private var riffleArmed = false
+
+    private var stackSpace: String { "ledger-stack-\(week.id)" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Button(action: onToggle) {
                 weekHeader
             }
             .buttonStyle(.plain)
 
-            if isOpen {
-                VStack(spacing: 0) {
-                    ForEach(Array(week.items.enumerated()), id: \.element.id) { index, item in
-                        let isPulled = pulledID == item.id
-                        card(item: item, index: index, isPulled: isPulled)
-                            .padding(.top, topMargin(index: index, isPulled: isPulled))
-                            .zIndex(Double(week.items.count - index))
-                            .onTapGesture {
-                                if isPulled {
-                                    onOpen(item.entry)
-                                    LedgerHaptics.medium()
-                                } else {
-                                    onPull(item)
-                                }
-                            }
-                    }
-                }
-                .padding(.top, 2)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            } else if let newest = week.items.first {
-                Button(action: onToggle) {
-                    ActivityLedgerClosedStack(item: newest, hiddenCount: max(0, week.items.count - 1))
-                }
-                .buttonStyle(.plain)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            weekBody
         }
     }
 
@@ -180,11 +200,11 @@ private struct ActivityLedgerWeekView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("WK \(week.weekNumber)")
                     .font(WarmInstrument.monoLabel(10, weight: .bold))
-                    .tracking(1.2)
+                    .tracking(1.3)
                     .foregroundColor(WarmInstrument.ink)
                 Text(week.rangeLabel)
-                    .font(WarmInstrument.monoLabel(9, weight: .bold))
-                    .tracking(1.1)
+                    .font(WarmInstrument.monoLabel(9, weight: .regular))
+                    .tracking(0.8)
                     .foregroundColor(WarmInstrument.inkFaintText)
             }
 
@@ -197,25 +217,112 @@ private struct ActivityLedgerWeekView: View {
                     .contentTransition(.numericText())
                 Text(week.verdict)
                     .font(WarmInstrument.coachVoice(13))
-                    .foregroundColor(WarmInstrument.inkMuted)
+                    .foregroundColor(LedgerPaper.verdict)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(WarmInstrument.inkFaintText)
+                    .foregroundColor(WarmInstrument.inkFaint)
                     .rotationEffect(.degrees(isOpen ? 0 : -90))
+                    .padding(.leading, 2)
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 8)
         .contentShape(Rectangle())
     }
 
-    private func card(item: ActivityLedgerItem, index: Int, isPulled: Bool) -> some View {
-        ActivityLedgerCard(
-            item: item,
-            isPulled: isPulled,
-            showsStats: index != 0 || isPulled
-        )
-        .frame(height: cardHeight(index: index, isPulled: isPulled))
+    private var weekBody: some View {
+        Group {
+            if isOpen {
+                openStack
+            } else if let newest = week.items.first {
+                Button(action: onToggle) {
+                    ActivityLedgerClosedStack(
+                        item: newest,
+                        hiddenCount: max(0, week.items.count - 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.bottom, ActivityLedgerMetrics.shadowBleed)
+        .frame(height: bodyHeight + ActivityLedgerMetrics.shadowBleed, alignment: .top)
+        .clipped()
+        .padding(.bottom, -ActivityLedgerMetrics.shadowBleed)
+    }
+
+    private var bodyHeight: CGFloat {
+        isOpen
+            ? week.openBodyHeight(pulledID: pulledID)
+            : ActivityLedgerMetrics.closedHeight
+    }
+
+    private var openStack: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(week.items.enumerated()), id: \.element.id) { index, item in
+                let isPulled = pulledID == item.id
+                ActivityLedgerCard(
+                    item: item,
+                    isPulled: isPulled,
+                    isRiffled: riffledID == item.id && !isPulled
+                )
+                .frame(height: cardHeight(index: index, isPulled: isPulled))
+                .padding(.top, topMargin(index: index, isPulled: isPulled))
+                .zIndex(Double(week.items.count - index))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard !shouldIgnoreTap() else { return }
+                    if isPulled {
+                        onOpen(item.entry)
+                    } else {
+                        onPull(item)
+                    }
+                }
+            }
+        }
+        .padding(.top, 2)
+        .coordinateSpace(.named(stackSpace))
+        .simultaneousGesture(riffleGesture)
+    }
+
+    private var riffleGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named(stackSpace))
+            .onChanged { value in
+                if holdTask == nil && !riffleArmed {
+                    let startY = value.startLocation.y
+                    holdTask = Task {
+                        try? await Task.sleep(for: .milliseconds(180))
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            riffleArmed = true
+                            onRiffleArmed(true)
+                            onRiffleChanged(week.cardID(at: startY, pulledID: pulledID))
+                        }
+                    }
+                }
+
+                let travel = hypot(value.translation.width, value.translation.height)
+                if !riffleArmed, travel > 12 {
+                    holdTask?.cancel()
+                    holdTask = nil
+                    return
+                }
+
+                guard riffleArmed else { return }
+                onRiffleChanged(week.cardID(at: value.location.y, pulledID: pulledID))
+            }
+            .onEnded { _ in
+                holdTask?.cancel()
+                holdTask = nil
+                let armed = riffleArmed
+                riffleArmed = false
+                onRiffleArmed(false)
+                if armed {
+                    consumeRiffleEnd(riffledID)
+                } else {
+                    onRiffleChanged(nil)
+                }
+            }
     }
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
@@ -231,33 +338,34 @@ private struct ActivityLedgerWeekView: View {
     }
 }
 
+/// One paper slip. Stats stay in the card; collapsing card 0 clips them so only the row shows.
 private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
-    var showsStats = true
+    var isRiffled = false
 
     var body: some View {
         VStack(spacing: 0) {
-            if showsStats {
-                statsStrip
-            }
+            statsStrip
             row
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .background(WarmInstrument.paper)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(WarmInstrument.border, lineWidth: 1)
+                .strokeBorder(LedgerPaper.border, lineWidth: 1)
         )
         .shadow(
-            color: Color(red: 57 / 255.0, green: 52 / 255.0, blue: 42 / 255.0).opacity(isPulled ? 0.18 : 0.08),
-            radius: isPulled ? 15 : 8,
+            color: LedgerPaper.shadow.opacity(isPulled ? 0.24 : isRiffled ? 0.22 : 0.16),
+            radius: isPulled ? 17 : isRiffled ? 14 : 12,
             x: 0,
-            y: isPulled ? 14 : 7
+            y: isPulled ? 18 : isRiffled ? 14 : 12
         )
-        .scaleEffect(isPulled ? 1.008 : 1)
-        .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42), value: isPulled)
+        .scaleEffect(isPulled ? 1.012 : 1)
+        .offset(y: isRiffled ? -5 : 0)
+        .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
+        .animation(ActivityLedgerMetrics.riffleMotion, value: isRiffled)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
@@ -265,65 +373,73 @@ private struct ActivityLedgerCard: View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(item.sportColor)
-                .frame(width: 3, height: showsStats ? 30 : 34)
+                .frame(width: 3, height: 30)
 
             Image(systemName: item.sportIcon)
-                .font(.system(size: showsStats ? 20 : 21, weight: .semibold))
-                .foregroundColor(Color(red: 0x4a / 255.0, green: 0x4c / 255.0, blue: 0x46 / 255.0))
-                .frame(width: 22)
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(LedgerPaper.glyph)
+                .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.system(size: showsStats ? 15 : 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .tracking(-0.15)
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
 
-                Text(item.metaLine)
-                    .font(WarmInstrument.monoLabel(9.5, weight: item.isToday ? .bold : .regular))
-                    .tracking(0.5)
-                    .foregroundColor(item.isToday ? WarmInstrument.accent : WarmInstrument.inkMuted)
-                    .lineLimit(1)
+                metaLine
             }
 
-            Spacer(minLength: 10)
+            Spacer(minLength: 8)
 
-            if showsStats {
-                Text(item.loadLabel)
-                    .font(WarmInstrument.figures(17, weight: .bold))
-                    .tracking(-0.5)
-                    .foregroundColor(WarmInstrument.ink)
-                    .contentTransition(.numericText())
-            }
+            Text(item.loadLabel)
+                .font(WarmInstrument.figures(17, weight: .bold))
+                .tracking(-0.5)
+                .foregroundColor(WarmInstrument.ink)
+                .contentTransition(.numericText())
         }
         .frame(height: ActivityLedgerMetrics.peek)
-        .padding(.horizontal, showsStats ? 18 : 20)
+        .padding(.horizontal, 18)
+    }
+
+    private var metaLine: some View {
+        HStack(spacing: 0) {
+            Text(item.dayLabel)
+                .foregroundColor(item.isToday ? WarmInstrument.accent : WarmInstrument.inkMuted)
+                .fontWeight(item.isToday ? .bold : .regular)
+            Text(" · \(item.timeLabel) · \(item.durationLabel)")
+                .foregroundColor(WarmInstrument.inkMuted)
+        }
+        .font(WarmInstrument.monoLabel(9.5, weight: .regular))
+        .tracking(0.48)
+        .lineLimit(1)
     }
 
     private var statsStrip: some View {
         HStack(spacing: 10) {
             ForEach(item.stats) { stat in
-                VStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(stat.value)
                         .font(WarmInstrument.figures(15, weight: .bold))
+                        .tracking(-0.45)
                         .foregroundColor(WarmInstrument.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                     Text(stat.label)
                         .font(WarmInstrument.monoLabel(8, weight: .bold))
-                        .tracking(1.05)
+                        .tracking(1.04)
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(height: ActivityLedgerMetrics.peek)
         .padding(.horizontal, 18)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(WarmInstrument.headerRule.opacity(0.82))
+                .fill(LedgerPaper.divider)
                 .frame(height: 1)
         }
     }
@@ -335,48 +451,98 @@ private struct ActivityLedgerClosedStack: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ActivityLedgerCard(item: item, isPulled: false, showsStats: false)
-                .frame(height: ActivityLedgerMetrics.peek)
-                .overlay(alignment: .trailing) {
-                    HStack(spacing: 8) {
-                        if hiddenCount > 0 {
-                            Text("+\(hiddenCount)")
-                                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
-                                .tracking(0.6)
-                                .foregroundColor(WarmInstrument.inkMuted)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(WarmInstrument.paper.opacity(0.7))
-                                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                        .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
-                                )
-                        }
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(item.sportColor)
+                    .frame(width: 3, height: 30)
 
-                        Text(item.loadLabel)
-                            .font(WarmInstrument.figures(16, weight: .bold))
-                            .tracking(-0.4)
-                            .foregroundColor(WarmInstrument.ink)
-                    }
-                    .padding(.trailing, 20)
+                Image(systemName: item.sportIcon)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(LedgerPaper.glyph)
+                    .frame(width: 20, height: 20)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .tracking(-0.15)
+                        .foregroundColor(WarmInstrument.ink)
+                        .lineLimit(1)
+
+                    Text(item.metaLine)
+                        .font(WarmInstrument.monoLabel(9.5, weight: .regular))
+                        .tracking(0.48)
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .lineLimit(1)
                 }
 
-            stackEdge(inset: 18, opacity: 0.62)
-            stackEdge(inset: 36, opacity: 0.42)
+                Spacer(minLength: 8)
+
+                if hiddenCount > 0 {
+                    Text("+\(hiddenCount) MORE")
+                        .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                        .tracking(1.0)
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
+                        )
+                } else {
+                    Text(item.loadLabel)
+                        .font(WarmInstrument.figures(17, weight: .bold))
+                        .tracking(-0.5)
+                        .foregroundColor(WarmInstrument.ink)
+                }
+            }
+            .frame(height: ActivityLedgerMetrics.peek)
+            .padding(.horizontal, 18)
+            .background(WarmInstrument.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(LedgerPaper.border, lineWidth: 1)
+            )
+            .shadow(color: LedgerPaper.shadow.opacity(0.12), radius: 9, x: 0, y: 8)
+            .zIndex(2)
+
+            if hiddenCount > 0 {
+                stackEdge(inset: 10, fill: LedgerPaper.edgeFront, shadowed: true)
+                if hiddenCount > 1 {
+                    stackEdge(inset: 20, fill: LedgerPaper.edgeBack, shadowed: false)
+                }
+            }
         }
     }
 
-    private func stackEdge(inset: CGFloat, opacity: Double) -> some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(WarmInstrument.paper.opacity(opacity))
-            .frame(height: 7)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(WarmInstrument.border.opacity(0.45), lineWidth: 1)
+    private func stackEdge(inset: CGFloat, fill: Color, shadowed: Bool) -> some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 0,
+            bottomLeadingRadius: 14,
+            bottomTrailingRadius: 14,
+            topTrailingRadius: 0,
+            style: .continuous
+        )
+        .fill(fill)
+        .overlay(alignment: .bottom) {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: 14,
+                bottomTrailingRadius: 14,
+                topTrailingRadius: 0,
+                style: .continuous
             )
-            .padding(.horizontal, inset)
-            .offset(y: -1)
+            .strokeBorder(LedgerPaper.border.opacity(shadowed ? 1 : 0.9), lineWidth: 1)
+        }
+        .frame(height: 9)
+        .padding(.horizontal, inset)
+        .shadow(
+            color: shadowed ? LedgerPaper.shadow.opacity(0.08) : .clear,
+            radius: 5,
+            x: 0,
+            y: 4
+        )
+        .offset(y: -1)
     }
 }
 
@@ -384,10 +550,16 @@ private struct ActivityLedgerLoadSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center) {
+        VStack(alignment: .leading, spacing: 18) {
+            Capsule()
+                .fill(WarmInstrument.headerRule)
+                .frame(width: 36, height: 4)
+                .frame(maxWidth: .infinity)
+
+            HStack(alignment: .firstTextBaseline) {
                 Text("How load is computed")
                     .font(.system(size: 22, weight: .semibold))
+                    .tracking(-0.44)
                     .foregroundColor(WarmInstrument.ink)
                 Spacer()
                 Button("CLOSE") {
@@ -395,61 +567,56 @@ private struct ActivityLedgerLoadSheet: View {
                     dismiss()
                 }
                 .font(WarmInstrument.monoLabel(10, weight: .bold))
-                .tracking(1.1)
+                .tracking(1.2)
                 .foregroundColor(WarmInstrument.inkMuted)
             }
 
-            Text("LOAD = SUM ( MINUTES x ZONE WEIGHT )")
-                .font(WarmInstrument.monoLabel(12, weight: .bold))
-                .tracking(0.55)
+            Text("LOAD = Σ ( MINUTES × ZONE WEIGHT )")
+                .font(WarmInstrument.monoLabel(13, weight: .bold))
+                .tracking(0.26)
                 .foregroundColor(WarmInstrument.accent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(WarmInstrument.accent.opacity(0.045))
+                .background(WarmInstrument.accent.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .strokeBorder(WarmInstrument.accent.opacity(0.28), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(WarmInstrument.accent.opacity(0.3), lineWidth: 1)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
 
             Text("Every minute is weighted by its heart-rate zone and summed. The same rule applies across sports.")
-                .font(WarmInstrument.coachVoice(15))
-                .foregroundColor(WarmInstrument.inkMuted)
+                .font(WarmInstrument.coachVoice(16))
+                .foregroundColor(LedgerPaper.glyph)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
                 ForEach(ActivityLedgerMetrics.zoneWeights.indices, id: \.self) { index in
-                    VStack(spacing: 5) {
+                    VStack(spacing: 6) {
                         Text("Z\(index + 1)")
                             .font(WarmInstrument.monoLabel(8, weight: .bold))
-                            .tracking(0.8)
+                            .tracking(1.0)
                             .foregroundColor(WarmInstrument.inkMuted)
-                        Text("x\(ActivityLedgerMetrics.zoneWeights[index])")
-                            .font(WarmInstrument.figures(14, weight: .bold))
+                        Text("×\(ActivityLedgerMetrics.zoneWeights[index])")
+                            .font(WarmInstrument.figures(15, weight: .bold))
+                            .tracking(-0.45)
                             .foregroundColor(WarmInstrument.ink)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(WarmInstrument.surfaceMuted.opacity(0.75))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(.vertical, 10)
+                    .background(LedgerPaper.zoneFill(index))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
 
-            Text("WEEKLY BAND = YOUR 8-WEEK RHYTHM +/-20%")
-                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
-                .tracking(1.05)
+            Text("WEEKLY BAND = YOUR 8-WEEK RHYTHM ±20%")
+                .font(WarmInstrument.monoLabel(9, weight: .bold))
+                .tracking(1.0)
                 .foregroundColor(WarmInstrument.inkFaintText)
-
-            Text("Zone weights are provisional until the engine's canonical load constants are wired into iOS.")
-                .font(WarmInstrument.coachVoice(13))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
         }
         .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .padding(.bottom, 22)
+        .padding(.top, 14)
+        .padding(.bottom, 44)
         .background(WarmInstrument.paper.ignoresSafeArea())
     }
 }
@@ -474,6 +641,36 @@ private struct ActivityLedgerWeek: Identifiable {
     var verdict: String {
         guard let load else { return "load pending" }
         return load >= 250 ? "in the band" : "below the band"
+    }
+
+    func openBodyHeight(pulledID: String?) -> CGFloat {
+        var height: CGFloat = 2
+        for (index, item) in items.enumerated() {
+            let isPulled = pulledID == item.id
+            height += index == 0
+                ? (isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek)
+                : ActivityLedgerMetrics.cardHeight
+            if index > 0 {
+                height += isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek
+            }
+        }
+        return height
+    }
+
+    func cardID(at y: CGFloat, pulledID: String?) -> String? {
+        var cursor: CGFloat = 2
+        var frames: [(id: String, range: ClosedRange<CGFloat>)] = []
+        for (index, item) in items.enumerated() {
+            let isPulled = pulledID == item.id
+            let height = index == 0
+                ? (isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek)
+                : ActivityLedgerMetrics.cardHeight
+            let margin = index == 0 ? 0 : (isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek)
+            cursor += margin
+            frames.append((item.id, cursor...(cursor + height)))
+            cursor += height
+        }
+        return frames.first(where: { $0.range.contains(y) })?.id
     }
 
     @MainActor
@@ -622,9 +819,9 @@ private enum ActivityLedgerFormat {
         return formatter
     }()
 
-    private static let rangeFormatter: DateFormatter = {
+    private static let monthFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
+        formatter.dateFormat = "MMM"
         return formatter
     }()
 
@@ -693,15 +890,82 @@ private enum ActivityLedgerFormat {
             return ""
         }
 
-        return "\(rangeFormatter.string(from: start))-\(rangeFormatter.string(from: end))".uppercased()
+        let startDay = calendar.component(.day, from: start)
+        let endDay = calendar.component(.day, from: end)
+        let startMonth = monthFormatter.string(from: start).uppercased()
+        let endMonth = monthFormatter.string(from: end).uppercased()
+        if startMonth == endMonth {
+            return "\(startDay)–\(endDay) \(endMonth)"
+        }
+        return "\(startDay) \(startMonth) – \(endDay) \(endMonth)"
     }
 }
 
+/// H = 2·PEEK so a tucked card always lands at −PEEK and only its row shows.
 private enum ActivityLedgerMetrics {
     static let peek: CGFloat = 64
     static let cardHeight: CGFloat = 128
     static let pullGap: CGFloat = 12
+    static let closedHeight: CGFloat = 84
+    static let shadowBleed: CGFloat = 30
     static let zoneWeights = [1, 2, 3, 4, 5]
+    static let cardMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42)
+    static let weekMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.46).delay(0.06)
+    static let riffleMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.22)
+}
+
+private enum LedgerPaper {
+    static let border = Color(uiColor: UIColor { trait in
+        UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: trait.userInterfaceStyle == .dark ? 0.35 : 0.18)
+    })
+    static let divider = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x3a / 255, green: 0x38 / 255, blue: 0x34 / 255, alpha: 1)
+            : UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdc / 255, alpha: 1)
+    })
+    static let glyph = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0xed / 255, green: 0xea / 255, blue: 0xe2 / 255, alpha: 1)
+            : UIColor(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255, alpha: 1)
+    })
+    static let verdict = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x9e / 255, green: 0x9c / 255, blue: 0x93 / 255, alpha: 1)
+            : UIColor(red: 0x6e / 255, green: 0x70 / 255, blue: 0x68 / 255, alpha: 1)
+    })
+    static let shadow = Color(red: 57 / 255, green: 52 / 255, blue: 42 / 255)
+    static let edgeFront = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x1c / 255, green: 0x1b / 255, blue: 0x17 / 255, alpha: 1)
+            : UIColor(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe9 / 255, alpha: 1)
+    })
+    static let edgeBack = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x18 / 255, green: 0x17 / 255, blue: 0x14 / 255, alpha: 1)
+            : UIColor(red: 0xf1 / 255, green: 0xec / 255, blue: 0xe2 / 255, alpha: 1)
+    })
+
+    static func zoneFill(_ index: Int) -> Color {
+        switch index {
+        case 0: return Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0x27 / 255, green: 0x2a / 255, blue: 0x22 / 255, alpha: 1)
+                : UIColor(red: 0xee / 255, green: 0xf0 / 255, blue: 0xe5 / 255, alpha: 1)
+        })
+        case 1: return Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0x22 / 255, green: 0x28 / 255, blue: 0x23 / 255, alpha: 1)
+                : UIColor(red: 0xe7 / 255, green: 0xee / 255, blue: 0xe9 / 255, alpha: 1)
+        })
+        case 2: return Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0x2c / 255, green: 0x26 / 255, blue: 0x1c / 255, alpha: 1)
+                : UIColor(red: 0xf5 / 255, green: 0xec / 255, blue: 0xdc / 255, alpha: 1)
+        })
+        case 3: return WarmInstrument.accent.opacity(0.10)
+        default: return WarmInstrument.accent.opacity(0.18)
+        }
+    }
 }
 
 private enum LedgerHaptics {
@@ -713,7 +977,15 @@ private enum LedgerHaptics {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
+    static func soft() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+
     static func rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+    }
+
+    static func selection() {
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }
