@@ -25,6 +25,7 @@ const SKELETON_REPO = "sibling-shipyard/coach-skeleton";
 
 const ENGINE_DIR = path.join(REPO_ROOT, "engine");
 const PLATFORM_DIR = path.join(REPO_ROOT, "platform");
+const SHARED_DIR = path.join(REPO_ROOT, "shared");
 
 /** Scripts carved into engine/scripts/ */
 const SKELETON_SCRIPT_FILES = [
@@ -41,6 +42,13 @@ const SKELETON_SCRIPT_FILES = [
 
 /** Dirs carved into engine/ */
 const SKELETON_ENGINE_DIRS = ["lib", "core"];
+
+// shared/workout-library/ (A1b, #727): SOUL.claude.md's "Creating a New Routine" section has
+// BYOB Coach read exercises.json straight from the repo it's running in - the hosted web/iOS
+// path never needs this, since coachFirstSessionBenchmark.ts reads its own HQ-local copy at
+// request time. Carve the whole directory (README.md included), matching SKELETON_ENGINE_DIRS'
+// own whole-directory copy.
+const SKELETON_SHARED_DIRS = ["workout-library"];
 
 /** Workout plan templates copied from platform/skeleton-templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
@@ -453,6 +461,21 @@ function copyFromEngine(outDir, rel) {
   }
 }
 
+/** Copy shared/<rel> → outDir/shared/<rel> */
+function copyFromShared(outDir, rel) {
+  const src = path.join(SHARED_DIR, rel);
+  const dest = path.join(outDir, "shared", rel);
+  if (!fs.existsSync(src)) {
+    throw new Error(`Missing shared/${rel}`);
+  }
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  if (fs.statSync(src).isDirectory()) {
+    fs.cpSync(src, dest, { recursive: true });
+  } else {
+    fs.copyFileSync(src, dest);
+  }
+}
+
 function copyEngineTemplate(outDir, filename) {
   const src = path.join(PLATFORM_DIR, "skeleton-templates", filename);
   const dest = path.join(
@@ -531,6 +554,9 @@ function carve(outDir, sha) {
   for (const rel of SKELETON_ENGINE_DIRS) {
     copyFromEngine(outDir, rel);
   }
+  for (const rel of SKELETON_SHARED_DIRS) {
+    copyFromShared(outDir, rel);
+  }
   copyWorkflows(outDir);
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
@@ -561,6 +587,14 @@ function carve(outDir, sha) {
   writeText(outDir, "user_data/coach/archive/week_plans.md", ARCHIVE_WEEK_PLANS_TEMPLATE);
   writeText(outDir, "user_data/activities/hist/.gitkeep", "");
   writeJson(outDir, "user_data/activities/sync_state.json", SYNC_STATE_TEMPLATE);
+  // HealthKitSyncManager.swift writes one file per synced activity here
+  // (user_data/activities/streams/<uuid>.json) - same lazy-seed shape as activities/hist/
+  // above, just a directory placeholder, no template content.
+  writeText(outDir, "user_data/activities/streams/.gitkeep", "");
+  // HRZoneStore.swift seeds user_data/health/zones.json itself on first sync when it gets a
+  // 404 for the file (prepareForSync's .notFound branch) - same lazy-seed shape, placeholder
+  // only.
+  writeText(outDir, "user_data/health/.gitkeep", "");
 
   for (const tpl of WORKOUT_TEMPLATES) {
     copyEngineTemplate(outDir, tpl);
