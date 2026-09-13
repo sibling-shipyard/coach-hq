@@ -37,8 +37,8 @@ flowchart TB
   end
   subgraph ud["user_data/ — athlete + coach memory"]
     act["activities/hist/, workout_plans/"]
-    coach["coach/state.md, notes, reference/"]
-    ledger["ledger/challenge_v2, current_week"]
+    coach["coach/profile, memory, reference/"]
+    ledger["ledger/seasons, current_week"]
   end
   soul --> coach
   engine --> gen
@@ -52,14 +52,16 @@ flowchart TB
 
 ```
 coach-skeleton/  (= coach-user after fork)
-├── propagated/
-│   ├── SOUL.md
-│   └── docs/                        # timer-state-machine, current-week-contract, etc.
+├── SOUL.claude.md                   # BYO build; not propagated/SOUL.md
 ├── CLAUDE.md
 ├── README.md
 ├── SETUP.md
 ├── .coach-engine-version         # repo marker for GitHub App auth
 ├── .gitignore
+├── .claude/                         # Claude Code boot
+│
+├── propagated/
+│   └── docs/                        # current-week-contract, timer-state-machine, etc.
 │
 ├── .github/workflows/
 │   ├── sync.yml
@@ -70,6 +72,9 @@ coach-skeleton/  (= coach-user after fork)
 │   ├── scripts/          # regenerate, aggregate, quest gen
 │   ├── lib/
 │   └── core/             # taxonomy, activity naming, local query_history.py
+│
+├── shared/
+│   └── workout-library/  # exercises.json — BYO Coach reads this from the repo
 │
 ├── gen/
 │   ├── dashboard_snapshot.json
@@ -82,19 +87,24 @@ coach-skeleton/  (= coach-user after fork)
 └── user_data/
     ├── activities/
     │   ├── hist/                    # synced activity JSON (iOS/HealthKit)
+    │   ├── streams/                 # per-activity HR streams; app seeds on write
     │   ├── sync_state.json          # ingestion counters
     │   └── workout_plans/
     │       ├── templates/
+    │       │   ├── _manifest.json
     │       │   ├── foundation.json  # sample — shipped in carve
     │       │   └── strength_a.json
     │       └── sessions/            # YYYY-MM-DD_<id>.json coach overrides
+    ├── health/                      # zones.json seeded by iOS on first sync
     ├── coach/
-    │   ├── state.md                 # boot anchor — First Session fills blanks
-    │   ├── coach_notes.md
-    │   ├── sleep_log.json
+    │   ├── profile.json             # boot anchor — empty name/dob → First Session
+    │   ├── memory.json
+    │   ├── injuries.json
+    │   ├── coach_log.json
     │   ├── chat_history.json
     │   ├── latest_message.json       # schema v1; null until Coach speaks after sync
-    │   └── reference/
+    │   ├── reference/
+    │   └── archive/
     └── ledger/
         ├── seasons.json             # split ledger — challenge_v2.json is not carved (#430)
         ├── quests.json
@@ -141,9 +151,9 @@ session frequency and gap summaries by sport; raw activity history remains canon
 
 We cannot hide files from a local clone. Control is **SOUL boot sequence**, **write allowlist** (§2/§12), and **CI validators** — not filesystem ACL.
 
-**Boot trigger:** empty Athlete Profile in `user_data/coach/state.md` → First Session Protocol.
+**Boot trigger:** empty Athlete Profile in `user_data/coach/profile.json` → First Session Protocol.
 
-**Coach writable:** `user_data/coach/*`, `user_data/ledger/*`, `user_data/.../sessions/*`, not `engine/`, `gen/`, or `SOUL.md`.
+**Coach writable:** `user_data/coach/*`, `user_data/ledger/*`, `user_data/.../sessions/*`, not `engine/`, `gen/`, or `SOUL.claude.md`.
 
 ---
 
