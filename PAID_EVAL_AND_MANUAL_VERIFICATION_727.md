@@ -7,33 +7,36 @@
 
 ## 1. Paid eval (`npm run eval:coach-chat`, `LLM_PROVIDER=openrouter` - no direct Gemini key configured in this environment)
 
-**19/23 passed, 0 cached (23 called the model fresh).** Full log: `tests/2026-09-13/eval/eval-coach-chat-log-13-26-12.json`.
+**First run: 19/23 passed, 0 cached.** Full log: `tests/2026-09-13/eval/eval-coach-chat-log-13-26-12.json`.
 
-**All 4 failures are pre-existing and unrelated to the #999 changes - none are regressions.**
+**All 4 failures in that run were stale fixtures, not #999 regressions** - three (`plan-edit-vs-template-edit-disambiguation`, `week-plan-kickoff-ritual`, `session-reconcile-actual-differs`) checked for `plan_edit`/`week_plan`/`session_reconcile`, action fields `#973` (already merged, unrelated to this stack) collapsed into `week_update` months before this round - the model did the current-contract-correct thing every time, the fixtures just hadn't been updated. `session-reconcile-actual-differs` also had a second, independent bug: its "planned" session was hardcoded to a date 9 days stale, so it had rotted into testing "create an unplanned session on an empty day" instead of the real session-reconcile-against-an-existing-plan case it was written for.
 
-### plan-edit-vs-template-edit-disambiguation - FAIL
-- Asked: "Swap tomorrow's session for badminton instead, just this once."
-- Model emitted a correct `week_update` patch (real `session_id`, real `template_id`, swapped discipline).
-- Rubric expected the field `plan_edit` to be set. **`plan_edit` doesn't exist anymore** - `#973` (`708c7717`, already merged, unrelated to this stack) collapsed `week_plan`/`session_reconcile`/`plan_edit` into a single `week_update` action months ago. The model did the current-contract-correct thing; the fixture's rubric checks the retired field name.
+**Fixed, all three now confirmed passing individually** (`19-plan-edit-vs-template-edit-disambiguation.json`, `41-week-plan-kickoff-ritual.json`, `42-session-reconcile-actual-differs.json`):
+1. Updated `expect.actionFieldsPresent` in all three to `week_update`.
+2. Updated `19`'s and `42`'s `extraContext` strings to the current real prompt phrasing (`activeWeekSessionsContext`/`activeTemplatesContext` in `coachPromptText.ts`), replacing the stale "use these exact session_ids for session_reconcile AND plan_edit" text.
+3. Added `{{TODAY}}` token support to `eval-coach-chat.ts`'s `resolveRelativeDates`, mirroring the existing `{{TOMORROW}}` pattern used by `19` (same date-rot bug, same fix). `42`'s session date is now `{{TODAY}}` instead of a hardcoded date, so it actually exercises session_id matching against a real same-day planned session again.
 
-### week-plan-kickoff-ritual - FAIL
-- Asked for a full week to be laid out from scratch.
-- Model emitted a correct, well-formed `week_update` kickoff (7 real days, real intents, real sessions).
-- Rubric expected `week_plan`. Same retired-field-name issue as above.
+**The 4th failure (`incremental-injury-disclosure` [turn 3/3]) was investigated, not fixed - see its own section below.**
 
-### session-reconcile-actual-differs - FAIL
-- Context had one planned session, dated 2026-09-04 (9 days before the eval's "today," 2026-09-13) - a stale fixture date, not a same-day match.
-- Athlete: "Skipped the run, did a swim instead."
-- Model correctly created a **new** unplanned session on today's actual date, status `done`, no `session_id` — correct, since there was no planned session on today's date to reference. **This is a live, positive confirmation that #999's new duplicate-session guard (`newSessionMayDuplicatePlan`) does not fire here** - it only blocks a new terminal-status session when a planned session exists on the *same* date, and there wasn't one.
-- Rubric expected `session_reconcile`. Same retired-field-name issue.
+### New findings surfaced while confirming the fixes (full-suite reruns, `--fresh`)
 
-### incremental-injury-disclosure [turn 3/3] - FAIL
-- 3-turn conversation: athlete mentions hip soreness in turn 2, Coach flags it (`injury_flag` presumably fires turn 2, not shown as failing). Turn 3 is a closing "heading out now" message.
-- Model re-emitted `injury_flag` for the same hip soreness on turn 3.
-- Rubric expected `injury_flag` absent on turn 3 (already flagged, shouldn't re-fire).
-- **Unrelated to workouts/current week** - this is an injury-disclosure de-duplication gap, nothing to do with #727's action fields.
+Re-running the full suite after the fixture fixes surfaced two things worth flagging, neither a fixture bug:
 
-**P2, not blocking:** 3 of 4 failures are stale eval fixtures checking for action fields that were retired by an already-merged, unrelated PR (`#973`). Worth a follow-up to update the fixtures so the eval suite reflects the current contract, but it's a documentation-of-tests issue, not a product bug.
+**`week-plan-kickoff-ritual` intermittently fails for a real reason, separate from the field-name issue already fixed.** One full-suite rerun (log `eval-coach-chat-log-13-59-02.json`) had the model describe a complete 7-day week in prose (`reply` text, bulleted days) but never call `week_update` at all - `coach_note`/`reply` present, no structured action, silently nothing gets saved. Two isolated reruns of just this transcript afterward both passed clean. Rough sample: 3/4 pass, 1/4 this specific prose-only skip. **This is the same class of gap as "gap 2" in the technical proposal #999 already hardened** (model describes the thing instead of calling the action) - #999 built a prompt-reinforcement fix (2b) for `workout_create` specifically, but never extended it to the `week_update` kickoff path. Not fixed here - flagging for a decision, not building it unasked.
+
+**`fsp-quest-create-after-profile-complete` [turn 2/2] intermittently fails on a missing `season_start`/`season_start.new_habits`.** Reproduced once more on a targeted rerun (1/2 on `--only fsp-quest-create`). This is First Session quest/season creation - unrelated to workouts or current week, outside #999's and this stack's scope. Flagging for awareness only, not investigating further here.
+
+Both are consistent with the eval script's own documented behavior (live model calls are inherently non-deterministic run to run, per its own header comment) - not evidence either is a new regression from anything in this PR.
+
+### incremental-injury-disclosure [turn 3/3] - investigated, not fixed
+
+**What the transcript checks:** a 3-turn conversation where the athlete discloses hip soreness in turn 2 (correctly fires `injury_flag`), then sends a pure filler "heading out now" message in turn 3, which should fire neither `coach_note` nor `injury_flag` again. This transcript exists specifically because this exact regression (a filler turn re-firing `injury_flag` for an already-flagged injury, reworded) was found live once before and got two real fixes: a prompt restraint instruction, and a deterministic word-overlap dedup guard (`injuryTextsLikelySame`, `applyInjuryFlag` in `coachIntents.ts`).
+
+**What actually happened in this run:** turn 3 re-fired `injury_flag` with reworded text ("Left hip soreness ongoing for 3 days, noticed during runs." vs turn 2's "Left hip soreness for the past 3 days, noticeable during the back half of runs.") - `coach_note` correctly stayed absent, only `injury_flag` regressed.
+
+**Why this probably isn't a reachable production bug, verified, not assumed:** `eval-coach-chat.ts` calls `askGemini()` directly (see its own header comment: "SOUL is NOT in the prompt this script sends... askGemini's own logic only") and never runs `buildTurnWrites`/`applyInjuryFlag` - it can only observe raw model output, never the deterministic write-layer guard built specifically to catch this. I computed `injuryTextsLikelySame`'s actual word-overlap ratio for this run's two texts by hand: 8 shared words out of the shorter text's 10 distinct words = 0.8, well above the 0.5 threshold, no laterality conflict (both say "left"). **In a real turn, `applyInjuryFlag` reads the just-committed `injuries.json` from turn 2 before writing turn 3's flag, and this pair would have been silently deduped** - the athlete would never see a duplicate.
+
+**What this means:** the eval failure is very likely a false negative *for user impact*, but it's still a legitimate canary for the prompt-level restraint instruction alone drifting (which is the layer this eval can actually observe). Recommend keeping the strict expectation as-is rather than loosening it - the real fix, if this is worth chasing further, is either accepting the current two-layer protection (prompt + write-time dedup) as sufficient given production is protected, or extending `eval-coach-chat.ts` to optionally run the real write path for transcripts that specifically need to test it (a bigger, cross-cutting change to the eval harness's architecture, well out of scope here). Handing this off rather than deciding it myself.
 
 ---
 
@@ -58,14 +61,15 @@ What I can confirm: CI's `iOS Build` job doesn't just compile - it runs `xcodebu
 
 ## Bottom line: what's left before this stack can merge
 
-Nothing found that blocks merging. Everything checked this round either passed clean or turned out to be a pre-existing, unrelated gap:
+Nothing found that blocks merging. Everything checked this round either passed clean, got fixed, or turned out to be a pre-existing, out-of-scope gap:
 
-- Paid eval: 19/23, all 4 failures pre-existing and explained above (3 stale fixtures from an unrelated already-merged PR, 1 unrelated injury-dedup gap).
+- Paid eval: 3 of the original 4 failures were stale fixtures, now fixed and confirmed passing individually.
 - Web Workouts page: manually clicked through, works end to end, zero console errors.
 - iOS Workouts tab: real unit tests ran on a real simulator in CI and passed; visual check isn't possible from this machine.
 
-**Two P2 follow-ups, neither blocking:**
-1. Update `eval-coach-chat`'s 3 stale fixtures (`plan-edit-vs-template-edit-disambiguation`, `week-plan-kickoff-ritual`, `session-reconcile-actual-differs`) to check for `week_update` instead of the retired `plan_edit`/`week_plan`/`session_reconcile` field names.
-2. The `incremental-injury-disclosure` re-flagging gap, unrelated to this stack.
+**Not blocking, but worth a decision (not built here, flagged for the athlete):**
+1. `week-plan-kickoff-ritual` intermittently (~1/4 in today's sample) has the model describe the whole week in prose without calling `week_update` at all - same class of gap as `workout_create`'s "describes it, doesn't call the action," which #999 already hardened with a prompt-reinforcement fix (2b) for `workout_create` specifically but not for the week kickoff path. A parallel fix here would be small (same pattern as 2b) if wanted.
+2. `incremental-injury-disclosure` [turn 3/3] - investigated in depth above. Very likely not a reachable production bug (the real write-time dedup guard would catch it, verified by hand-computing the actual word-overlap ratio), but the eval structurally can't see that guard since it never runs the write path. Recommend keeping the strict check as a canary on the prompt-level layer, and treating "should the eval exercise the real write path" as a separate, bigger question.
+3. `fsp-quest-create-after-profile-complete` - unrelated to workouts/current week, intermittent `season_start` omission, out of scope for this stack.
 
 **Scoped, not yet built - next PR on top of `#999`:** live-test `activity_sync` turns against the #727 stack specifically. `run-manual-coach-chat-test.ts --activity-ids` and `run-manual-coach-message-test.ts` both already exist (added 2026-09-10) - no new harness needed. `coach-message.ts` doesn't touch `workout_create`/`week_update` at all (confirmed by reading it), so it's out of scope. `activity_sync` **does** run through the same `requestCoachReply`/`buildTurnWrites` pipeline as ordinary turns, and is arguably a more likely place to trip the duplicate-session guard than a chat turn (a synced activity reads as a report, not a conversation) - that's the concrete next test to run.
