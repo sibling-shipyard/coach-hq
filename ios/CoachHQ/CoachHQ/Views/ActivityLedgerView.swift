@@ -45,7 +45,7 @@ struct ActivityLedgerView: View {
         .onChange(of: entries.map(\.id)) { _, _ in seedInitialState() }
         .sheet(isPresented: $showingLoadSheet) {
             ActivityLedgerLoadSheet()
-                .presentationDetents([.height(430)])
+                .presentationDetents([.height(372)])
                 .presentationDragIndicator(.visible)
                 .presentationContentInteraction(.resizes)
                 .presentationCornerRadius(28)
@@ -542,9 +542,8 @@ private struct ActivityLedgerLoadSheet: View {
                 .foregroundColor(WarmInstrument.inkFaintText)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .padding(.bottom, 20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.top, 18)
+        .padding(.bottom, 28)
         .background(WarmInstrument.paper.ignoresSafeArea())
     }
 }
