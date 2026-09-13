@@ -218,8 +218,9 @@ the reconciler is what writes `"unplanned"`, for a logged activity with no plann
 
 Structural shape validated at runtime by `workoutSchema.ts`'s `validateWorkout()` — see that
 file's own header comment for why it exists as a runtime guard, not just a test helper. Written
-via `turnWrites/workoutWrite.ts` (`buildTemplateEditWrite`, `buildSessionPlanWrite`) and
-`coachWorkoutFiles.ts` (`generateInitialTemplates`, post-First-Session-completion).
+via `turnWrites/workoutWrite.ts` (`buildTemplateEditWrite`, `buildSessionPlanWrite`,
+`buildWorkoutCreateWrite`) and, for the one benchmark routine written at First Session close,
+`coachTurn.ts`'s `generateFirstSessionWorkoutsAfterCompletion` (A3 #727).
 
 **`Workout.workout_type` enum:** `"foundation" \| "strength" \| "recovery" \| "realign" \| "calisthenics"`.
 **`Exercise.type` enum:** `"timed" \| "reps"` — a `timed` exercise requires `duration_secs` and

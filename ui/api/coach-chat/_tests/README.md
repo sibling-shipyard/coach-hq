@@ -30,7 +30,7 @@ Files staying at the top level of `_tests/` test support modules the pipeline de
 of the three pipeline layers themselves: `chatThreads.test.ts`,
 `coachChatFiles.test.ts`, `day-offsets.test.ts`, `onboarding-hints.test.ts`,
 `renderCoachContext.test.ts`, `renderQuestContext.test.ts`, `sessionPlan.test.ts`,
-`text-caps.test.ts`, `workoutLibrary.test.ts`.
+`text-caps.test.ts`, `firstSessionBenchmark.test.ts`, `firstWeekCompile.test.ts`.
 
 `coach-chat-eval/` is the live-API eval harness (`npm run eval:coach-chat`), unrelated to this
 vitest suite - see its own directory for details.

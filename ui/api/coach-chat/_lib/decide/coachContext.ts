@@ -372,8 +372,11 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   if (milestoneEntries.length > 0) {
     for (const m of milestoneEntries) {
       const unit = m.unit ? ` ${m.unit}` : "";
+      // A3 (#727): current can be null ("not yet benchmarked") - render that plainly rather than
+      // the literal string "null" leaking into Coach's own context.
+      const current = m.current ?? "not yet benchmarked";
       milestoneLines.push(
-        `- **${m.name}** (id: ${m.id}): ${m.current}${unit} → target ${m.target}${unit}`,
+        `- **${m.name}** (id: ${m.id}): ${current}${unit} → target ${m.target}${unit}`,
       );
     }
   } else {
