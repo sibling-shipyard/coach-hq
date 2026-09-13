@@ -82,7 +82,11 @@ import {
   buildProfileUpdateWrite,
   projectProfileCompletion,
 } from "./decide/turnWrites/profileWrite.js";
-import { buildTemplateEditWrite, buildSessionPlanWrite } from "./decide/turnWrites/workoutWrite.js";
+import {
+  buildTemplateEditWrite,
+  buildSessionPlanWrite,
+  buildWorkoutCreateAndRemoveWrites,
+} from "./decide/turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
 
 import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
@@ -136,6 +140,9 @@ interface TurnState extends TurnRequest {
   // enum-constrained quest_id/flag_id fields, not just to validate the reply afterward.
   validQuestIds: ReadonlySet<string>;
   validInjuryFlagIds: ReadonlySet<string>;
+  // A2 (#727) invariant 7: the subset of validInjuryFlagIds that's currently active - the set
+  // workout_create's injury_ack must cover. See AthleteReferenceIds.activeInjuryFlagIds.
+  activeInjuryFlagIds: ReadonlySet<string>;
   // Bug 3 (2026-09-10 pro baseline): the most recent real coach_log.json row's
   // pending_clarification, if any is still unresolved - see parsePendingClarification for how
   // it's read back and findUnconfirmedAssumption for how it's enforced.
@@ -321,6 +328,15 @@ export async function loadTurnState(
   const validInjuryFlagIds = new Set<string>(
     (injuries?.flags ?? []).map((flag) => flag.id).filter((id): id is string => Boolean(id)),
   );
+  // A2 (#727) invariant 7: active-only subset, same filter activeInjuryFlagsSection
+  // (coachContext.ts) already uses to build the athlete-context section Gemini reads flag ids
+  // from.
+  const activeInjuryFlagIds = new Set<string>(
+    (injuries?.flags ?? [])
+      .filter((flag) => flag.status === "active")
+      .map((flag) => flag.id)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   return {
     ...request,
@@ -353,6 +369,7 @@ export async function loadTurnState(
     userMsg: request.trimmed ? { id: `u-${now}`, role: "user", text: request.trimmed } : undefined,
     validQuestIds,
     validInjuryFlagIds,
+    activeInjuryFlagIds,
     pendingClarification: parsePendingClarification(coachLog),
   };
 }
@@ -612,6 +629,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
   const referenceIds = {
     questIds: [...(turn.validQuestIds ?? [])],
     injuryFlagIds: [...(turn.validInjuryFlagIds ?? [])],
+    activeInjuryFlagIds: [...(turn.activeInjuryFlagIds ?? [])],
   };
   try {
     let reply = await askGemini(
@@ -986,8 +1004,17 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       ? undefined
       : reply.week_update;
 
+  // A2 (#727): workout_create/workout_remove read/write the same manifest template_edit/
+  // session_plan already validate against - routine storage reuses TEMPLATES_PATH_PREFIX/
+  // TEMPLATES_MANIFEST_PATH in this stack (no rename yet, per the plan). Not gated behind
+  // blockScheduleChangesThisTurn - creating or removing a routine isn't the Bug 3 "unconfirmed
+  // schedule change" case that guard exists for.
   const needsTemplateContext =
-    effectiveTemplateEdit != null || effectiveSessionPlan != null || effectiveWeekUpdate != null;
+    effectiveTemplateEdit != null ||
+    effectiveSessionPlan != null ||
+    effectiveWeekUpdate != null ||
+    reply.workout_create != null ||
+    reply.workout_remove != null;
   const validTemplateIds: ReadonlySet<string> = needsTemplateContext
     ? validTemplateIdsFromManifest(
         turn.prefetchedTemplatesManifestContent !== undefined
@@ -1022,6 +1049,24 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validatedSessionPlan,
     validTemplateIds,
   );
+
+  // A2 (#727): workout_create/workout_remove's own invariants (1/2/7/8) are business-logic
+  // checks, not stale-reference lookups like quest_id/template_id above -
+  // buildWorkoutCreateAndRemoveWrites catches applyWorkoutCreate/applyWorkoutRemove's throw
+  // itself and reports it as a dropped action, same "one bad action never costs the rest of the
+  // turn" discipline as every other entry in droppedActions here. Combined into one call because
+  // both actions can touch TEMPLATES_MANIFEST_PATH in the same turn - see that function's own
+  // comment for why two separate manifest writes would silently drop one.
+  const { writes: workoutCreateAndRemoveWrites, dropped: droppedWorkoutCreateAndRemove } =
+    buildWorkoutCreateAndRemoveWrites(
+      traceId,
+      reply.workout_create,
+      reply.workout_remove,
+      validTemplateIds,
+      turn.activeInjuryFlagIds,
+      turn.context.progressions,
+    );
+  droppedActions.push(...droppedWorkoutCreateAndRemove);
 
   // Same pre-validate-before-build discipline as template_id above, applied to a patch-shaped
   // week_update's session_id references. Reuses requestCoachReply's own prefetch (Finding A fix)
@@ -1245,6 +1290,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     profileUpdateWrite,
     templateEditWrite,
     sessionPlanWrite,
+    ...workoutCreateAndRemoveWrites,
     currentWeekWrite,
     seasonStartWrites?.seasonWrite,
     seasonStartWrites?.questWrite,

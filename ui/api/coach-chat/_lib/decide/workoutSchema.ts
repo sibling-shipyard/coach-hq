@@ -10,8 +10,20 @@
  */
 import type { Workout } from "../../../../client/src/lib/workouts.js";
 
-const WORKOUT_TYPES = new Set(["foundation", "strength", "recovery", "realign", "calisthenics"]);
-const EXERCISE_TYPES = new Set(["timed", "reps"]);
+// Exported as arrays (not just the Set below) so coachReplySchema.ts's workout_create JSON
+// schema can reuse the same literal list as its enum, instead of hand-duplicating it - the two
+// had already drifted apart once (P2, #727 review).
+export const WORKOUT_TYPES_LIST = [
+  "foundation",
+  "strength",
+  "recovery",
+  "realign",
+  "calisthenics",
+] as const;
+export const EXERCISE_TYPES_LIST = ["timed", "reps"] as const;
+
+const WORKOUT_TYPES = new Set<string>(WORKOUT_TYPES_LIST);
+const EXERCISE_TYPES = new Set<string>(EXERCISE_TYPES_LIST);
 
 function assertString(value: unknown, field: string): void {
   if (typeof value !== "string" || value.length === 0) {
