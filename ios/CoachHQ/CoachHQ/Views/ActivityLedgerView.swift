@@ -1,9 +1,19 @@
 import SwiftUI
 
+enum ActivityLedgerStyle {
+    /// All Activity page: back link, title, load sheet, week headers.
+    case page
+    /// Chat SESSION SYNCED slot: paper stack only, weeks forced open.
+    case embed
+}
+
 struct ActivityLedgerView<Footer: View>: View {
     let entries: [SyncCacheEntry]
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
+    var style: ActivityLedgerStyle = .page
+    /// Fallback load when `hrZones` are missing (provisional chat rows).
+    var listedLoads: [String: Int] = [:]
     @ViewBuilder var footer: () -> Footer
 
     @State private var openWeekIDs: Set<String> = []
@@ -12,34 +22,41 @@ struct ActivityLedgerView<Footer: View>: View {
     @State private var didSeed = false
 
     private var weeks: [ActivityLedgerWeek] {
-        ActivityLedgerWeek.group(entries: entries)
+        ActivityLedgerWeek.group(entries: entries, listedLoads: listedLoads)
     }
 
+    private var isEmbed: Bool { style == .embed }
+
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 26) {
-            header
+        LazyVStack(alignment: .leading, spacing: isEmbed ? 16 : 26) {
+            if !isEmbed {
+                header
+            }
 
             ForEach(weeks) { week in
                 ActivityLedgerWeekView(
                     week: week,
-                    isOpen: openWeekIDs.contains(week.id),
+                    isOpen: isEmbed || openWeekIDs.contains(week.id),
                     pulledID: pulledID,
+                    showsHeader: !isEmbed,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
                     onOpen: { open($0) }
                 )
             }
 
-            footer()
-                .padding(.top, 2)
+            if !isEmbed {
+                footer()
+                    .padding(.top, 2)
 
-            Color.clear.frame(height: 8)
+                Color.clear.frame(height: 8)
+            }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, isEmbed ? 0 : 16)
         // Mock's 64px includes the status-bar band inside the device frame.
         // ScrollView content already clears the safe area, so keep this tight.
-        .padding(.top, 12)
-        .padding(.bottom, 40)
+        .padding(.top, isEmbed ? 0 : 12)
+        .padding(.bottom, isEmbed ? 0 : 40)
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in reconcileAfterEntriesChange() }
         .sheet(isPresented: $showingLoadSheet) {
@@ -97,7 +114,7 @@ struct ActivityLedgerView<Footer: View>: View {
         }
         didSeed = true
         guard let firstWeek = weeks.first else { return }
-        openWeekIDs = [firstWeek.id]
+        openWeekIDs = isEmbed ? Set(weeks.map(\.id)) : [firstWeek.id]
         pulledID = firstWeek.items.first?.id
     }
 
@@ -146,11 +163,15 @@ extension ActivityLedgerView where Footer == EmptyView {
     init(
         entries: [SyncCacheEntry],
         onSelect: @escaping (SyncCacheEntry) -> Void,
-        onBack: (() -> Void)? = nil
+        onBack: (() -> Void)? = nil,
+        style: ActivityLedgerStyle = .page,
+        listedLoads: [String: Int] = [:]
     ) {
         self.entries = entries
         self.onSelect = onSelect
         self.onBack = onBack
+        self.style = style
+        self.listedLoads = listedLoads
         self.footer = { EmptyView() }
     }
 }
@@ -159,16 +180,19 @@ private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
+    var showsHeader: Bool = true
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button(action: onToggle) {
-                weekHeader
+        VStack(alignment: .leading, spacing: showsHeader ? 12 : 0) {
+            if showsHeader {
+                Button(action: onToggle) {
+                    weekHeader
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             weekBody
         }
@@ -600,8 +624,8 @@ private struct ActivityLedgerWeek: Identifiable {
     }
 
     @MainActor
-    static func group(entries: [SyncCacheEntry]) -> [ActivityLedgerWeek] {
-        let items = entries.map(ActivityLedgerItem.init(entry:))
+    static func group(entries: [SyncCacheEntry], listedLoads: [String: Int] = [:]) -> [ActivityLedgerWeek] {
+        let items = entries.map { ActivityLedgerItem(entry: $0, listedLoad: listedLoads[$0.id]) }
         let buckets = Dictionary(grouping: items) { $0.weekID }
         return buckets
             .map { _, groupedItems in
@@ -636,11 +660,11 @@ private struct ActivityLedgerItem: Identifiable {
     let load: Int?
     let stats: [ActivityLedgerStat]
 
-    init(entry: SyncCacheEntry) {
+    init(entry: SyncCacheEntry, listedLoad: Int? = nil) {
         let activity = entry.activity
         let badge = Theme.sportBadge(for: entry.sportType)
         let date = ActivityLedgerFormat.parseDate(entry.startDateLocal) ?? .distantPast
-        let load = ActivityLedgerLoad.compute(from: activity?.hrZones)
+        let load = ActivityLedgerLoad.compute(from: activity?.hrZones) ?? listedLoad
 
         self.id = entry.id
         self.entry = entry
