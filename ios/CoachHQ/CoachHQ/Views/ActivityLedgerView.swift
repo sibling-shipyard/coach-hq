@@ -54,13 +54,15 @@ struct ActivityLedgerView: View {
             Color.clear.frame(height: 8)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 64)
+        // Mock's 64px includes the status-bar band inside the device frame.
+        // ScrollView content already clears the safe area, so keep this tight.
+        .padding(.top, 12)
         .padding(.bottom, 40)
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in seedInitialState() }
         .sheet(isPresented: $showingLoadSheet) {
             ActivityLedgerLoadSheet()
-                .presentationDetents([.height(368)])
+                .presentationDetents([.height(420)])
                 .presentationDragIndicator(.hidden)
                 .presentationCornerRadius(28)
                 .presentationBackground(WarmInstrument.paper)
@@ -261,12 +263,13 @@ private struct ActivityLedgerWeekView: View {
         VStack(spacing: 0) {
             ForEach(Array(week.items.enumerated()), id: \.element.id) { index, item in
                 let isPulled = pulledID == item.id
+                let height = cardHeight(index: index, isPulled: isPulled)
                 ActivityLedgerCard(
                     item: item,
                     isPulled: isPulled,
+                    visibleHeight: height,
                     isRiffled: riffledID == item.id && !isPulled
                 )
-                .frame(height: cardHeight(index: index, isPulled: isPulled))
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
                 .contentShape(Rectangle())
@@ -338,33 +341,47 @@ private struct ActivityLedgerWeekView: View {
     }
 }
 
-/// One paper slip. Stats stay in the card; collapsing card 0 clips them so only the row shows.
+/// One paper slip. Card 0 collapses by shrinking the stats strip to 0 —
+/// clipping a full-height child was leaking labels above the row.
 private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
+    let visibleHeight: CGFloat
     var isRiffled = false
+
+    private var statsHeight: CGFloat {
+        max(0, visibleHeight - ActivityLedgerMetrics.peek)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             statsStrip
+                .frame(height: ActivityLedgerMetrics.peek, alignment: .bottom)
+                .frame(height: statsHeight, alignment: .bottom)
+                .clipped()
+                .opacity(statsHeight < 1 ? 0 : 1)
+
             row
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .frame(maxWidth: .infinity)
+        .frame(height: visibleHeight, alignment: .bottom)
         .background(WarmInstrument.paper)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(LedgerPaper.border, lineWidth: 1)
         )
+        .compositingGroup()
         .shadow(
-            color: LedgerPaper.shadow.opacity(isPulled ? 0.24 : isRiffled ? 0.22 : 0.16),
-            radius: isPulled ? 17 : isRiffled ? 14 : 12,
+            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : isRiffled ? 0.16 : 0.08),
+            radius: isPulled ? 14 : isRiffled ? 10 : 6,
             x: 0,
-            y: isPulled ? 18 : isRiffled ? 14 : 12
+            y: isPulled ? 12 : isRiffled ? 8 : 4
         )
         .scaleEffect(isPulled ? 1.012 : 1)
         .offset(y: isRiffled ? -5 : 0)
         .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
+        .animation(ActivityLedgerMetrics.cardMotion, value: visibleHeight)
         .animation(ActivityLedgerMetrics.riffleMotion, value: isRiffled)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -435,13 +452,9 @@ private struct ActivityLedgerCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity)
         .frame(height: ActivityLedgerMetrics.peek)
         .padding(.horizontal, 18)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(LedgerPaper.divider)
-                .frame(height: 1)
-        }
     }
 }
 
@@ -561,7 +574,7 @@ private struct ActivityLedgerLoadSheet: View {
                     .font(.system(size: 22, weight: .semibold))
                     .tracking(-0.44)
                     .foregroundColor(WarmInstrument.ink)
-                Spacer()
+                Spacer(minLength: 12)
                 Button("CLOSE") {
                     LedgerHaptics.light()
                     dismiss()
@@ -585,13 +598,15 @@ private struct ActivityLedgerLoadSheet: View {
                         .strokeBorder(WarmInstrument.accent.opacity(0.3), lineWidth: 1)
                 )
 
-            Text("Every minute is weighted by its heart-rate zone and summed. The same rule applies across sports.")
+            Text("Every minute of a session is weighted by the heart-rate zone you spent it in, then summed. A hard hour scores more than an easy one; a long easy ride can still outscore a short sprint. The same rule applies to every sport, so a badminton night and a lift are comparable.")
                 .font(WarmInstrument.coachVoice(16))
                 .foregroundColor(LedgerPaper.glyph)
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
                 ForEach(ActivityLedgerMetrics.zoneWeights.indices, id: \.self) { index in
+                    let zone = Theme.hrZoneColors[index]
                     VStack(spacing: 6) {
                         Text("Z\(index + 1)")
                             .font(WarmInstrument.monoLabel(8, weight: .bold))
@@ -604,7 +619,7 @@ private struct ActivityLedgerLoadSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(LedgerPaper.zoneFill(index))
+                    .background(zone.opacity(index >= 3 ? 0.22 : 0.28))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
@@ -616,7 +631,7 @@ private struct ActivityLedgerLoadSheet: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 14)
-        .padding(.bottom, 44)
+        .padding(.bottom, 28)
         .background(WarmInstrument.paper.ignoresSafeArea())
     }
 }
@@ -918,11 +933,6 @@ private enum LedgerPaper {
     static let border = Color(uiColor: UIColor { trait in
         UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: trait.userInterfaceStyle == .dark ? 0.35 : 0.18)
     })
-    static let divider = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0x3a / 255, green: 0x38 / 255, blue: 0x34 / 255, alpha: 1)
-            : UIColor(red: 0xef / 255, green: 0xe9 / 255, blue: 0xdc / 255, alpha: 1)
-    })
     static let glyph = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor(red: 0xed / 255, green: 0xea / 255, blue: 0xe2 / 255, alpha: 1)
@@ -944,28 +954,6 @@ private enum LedgerPaper {
             ? UIColor(red: 0x18 / 255, green: 0x17 / 255, blue: 0x14 / 255, alpha: 1)
             : UIColor(red: 0xf1 / 255, green: 0xec / 255, blue: 0xe2 / 255, alpha: 1)
     })
-
-    static func zoneFill(_ index: Int) -> Color {
-        switch index {
-        case 0: return Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x27 / 255, green: 0x2a / 255, blue: 0x22 / 255, alpha: 1)
-                : UIColor(red: 0xee / 255, green: 0xf0 / 255, blue: 0xe5 / 255, alpha: 1)
-        })
-        case 1: return Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x22 / 255, green: 0x28 / 255, blue: 0x23 / 255, alpha: 1)
-                : UIColor(red: 0xe7 / 255, green: 0xee / 255, blue: 0xe9 / 255, alpha: 1)
-        })
-        case 2: return Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x2c / 255, green: 0x26 / 255, blue: 0x1c / 255, alpha: 1)
-                : UIColor(red: 0xf5 / 255, green: 0xec / 255, blue: 0xdc / 255, alpha: 1)
-        })
-        case 3: return WarmInstrument.accent.opacity(0.10)
-        default: return WarmInstrument.accent.opacity(0.18)
-        }
-    }
 }
 
 private enum LedgerHaptics {
