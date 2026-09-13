@@ -149,14 +149,28 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
   // (the retry scenario fix 1's comment describes - the athlete did other real workout_create
   // turns using the same catalog progression id before this retry ran) gets clamped, not thrown.
   it("repairs a generated spec that would have tripped invariant 2, still committing a benchmark", async () => {
-    // The same lowest-equipment-first, id-tiebreak pick buildBenchmarkSpec's pickPrimary makes
-    // for the "push" pattern with no injury filter and nothing excluded - reproduced here rather
-    // than assuming which catalog entry gets chosen, so this doesn't silently stop testing
-    // anything if the catalog data changes.
+    // The same accessibility-cost-first, id-tiebreak pick buildBenchmarkSpec's pickPrimary makes
+    // for the "push" pattern with no injury filter and nothing excluded (#727 review: equipment
+    // cost, not raw item count, since a one-item ["full_gym"] shouldn't tie a one-item
+    // ["bodyweight"]) - reproduced here rather than assuming which catalog entry gets chosen, so
+    // this doesn't silently stop testing anything if the catalog data changes.
+    const EQUIPMENT_COST: Record<string, number> = {
+      bodyweight: 0,
+      resistance_band: 1,
+      dumbbells: 2,
+      bench: 2,
+      pull_up_bar: 2,
+      full_gym: 3,
+    };
+    const equipmentCost = (equipment: string[]) =>
+      equipment.length === 0 ? 0 : Math.max(...equipment.map((item) => EQUIPMENT_COST[item] ?? 3));
     const catalog = loadExerciseCatalog();
     const pushEntry = catalog
       .filter((e) => e.movement_pattern === "push")
-      .sort((a, b) => a.equipment.length - b.equipment.length || a.id.localeCompare(b.id))[0]!;
+      .sort(
+        (a, b) =>
+          equipmentCost(a.equipment) - equipmentCost(b.equipment) || a.id.localeCompare(b.id),
+      )[0]!;
     await generateFirstSessionWorkoutsAfterCompletion(
       baseTurn({
         wasProfileComplete: false,
