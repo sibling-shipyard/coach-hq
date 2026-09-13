@@ -116,6 +116,83 @@ describe("needsLiveRecomputation", () => {
   });
 });
 
+// #1027: current_week.json on disk never carries coach_comments (ADR 0042 dropped it - nothing
+// writes it anymore), so an unchecked `as CurrentWeekContract` cast of the raw stored contract
+// crashed warmHomeModel.ts's activeComment() on `contract.coach_comments.filter(...)`. The fix
+// normalizes the stored contract the same way currentWeekAdapter.ts/liveWeekContract.ts already
+// do for their callers, defaulting the missing field to [] before it reaches the model.
+describe("generateWidgetSnapshotsFromDashboardSnapshot missing coach_comments", () => {
+  const minimalLedger = {
+    seasons: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      current_season_id: "s1",
+      seasons: [
+        {
+          id: "s1",
+          name: "Season",
+          start_date: "2026-06-01",
+          end_date: "2026-08-31",
+          status: "active" as const,
+        },
+      ],
+    },
+    quests: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      weekly_targets: {},
+      main_quest: {
+        id: "main",
+        name: "Main",
+        type: "count_target" as const,
+        target: 10,
+        season_id: "s1",
+      },
+      quests: [],
+    },
+    progress: { version: 1 as const, rows: [] },
+    progressions: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      progressions: [],
+    },
+  };
+
+  it("does not throw when a live current_week has no coach_comments key", () => {
+    // Real on-disk shape: no coach_comments key at all, not even an empty array.
+    const currentWeek = {
+      schema_version: 1,
+      data_status: "live",
+      week: {
+        id: "2026-08-03_2026-08-09",
+        start_date: "2026-08-03",
+        end_date: "2026-08-09",
+        status: "active",
+        focus: "Build week",
+        guardrails: [],
+      },
+      coach_read: {
+        headline: "Build week",
+        body: "Steady load this week.",
+        valid_from: "2026-08-03",
+        valid_until: "2026-08-09",
+      },
+      days: [],
+      updated_at: "2026-08-03T00:00:00.000Z",
+      updated_by: "coach",
+      trace_id: "t-current-week",
+    };
+
+    expect(() =>
+      generateWidgetSnapshotsFromDashboardSnapshot({
+        ledger: minimalLedger,
+        activities: [],
+        current_week: currentWeek as never,
+      }),
+    ).not.toThrow();
+  });
+});
+
 // COACH-HQ-IOS-4 / #308: split-ledger progressions often have short_target and no target.
 // Undefined target is omitted from JSON; iOS requires PhaseMilestoneSnapshot.target → empty Home.
 describe("generateWidgetSnapshotsFromDashboardSnapshot phase milestones", () => {
