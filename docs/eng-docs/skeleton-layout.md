@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-13 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -76,7 +76,8 @@ coach-skeleton/  (= coach-user after fork)
 │   ├── widget_snapshots.json
 │   ├── athlete_insights.json
 │   ├── quest_history.json
-│   └── sync_status.json
+│   ├── sync_status.json
+│   └── sync_failure.json         # only present while the last Sync run failed
 │
 └── user_data/
     ├── activities/
@@ -240,7 +241,7 @@ Read the script when they disagree — it is what runs.
 
 | Source (HQ) | Skeleton destination | Band |
 |---|---|---|
-| `engine/scripts/` (5 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
+| `engine/scripts/` (11 carved files) | `engine/scripts/` | `engine/` |
 | `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
@@ -251,6 +252,10 @@ Read the script when they disagree — it is what runs.
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | — |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
+
+`sync.user.yml` is the one file the carve rewrites rather than copies: it stamps the operator's
+`SENTRY_DSN` into the workflow so a failed Sync reports itself, with no athlete-set secret
+(`sentry-runbook.md` § Set up once). Carve without that variable and the script warns.
 
 `platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
 The bare `propagated/SOUL.md` name is retired; neither runtime owns it.
