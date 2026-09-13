@@ -342,7 +342,7 @@ export function slugifyRoutineId(title: string, existingIds: ReadonlySet<string>
 // actually be pulled out of that text; anything else (no digits, or a value that's plainly a
 // composite like "3x8") is treated the same as no current value at all - see applyWorkoutCreate's
 // call site for why that's the safe default, not a silent invariant skip.
-function parseLeadingNumber(value: string | null | undefined): number | null {
+export function parseLeadingNumber(value: string | null | undefined): number | null {
   if (!value) return null;
   const match = value.match(/^\s*(-?\d+(?:\.\d+)?)(.*)$/);
   if (!match) return null;
@@ -354,7 +354,7 @@ function parseLeadingNumber(value: string | null | undefined): number | null {
   return Number(match[1]);
 }
 
-function exerciseDose(ex: WorkoutCreateSpecExercise): number {
+export function exerciseDose(ex: WorkoutCreateSpecExercise): number {
   return ex.type === "timed" ? (ex.duration_secs ?? 0) * ex.sets : (ex.reps ?? 0) * ex.sets;
 }
 

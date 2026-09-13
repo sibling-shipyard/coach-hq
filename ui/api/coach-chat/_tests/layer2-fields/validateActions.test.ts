@@ -270,6 +270,162 @@ describe("validateWeekUpdate", () => {
   });
 });
 
+// Live-verified (#727 review): a real conversation had Coach invent a brand-new session (no
+// session_id), already marked "done", on a date that still had a real session sitting in
+// "planned" - instead of referencing that real session's id, it left it stale and fabricated an
+// unrelated one.
+describe("validateWeekUpdate duplicate-plan guard (#727)", () => {
+  const REAL_WEEK_DATES = new Set(["2026-08-17", "2026-08-18", "2026-08-19"]);
+  const plannedOnThe17th = new Map([["2026-08-17", [{ id: "s1", title: "Strength A" }]]]);
+
+  it("drops a brand-new session already marked done on a date with a real planned session, no confirmation", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-17",
+          sessions: [
+            {
+              discipline: "mobility",
+              kind: "recovery",
+              title: "Mobility",
+              status: "done" as const,
+            },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "I did my mobility work today",
+      plannedOnThe17th,
+    );
+    expect(valid).toBeUndefined();
+    expect(dropped).toEqual([{ field: "week_update", reason: expect.stringContaining("s1") }]);
+  });
+
+  it("keeps the new session when the athlete's message confirms a genuine extra", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-17",
+          sessions: [
+            { discipline: "swim", kind: "easy", title: "Extra swim", status: "done" as const },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "Also did an extra unplanned swim today, separate from what was on the plan, yes that's right",
+      plannedOnThe17th,
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
+  // Review finding (P1, #727 hardening): hasConfirmationCue alone is tuned for yes/confirm/go-ahead
+  // words, not "this is a distinct extra" language - a real, plain statement like this got
+  // silently dropped before, discarding a real training log entry. No "yes"/"confirm"/etc. word
+  // anywhere in this message on purpose, so this only passes if EXTRA_SESSION_CUE_PATTERN itself
+  // (not hasConfirmationCue) is what's catching it.
+  it("keeps the new session when the athlete describes it as separate, with no yes/confirm word at all", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-17",
+          sessions: [
+            { discipline: "swim", kind: "easy", title: "Morning swim", status: "done" as const },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "also swam this morning, separate thing",
+      plannedOnThe17th,
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
+  it("keeps a brand-new session with no terminal status even without confirmation", () => {
+    const update = {
+      days: [
+        { date: "2026-08-17", sessions: [{ discipline: "run", kind: "easy", title: "Easy run" }] },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "planning an easy run too",
+      plannedOnThe17th,
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
+  it("keeps a brand-new done session on a date with no planned session at all", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-19",
+          sessions: [
+            { discipline: "swim", kind: "easy", title: "Extra swim", status: "done" as const },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "swam today",
+      plannedOnThe17th,
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
+  it("defaults plannedSessionsByDate to empty when omitted, so no existing callers break", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-17",
+          sessions: [
+            {
+              discipline: "mobility",
+              kind: "recovery",
+              title: "Mobility",
+              status: "done" as const,
+            },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "",
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+});
+
 // Finding E (2026-09-10 pro baseline): the model confabulates a false refusal instead of
 // complying with a correctly-detected, correctly-reprompted quest completion - a compliance
 // failure a third model call has already been shown live not to fix. This synthesizes the

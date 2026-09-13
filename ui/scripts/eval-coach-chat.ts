@@ -176,15 +176,18 @@ function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
 // this once, and the exact same transcript (19-plan-edit-vs-template-edit-disambiguation) rotted
 // again within five weeks of that fix landing, exactly as the original fix's own comment warned it
 // would. Rather than trust a human to keep re-editing a date by hand, any transcript that needs
-// "tomorrow" writes the literal token `{{TOMORROW}}` in its extraContext string; this substitutes
-// the real UTC date one day ahead of the moment this script runs, every run, so the transcript
-// can't go stale on a wall-clock basis again. Scoped to extraContext only (not a generic
+// "tomorrow" or "today" writes the literal token `{{TOMORROW}}`/`{{TODAY}}` in its extraContext
+// string; this substitutes the real UTC date, every run, so the transcript can't go stale on a
+// wall-clock basis again (session-reconcile-actual-differs hit the same rot with a hardcoded
+// "today" date, #999 hardening round, 2026-09-13). Scoped to extraContext only (not a generic
 // templating system across every field) since that's the one place this class of bug has actually
 // shown up.
 function resolveRelativeDates(text: string): string {
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const tomorrowDate = tomorrow.toISOString().slice(0, 10); // YYYY-MM-DD, matches UTC "today"
-  return text.replaceAll("{{TOMORROW}}", tomorrowDate);
+  const now = new Date();
+  const todayDate = now.toISOString().slice(0, 10); // YYYY-MM-DD, matches UTC "today"
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10);
+  return text.replaceAll("{{TOMORROW}}", tomorrowDate).replaceAll("{{TODAY}}", todayDate);
 }
 
 const SAVE_CLAIM_PHRASES = [

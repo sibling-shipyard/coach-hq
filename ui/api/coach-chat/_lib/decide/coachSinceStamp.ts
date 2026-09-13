@@ -18,6 +18,14 @@ export async function loadClosingFileContext(
 
 // ADR 0018: stamp once on the incomplete-to-complete transition. The caller must merge this with
 // any profile_update write because commitFilesAtomic does not merge duplicate paths.
+//
+// A3 retry fix (#727): the same transition also flips on first_session_benchmark_pending, in the
+// same merge patch - it's the durable "this is a genuinely new signup, not an established
+// athlete" marker generateFirstSessionWorkoutsAfterCompletion (coachTurn.ts) gates on, so a
+// failed benchmark attempt can retry on a later turn instead of being a one-shot. Riding the same
+// coach_since-guarded patch means it only ever gets set on the real transition, never for an
+// athlete who already has coach_since - the exact protection this file already existed to give
+// coach_since.
 export function injectCoachSinceIfNeeded(
   validUpdates: { path: string; content: string }[],
   closingFiles: ClosingFileContext | undefined,
@@ -37,6 +45,7 @@ export function injectCoachSinceIfNeeded(
   }
   const patch = JSON.stringify({
     coach_since: todayDateString(timezone, new Date()),
+    first_session_benchmark_pending: true,
   });
   const result = applyJsonMergePatch(baseContent ?? null, patch);
   if (!result.ok) {

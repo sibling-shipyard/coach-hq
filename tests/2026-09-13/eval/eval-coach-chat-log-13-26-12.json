@@ -1,0 +1,1205 @@
+[
+  {
+    "kind": "eval",
+    "name": "greeting",
+    "input": {
+      "mode": "greeting",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [],
+      "userMessage": ""
+    },
+    "output": {
+      "reply": "Hey Skanda, welcome in. We've got 8 weeks to dial you in for that sub-45 10K—where are things sitting with your training right now?"
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "ordinary",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how are the legs after yesterday's tempo run?"
+          ]
+        }
+      ],
+      "userMessage": "Legs feel a bit heavy today but nothing alarming. Did the tempo run yesterday at goal pace the whole way, felt controlled."
+    },
+    "output": {
+      "coach_note": "Reported yesterday's tempo run completed at goal pace throughout, felt controlled. Legs slightly heavy today but nothing concerning.",
+      "reply": "Solid execution on that tempo run—holding goal pace under control is exactly the adaptation we want. Heavy legs today are expected. Keep today light and let the legs absorb the work.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "quest-event-array",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "Current quests (use these exact quest_ids for quest_event):\n- quest_id: q-sub45 | type: main | main quest\n- quest_id: q-coldshower | type: streak | status: active",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd today go on the two fronts?"
+          ]
+        }
+      ],
+      "userMessage": "Two things to log: nailed the cold shower again this morning, that's done for today. And I hit today's tempo run target, that counts as today's progress on the sub-45 10K quest too - mark both of those complete."
+    },
+    "output": {
+      "coach_note": "Completed cold shower quest and hit tempo run target progressing towards sub-45 10K goal.",
+      "quest_event": [
+        {
+          "quest_id": "q-coldshower",
+          "status": "completed"
+        },
+        {
+          "quest_id": "q-sub45",
+          "status": "completed"
+        }
+      ],
+      "reply": "Both logged and marked complete. Good work hitting the tempo pace and keeping the cold shower streak alive.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "progress.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "injury-event-array",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):\n- flag_id: inj-knee1 | status: active | Mild right knee ache since last week's long run",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How's the knee doing, and how was today's session?"
+          ]
+        }
+      ],
+      "userMessage": "Good news, the knee thing is totally gone now, no pain at all today. Bad news, I tweaked my left ankle a bit on the trail run this afternoon, nothing serious but it's there."
+    },
+    "output": {
+      "coach_note": "Right knee ache resolved with zero pain today. Tweaked left ankle on trail run this afternoon; athlete notes it is not serious but noticeable.",
+      "injury_event": [
+        {
+          "status": "resolved",
+          "flag_id": "inj-knee1"
+        }
+      ],
+      "reply": "Glad to hear the knee is fully cleared—marking that resolved. Let's keep a close eye on that left ankle. Keep off uneven ground for the next couple of days, ice or elevate if there's any swelling, and let me know tomorrow morning how it feels taking your first steps."
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "profile-update",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 72kg\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd the easy run go this morning?"
+          ]
+        }
+      ],
+      "userMessage": "Run was fine, nothing notable. Also weighed in this morning, I'm down to 70kg now."
+    },
+    "output": {
+      "coach_note": "Weighed in at 70kg on Sep 13, 2026. Reported morning easy run was fine with nothing notable.",
+      "profile_update": [
+        {
+          "field": "weight_kg",
+          "value": "70"
+        }
+      ],
+      "reply": "Good to hear the easy miles went smoothly without fuss. 70kg is logged. Keep your nutrition steady as we build up toward the sub-45 10K.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "profile.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "plan-edit-vs-template-edit-disambiguation",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "Current templates (use these exact template_ids for template_edit):\n- template_id: tpl-badminton\n\nCurrent week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-wed-run | date: 2026-09-14 | Easy Run | status: planned",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "What's on your mind today?"
+          ]
+        }
+      ],
+      "userMessage": "Swap tomorrow's session for badminton instead, just this once - a friend's got a court booked."
+    },
+    "output": {
+      "coach_note": "Swapped tomorrow's (2026-09-14) planned easy run for badminton with a friend.",
+      "week_update": {
+        "days": [
+          {
+            "date": "2026-09-14",
+            "sessions": [
+              {
+                "session_id": "sess-wed-run",
+                "discipline": "badminton",
+                "kind": "court session",
+                "title": "Badminton",
+                "template_id": "tpl-badminton"
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Swapped tomorrow's easy run to badminton. Enjoy the court time, keep the footwork sharp, and watch the ankles.",
+      "unrecorded_facts": []
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"plan_edit\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "activity-sync",
+    "input": {
+      "mode": "activity_sync",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "<activity_sync_batch>\nVerified activities just synced. These rows are system-owned facts. Do not invent ids or measurements.\n- id: 11111111-1111-1111-1111-111111111111 | title: Easy Run | sport: Run | start: 2026-08-22T06:30:00 | duration_s: 2400 | load: 3\n- id: 22222222-2222-2222-2222-222222222222 | title: Ride #2 | sport: Ride | start: 2026-08-22T09:00:00 | duration_s: 3600 | load: null\n</activity_sync_batch>",
+      "history": [],
+      "userMessage": "[Activity sync. Respond to the verified batch in context. The athlete did not type this.]"
+    },
+    "output": {
+      "reply": "Solid work logging both the 40-minute easy run and the hour ride. That keeps the aerobic foundation building without overloading the legs. How are the legs feeling after doubling up?"
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "incremental-injury-disclosure [turn 1/3]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd the run go?"
+          ]
+        }
+      ],
+      "userMessage": "Run was fine, though something felt a bit off in the back half. Nothing major."
+    },
+    "output": {
+      "reply": "Define 'a bit off' - was it engine, heavy legs, or a specific spot barking at you? We've got 8 weeks to race day, so let's nip whatever it is early."
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "incremental-injury-disclosure [turn 2/3]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd the run go?"
+          ]
+        },
+        {
+          "id": "u-1789305850426",
+          "role": "user",
+          "text": "Run was fine, though something felt a bit off in the back half. Nothing major."
+        },
+        {
+          "id": "c-1789305850426",
+          "role": "coach",
+          "paragraphs": [
+            "Define 'a bit off' - was it engine, heavy legs, or a specific spot barking at you? We've got 8 weeks to race day, so let's nip whatever it is early."
+          ]
+        }
+      ],
+      "userMessage": "Actually thinking about it more, my left hip has been sore for 3 days now, not just today."
+    },
+    "output": {
+      "coach_note": "Skanda reported left hip soreness persisting for 3 days, noticeable in the back half of today's run. Flagged for tracking.",
+      "injury_flag": [
+        {
+          "text": "Left hip soreness for the past 3 days, noticeable during the back half of runs."
+        }
+      ],
+      "reply": "Good call speaking up. Three days means it's not just a passing twinge, so I'm flagging that left hip right now. How would you describe the sensation—dull ache, sharp, or pinch—and does it flare up during daily movement or only when pounding pavement?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "incremental-injury-disclosure [turn 3/3]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd the run go?"
+          ]
+        },
+        {
+          "id": "u-1789305850426",
+          "role": "user",
+          "text": "Run was fine, though something felt a bit off in the back half. Nothing major."
+        },
+        {
+          "id": "c-1789305850426",
+          "role": "coach",
+          "paragraphs": [
+            "Define 'a bit off' - was it engine, heavy legs, or a specific spot barking at you? We've got 8 weeks to race day, so let's nip whatever it is early."
+          ]
+        },
+        {
+          "id": "u-1789305854337",
+          "role": "user",
+          "text": "Actually thinking about it more, my left hip has been sore for 3 days now, not just today."
+        },
+        {
+          "id": "c-1789305854337",
+          "role": "coach",
+          "paragraphs": [
+            "Good call speaking up. Three days means it's not just a passing twinge, so I'm flagging that left hip right now. How would you describe the sensation—dull ache, sharp, or pinch—and does it flare up during daily movement or only when pounding pavement?"
+          ]
+        }
+      ],
+      "userMessage": "Anyway, that's the update. Heading out now."
+    },
+    "output": {
+      "injury_flag": [
+        {
+          "text": "Left hip soreness ongoing for 3 days, noticed during runs."
+        }
+      ],
+      "reply": "Got it. Flagged in your profile so we keep an eye on it. Catch you later—let me know how it behaves once you're back."
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"injury_flag\" to be absent, but it was set: [{\"text\":\"Left hip soreness ongoing for 3 days, noticed during runs.\"}]"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "injuries.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Got it, strength training twice a week, bad fitness level right now. If you look out 3 to 6 months, what's the one thing you most want to change or achieve? And any injuries I should know about?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026, i want to be stronger overall. My shoulder was in bad shape a couple months ago, still recovering, and my left knee has issues too. Also, daily habits - I want to read a book for 10 mins and quit smoking and alcohol."
+    },
+    "output": {
+      "coach_note": "First session: Athlete aims to get stronger overall by end of 2026. Managing recovering shoulder and chronic/ongoing left knee issues. Establishing daily habits: read 10 mins daily, quit smoking, and quit alcohol.",
+      "season_start": {
+        "name": "Build Baseline Strength 2026",
+        "start_date": "2026-09-13",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Strength training sessions",
+          "type": "weekly_frequency",
+          "target": 2
+        },
+        "new_habits": [
+          {
+            "name": "Read book for 10 minutes",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 10,
+            "unit": "minutes"
+          },
+          {
+            "name": "No smoking",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          },
+          {
+            "name": "No alcohol",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          }
+        ]
+      },
+      "injury_flag": [
+        {
+          "text": "Right/unspecified shoulder recovering from injury a couple months ago; monitor overhead and pressing volume."
+        },
+        {
+          "text": "Left knee issues; monitor loading and depth on squats/lower-body movements."
+        }
+      ],
+      "reply": "Got your goals locked in for the rest of 2026: building overall strength twice a week, reading 10 minutes daily, and staying smoke-free and alcohol-free. I've also flagged your shoulder recovery and left knee so we can tailor your movements around them without aggravating anything. To set up your first sessions safely, what movements or exercises currently cause pain in that shoulder or knee, and do you have access to a gym or home weights?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json",
+        "seasons.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-new-injuries",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Badminton\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to know your fitness level. Any injuries or physical limitations I should know about?"
+          ]
+        }
+      ],
+      "userMessage": "Yeah a few. Left knee - I had ACL surgery done last year. Right shoulder and right elbow - badminton related injuries, they flare up often."
+    },
+    "output": {
+      "coach_note": "Injuries noted: Left knee status-post ACL surgery last year. Chronic right shoulder and right elbow flare-ups from badminton.",
+      "injury_flag": [
+        {
+          "text": "Left knee: ACL surgery last year"
+        },
+        {
+          "text": "Right shoulder: chronic flare-ups related to badminton"
+        },
+        {
+          "text": "Right elbow: chronic flare-ups related to badminton"
+        }
+      ],
+      "reply": "Got it. ACL reconstruction on the left knee last year, plus chronic flare-ups in your hitting arm—shoulder and elbow. That's essential context for managing your training volume and joint load. How are they feeling right now, and what main goal are we working toward this season?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-coaching-style",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Running\n- **Coaching style preference:** (not yet set)\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Any injuries I should know about? And - what works when things get hard for you: someone holding you accountable, someone cheering you on, or someone walking through the why?"
+          ]
+        }
+      ],
+      "userMessage": "No injuries right now. And honestly I just need someone to hold me accountable - if you let me off easy I'll slack off."
+    },
+    "output": {
+      "coaching_style_update": "accountability",
+      "reply": "Clear and noted. I will hold your feet to the fire—no easy excuses here. Glad to hear you're fully healthy and uninjured right now. What specific running goal are we tackling first?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 1/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        }
+      ],
+      "userMessage": "I'm 28, 178cm, 82kg, based in Mumbai."
+    },
+    "output": {
+      "coach_note": "Athlete is 28 years old, 178 cm, 82 kg, and based in Mumbai (Asia/Kolkata timezone). Focus: Strength Training.",
+      "profile_update": [
+        {
+          "field": "height_cm",
+          "value": "178"
+        },
+        {
+          "field": "weight_kg",
+          "value": "82"
+        },
+        {
+          "field": "timezone",
+          "value": "Asia/Kolkata"
+        }
+      ],
+      "reply": "Got it locked in: 178 cm, 82 kg, and Mumbai timezone set. What specific goals are we targeting with your strength training, and what does your current weekly routine look like?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "profile.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create-after-profile-complete [turn 2/2]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** (not yet set)\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good to meet you. What's your age, height, weight, and where are you based so I can get your timezone right?"
+          ]
+        },
+        {
+          "id": "u-1789305899738",
+          "role": "user",
+          "text": "I'm 28, 178cm, 82kg, based in Mumbai."
+        },
+        {
+          "id": "c-1789305899738",
+          "role": "coach",
+          "paragraphs": [
+            "Got it locked in: 178 cm, 82 kg, and Mumbai timezone set. What specific goals are we targeting with your strength training, and what does your current weekly routine look like?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026 I want to be stronger overall. Daily habits too - I want to read for 10 mins a day and quit smoking."
+    },
+    "output": {
+      "coach_note": "28yo, 178cm, 82kg, Mumbai based. Started 2026 Strength season through Dec 31, 2026 aiming for overall strength. Established daily habits: 10 mins reading and smoke-free days.",
+      "season_start": {
+        "name": "2026 Strength Focus",
+        "start_date": "2026-09-13",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Build Overall Strength",
+          "type": "progress",
+          "target": 100
+        },
+        "new_habits": [
+          {
+            "name": "Read 10 mins",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 10,
+            "unit": "minutes"
+          },
+          {
+            "name": "Smoke-free day",
+            "type": "daily_streak",
+            "polarity": "default_done",
+            "target": 1
+          }
+        ]
+      },
+      "reply": "We have your season set through the end of 2026 focused on overall strength, along with your two daily habits: reading 10 minutes and keeping each day smoke-free. What does your current lifting routine look like right now, and do you have any specific compound lifts or benchmarks in mind?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "seasons.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "returning-season-change-with-goal",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K done last week\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K (done)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Great finish on the 10K last week - what's next?"
+          ]
+        }
+      ],
+      "userMessage": "I want to start a new season now, training for a marathon. Goal: finish under 4 hours by 2027-03-01, starting today."
+    },
+    "output": {
+      "coach_note": "Kicked off new season targeting a sub-4 marathon by March 1, 2027.",
+      "season_start": {
+        "name": "Sub-4 Marathon",
+        "start_date": "2026-09-13",
+        "end_date": "2027-03-01",
+        "main_quest": {
+          "name": "Sub-4 Marathon",
+          "type": "count_target",
+          "target": 1
+        },
+        "new_habits": []
+      },
+      "reply": "Big step up from the 10K, but sub-45 speed gives you the engine. Sub-4 marathon is locked in through March 1, 2027. We'll start building the aerobic base and mileage progressively.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "seasons.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "coach-note-required-with-quest-event",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Recent Session Notes (rolling - last 5 sessions)\n*(No note written yet today.)*\n- 2026-08-17: Badminton match, won 2-1.\n- 2026-08-16: Strength session, all sets hit.\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily (id: side_cold_shower)\n",
+      "extraContext": "Current quests (quest_id, use exactly these for quest_event):\n- side_cold_shower: Cold shower daily",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how's the week shaping up?"
+          ]
+        }
+      ],
+      "userMessage": "Did my cold shower again this morning, that's day 13 in a row now."
+    },
+    "output": {
+      "coach_note": "Completed cold shower quest; streak at 13 days.",
+      "quest_event": [
+        {
+          "quest_id": "side_cold_shower",
+          "status": "completed"
+        }
+      ],
+      "reply": "Cold shower locked in for day 13—solid discipline. Since it's Sunday, we should set the focus for the week ahead to keep you on track for that sub-45 10K. Let me know your schedule, any planned matches, or commitments for the coming days so we can lock in the plan.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "progress.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "coach-note-absent-filler",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Recent Session Notes (rolling - last 5 sessions)\n*(No note written yet today.)*\n- 2026-08-17: Badminton match, won 2-1.\n- 2026-08-16: Strength session, all sets hit.\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how's the week shaping up?"
+          ]
+        }
+      ],
+      "userMessage": "Haha yeah it's been a long week, glad it's Friday."
+    },
+    "output": {
+      "reply": "Actually, it's Sunday—so your weekend is almost wrapped up, not starting. We don't have a locked plan on the board yet for the coming week. Let me know how your legs and schedule are looking so we can map out the week starting tomorrow."
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "returning-season-and-habit-same-turn",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K done last week\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K (done)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Great finish on the 10K last week - what's next?"
+          ]
+        }
+      ],
+      "userMessage": "I want to start a new season now, training for a marathon. Goal: finish under 4 hours by 2027-03-01, starting today. Also want to build a daily habit of stretching for 10 mins."
+    },
+    "output": {
+      "coach_note": "Season started: Sub-4 Marathon target by 2027-03-01. Added daily 10-minute stretching habit.",
+      "season_start": {
+        "name": "Sub-4 Marathon",
+        "start_date": "2026-09-13",
+        "end_date": "2027-03-01",
+        "main_quest": {
+          "name": "Sub-4 Marathon",
+          "type": "count_target",
+          "target": 1
+        },
+        "new_habits": [
+          {
+            "name": "Daily stretching",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 10,
+            "unit": "min"
+          }
+        ]
+      },
+      "reply": "Sub-4 marathon season is locked in through March 1, 2027, and your daily 10-minute stretch habit is set up. Going from 10K to 42.2K is about consistent volume and durability. We'll build the aerobic base systematically. Tomorrow is Monday—we'll map out your first training week.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "seasons.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "returning-standalone-habit-no-season-change",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-4 marathon\n- **Timeline / Upcoming events:** March 1 2027\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-4 Marathon\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Good session yesterday. How are you feeling today?"
+          ]
+        }
+      ],
+      "userMessage": "Feeling good. I want to start a new habit actually - read for 30 mins every day."
+    },
+    "output": {
+      "coach_note": "Athlete feeling good. Added daily habit: read for 30 minutes every day.",
+      "quest_create": {
+        "quests": [
+          {
+            "name": "Read for 30 mins",
+            "type": "daily_streak",
+            "polarity": "default_not_done",
+            "target": 30,
+            "unit": "mins"
+          }
+        ]
+      },
+      "reply": "Locked in. Added 'Read for 30 mins' as a daily streak habit. Make it part of your evening wind-down or morning routine and keep the chain going.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "quests.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "memory-update-learned-pattern",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd this week's runs feel overall?"
+          ]
+        }
+      ],
+      "userMessage": "Noticed something - I always run noticeably better in the evening than the morning, my pace is consistently 20-30 seconds faster per km. Worth keeping in mind for how you plan things going forward."
+    },
+    "output": {
+      "coach_note": "Consistently runs 20-30s/km faster in the evening compared to morning runs. Prioritize evening slots for quality sessions.",
+      "memory_update": {
+        "label": "learned_patterns.training",
+        "text": "Performs significantly better during evening runs compared to morning runs, consistently running 20-30 seconds faster per km."
+      },
+      "reply": "Noted. That's a massive difference—20 to 30 seconds per kilometer means your body temperature, mobility, or fueling is primed much better later in the day. We'll leverage that: anchor sessions and key workouts should be scheduled in the evening whenever possible so you get the best adaptation. How did the legs hold up across the rest of the week's volume?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "memory.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "sports-update-new-sport",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Strength Training\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "What's on the plan this week?"
+          ]
+        }
+      ],
+      "userMessage": "Actually starting rock climbing this week too, joined a gym near me. Wanted to flag that as a new thing I'm doing regularly now."
+    },
+    "output": {
+      "coach_note": "Athlete joined a climbing gym and is adding regular rock climbing to their weekly routine alongside running and strength training for the sub-45 10K.",
+      "sports_update": [
+        "Running",
+        "Strength Training",
+        "Rock Climbing"
+      ],
+      "reply": "Rock climbing added to your sports. It's solid for grip, core, and pulling power, but we'll need to watch forearm and shoulder fatigue so it doesn't compromise your key running sessions.\n\nWe don't have this week locked into the calendar yet. With your 10K goal 8 weeks out, how many days a week are you planning to climb, and on which specific days? Give me your availability so we can build the full week around your run workouts.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "memory.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "returning-coaching-style-explicit-change",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** encouragement\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd today's session go?"
+          ]
+        }
+      ],
+      "userMessage": "Honestly, can you be more direct with me from now on? I don't need the pep talk, just tell me straight when I'm slipping."
+    },
+    "output": {
+      "coaching_style_update": "accountability",
+      "reply": "Understood. No fluff from here on out. If you're hitting the standard, I'll tell you; if you're slipping or cutting corners, I'll call it out immediately. As for today's session—I don't have a workout logged for you yet. What did you get done?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "injury-event-real-id-among-several",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+      "extraContext": "Active Injury Flags (use these exact flag_ids for injury_event):\n- flag_id: inj_right_elbow | Right elbow - golfer's elbow, flares on overhead work | status: active\n- flag_id: inj_right_knee | Right knee - diffuse discomfort, no structural finding | status: active\n- flag_id: inj_lower_back | Lower back - mild ache during overhead badminton shots | status: active",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd the knees hold up on today's run?"
+          ]
+        }
+      ],
+      "userMessage": "Knee felt totally fine today actually, no discomfort at all during or after the run."
+    },
+    "output": {
+      "coach_note": "Right knee felt completely fine with zero discomfort during and after today's run.",
+      "injury_event": [
+        {
+          "status": "active",
+          "flag_id": "inj_right_knee"
+        }
+      ],
+      "reply": "Good news on the knee. We'll keep an eye on it to make sure it stays quiet as volume builds, but feeling zero discomfort through the run and post-run is a great sign.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Laid out initial 7-day training week targeting sub-45 10K prep (6 weeks out) balanced with badminton. Scheduled key quality workouts (tempo, intervals, long run) plus badminton and rest.",
+      "week_update": {
+        "focus": "Aerobic foundation and race-pace rhythm towards sub-45 10K",
+        "guardrails": [
+          "Keep easy runs strictly conversational",
+          "Do not push through sharp joint pain during or after badminton"
+        ],
+        "headline": "Lock in the cadence and build structure",
+        "body": "Six weeks out from race day. We're balancing your 10K speed and volume alongside badminton court time without cooking your legs.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Aerobic flush and base mileage",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Run + Strides",
+                "priority": "support",
+                "planned_duration_min": 45
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "Threshold work for 10K rhythm",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "tempo",
+                "title": "Threshold Intervals",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "Court sharpness and agility",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "game",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Active recovery run",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "recovery",
+                "title": "Easy Recovery Run",
+                "priority": "support",
+                "planned_duration_min": 40
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Total rest or light mobility",
+            "sessions": [
+              {
+                "discipline": "recovery",
+                "kind": "rest",
+                "title": "Rest Day",
+                "priority": "optional",
+                "planned_duration_min": 20
+              }
+            ]
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "Endurance anchor for 10K stamina",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Progressive Long Run",
+                "priority": "anchor",
+                "planned_duration_min": 70
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Agility and fun on the court",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "game",
+                "title": "Badminton Match Play",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Plan is locked in for Monday through Sunday. With 6 weeks to go for the sub-45 10K, our priorities are Tuesday's threshold intervals and Saturday's long run, balanced with your badminton court sessions on Wednesday and Sunday. Keep easy days truly easy so you hit the quality sessions sharp.",
+      "unrecorded_facts": []
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"week_plan\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "session-reconcile-actual-differs",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-today-run | date: 2026-09-04 | Easy Run | status: planned",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd today go?"
+          ]
+        }
+      ],
+      "userMessage": "Skipped the run, my knee felt off this morning. Did a swim instead, easy 30 mins."
+    },
+    "output": {
+      "coach_note": "2026-09-13: Skipped planned run due to knee discomfort; substituted with an easy 30-min swim instead. Monitoring knee.",
+      "injury_flag": [
+        {
+          "text": "Knee felt off this morning; opted to swim instead of run."
+        }
+      ],
+      "week_update": {
+        "days": [
+          {
+            "date": "2026-09-13",
+            "sessions": [
+              {
+                "discipline": "swim",
+                "kind": "easy",
+                "title": "Easy Swim",
+                "planned_duration_min": 30,
+                "status": "done"
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Smart pivot. Subbing an easy 30-minute swim instead of pounding on a knee that felt off protects the joint while keeping the engine running. How does the knee feel now after being off it, and is it a sharp pinch or a general ache?",
+      "unrecorded_facts": []
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"session_reconcile\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  }
+]

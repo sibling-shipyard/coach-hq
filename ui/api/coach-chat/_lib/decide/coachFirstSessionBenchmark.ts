@@ -17,7 +17,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { InjuriesJson, MemoryJson, TrainingAvailability } from "./coachMemoryFiles.js";
 import type { Progression, ProgressionsJson } from "./coachQuestFiles.js";
-import type { WorkoutCreateSpec, WorkoutCreateSpecExercise } from "./coachWorkoutFiles.js";
+import {
+  exerciseDose,
+  parseLeadingNumber,
+  type WorkoutCreateSpec,
+  type WorkoutCreateSpecExercise,
+} from "./coachWorkoutFiles.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // ui/api/coach-chat/_lib/decide -> repo root is five levels up. Same convention
@@ -63,6 +68,12 @@ export const BENCHMARK_MOVEMENT_PATTERNS = ["push", "pull", "squat", "hinge", "c
 // "does any manifest exist at all" (P0, #727 review: carve-skeleton now seeds a manifest with the
 // two starter templates at carve time, so that check was always true for a freshly carved repo).
 export const BENCHMARK_ROUTINE_ID = "first_session_benchmark";
+
+// Shared by buildBenchmarkSpec and buildFallbackBenchmarkSpec so both slugify to the exact same
+// BENCHMARK_ROUTINE_ID above - the fallback is a stand-in for the same routine slot, not a
+// different one, so coachTurn.ts's "has the benchmark already been written" check treats either
+// origin as done.
+const BENCHMARK_TITLE = "First session benchmark";
 
 // The catalog has no explicit injury/contraindication tag, but muscle_group and an injury flag's
 // own text are both plain English - a flag whose text names the same muscle group as a candidate
@@ -200,12 +211,125 @@ export function buildBenchmarkSpec(
     }));
 
   return {
-    title: "First session benchmark",
+    title: BENCHMARK_TITLE,
     workout_type: "foundation",
     coaching_note:
       "A starting-point test, not a max effort - this sets the baseline everything else scales from.",
     phases: [{ name: "Benchmark", exercises }],
     injury_ack: injuryAck.length > 0 ? injuryAck : undefined,
+  };
+}
+
+// #727 retry fix, fix 1: buildBenchmarkSpec is built entirely from data Coach already controls
+// (the catalog plus this athlete's own progressions/injuries), so it should never actually trip
+// applyWorkoutCreate's invariants - but "should never" isn't "structurally can't," and a thrown
+// spec here used to mean the athlete got no benchmark and no first week, forever (the
+// wasProfileComplete gate never retried). Repairs the spec in place against repo state
+// buildBenchmarkSpec doesn't itself see fresh at call time:
+//
+// - Invariant 2 (dose cap): if this benchmark's progression_id already resolves to a real,
+//   parseable numeric current (a retry after the athlete has since done other real workout_create
+//   turns using the same catalog progression ids), clamp the exercise down to one set at that
+//   capped value rather than throwing - collapsing to one set (instead of spreading the cap
+//   across the original set count) is what guarantees the clamped dose can never overshoot once
+//   the original set count is itself above the cap.
+// - Invariant 1/8 (progression id): toSpecExercise always sets scaled_from today, but this is
+//   defense in depth against that ever regressing - a progression_id with no matching entry and no
+//   scaled_from gets one synthesized rather than throwing.
+// - Invariant 7 (injury ack): buildBenchmarkSpec acks every flag in the same `injuries` object it
+//   was given, so this should already be complete - but activeInjuryFlagIds here can in principle
+//   come from a different snapshot (turn.context.injuries) than what built the spec, so any flag
+//   still missing an ack gets a generic one added rather than the whole spec throwing.
+export function repairBenchmarkSpecForInvariants(
+  spec: WorkoutCreateSpec,
+  progressions: ProgressionsJson | null,
+  activeInjuryFlagIds: ReadonlySet<string>,
+): WorkoutCreateSpec {
+  const progressionsById = new Map((progressions?.progressions ?? []).map((p) => [p.id, p]));
+
+  const phases = spec.phases.map((phase) => ({
+    ...phase,
+    exercises: phase.exercises.map((ex) => {
+      if (!ex.progression_id) return ex;
+      const existing = progressionsById.get(ex.progression_id);
+      if (!existing) {
+        return ex.scaled_from?.trim() ? ex : { ...ex, scaled_from: "first session benchmark" };
+      }
+      const currentDose = parseLeadingNumber(existing.current);
+      // currentDose < 1 has no positive-integer dose that can satisfy invariant 2 at all (a
+      // malformed "0" or fractional current) - leave the exercise alone and let the invariant
+      // trip normally, cascading to the fixed fallback below rather than writing a 0-rep set.
+      if (currentDose == null || currentDose < 1) return ex;
+      // Collapses to a single set at the capped value rather than spreading the cap across the
+      // spec's original set count - simplest way to guarantee exerciseDose() never exceeds
+      // currentDose regardless of how many sets the generated spec asked for (dividing the cap
+      // across multiple sets and flooring can still overshoot once sets > cap, e.g. sets: 3
+      // against a cap of 1).
+      const cappedValue = Math.floor(currentDose);
+      const dose = exerciseDose(ex);
+      if (dose <= currentDose) return ex;
+      return ex.type === "timed"
+        ? { ...ex, duration_secs: cappedValue, sets: 1 }
+        : { ...ex, reps: cappedValue, sets: 1 };
+    }),
+  }));
+
+  const acked = new Set((spec.injury_ack ?? []).map((ack) => ack.flag));
+  const unacked = [...activeInjuryFlagIds].filter((flagId) => !acked.has(flagId));
+  const injuryAck =
+    unacked.length > 0
+      ? [
+          ...(spec.injury_ack ?? []),
+          ...unacked.map((flag) => ({
+            flag,
+            accommodation:
+              "Benchmark generation didn't have this flag's detail on hand when it acked the others - scale down or skip anything that flares it up.",
+          })),
+        ]
+      : spec.injury_ack;
+
+  return { ...spec, phases, injury_ack: injuryAck };
+}
+
+// #727 retry fix, fix 2: the guaranteed-safe fallback when spec repair still somehow leaves
+// something that trips an invariant. One fixed bodyweight movement with no progression_id (so
+// invariants 1/2/8 never apply) and an ack synthesized for every currently-active injury flag (so
+// invariant 7 can't fail either, regardless of what the athlete's real flags say) - nothing here
+// depends on catalog data, progressions, or injury text matching, so this cannot fail the same way
+// a generated spec theoretically could. Same BENCHMARK_TITLE as buildBenchmarkSpec, so it slugifies
+// to the same BENCHMARK_ROUTINE_ID and satisfies the same "benchmark exists" manifest check.
+export function buildFallbackBenchmarkSpec(
+  activeInjuryFlagIds: ReadonlySet<string>,
+): WorkoutCreateSpec {
+  return {
+    title: BENCHMARK_TITLE,
+    workout_type: "foundation",
+    coaching_note:
+      "A safe starting point while your full benchmark gets sorted out - no fixed dose to scale from yet, just a first move to test against.",
+    phases: [
+      {
+        name: "Benchmark",
+        exercises: [
+          {
+            name: "Bodyweight squat",
+            type: "reps",
+            form_cue:
+              "Feet shoulder-width, sit back and down keeping your chest up, stop wherever feels controlled.",
+            why: "A simple baseline movement to see where you're starting from.",
+            reps: 8,
+            sets: 3,
+          },
+        ],
+      },
+    ],
+    injury_ack:
+      activeInjuryFlagIds.size > 0
+        ? [...activeInjuryFlagIds].map((flag) => ({
+            flag,
+            accommodation:
+              "Fallback benchmark is bodyweight-only with no fixed dose - stop or scale back anything that aggravates this.",
+          }))
+        : undefined,
   };
 }
 

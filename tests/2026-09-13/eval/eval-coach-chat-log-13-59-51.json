@@ -1,0 +1,136 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "2026-09-13: Planned full week (Sept 14-20) for sub-45 10K prep (6 weeks out) balancing running and badminton. Focus on aerobic base, 10K-specific interval work, and badminton agility.",
+      "week_update": {
+        "focus": "10K prep progression with badminton integration",
+        "guardrails": [
+          "Keep easy runs truly easy",
+          "Warm up thoroughly before court work"
+        ],
+        "headline": "Sub-45 10K Build - 6 Weeks Out",
+        "body": "Solid week balancing running volume, a 10K threshold stimulus, and court time for agility and cross-training.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Easy aerobic volume to kick off the week",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Aerobic Run",
+                "priority": "anchor",
+                "planned_duration_min": 45
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "Court agility and match play",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "practice",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "10K pace threshold intervals",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "intervals",
+                "title": "10K Threshold Intervals",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Active recovery or full rest",
+            "sessions": [
+              {
+                "discipline": "recovery",
+                "kind": "mobility",
+                "title": "Mobility & Recovery",
+                "priority": "optional",
+                "planned_duration_min": 30
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Aerobic base building",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Run + Strides",
+                "priority": "support",
+                "planned_duration_min": 40
+              }
+            ]
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "Court time / lateral speed",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "match",
+                "title": "Badminton Play",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Aerobic endurance foundation",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Sunday Long Run",
+                "priority": "anchor",
+                "planned_duration_min": 70
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Here is your plan for the week, built around your 10K target in 6 weeks alongside badminton:\n\n- **Mon (Sep 14):** Easy Run (45 min) — keep the pace conversational.\n- **Tue (Sep 15):** Badminton (60 min) — solid court work and footwork.\n- **Wed (Sep 16):** 10K Threshold Intervals (50 min) — key quality session for pace discipline.\n- **Thu (Sep 17):** Mobility / Active Recovery (30 min) — absorb the work.\n- **Fri (Sep 18):** Easy Run + Strides (40 min) — shake out before the weekend.\n- **Sat (Sep 19):** Badminton (60 min) — competitive play.\n- **Sun (Sep 20):** Long Run (70 min) — steady aerobic engine work.\n\nLocked in. Let's get after it.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]

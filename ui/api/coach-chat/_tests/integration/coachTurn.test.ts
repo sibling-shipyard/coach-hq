@@ -106,6 +106,87 @@ describe("coach turn stages", () => {
     expect(turn.latestThreads).toHaveLength(1);
   });
 
+  // Review finding (P1, #727 hardening): the coach_since/first_session_benchmark_pending merge
+  // patch used to hand-write just { coach_since }, discarding first_session_benchmark_pending:
+  // true even though injectCoachSinceIfNeeded always sets both together - on the common case (the
+  // athlete's last profile field and the profileComplete transition land the same turn), the
+  // pending marker never got persisted, defeating the whole retry mechanism for exactly the
+  // athletes who'd need it.
+  it("preserves first_session_benchmark_pending when profile_update and the coach_since transition land the same turn", async () => {
+    // wasProfileComplete/profileComplete aren't read from these overrides directly - buildTurnWrites
+    // recomputes both itself (projectProfileCompletion) from context.profile/memory/seasons plus
+    // this turn's own profile_update, so the fixture has to be a genuinely incomplete profile
+    // (missing only timezone) that this turn's profile_update completes.
+    const turn = await buildTurnWrites(
+      baseTurn({
+        reply: {
+          reply: "Got it, you're all set.",
+          profile_update: [{ field: "timezone", value: "Asia/Kolkata" }],
+        },
+        context: {
+          soul: "soul",
+          profile: {
+            version: 1,
+            coach_since: null,
+            name: "Athlete",
+            dob: "1998-01-01",
+            timezone: "",
+            height_cm: 178,
+            weight_kg: 75,
+          },
+          memory: {
+            version: 1,
+            _meta: { updated_at: "t", updated_by: "model", trace_id: "t1" },
+            sports: ["Running"],
+            coaching_style: "accountability",
+            training_availability: null,
+            notes: Object.fromEntries(
+              [
+                "fitness_baseline",
+                "coaching_priorities",
+                "learned_patterns.training",
+                "learned_patterns.nutrition",
+                "learned_patterns.mental",
+                "equipment",
+              ].map((label) => [label, { text: "", updated_at: "", trace_id: "" }]),
+            ),
+          },
+          seasons: {
+            version: 1,
+            _meta: { updated_at: "t", updated_by: "model", trace_id: "t1" },
+            current_season_id: "season-1",
+            seasons: [
+              {
+                id: "season-1",
+                name: "Base Build",
+                start_date: "2026-09-01",
+                end_date: "2026-12-01",
+                main_quest: { id: "q1", name: "Goal", type: "count_target", target: 1 },
+              },
+            ],
+          },
+          injuries: null,
+          coachLog: null,
+          quests: null,
+          progress: null,
+          progressions: null,
+          athleteInsights: null,
+        },
+      }) as never,
+    );
+    const profileWrite = turn.optionalWrites.find((write) =>
+      write.path.endsWith("profile.json"),
+    ) as { path: string; resolve: () => Promise<string> } | undefined;
+    expect(profileWrite).toBeDefined();
+    const content = JSON.parse(await profileWrite!.resolve());
+    expect(content.coach_since).toBeTruthy();
+    expect(content.first_session_benchmark_pending).toBe(true);
+    // The profile_update field itself still landed - the merge doesn't clobber it either.
+    expect(content.timezone).toBe("Asia/Kolkata");
+    // Not duplicated as a separate validUpdates entry - it got folded into the write above.
+    expect(turn.validUpdates.some((update) => update.path.endsWith("profile.json"))).toBe(false);
+  });
+
   // akash retest finding: a dropped action's reply text used to only get corrected in next
   // turn's coach_log context (formatDroppedActionsNote) - the athlete would see a false success
   // claim for one whole turn. finalReplyText is the fix: this same turn's reply (and the chat

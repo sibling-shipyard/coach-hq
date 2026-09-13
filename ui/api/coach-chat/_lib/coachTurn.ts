@@ -32,6 +32,8 @@ import {
 } from "./decide/coachWorkoutFiles.js";
 import {
   buildBenchmarkSpec,
+  repairBenchmarkSpecForInvariants,
+  buildFallbackBenchmarkSpec,
   seedBenchmarkProgressions,
   inferTrainingAvailability,
   BENCHMARK_ROUTINE_ID,
@@ -41,6 +43,7 @@ import { PROGRESSIONS_PATH } from "./decide/coachQuestFiles.js";
 import {
   PROFILE_PATH,
   MEMORY_PATH,
+  WEEKDAYS,
   type ProfileJson,
   type MemoryJson,
   type CoachLogJson,
@@ -99,6 +102,7 @@ import {
   buildWorkoutCreateAndRemoveWrites,
 } from "./decide/turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
+import { exerciseTypeFieldViolation } from "./decide/workoutSchema.js";
 
 import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
 
@@ -475,6 +479,54 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
   return facts.length > 0 ? facts : null;
 }
 
+// Live-verified (#727 review): reproduced twice in 5 real OpenRouter runs - a "reps"-type
+// exercise with no reps field at all (not a wrong type, just omitted). Gemini's structured-output
+// mode has no conditional-required support (a field required only when a sibling field has a
+// given value isn't representable in this schema shape - see workout_create's own schema
+// comment), so nothing stops the model from skipping it. The write path already refuses to commit
+// this (never commit invalid data) - this is a pre-emptive structural check on the raw reply, one
+// reprompt attempt before that refusal ever has to fire, same class of fix as
+// findOversizedTextField above for a text cap. Checks only the two fields the live failure
+// actually hit; the full invariant set (progression id, dose cap, injury ack) still gets its own
+// enforcement at the write path regardless; this only catches what a reprompt can plausibly fix
+// with a second, cheap generation.
+function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
+  const spec = reply.workout_create;
+  if (!spec) return null;
+  for (const phase of spec.phases ?? []) {
+    for (const ex of phase.exercises ?? []) {
+      // Review finding (P2, #727 hardening): this used to hand-check reps/duration_secs presence
+      // itself, duplicating workoutSchema.ts's validateExercise - real risk of the two drifting
+      // apart, since that file is meant to be the one place this shape is defined. Reuses its
+      // exported exerciseTypeFieldViolation instead; only the wording changed slightly (this
+      // note's caller prefixes it with the exercise name either way).
+      const violation = exerciseTypeFieldViolation(ex);
+      if (violation) return `"${ex.name}" ${violation}`;
+    }
+  }
+  return null;
+}
+
+// Live-verified (#727 review, 2026-09-13): the Weekly Kick-off Ritual intermittently narrates a
+// full 7-day plan in reply text (a day-by-day bulleted breakdown) without ever setting
+// week_update - the athlete reads a plan that was never saved. A generic "did the reply describe
+// something without the matching action" heuristic was rejected elsewhere in this file for real
+// false-positive risk against ordinary conversation (see the rejected gap-2a discussion this PR's
+// history references), but this specific shape isn't that: a reply naming 5+ distinct weekday
+// names is not something ordinary coaching chat produces by accident, only a real day-by-day
+// week narration does. Scoped to non-firstSession turns only, since a first-session athlete never
+// gets week_update at all (see the firstSession prompt branch above). Reuses WEEKDAYS
+// (coachMemoryFiles.ts) rather than a third hand-copied weekday list - coachFirstSessionBenchmark.ts
+// already has its own WEEKDAY_PATTERN for a different purpose (P2, #727 review).
+const PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD = 5;
+
+function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
+  if (firstSession || reply.week_update) return false;
+  const lowerReply = reply.reply.toLowerCase();
+  const mentionedWeekdays = WEEKDAYS.filter((day) => lowerReply.includes(day)).length;
+  return mentionedWeekdays >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
+}
+
 // Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
 // injuries 3/8 times even with unrecorded_facts live - the same same-generation blind spot as
 // everywhere else it's missed a real omission. A general keyword heuristic across every turn was
@@ -526,6 +578,28 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+}
+
+// Live-verified (#727 review, 2026-09-13): reproduced live twice - the athlete stated a goal
+// (and often habits in the same message), the reply/coach_note narrated the season as "launched"
+// or "locked in," but season_start was never actually set. Same three-part scoping as
+// findMissedInjuryLanguage/findMissedHabitLanguage above, and same reason it's safe: checks the
+// ATHLETE's own words for goal-declaring language, not the model's reply phrasing, so this can't
+// misfire on the model's own narration style the way a reply-text keyword match could. Scoped to
+// first-session only - a returning athlete's season_start moment is rarer and less dense
+// (fewer competing facts in one message), and this exact failure was only observed there.
+// Deliberately narrower than the habit/injury patterns above - an earlier draft included bare
+// "target"/"targeting"/"aim(ing) for"/"training for" and two existing tests caught it colliding
+// with ordinary first-session chat ("still reaching my weekly mileage target" isn't a season-start
+// moment). Kept to phrasings specific enough that they essentially only show up when a real
+// goal/season is being declared.
+const GOAL_LANGUAGE_PATTERN =
+  /\b(my goal|the goal is|want to (?:be|get|reach|run|hit|lift|lose|gain|become)|by (?:the )?end of)\b/i;
+
+function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.firstSession) return null;
+  if (reply.season_start) return null;
+  return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
 // Single source of truth for "which fields count as schedule-changing" - both this function and
@@ -670,7 +744,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const unrecordedFacts = findUnrecordedFacts(reply);
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
+    const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+    const malformedExercise = findMalformedWorkoutCreateExercise(reply);
+    const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
     // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
     // RepliedTurn.stillUnrecordedFacts).
@@ -685,7 +762,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       unrecordedFacts ||
       missedInjuryLanguage ||
       missedHabitLanguage ||
-      unconfirmedAssumption
+      missedSeasonLanguage ||
+      unconfirmedAssumption ||
+      malformedExercise ||
+      proseOnlyWeekPlan
     ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
@@ -693,7 +773,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         unrecordedFacts,
         missedInjuryLanguage,
         missedHabitLanguage,
+        missedSeasonLanguage,
         unconfirmedAssumption,
+        malformedExercise,
+        proseOnlyWeekPlan,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -731,12 +814,34 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " stated, add it now; if it genuinely doesn't describe a new habit, disregard this note",
         );
       }
+      if (missedSeasonLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedSeasonLanguage}" but no season_start was set` +
+            " this turn - if a real goal/season was stated, add it now as season_start; if it" +
+            " genuinely doesn't describe a new goal or season, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
             " - the athlete's message this turn doesn't clearly resolve it, so do not commit a" +
             " week_update/template_edit/session_plan based on an assumed answer;" +
             " ask again instead, or proceed only if the athlete's message genuinely does answer it",
+        );
+      }
+      if (malformedExercise) {
+        notes.push(
+          `your workout_create has a structural problem: ${malformedExercise} - a "reps" exercise` +
+            ' needs a real reps number, a "timed" exercise needs a real duration_secs number;' +
+            " fix that one field, keep everything else the same",
+        );
+      }
+      if (proseOnlyWeekPlan) {
+        notes.push(
+          "your reply describes a full week's plan (multiple named weekdays) but week_update" +
+            " was never set - if you are genuinely committing this week now, set week_update with" +
+            " the same days/sessions you just described; the athlete cannot see anything you only" +
+            " wrote in the reply text",
         );
       }
       const repromptMessage = [
@@ -766,7 +871,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillUnrecordedFacts = findUnrecordedFacts(reply);
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
+      const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+      const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
+      const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
       // - the model stops self-flagging the miss on retry (it now believes its confabulated
       // excuse resolved it), even though the field still isn't captured. Carry forward the
@@ -781,7 +889,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUnrecordedFacts ||
         stillMissedInjuryLanguage ||
         stillMissedHabitLanguage ||
-        stillUnconfirmedAssumption
+        stillMissedSeasonLanguage ||
+        stillUnconfirmedAssumption ||
+        stillMalformedExercise ||
+        stillProseOnlyWeekPlan
       ) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
@@ -791,7 +902,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnrecordedFacts,
             stillMissedInjuryLanguage,
             stillMissedHabitLanguage,
+            stillMissedSeasonLanguage,
             stillUnconfirmedAssumption,
+            stillMalformedExercise,
+            stillProseOnlyWeekPlan,
           },
           { traceId: turn.traceId },
         );
@@ -1120,6 +1234,19 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       { id: session.id, discipline: session.discipline, kind: session.kind },
     ]),
   );
+  // #727 live-test finding: a brand-new session (no session_id) that arrives already marked
+  // done/skipped, on a date that still has a real session sitting in "planned", is exactly the
+  // shape of a real bug found live - Coach invented a duplicate instead of referencing the real
+  // session already on that date, leaving it stale. Keyed by date (not id) so
+  // validateWeekUpdate can check what's already on a day before accepting a brand-new entry for
+  // it.
+  const plannedSessionsByDate = new Map<string, { id: string; title: string }[]>();
+  for (const session of weekSessions) {
+    if (session.status !== "planned") continue;
+    const list = plannedSessionsByDate.get(session.date) ?? [];
+    list.push({ id: session.id, title: session.title });
+    plannedSessionsByDate.set(session.date, list);
+  }
 
   const { valid: validatedWeekUpdate, dropped: droppedWeekUpdate } = validateWeekUpdate(
     effectiveWeekUpdate,
@@ -1127,6 +1254,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validSessionIds,
     existingSessionsForDiff,
     turn.geminiMessage,
+    plannedSessionsByDate,
   );
   droppedActions.push(...droppedWeekUpdate);
 
@@ -1321,13 +1449,25 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   // profile_update and coach_since can target profile.json together. Merge them into one resolver
   // because commitFilesAtomic does not merge duplicate paths.
+  //
+  // Review finding (P1, #727 hardening): this used to hand-write just { coach_since }, discarding
+  // first_session_benchmark_pending: true even though injectCoachSinceIfNeeded (above) always sets
+  // both fields together in the same patch (coachSinceStamp.ts) - this branch only runs when that
+  // function already fired, so the two fields are never set independently. On the common case (the
+  // athlete's last profile field arrives the same turn as onboarding completion), the pending
+  // marker never actually got written true, defeating the retry mechanism for exactly the athletes
+  // who'd need it. Fixed by mirroring the same two-field patch instead of reconstructing a
+  // narrower one.
   if (validUpdates.some((update) => update.path === PROFILE_PATH) && profileUpdateWrite) {
     const resolveProfileUpdate = profileUpdateWrite.resolve;
     profileUpdateWrite.resolve = async () => {
       const updated = await resolveProfileUpdate();
       const merged = applyJsonMergePatch(
         updated,
-        JSON.stringify({ coach_since: todayDateString(timezone, new Date()) }),
+        JSON.stringify({
+          coach_since: todayDateString(timezone, new Date()),
+          first_session_benchmark_pending: true,
+        }),
       );
       return merged.ok ? merged.content : updated;
     };
@@ -1369,6 +1509,52 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
+// Review finding (P2, #727 hardening): factored out of two near-identical read/merge-patch call
+// sites that both cleared this same field (the standalone stale-marker path below, and the
+// success-path clear inline in generateFirstSessionWorkoutsAfterCompletion) - same fresh-read,
+// same patch shape, same warning on failure. Returns the FileEntry to commit, or null if there was
+// nothing to write (no profile content, or the patch itself failed) - callers decide whether to
+// commit it standalone or append it to a batch already in flight.
+async function buildClearPendingWrite(turn: TurnWrites): Promise<FileEntry | null> {
+  const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+  if (!freshProfileContent) return null;
+  const cleared = applyJsonMergePatch(
+    freshProfileContent,
+    // Resets the attempt counter too, not just pending - if pending ever legitimately gets set
+    // true again later (a fresh signup edge case, not the retry loop this counts), it should start
+    // counting from zero rather than carrying over a stale count from an unrelated earlier attempt.
+    JSON.stringify({ first_session_benchmark_pending: false, first_session_benchmark_attempts: 0 }),
+  );
+  if (!cleared.ok) {
+    console.warn(`[coach-chat] could not clear first_session_benchmark_pending: ${cleared.error}`, {
+      traceId: turn.traceId,
+    });
+    return null;
+  }
+  return { path: PROFILE_PATH, content: cleared.content };
+}
+
+// Standalone commit for the case generateFirstSessionWorkoutsAfterCompletion finds the benchmark
+// already in the manifest but the marker still pending - a prior turn's own clear (below, folded
+// into that turn's benchmark commit) must have dropped. There's no other write to piggyback on
+// here, unlike the main path, so this is its own small commit rather than appended to `writes`.
+async function clearFirstSessionBenchmarkPending(turn: TurnWrites): Promise<void> {
+  const write = await buildClearPendingWrite(turn);
+  if (!write) return;
+  await commitFilesAtomic([write], "coach: clear stale first_session_benchmark_pending marker", {
+    repo: turn.repo,
+    branch: resolveCoachChatBranch(),
+    token: turn.token,
+  });
+}
+
+// Review finding (P1, #727 hardening): without a cap, a real failure unrelated to spec validity
+// (a commit error, a transient GitHub API failure) left first_session_benchmark_pending stuck true
+// forever - every future turn re-ran the full generation attempt with no backoff. 3 attempts is
+// generous given the fallback spec is structurally safe from every invariant this pipeline checks;
+// past this, whatever's failing is not something a 4th identical attempt will fix.
+const FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS = 3;
+
 // Writes one benchmark routine (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled
 // through the same applyWorkoutCreate/buildWorkoutCreateAndRemoveWrites path an ordinary
 // workout_create turn uses), seeds one progression per benchmarked pattern, derives the structured
@@ -1378,25 +1564,54 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 // this is on the critical path of the turn's own response, so a failure here only logs and moves
 // on.
 //
-// Gated on the false->true profileComplete transition (never just "profileComplete is true"):
-// isAthleteProfileComplete (coachChatFiles.ts) is a field-presence check recomputed every turn
-// from current profile/memory/seasons content, so it stays true forever once an athlete's profile
-// is complete - a live-verified regression (#727 review) found that dropping the transition
-// requirement here made this fire, and commit a synthetic first week, on every single ordinary
-// turn from any already-established athlete, since it has no reason to ever get the benchmark's
-// id into its manifest otherwise. ALSO gated on the benchmark's own routine id being absent from
-// the manifest, not on the manifest merely existing - carve-skeleton now seeds a manifest with two
-// starter templates at carve time (A4), so "does a manifest exist" was always true and this never
-// ran for a freshly carved repo either (the original P0, #727 review). A dropped invariant on the
-// transition turn itself still means no automatic retry - a known, narrower gap than the one this
-// replaces, tracked as follow-up rather than papered over with something unsafe for existing
-// athletes.
+// Gated on first_session_benchmark_pending (profile.json), not on the wasProfileComplete
+// transition alone (#727 retry fix). isAthleteProfileComplete (coachChatFiles.ts) is a
+// field-presence check recomputed every turn from current profile/memory/seasons content, so it
+// stays true forever once an athlete's profile is complete - a live-verified regression (#727
+// review) found that gating on "profileComplete is true" alone made this fire, and commit a
+// synthetic first week, on every single ordinary turn from any already-established athlete, since
+// it has no reason to ever get the benchmark's id into its manifest otherwise. The pending marker
+// (coachSinceStamp.ts's injectCoachSinceIfNeeded, set in the same merge patch as coach_since on
+// the real false->true transition) is the durable version of that same one-shot signal: an
+// already-established athlete never gets it set, so this still never fires for them, but a
+// genuinely new signup whose first attempt threw stays pending and gets retried on the very next
+// turn instead of being stuck forever. Cleared below only once a benchmark actually commits.
+// ALSO gated on the benchmark's own routine id being absent from the manifest, not on the
+// manifest merely existing - carve-skeleton now seeds a manifest with two starter templates at
+// carve time (A4), so "does a manifest exist" was always true and this never ran for a freshly
+// carved repo either (the original P0, #727 review).
 export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrites): Promise<void> {
-  if (turn.wasProfileComplete || !turn.profileComplete) return;
+  const firstSessionTransition = !turn.wasProfileComplete && turn.profileComplete;
+  const pendingFromEarlierAttempt = turn.context.profile?.first_session_benchmark_pending === true;
+  if (!turn.profileComplete || (!firstSessionTransition && !pendingFromEarlierAttempt)) return;
+  const attemptsSoFar = turn.context.profile?.first_session_benchmark_attempts ?? 0;
+  if (attemptsSoFar >= FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS) {
+    console.error(
+      `[coach-chat] first session benchmark generation gave up after ${attemptsSoFar} failed` +
+        " attempts - clearing pending instead of retrying again",
+      { traceId: turn.traceId },
+    );
+    const write = await buildClearPendingWrite(turn);
+    if (write) {
+      await commitFilesAtomic(
+        [write],
+        "coach: give up on first session benchmark after repeated failures",
+        { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
+      );
+    }
+    return;
+  }
   try {
     const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
     const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
-    if (existingRoutineIds.has(BENCHMARK_ROUTINE_ID)) return;
+    if (existingRoutineIds.has(BENCHMARK_ROUTINE_ID)) {
+      // The benchmark already landed on some earlier turn, but pending is still true - the
+      // profile write that was supposed to clear it alongside that commit must have dropped
+      // (stale getFileRaw, a bad merge patch). Without this, every future turn would keep
+      // re-fetching the manifest and bailing right here, never reaching the clear below.
+      if (pendingFromEarlierAttempt) await clearFirstSessionBenchmarkPending(turn);
+      return;
+    }
 
     const memory = turn.projectedMemory;
     const injuries = turn.context.injuries ?? { flags: [] };
@@ -1405,19 +1620,48 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
     );
     const progressions = turn.context.progressions ?? null;
 
-    const spec = buildBenchmarkSpec(memory, injuries);
-    const { writes: benchmarkWrites, dropped } = buildWorkoutCreateAndRemoveWrites(
+    // Fix 1: repair the generated spec against the two invariants that depend on repo state
+    // buildBenchmarkSpec doesn't see fresh at call time (dose vs. a since-updated progression,
+    // an injury flag the caller knows about that the spec didn't). Fix 2: if a repaired spec
+    // still somehow trips an invariant, fall back to one fixed bodyweight movement structurally
+    // incapable of tripping any of them, so a benchmark + first week always commits.
+    const generatedSpec = repairBenchmarkSpecForInvariants(
+      buildBenchmarkSpec(memory, injuries),
+      progressions,
+      activeInjuryFlagIds,
+    );
+    let { writes: benchmarkWrites, dropped } = buildWorkoutCreateAndRemoveWrites(
       turn.traceId,
-      spec,
+      generatedSpec,
       undefined,
       existingRoutineIds,
       activeInjuryFlagIds,
       progressions,
     );
+    let spec = generatedSpec;
     if (dropped.length > 0 || benchmarkWrites.length === 0) {
-      throw new Error(
+      console.error(
+        "[coach-chat] repaired first session benchmark spec still invalid - falling back:",
         dropped.map((d) => d.reason).join("; ") || "workout_create produced no writes",
+        { traceId: turn.traceId },
       );
+      const fallbackSpec = buildFallbackBenchmarkSpec(activeInjuryFlagIds);
+      const fallbackResult = buildWorkoutCreateAndRemoveWrites(
+        turn.traceId,
+        fallbackSpec,
+        undefined,
+        existingRoutineIds,
+        activeInjuryFlagIds,
+        null,
+      );
+      if (fallbackResult.dropped.length > 0 || fallbackResult.writes.length === 0) {
+        throw new Error(
+          fallbackResult.dropped.map((d) => d.reason).join("; ") ||
+            "fallback workout_create produced no writes",
+        );
+      }
+      spec = fallbackSpec;
+      benchmarkWrites = fallbackResult.writes;
     }
     const benchmarkRoutineId = benchmarkWrites[0].path
       .slice(TEMPLATES_PATH_PREFIX.length)
@@ -1465,6 +1709,15 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       { path: CURRENT_WEEK_PATH, content: weekContent },
     ];
 
+    // Clear first_session_benchmark_pending (and the attempt counter) in the same atomic commit
+    // as the benchmark itself - the marker only exists to make a failed attempt retryable, so it
+    // must come off exactly when (and only when) a benchmark actually lands, never before. Reading
+    // fresh here (not turn.context.profile, loaded at the top of the turn) picks up the
+    // pending:true this same turn's own commitTurn facts-commit may have just written on a real
+    // transition turn.
+    const clearPendingWrite = await buildClearPendingWrite(turn);
+    if (clearPendingWrite) writes.push(clearPendingWrite);
+
     await commitFilesAtomic(writes, "coach: first session benchmark and first week", {
       repo: turn.repo,
       branch: resolveCoachChatBranch(),
@@ -1483,6 +1736,38 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
         traceId: turn.traceId,
       },
     );
+    // Review finding (P1, #727 hardening): records the failed attempt so the cap check at the top
+    // of this function can eventually give up instead of retrying forever - see
+    // FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS. Its own failure (a bad read, a bad patch, a commit
+    // error) only logs - this is already inside the outermost catch, so there's nothing further to
+    // fall back to, and the athlete's turn must still complete either way.
+    try {
+      const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+      if (freshProfileContent) {
+        const incremented = applyJsonMergePatch(
+          freshProfileContent,
+          JSON.stringify({ first_session_benchmark_attempts: attemptsSoFar + 1 }),
+        );
+        if (incremented.ok) {
+          await commitFilesAtomic(
+            [{ path: PROFILE_PATH, content: incremented.content }],
+            "coach: record failed first session benchmark attempt",
+            { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
+          );
+        } else {
+          console.warn(
+            `[coach-chat] could not record failed first session benchmark attempt: ${incremented.error}`,
+            { traceId: turn.traceId },
+          );
+        }
+      }
+    } catch (attemptErr) {
+      console.error(
+        "[coach-chat] could not record failed first session benchmark attempt:",
+        attemptErr,
+        { traceId: turn.traceId },
+      );
+    }
   }
 }
 

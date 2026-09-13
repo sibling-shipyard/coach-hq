@@ -1,0 +1,61 @@
+[
+  {
+    "kind": "eval",
+    "name": "session-reconcile-actual-differs",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "extraContext": "Current week's sessions (use these exact session_ids in week_update patch entries - match the date to what the athlete actually means, never guess):\n- session_id: sess-today-run | date: 2026-09-13 | Easy Run | status: planned",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd today go?"
+          ]
+        }
+      ],
+      "userMessage": "Skipped the run, my knee felt off this morning. Did a swim instead, easy 30 mins."
+    },
+    "output": {
+      "coach_note": "2026-09-13: Skipped planned Easy Run due to knee feeling off. Substituted with an easy 30-minute swim instead. Flagged knee discomfort.",
+      "injury_flag": [
+        {
+          "text": "Knee felt off this morning; opted to swim instead of run."
+        }
+      ],
+      "week_update": {
+        "days": [
+          {
+            "date": "2026-09-13",
+            "sessions": [
+              {
+                "session_id": "sess-today-run",
+                "status": "skipped"
+              },
+              {
+                "discipline": "swim",
+                "kind": "easy",
+                "title": "Easy Swim",
+                "planned_duration_min": 30,
+                "status": "done"
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Smart pivot swapping the run for an easy 30-minute swim to take the impact off that knee. I've logged the swim, marked the run skipped, and flagged the knee issue. Where specifically around the knee are you feeling it, and does it hurt when walking or going down stairs?",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "injuries.json"
+      ]
+    }
+  }
+]

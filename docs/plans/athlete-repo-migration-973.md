@@ -149,9 +149,19 @@ weeks have nothing to normalize - the step is a no-op on valid enum values and f
 ## The Workouts stack (#727) additions
 
 Covers A1 through A5-ios, near-term PRs #983-#992. A6 (migrating one athlete's repo by hand) was
-skipped by the athlete's own decision, so it's not counted as shipped anywhere below. Audited each
-PR's own diff against its own base branch, not the whole stack at once, so each finding below
-traces to the PR that actually introduced it.
+skipped by the athlete's own decision, so it's not counted as shipped anywhere below - it's real,
+outstanding follow-up, not a gap this doc found by accident. **A6's actual scope:** open a PR
+against `skanda-2003/coach-skanda-2003` carrying the recomposed `SOUL.claude.md` and
+`engine/scripts/compile-workout-cli.mts`. That's what lets the BYO Claude Code path create a
+routine in that repo - the same "Done when" `workouts-redesign.md`'s A6 row already defines.
+That repo's `SOUL.claude.md` is also already well behind HQ's current composed build, for reasons
+unrelated to this stack (missing `coaching_style`, season-start changes, etc.). The athlete's own
+call was not to bundle that drift into A6, so A6 is really two decisions in one PR: a
+targeted patch for just the workouts-redesign soul change, or a full refresh that catches
+everything else up too. See "Everything outside `user_data/` - drift check against a fresh carve"
+below for the same fork applied to all five repos generally. Audited each PR's own diff against
+its own base branch, not
+the whole stack at once, so each finding below traces to the PR that actually introduced it.
 
 **Two things need carrying into each repo. Three more looked like gaps and aren't.**
 
@@ -277,4 +287,6 @@ None of this has run yet. It's a documented next step for whoever picks up the m
 - All five real repos' non-`user_data/` tree has been re-carved and matches that refreshed skeleton.
 - All five real repos' `templates/_manifest.json` lists every starter template file actually on
   disk.
+- A6 has landed against `coach-skanda-2003`: `SOUL.claude.md` and `compile-workout-cli.mts`
+  carried over, and that athlete's own BYOB "give me a routine" ask actually works there.
 - This file is deleted in the finishing PR, per the plan-delete-on-last-PR rule.

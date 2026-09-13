@@ -39,6 +39,32 @@ function assertNumber(value: unknown, field: string): void {
   }
 }
 
+// Exported so coachTurn.ts's findMalformedWorkoutCreateExercise (the pre-write reprompt check on
+// Gemini's raw workout_create spec) can reuse this exact check instead of hand-duplicating it - a
+// real risk since the two shapes overlap here even though the full Workout shape this file
+// otherwise validates (id, estimated_duration_mins, allowedKeys, ...) doesn't exist yet on a raw
+// spec (P2, #727 review). Returns a short reason string on a violation, or null when the
+// type/reps/duration_secs combination is internally consistent - deliberately not throwing, since
+// the reprompt caller wants a message to hand back to the model, not an exception.
+export function exerciseTypeFieldViolation(ex: {
+  type?: unknown;
+  reps?: unknown;
+  duration_secs?: unknown;
+}): string | null {
+  if (ex.type === "timed") {
+    if (typeof ex.duration_secs !== "number" || !Number.isFinite(ex.duration_secs)) {
+      return "duration_secs should be a finite number";
+    }
+    if (ex.reps !== undefined) return "reps should be absent on a timed exercise";
+  } else if (ex.type === "reps") {
+    if (typeof ex.reps !== "number" || !Number.isFinite(ex.reps)) {
+      return "reps should be a finite number";
+    }
+    if (ex.duration_secs !== undefined) return "duration_secs should be absent on a reps exercise";
+  }
+  return null;
+}
+
 function validateExercise(ex: any, path_: string): void {
   assertNumber(ex.num, `${path_}.num`);
   assertString(ex.name, `${path_}.name`);
@@ -49,15 +75,8 @@ function validateExercise(ex: any, path_: string): void {
   assertString(ex.form_cue, `${path_}.form_cue`);
   assertString(ex.why, `${path_}.why`);
 
-  if (ex.type === "timed") {
-    assertNumber(ex.duration_secs, `${path_}.duration_secs`);
-    if (ex.reps !== undefined)
-      throw new Error(`workout schema: ${path_}.reps should be absent on a timed exercise`);
-  } else {
-    assertNumber(ex.reps, `${path_}.reps`);
-    if (ex.duration_secs !== undefined)
-      throw new Error(`workout schema: ${path_}.duration_secs should be absent on a reps exercise`);
-  }
+  const typeFieldViolation = exerciseTypeFieldViolation(ex);
+  if (typeFieldViolation) throw new Error(`workout schema: ${path_}.${typeFieldViolation}`);
 
   const optionalNumberFields = ["rest_between_sets_secs", "rest_after_exercise_secs", "prep_secs"];
   for (const field of optionalNumberFields) {

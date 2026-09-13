@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-13
 
 ## Context
 
@@ -215,6 +215,66 @@ degenerate rambling, sometimes taking the whole structured reply down with it. T
 `reasoning` (removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
 coach-memory redesign, pulled after one live reproduction). Every new action added to this schema
 is filtered through these four rules for that reason.
+
+## Narration-vs-action reliability guards (#727 hardening round)
+
+**The failure shape this section exists for:** the model describes a fact as saved in `reply` or
+`coach_note`, but never sets the matching action field. Live-reproduced twice, both from #727:
+`workout_create` (a routine narrated, never saved) and `week_update`/`season_start` (a week or
+season narrated as locked in, never committed). Nothing else in the pipeline catches this - the
+write path only rejects data it receives, and a skipped field sends nothing to reject.
+
+**The fix pattern, in order of preference:**
+
+1. **Prompt reinforcement first, always.** One sentence next to the field's own instructions:
+   "never describe X without also setting the action field." Cheap, no false-positive risk.
+   Real but partial effect on its own (`coachPromptText.ts`'s `workout_create`, `season_start`,
+   and week-kickoff instructions all carry one).
+2. **A deterministic reprompt, only when a safe trigger signal exists.** Reuses the existing
+   one-shot reprompt in `requestCoachReply` (`coachTurn.ts`) - one corrective retry, same call as
+   `findOversizedTextField` already makes for a text cap. The signal has to be safe. One safe
+   shape keys on the **athlete's own message** (`findMissedInjuryLanguage`,
+   `findMissedHabitLanguage`, `findMissedSeasonLanguage` - first-session only, since a
+   first-session turn has zero pre-existing referents to confuse a keyword match with). Another
+   keys on a structural pattern in the **reply**, narrow enough that ordinary conversation can't
+   produce it by accident. `isProseOnlyWeekPlan` counts distinct weekday names - 5+ named days is
+   not something a normal reply writes unless it's actually narrating a week. **Rejected as
+   unsafe:** a generic reply-text keyword match for "described a workout" (gap 2a in the #727
+   review). Real false-positive risk against ordinary coaching conversation, no narrow enough
+   signal available.
+3. **A deterministic write-time guard**, for a different failure shape (not narrated-not-saved,
+   but saved-wrong): `newSessionMayDuplicatePlan`/`categoryChangeIsConfirmed`
+   (`validateActions.ts`) drop a schedule-changing write unless the athlete's message this turn
+   carries a real confirmation or "this is a distinct extra" cue.
+
+**Verification for any of these:** unit tests exercising `requestCoachReply` directly with a
+mocked `askGemini` are the reliable check. A live rerun can prove a fix doesn't false-positive,
+but can't reliably reproduce an intermittent model mistake on demand
+(`WORKOUTS_AND_CURRENT_WEEK_LIVE_TEST_RESULTS.md` and `LIVE_VERIFICATION_REVIEW_FIXES_727.md`
+document several live attempts that never reproduced an already-fixed, already-unit-tested case).
+Live testing still matters - it caught two real bugs this round (a merge patch silently dropping
+a field, and an over-length `intent` string) that neither unit test suite covered. But treat "live
+reran N times, didn't reproduce it" as inconclusive, not as proof, for anything a dedicated unit
+test already covers.
+
+### Coverage by action field, as of this round
+
+| Field | Missed-language / narration guard | Other reprompt or write-time guard |
+|---|---|---|
+| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercise` (structural), injury/dose invariants at write time |
+| `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
+| `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption` |
+| `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
+| `injury_flag` | `findMissedInjuryLanguage` (first-session only) | - |
+| `quest_event` | - | invalid-`quest_id` reprompt (D1, #736) |
+| `template_edit`, `session_plan` | - | `findUnconfirmedAssumption` (schedule-change gate only) |
+| `injury_event`, `coaching_style_update`, `sports_update`, `profile_update`, `workout_remove`, `quest_create` (standalone) | none | none |
+
+**Not yet audited with the same rigor as `workout_create`/`week_update`/`season_start` got this
+round:** the bottom row. `profile_update` is the highest-priority gap - it fires on the same dense
+first-session turns already shown (Finding D) to silently drop other fields under load, and has
+zero narration-skip protection of any kind today. Scoping and live-testing the rest of this table
+is follow-up work, not done in this round - flagging the gap rather than leaving it undocumented.
 
 ## Retries, timeouts, rate limits
 

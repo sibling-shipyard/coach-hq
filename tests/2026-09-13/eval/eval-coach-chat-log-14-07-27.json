@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "eval",
+    "name": "week-plan-kickoff-ritual",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Monday, fresh week ahead - what's on your mind?"
+          ]
+        }
+      ],
+      "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "coach_note": "Set weekly plan for week of Monday Sep 14 to Sunday Sep 20: 10K focus with sub-45 goal (6 weeks out). Structured around running quality and badminton support.",
+      "week_update": {
+        "focus": "10K race preparation: threshold work and aerobe endurance paired with regular badminton.",
+        "guardrails": [
+          "Keep easy runs truly easy to save legs for threshold work and badminton",
+          "Cut the workout short if any sharp pain develops"
+        ],
+        "headline": "Lock in threshold pace and build baseline volume.",
+        "body": "Six weeks out from the 10K target. This week establishes your rhythm with two key run workouts, an easy aerobic run, badminton for agility and cross-training, and a structured long run.",
+        "days": [
+          {
+            "date": "2026-09-14",
+            "intent": "Easy aerobic baseline",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "easy",
+                "title": "Easy Aerobic Run",
+                "priority": "support",
+                "planned_duration_min": 40
+              }
+            ]
+          },
+          {
+            "date": "2026-09-15",
+            "intent": "Threshold speed development",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "intervals",
+                "title": "Threshold Intervals (5x1km)",
+                "priority": "anchor",
+                "planned_duration_min": 50
+              }
+            ]
+          },
+          {
+            "date": "2026-09-16",
+            "intent": "Agility and match play",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "training",
+                "title": "Badminton Session",
+                "priority": "support",
+                "planned_duration_min": 60
+              }
+            ]
+          },
+          {
+            "date": "2026-09-17",
+            "intent": "Aerobic recovery",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "recovery",
+                "title": "Recovery Jog",
+                "priority": "optional",
+                "planned_duration_min": 35
+              }
+            ]
+          },
+          {
+            "date": "2026-09-18",
+            "intent": "Full rest and reset",
+            "sessions": []
+          },
+          {
+            "date": "2026-09-19",
+            "intent": "Endurance anchor",
+            "sessions": [
+              {
+                "discipline": "run",
+                "kind": "long_run",
+                "title": "Long Run",
+                "priority": "anchor",
+                "planned_duration_min": 65
+              }
+            ]
+          },
+          {
+            "date": "2026-09-20",
+            "intent": "Active recovery or sport play",
+            "sessions": [
+              {
+                "discipline": "badminton",
+                "kind": "play",
+                "title": "Badminton Match Play",
+                "priority": "optional",
+                "planned_duration_min": 60
+              }
+            ]
+          }
+        ]
+      },
+      "reply": "Your week is locked in. We have 6 weeks to dial in that sub-45 10K, so the focus is threshold speed and steady endurance without crowding out badminton.\n\n- **Mon:** 40 min Easy Aerobic Run\n- **Tue:** Threshold Intervals (5x1km at target 10K effort)\n- **Wed:** Badminton Session (60 min)\n- **Thu:** 35 min Recovery Jog\n- **Fri:** Rest Day\n- **Sat:** 65 min Long Run\n- **Sun:** Optional Badminton Match Play\n\nExecute the Tuesday intervals and Saturday long run cleanly; keep everything else strictly conversational.",
+      "unrecorded_facts": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json"
+      ]
+    }
+  }
+]
