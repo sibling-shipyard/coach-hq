@@ -43,7 +43,7 @@ What A3's first-week compile needs, and where each input already lives:
 | Sports | the athlete's recorded sports list |
 | Injuries | active injury flags |
 | Goal and its shape | the season and its main goal |
-| Workouts to draw from | the tagged workout library, already tagged by sport, equipment, goal, and level |
+| Movements to draw from | the redesigned exercise catalog (`shared/workout-library/exercises.json`, A1b), tagged by muscle group/movement pattern, sport, and equipment - dosing always computed per athlete, never read off an entry |
 | Recent training volume | pipeline-generated insights, history-only |
 | Days per week, and which days | **the one new field A3 adds** |
 
@@ -51,9 +51,10 @@ What A3's first-week compile needs, and where each input already lives:
 
 ```mermaid
 flowchart LR
-  A5["A5 page (web)"] -.->|independent| done["Near-term stack done"]
-  A5ios["A5-ios"] -.->|independent| done
-  A1["A1 compiler"] --> A2["A2 workout_create"]
+  A4 --> A5["A5 page (web)"]
+  A5 --> A5ios["A5-ios"]
+  A1["A1 compiler"] --> A1b["A1b exercise catalog"]
+  A1b --> A2["A2 workout_create/remove"]
   A2 --> A3["A3 benchmark + first week"]
   A2 --> A4["A4 soul + carve"]
   A4 --> A6["A6 migrate BYO repo"]
@@ -61,25 +62,28 @@ flowchart LR
   A1 --> A9["A9 update migration doc"]
   A2 --> A9
   A3 --> A9
+  A5ios --> A9
   A6 --> A9
   A3 --> done
   A4 --> done
+  A5ios --> done
   A6 --> done
   A9 --> done
 ```
 
 | PR | Branch | Owner | Base | Files it may touch |
 |---|---|---|---|---|
-| A5 | `feat/727-workouts-day-view-v2` | UI Expert | `main` | `ui/client/` only |
-| A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | `main`, after A5 | `ios/` only |
-| A1 | `feat/727-compile-workout` (fresh, not a rebase of closed #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
-| A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/scripts/`, `ui/package.json` |
-| A3 | `feat/727-first-session-benchmark` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts`, `shared/workout-library/` (deleted here) |
+| A5 | `feat/727-workouts-day-view-v2` | UI Expert | A4 (stacked, not `main` - the athlete wants one continuous stack) | `ui/client/` only |
+| A5-ios | `feat/ios-727-workouts-day-view-v2` | iOS Builder | A5 | `ios/` only |
+| A1 | `feat/727-compile-workout-a1` (fresh, not a rebase of closed #732) | Bob | `main` | `engine/lib/`, `engine/scripts/` |
+| A1b | `feat/727-exercise-catalog` | Bob | A1 | `shared/workout-library/` only |
+| A2 | `feat/727-workout-create` | Bob | A1b | `ui/api/coach-chat/_lib/gemini/`, `ui/api/coach-chat/_lib/decide/`, `ui/scripts/`, `ui/package.json` |
+| A3 | `feat/727-first-session-benchmark` | Bob | A2 | `ui/api/coach-chat/_lib/decide/`, `ui/api/coach-chat/_lib/coachTurn.ts` |
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo, a PR against it |
 | ~~A7~~ | shipped as `core/973-reconciler` (PR #978) | - | - | `engine/scripts/reconcile-current-week.mjs` |
 | ~~A8~~ | shipped as `core/973-rollover` (PR #979) | - | - | `engine/scripts/rollover-current-week.mjs`, `.github/workflows/sync.user.yml` |
-| A9 | `core/727-migration-doc` | Tech Lead | A1, A2, A3, A6 | `docs/plans/athlete-repo-migration-973.md` only |
+| A9 | `core/727-migration-doc` | Tech Lead | everything above (last in the stack) | `docs/plans/athlete-repo-migration-973.md` only |
 
 A diff outside your file column fails review. Every PR: `Refs: #727`. Nothing in the near-term
 stack closes #727 on its own. A7 and A8 no longer need a PR here - Refs: #973's stack already
@@ -89,15 +93,15 @@ closes them; see below.
 
 ```bash
 git fetch origin main
-git worktree add -b feat/727-<brief> /tmp/wt-<brief> origin/main   # A5, A5-ios, A1
-git worktree add -b feat/727-<brief> /tmp/wt-<brief> <base-branch>  # A2, A3, A4, A7, A8
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> origin/main   # A1 only
+git worktree add -b feat/727-<brief> /tmp/wt-<brief> <base-branch>  # everything else - one continuous stack, A5/A5-ios included
 # ... work, commit ...
 git push -u origin feat/727-<brief>
 git worktree remove /tmp/wt-<brief> --force
 ```
 
 Never switch branches in the primary checkout. Commit prefix per `.github/CONVENTIONS.md`: `feat:`
-for A1, A2, A3; `core:` for A4, A6, A9; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
+for A1, A1b, A2, A3; `core:` for A4, A6, A9; `ui:` for A5; `ios:` for A5-ios. Each with `(#727)`.
 
 ---
 
@@ -163,14 +167,82 @@ line by line. An unexplained diff blocks the merge.
 
 ---
 
-## A2: `workout_create`, on ordinary turns
+## A1b: the exercise catalog
 
-**Goal:** an athlete asks mid-conversation and a routine file is committed on that same turn.
+**Goal:** redesign `shared/workout-library/` from complete premade `Workout` files into a catalog
+of individual movements, with real coverage - not a placeholder set. See
+`workouts-redesign.md`'s "The exercise catalog" section for the reasoning.
 
-**Files:** the response schema file, a new builder function beside the existing routine-editing
-builders, an applier function, the pre-write invariant checker, and the prompt text file. Also a
+**Files:** `shared/workout-library/exercises.json` (new, additive), `shared/workout-library/README.md`
+(rewritten to document both shapes), a new test file for the catalog, e.g.
+`ui/api/coach-chat/_tests/exerciseCatalog.test.ts`.
+
+**Additive, not a replacement, in this PR.** `index.json` and `templates/` stay exactly as they
+are here. `coachWorkoutFiles.ts`'s live template-dump selector (`loadWorkoutLibraryIndex`,
+`loadWorkoutLibraryTemplate`) still reads them, and its own test still passes unmodified - this PR
+does not touch `ui/api/coach-chat/_lib/decide/`, staying inside its file column. A3 is the PR that
+deletes the dump selector itself (that's bug 1's actual fix), and it deletes `index.json`,
+`templates/`, and the existing `workoutLibrary.test.ts` in the same commit, since removing the
+selector is what makes them dead. Two catalogs briefly coexist between A1b and A3; that's the
+`templates/` \-\> `routines/` dual-read pattern this plan already uses elsewhere, applied here so
+this PR's own gate stays green without depending on A2/A3 landing first.
+
+**Schema, one entry per movement:**
+
+```json
+{
+  "id": "back_row_dumbbell",
+  "name": "Single-arm dumbbell row",
+  "muscle_group": "back",
+  "movement_pattern": "pull",
+  "type": "reps",
+  "equipment": ["dumbbells"],
+  "sport_tags": ["general_fitness", "strength_training"],
+  "form_cue": "...",
+  "why": "...",
+  "progression_id": "row_dumbbell"
+}
+```
+
+No `sets`, `reps`, `duration_secs`, or weight field anywhere in the catalog - those are computed
+per athlete at write time (A2), never stored here. `progression_id` is present only on movements
+worth tracking over time; a warm-up or mobility entry omits it.
+
+**Coverage, by `muscle_group`/`movement_pattern` - every group needs at least 3 equipment
+variants (bodyweight, dumbbells, full gym) where the movement supports it:**
+
+| Group | Movements to cover |
+|---|---|
+| Push | chest press/fly, shoulder press/raise, triceps extension/dip |
+| Pull | rows, pull-up/lat pulldown family, biceps curl |
+| Squat | goblet/back squat, split squat, step-up |
+| Hinge | deadlift family, hip thrust, glute bridge |
+| Core | plank family, anti-rotation, dead bug |
+| Calves | standing/seated raise |
+| Calisthenics skills | pull-up, handstand, front lever progressions - match the exact movement names already in real `progressions.json` files so `progression_id` references resolve |
+| Prehab | hip/glute activation, shoulder stability, posture reset - matching the injury sites already on file in real `injuries.json` files |
+
+**Tests:**
+- Every catalog entry validates against the schema.
+- Every `progression_id` referenced by an entry is a real, resolvable identifier shape (not
+  validated against any one athlete's file - that happens at write time in A2).
+- No two entries share an `id`.
+- At least one entry exists per `muscle_group`/`movement_pattern` pair in the coverage table.
+
+**Validate:** `cd ui && npm run test`. **Done when:** the coverage table above is fully populated
+with real entries (not stubs), and the rewritten `workoutLibrary.test.ts` passes.
+
+---
+
+## A2: `workout_create` and `workout_remove`, on ordinary turns
+
+**Goal:** an athlete asks mid-conversation and a routine file is committed on that same turn,
+dosed from their own benchmark/progressions/injuries - or asks for one to go and it's gone.
+
+**Files:** the response schema file, new builder functions beside the existing routine-editing
+builders, applier functions, the pre-write invariant checker, and the prompt text file. Also a
 new bundle shim exporting the compiler, a new script copying the existing bundling pattern, and
-one new test file for the create path.
+new test files for the create and remove paths.
 
 **No dedicated commit-path change is needed.** Every action a turn produces, including this new
 one, assembles into one atomic commit the same way every other action field already does. There is
@@ -190,12 +262,20 @@ workout_create: { type: "object", properties: {
       name, type, form_cue, why: {type:"string"},
       reps, duration_secs, sets: {type:"number"},
       both_sides: {type:"boolean"}, progression_id: {type:"string"},
+      // required when progression_id has no existing entry in progressions.json (invariant 8):
+      // what the dose was scaled from - a related benchmarked movement, stated experience, or
+      // an explicit conservative-start note.
+      scaled_from: {type:"string"},
     }, required:["name","type","sets","form_cue","why"]}},
   }, required:["name","exercises"]}},
   injury_ack: {type:"array", items:{type:"object", properties:{
     flag: {type:"string"}, accommodation: {type:"string"},
   }, required:["flag","accommodation"]}},
 }, required:["title","workout_type","phases"] }
+
+workout_remove: { type: "object", properties: {
+  routine_id: {type:"string"},
+}, required:["routine_id"] }
 ```
 
 **Turn wiring.** The new action is added to the same array that already gives a returning athlete
@@ -204,30 +284,44 @@ no second array for a special closing path. It's kept off the First Session acti
 supersedes the First Session flow with the benchmark path below; this action is
 returning-athlete-only in the near-term stack.
 
-**Applier steps:**
+**Applier steps, `workout_create`:**
 1. Derive an id by slugifying the title, suffixing on collision with existing ids.
 2. Invariant 7, injury acknowledgment: a generated routine carries no library tags, so the old
    injury-conflict filter can't be reused as-is. The applier reads active injury flags and throws
    unless every one has a matching entry in the spec's acknowledgment array. The acknowledgment
    field becomes required in the schema whenever any flag is active.
-3. Invariant 1: every progression id referenced must already exist, or the applier throws.
-4. Compile the spec, validate the structural result, write it to the existing routine storage
+3. Invariant 1: every `progression_id` referenced that already exists in `progressions.json`
+   resolves normally. One that doesn't exist yet is allowed only when the exercise also carries
+   `scaled_from` (invariant 8) - otherwise the applier throws.
+4. Invariant 2: for a `progression_id` that already has a `current` value, the dose (`reps` or
+   `duration_secs` * `sets`) may not exceed it. The applier throws on an over-benchmark dose.
+5. Compile the spec, validate the structural result, write it to the existing routine storage
    path, no rename in this stack.
-5. Append the new id to the manifest, in the same atomic commit.
+6. Append the new id to the manifest, in the same atomic commit.
+
+**Applier steps, `workout_remove`:**
+1. Resolve `routine_id` against the manifest; throw if it isn't a real entry.
+2. Delete the routine file and its manifest entry, in the same atomic commit as every other
+   action this turn.
+3. Leave `progressions.json` untouched - a removed routine doesn't erase tracked history.
 
 **Tests:**
 - The happy path writes a valid file.
 - An id collision gets suffixed.
 - An active flag with no acknowledgment throws.
 - An acknowledged flag passes.
-- An unknown progression id throws.
-- Ordinary turn mode exposes the action.
+- A `progression_id` that doesn't exist yet, with no `scaled_from`, throws.
+- The same, with `scaled_from` set, passes.
+- A dose above an existing progression's `current` value throws.
+- Ordinary turn mode exposes both actions.
 - The committed file passes structural validation.
 - A returning athlete still commits correctly, the case that used to silently no-op.
+- `workout_remove` deletes the file and the manifest entry; an unknown `routine_id` throws.
 
-**Validate:** `cd ui && npm run test`, plus a manual turn asking for an upper-body workout.
-**Done when:** a mid-conversation ask produces a committed, valid file the timer can open. This
-kills bug 2.
+**Validate:** `cd ui && npm run test`, plus a manual turn asking for an upper-body workout and a
+manual turn removing it. **Done when:** a mid-conversation ask produces a committed, valid file
+the timer can open, dosed within that athlete's own benchmark, and a removal request deletes it.
+This kills bug 2.
 
 ---
 
@@ -237,21 +331,25 @@ kills bug 2.
 guessed workouts and an empty week.
 
 **Files:**
-- Delete the library-selection and template-generation functions from the workout files module.
+- Delete the automatic template-dump function from the workout files module (bug 1), along with
+  `shared/workout-library/index.json`, `templates/`, and `workoutLibrary.test.ts` - the dump
+  function was their last reader, so deleting it is what makes them dead. A1b's
+  `exercises.json` is the only catalog left after this PR.
 - Rename the function that fires on profile completion to reflect what it now does.
-- Add progression seeding, and delete the workout library directory and its test entirely.
+- Add progression seeding.
 - Add one new structured field to the athlete's memory record for training availability.
 - Add a first-week compile step, plus new test files for the benchmark and the compile.
 
 **Flow.** Coach asks during intake what the athlete can already do, and how many days a week and
 which days they train, both already natural intake questions. The days-per-week answer now lands
 in a structured field instead of only in prose. On the profile-complete transition, Coach emits
-one `workout_create` spec tagged as the benchmark, covering 4-6 movement patterns, each exercise
-carrying an easier and a harder alternative in its coaching cue. The same transition also triggers
-a first-week compile: code places the benchmark and any other sport-appropriate anchor sessions
-onto the athlete's stated training days, using the season's goal and the tagged workout library to
-pick sport-appropriate sessions. The athlete picks their real entry level for the benchmark inside
-the app; nothing branches in the timer.
+one `workout_create` spec tagged as the benchmark, covering 4-6 movement patterns pulled from the
+A1b catalog, each exercise carrying an easier and a harder alternative in its coaching cue. The
+same transition also triggers a first-week compile: code places the benchmark and other
+sport-appropriate anchor sessions onto the athlete's stated training days. It uses the season's
+goal and the A1b catalog to pick movements, dosed from the benchmark just written, never a premade
+session. The athlete picks their real entry level for the benchmark inside the app; nothing
+branches in the timer.
 
 **Progression seeding.** For each benchmarked movement pattern, write a progression record with an
 id, name, current value, target, unit, and an empty history. `current: null` is legal and means
@@ -263,14 +361,14 @@ id, name, current value, target, unit, and an empty history. `current: null` is 
 - First Session's close writes exactly one benchmark file, with progressions seeded one per
   pattern.
 - `current: null` is accepted, and a dose above the benchmark throws.
-- No reference to the deleted workout library directory survives anywhere in the codebase.
+- No reference to the deleted template-dump function survives anywhere in the codebase.
 - A first-week compile places sessions on the athlete's stated training days and nowhere else.
 - An athlete who stated zero available days still gets a valid, if minimal, week, not an error.
 
-**Validate:** `cd ui && npm run test`, plus a repo-wide grep confirming the deleted library has no
-remaining references. **Done when:** a fresh athlete's first close writes a benchmark, populated
-progressions, and a real compiled first week. This stops bug 1 recurring for every future athlete;
-A5 is what fixes it for the four athletes who already have it.
+**Validate:** `cd ui && npm run test`, plus a repo-wide grep confirming the deleted dump function
+has no remaining references. **Done when:** a fresh athlete's first close writes a benchmark,
+populated progressions, and a real compiled first week. This stops bug 1 recurring for every
+future athlete; A5 is what fixes it for the four athletes who already have it.
 
 ---
 
@@ -420,8 +518,9 @@ sequenced after web regardless of this PR's state.
 | PR | Evidence required |
 |---|---|
 | A1 | Byte-identical golden fixture; dry-run diff across all four live repos, explainable line by line |
-| A2 | Eight-case test suite; one manual mid-conversation create |
-| A3 | Five-plus test suite covering benchmark, progressions, and the first-week compile; a grep confirming the deleted library has no remaining references |
+| A1b | Full coverage table populated with real entries; schema and uniqueness tests pass |
+| A2 | Eleven-case test suite covering create, remove, and the invariant-8 scaling check; one manual mid-conversation create and remove |
+| A3 | Five-plus test suite covering benchmark, progressions, and the first-week compile; a grep confirming the deleted dump function has no remaining references |
 | A4 | Soul validation clean; an end-to-end carve-and-create check on a scratch repo |
 | A5, A5-ios | `npm run test` and `npm run build` for web; `ios-build.yml` green for iOS |
 | A6 | The reporting athlete's own repo, verified by hand that the ask now works |
