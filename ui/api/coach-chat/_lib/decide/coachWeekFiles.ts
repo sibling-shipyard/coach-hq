@@ -38,9 +38,7 @@ const DISCIPLINE_SET = new Set<string>(SESSION_DISCIPLINES);
 // A near-miss (gerund, plural, a bare sport_type-style name) reads as a real intent worth
 // recovering, not a genuine "none of the above" - "other" should mean the athlete's activity
 // truly isn't one of these fifteen, not that Gemini phrased a real match slightly differently.
-// Covers every sport in the enum on the same principle, not case-by-case: this is the same
-// synonym set docs/plans/athlete-repo-migration-973.md's own migration transform uses for
-// existing repo data, kept in sync with it by hand since one's Python and one's TypeScript.
+// Covers every sport in the enum on the same principle, not case-by-case.
 const DISCIPLINE_SYNONYMS: Record<string, CurrentWeekSessionDiscipline> = {
   weighttraining: "weight_training",
   running: "run",

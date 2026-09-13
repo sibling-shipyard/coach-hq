@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
 
 ## Context
 
@@ -237,6 +237,21 @@ coaching_note?, exercises: Exercise[], circuit?, rounds?`.
 rest_after_exercise_secs?, prep_secs?, optional?, both_sides?, form_cue, why`.
 
 Exercise `num` must be strictly ascending and unique across all phases in a workout.
+
+### Exercise catalog (`shared/workout-library/exercises.json`)
+
+A different, smaller shape than the `Exercise` above — this is the catalog of individual
+movements Coach names a new routine from (A1b, #727), not a prescription. No sets/reps/weight
+here; that's `compileWorkout.mts`'s job at write time, dosed per athlete from `progressions.json`,
+`injuries.json`, and `profile.json`. Catalog entry fields: `id, name, muscle_group,
+movement_pattern, type, equipment[], sport_tags[], form_cue, why, progression_id?`.
+`type` is the same `"timed" \| "reps"` enum as `Exercise.type` above.
+
+Hosted web/iOS reads its own HQ-local copy at request time
+(`coachFirstSessionBenchmark.ts`'s `EXERCISES_PATH`) and never needs a repo copy. The BYOB Claude
+Code path reads `shared/workout-library/exercises.json` directly from the athlete repo it's
+running in — `carve-skeleton.mjs` carves the whole directory. See
+`docs/eng-docs/platform-workouts-compiler.md` for how a catalog pick becomes a compiled `Workout`.
 
 ### `gen/athlete_insights.json`
 

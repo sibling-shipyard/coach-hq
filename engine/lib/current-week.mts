@@ -1,8 +1,7 @@
 export const CURRENT_WEEK_SCHEMA_VERSION = 1 as const;
 
 // "draft" dropped (ADR 0042): structurally unreachable, no writer in this pipeline has a
-// multi-turn confirm flow to put it in - see the consumer audit in
-// docs/plans/current-week-redesign-lld.md.
+// multi-turn confirm flow to put it in.
 export type CurrentWeekDataStatus = "placeholder" | "live";
 export type CurrentWeekSessionOrigin = "planned" | "unplanned";
 export type CurrentWeekSessionPriority = "anchor" | "support" | "optional";

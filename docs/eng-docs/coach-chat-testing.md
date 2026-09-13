@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
 
 ## Context
 
@@ -61,12 +61,18 @@ never on every PR.
 
 **The set:** 23 transcripts as of the K1 testing pass (2026-09-04). G1 (#670) trimmed the original
 29 down to 14. C2 added 2 more (`coach_note` day-keying, `#33`/`#34`). K1 added 8 more, closing
-live-coverage gaps found during that pass (`#35`-`#42`) - `memory_update`, `sports_update`,
-returning `coaching_style_update`, a dynamic-enum/hallucination guard, and one each for
-`week_plan`/`session_reconcile`. Closing-turn behavior is gone (C1 removed the concept: no
-`mode: "closing"`, no `session_closed` field). `session_plan` still has zero dedicated coverage as
-of this write-up - flagged for whenever the workouts/`current_week` area gets its own redesign,
-since its shape will likely change anyway. Every transcript was diagnosed against a live run before
+live-coverage gaps found during that pass (`#35`-`#42`). Those cover `memory_update`,
+`sports_update`, returning `coaching_style_update`, a dynamic-enum/hallucination guard, and one
+each for the kickoff and reconcile cases (`#41`/`#42`, originally targeting the then-live
+`week_plan`/`session_reconcile` actions). ADR 0042 later collapsed those, plus `plan_edit`, into one
+`week_update` action - `#41`/`#42`'s `expect` blocks were updated to match
+(`actionFieldsPresent: ["week_update"]`) in the #999 hardening round, 2026-09-13. Closing-turn
+behavior is gone (C1 removed the concept: no `mode: "closing"`, no `session_closed` field). The
+workouts/`current_week` redesign this section once anticipated (#727) has since shipped -
+`session_plan` and the new `workout_create`/`workout_remove` actions still have no dedicated
+live-transcript coverage here, now a real gap rather than a deferred one. `workout_create` has a
+narration-vs-action reprompt guard (`gemini-flow.md`'s coverage table); `workout_remove` has none
+yet - see that doc's own tracked follow-up. Every transcript was diagnosed against a live run before
 being kept, not just rewritten and assumed correct. A stale expectation got fixed; a real gap got
 its own issue and stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the
 transcripts directory for the current list (none currently - every flagged gap below is closed).

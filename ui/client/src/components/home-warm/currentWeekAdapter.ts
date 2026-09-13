@@ -80,9 +80,9 @@ function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
     priority: mapPriority(session.priority),
     status: mapStatus(session),
     planned_duration_min: session.planned_duration_min,
-    // ADR 0042 drops planned_load from the schema - no writer ever set it to a real value
-    // (docs/plans/current-week-redesign-lld.md's consumer audit). The widget contract still
-    // carries the field; hardcode null rather than widen the contract in this PR.
+    // ADR 0042 drops planned_load from the schema - no writer ever set it to a real value.
+    // The widget contract still carries the field; hardcode null rather than widen the
+    // contract in this PR.
     planned_load: null,
     template_id: session.template_id,
     session_file: session.session_file,

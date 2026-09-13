@@ -116,6 +116,18 @@ const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
     repo: "akash-suresh/coach-akash-suresh",
     localPath: "/home/skanda_suresh/Projects/coach-akash",
   },
+  date2022: {
+    repo: "date2022/coach-date2022",
+    localPath: "/home/skanda_suresh/Projects/coach-date2022",
+  },
+  prateek: {
+    repo: "prateekdevaraju/coach-prateekdevaraju",
+    localPath: "/home/skanda_suresh/Projects/coach-prateek",
+  },
+  shreyas: {
+    repo: "shreyas-95-cyber/coach-shreyas-95-cyber",
+    localPath: "/home/skanda_suresh/Projects/coach-shreyas",
+  },
 };
 
 interface ManualTurn {

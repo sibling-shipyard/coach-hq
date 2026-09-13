@@ -1,6 +1,6 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-13
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-14
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
@@ -83,11 +83,16 @@ activity JSON's `description` field. `DescriptionParser` decides what the text i
 - Anything else is a plain free-text note. It is stored verbatim and writes no match history.
 - Either way the text reaches Coach through the existing `description` projection.
 
-## Phase 2 (v0.2): Native Workout Timer
+## Native Workout Timer and the three-band Workouts tab
 
-The app will replace the web-based workout timer with a native SwiftUI implementation.
+Shipped (#727): a native SwiftUI workout timer, plus a three-band Workouts tab — **today**, **this
+week**, **library** — mirroring the web `ui/client/src/pages/Workouts.tsx` structure.
+`WorkoutsPageSelector.swift` mirrors the web's `workoutsPageSelector.ts`; the timer itself is
+`WorkoutTimerEngine.swift` + `WorkoutTimerView.swift`. See
+`docs/eng-docs/platform-workouts-compiler.md` for how a session file's timer-physics fields are
+computed server/CLI-side before either client ever sees them.
 
-### Features
+### Timer features
 - Reads `sessions/*.json` directly from GitHub to load today's prescribed workout.
 - Retains all existing timer physics (prep countdowns, phase transitions, rest hierarchy).
 - Native audio cues and haptics for phase transitions.
@@ -117,9 +122,10 @@ Rules about app state and first paint. Breaking one fails silently, not loudly.
   bootstrap and fails silently. Applies to Home snapshots, Workouts sessions, and Activities
   backfill alike. `GitHubAPIError.sessionNotReady` is silent — no toast; only surface
   `notAuthenticated` when there is genuinely no token.
-- **Workouts tab TODAY badge follows coach session files** for the local date
+- **The Workouts tab's "today" band follows coach session files** for the local date
   (`sessions/YYYY-MM-DD_<id>.json` in the athlete repo), never a hardcoded weekday→template map —
-  coach can swap days. Matches web `ui/client/src/pages/Workouts.tsx`.
+  coach can swap days. The "this week" and "library" bands read the rest of the plan and the
+  template/routine set respectively. Matches web `ui/client/src/pages/Workouts.tsx`.
 - **Returning athlete on a new device or reinstall must not replay onboarding.**
   `AppRouter.checkAccountSwitch`'s `stored == nil` branch calls `CoachSetupState.isComplete(repoFullName:)`
   (fast, Keychain-backed, survives same-device reinstall), then falls back to the server signal
