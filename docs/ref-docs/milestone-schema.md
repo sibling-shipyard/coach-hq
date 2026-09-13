@@ -1,12 +1,15 @@
 # Milestone Record Contract
 
-**Status:** Accepted
+**Status:** Historical (retired for any repo migrated to the split ledger — milestones now live
+in `user_data/ledger/progressions.json`, see `docs/eng-docs/coach-data-schema.md`'s
+`progressions.json` section. This doc describes the shape a not-yet-migrated repo, same as
+`docs/eng-docs/challenge-v2-schema.md`, still has on disk.)
 
 **Owner:** Coach Phelps
 
 **Source of truth:** `user_data/ledger/challenge_v2.json` → `milestones[]`
 
-**Consumers:** Build Phase widget on the web dashboard; `coachContext.ts renderQuestContext` (milestones table).
+**Consumers:** Build Phase widget on the web dashboard; `coachContext.ts renderQuestContext` (milestones table) — on repos still using `challenge_v2.json`.
 
 ## Decision
 

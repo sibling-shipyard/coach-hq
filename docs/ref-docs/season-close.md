@@ -1,10 +1,11 @@
 # Season recap spec
 
 > **NOT WIRED UP YET.** SOUL points at `propagated/docs/season-close.md`, but
-> `carve-skeleton.mjs` writes no docs at all — ADR 0021 removed that step — so this file does not
-> exist in any athlete repo today. Coach follows the pointer and finds nothing. Restoring it is
-> phase 2 of `docs/eng-docs/soul-path-to-v6.md`; `validate-soul` carries the dangling reference as
-> a known `rot` finding until then.
+> `carve-skeleton.mjs`'s `PROPAGATED_DOCS` array doesn't list this file (it carves three others:
+> `current-week-contract.md`, `timer-state-machine.md`, `pipeline-tools.md`) — so this file does
+> not exist in any athlete repo today. Coach follows the pointer and finds nothing. Restoring it
+> is phase 2 of `docs/eng-docs/soul-path-to-v6.md`, alongside `badminton-plugin.md`;
+> `validate-soul` carries the dangling reference as a known `rot` finding until then.
 >
 > Once carved: Coach reads this on demand. A season closes twice a year at most, so the spec
 > doesn't belong in every turn's context. SOUL §5 keeps the pointer.

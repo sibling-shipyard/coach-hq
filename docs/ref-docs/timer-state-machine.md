@@ -1,7 +1,7 @@
-# Timer State Machine — WorkoutTimer.tsx
+# Timer State Machine — useTimerEngine.ts
 
-**Version:** v1.1 — Apr 4, 2026
-**Source of truth:** `client/src/pages/workout-timer/`
+**Version:** v1.2 — Sep 14, 2026
+**Source of truth:** `ui/client/src/pages/workout-timer/` (`useTimerEngine.ts` + `WarmActiveTimer.tsx`)
 
 ---
 
