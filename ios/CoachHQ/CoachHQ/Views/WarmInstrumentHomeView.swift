@@ -222,7 +222,6 @@ struct WarmInstrumentHomeView: View {
             EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
                 RecentSessionsCard(
                     sessions: home.sessions,
-                    compact: true,
                     onOpenActivities: { navigationPath.append(.activities) },
                     onOpen: { entry in
                         Haptics.tap()

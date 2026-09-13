@@ -81,7 +81,7 @@ Mapped in `Theme.sportIcon(for:)`:
 
 Home → All Activity is `AllActivitiesListView` hosting `ActivityLedgerView`: week groups, one pulled paper card, load sheet, tap → `ActivityDetailView`.
 
-Coach chat's SESSION SYNCED slot embeds the same stack (`ActivityLedgerStyle.embed`) — compact metrics, kicker only, no title or load sheet. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
+Coach chat's SESSION SYNCED slot and Home RECENT both embed the same compact stack (`ActivityLedgerStyle.embed`) — kicker only, no title or load sheet.
 
 Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card. Riffle is UIKit-only; SwiftUI hold-then-drag stole `ScrollView`.
 
@@ -92,7 +92,7 @@ Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it m
 ### ✅ Phase 1 — Activity Feed Polish
 - All Activity is the paper ledger stack (`ActivityLedgerView`)
 - Old day-grouped `ActivityFeedView` / `WeekSummaryWidget` / `ActivityLedgerRow` removed
-- Coach chat SESSION SYNCED uses the same cards (`.embed`)
+- Coach chat SESSION SYNCED and Home RECENT use the same compact cards (`.embed`)
 
 ### ✅ Phase 2 — Activity Detail Upgrade
 - Hero stats card: 3pt sport color stripe, 22pt bold name, 19pt monospace stat columns
@@ -128,9 +128,6 @@ and deleted as dead code. Every live Home widget now lives in `Views/Widgets/`, 
   `ActivityGlyphKind`) across `Theme.sportIcon`/`sportBadge`, `WarmInstrument.sportColor`/
   `sfSymbol`, and `OnboardingRevealFlow.sportDisplayInfo`. Picking one canonical keyspace is a
   design decision, not a mechanical fold (#928's W4).
-- **`SessionRow` (`Views/Widgets/RecentSessionsCard.swift`) vs. `ActivityLedgerCard`**
-  are still two rendering paths. Folding Home recent sessions onto the paper card needs
-  the sport-keyspace decision above first (#928's W5).
 - **`SportChip` (`WarmInstrumentAtoms.swift`) has zero call sites.** `WeeklyPlanCard.daySlot`
   redraws its icon-on-tint square inline instead, because `SportChip` is a fixed `size × size`
   square with no stretch-width mode or overridable corner radius — what `daySlot`'s 7-equal-

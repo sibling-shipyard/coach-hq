@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Shared Warm Instrument atoms — build once, reuse everywhere, per the Design Philosophy's
-/// "Shared atoms" note: sport icon set, mono-label style, session row, sport chip, hairline
+/// "Shared atoms" note: sport icon set, mono-label style, sport chip, hairline
 /// progress underline, and the card shell. See `ui/docs/reference-interactions/Widget Design
 /// Philosophy.md` for the spec these mirror.
 
@@ -328,55 +328,5 @@ struct SportCube: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(commitment.label): \(Format.number(commitment.value))\(commitment.target.map { "/\(Format.number($0))" } ?? "")\(isAlarm ? ", the bar is cold" : "")")
-    }
-}
-
-// MARK: - SessionRow
-
-/// The ledger row — date · sport tick · title · +load. "Every entry earns its load — nothing
-/// invented." One component everywhere; platforms only change row count and density.
-struct SessionRow: View {
-    let session: RecentSessionSnapshot
-    /// Mobile home recent list — date · vein · title · load (no detail line).
-    var compact: Bool = false
-
-    private var sportColor: Color { WarmInstrument.sportColor(session.sport) }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            MonoLabel(session.dateLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
-                .frame(width: compact ? 42 : 46, alignment: .leading)
-
-            RoundedRectangle(cornerRadius: 2)
-                .fill(sportColor)
-                .frame(width: 3, height: compact ? 22 : 30)
-
-            if compact {
-                Text(session.title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundColor(WarmInstrument.ink)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(session.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(WarmInstrument.ink)
-                        .lineLimit(1)
-                    Text(session.detail)
-                        .font(.system(size: 11))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: compact ? 0 : 8)
-
-            Text(session.load.map { "+\(Int($0))" } ?? "—")
-                .font(WarmInstrument.figures(compact ? 10 : 14, weight: .bold))
-                .foregroundColor(sportColor)
-                .contentTransition(.numericText())
-        }
-        .padding(.vertical, compact ? 10 : 8)
     }
 }

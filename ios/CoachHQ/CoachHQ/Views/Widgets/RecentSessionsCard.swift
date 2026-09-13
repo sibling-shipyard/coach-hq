@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// In-app recent-sessions list — one file per widget, per ADR 0037.
+/// Same compact paper stack as Coach chat's SESSION SYNCED slot.
 struct RecentSessionsCard: View {
     let sessions: [RecentSessionSnapshot]
-    var compact: Bool = false
     var onOpenActivities: (() -> Void)? = nil
     let onOpen: (SyncCacheEntry) -> Void
     let onUnavailable: () -> Void
@@ -12,46 +12,57 @@ struct RecentSessionsCard: View {
 
     private var visible: [RecentSessionSnapshot] { Array(sessions.prefix(3)) }
 
-    var body: some View {
-        WarmCard(padding: compact ? 18 : 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline) {
-                    MonoLabel(compact ? "RECENT" : "RECENT SESSIONS", size: compact ? 10 : 10)
-                    Spacer()
-                    if compact, let onOpenActivities {
-                        Button {
-                            Haptics.tap()
-                            onOpenActivities()
-                        } label: {
-                            Text("All activity")
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundColor(WarmInstrument.ink)
-                        }
-                    }
-                }
-                .padding(.bottom, compact ? 4 : 4)
+    private var cache: [SyncCacheEntry] {
+        cacheEntries.isEmpty ? SyncCache.load() : cacheEntries
+    }
 
-                if visible.isEmpty {
-                    Text("No sessions logged yet — nothing invented here.")
-                        .font(.system(size: 12))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .padding(.vertical, 8)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(visible.enumerated()), id: \.element.id) { index, session in
-                            if compact {
-                                SessionRow(session: session, compact: true)
-                            } else {
-                                SwipeToEditRow(onEdit: { handleEdit(session) }) {
-                                    SessionRow(session: session).padding(.horizontal, 2)
-                                }
-                            }
-                            if index < visible.count - 1 {
-                                Divider().overlay(WarmInstrument.headerRule)
-                            }
-                        }
+    private var entries: [SyncCacheEntry] {
+        visible.map { $0.ledgerEntry(from: resolved($0)) }
+    }
+
+    private var listedLoads: [String: Int] {
+        Dictionary(uniqueKeysWithValues: zip(visible, entries).compactMap { session, entry in
+            session.load.map { (entry.id, Int($0.rounded())) }
+        })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                MonoLabel("RECENT")
+                Spacer()
+                if let onOpenActivities {
+                    Button {
+                        Haptics.tap()
+                        onOpenActivities()
+                    } label: {
+                        Text("All activity")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundColor(WarmInstrument.ink)
                     }
+                    .buttonStyle(.plain)
                 }
+            }
+
+            if visible.isEmpty {
+                Text("No sessions logged yet — nothing invented here.")
+                    .font(.system(size: 12))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .padding(.vertical, 8)
+            } else {
+                ActivityLedgerView(
+                    entries: entries,
+                    onSelect: { entry in
+                        if let session = visible.first(where: { $0.matches(entry) }),
+                           let hit = resolved(session) {
+                            onOpen(hit)
+                        } else {
+                            onUnavailable()
+                        }
+                    },
+                    style: .embed,
+                    listedLoads: listedLoads
+                )
             }
         }
         .onAppear {
@@ -61,67 +72,56 @@ struct RecentSessionsCard: View {
         }
     }
 
-    private func handleEdit(_ session: RecentSessionSnapshot) {
-        let cache = cacheEntries.isEmpty ? SyncCache.load() : cacheEntries
+    private func resolved(_ session: RecentSessionSnapshot) -> SyncCacheEntry? {
         if let source = session.evidence?.source,
            let hit = cache.first(where: { $0.fileName == source }) {
-            onOpen(hit)
-            return
+            return hit
         }
         if let dateKey = session.evidence?.dateKey,
            let hit = cache.first(where: { $0.fileName.hasPrefix(dateKey) || $0.startDateLocal.hasPrefix(dateKey) }) {
-            onOpen(hit)
-            return
+            return hit
         }
-        onUnavailable()
+        return nil
     }
 }
 
-// MARK: - Swipe → Edit row (sessions only; delete lives in session detail, not Home)
+private extension RecentSessionSnapshot {
+    func ledgerEntry(from cache: SyncCacheEntry?) -> SyncCacheEntry {
+        if let cache { return cache }
+        let dateKey = evidence?.dateKey
+        return SyncCacheEntry(
+            fileName: evidence?.source ?? "home:\(id)",
+            name: title,
+            sportType: sport.ledgerSportType,
+            startDateLocal: dateKey.map { "\($0)T12:00:00" } ?? "",
+            elapsedTime: Int((evidence?.durationMinutes ?? 0) * 60),
+            hasDescription: false,
+            calories: evidence?.calories.map { Int($0.rounded()) },
+            averageHeartrate: evidence?.averageHeartRate,
+            maxHeartrate: evidence?.maxHeartRate,
+            distance: evidence?.distanceKm.map { $0 * 1000 }
+        )
+    }
 
-private struct SwipeToEditRow<Content: View>: View {
-    let onEdit: () -> Void
-    @ViewBuilder var content: Content
+    func matches(_ entry: SyncCacheEntry) -> Bool {
+        if let source = evidence?.source, entry.fileName == source { return true }
+        if let dateKey = evidence?.dateKey,
+           entry.fileName.hasPrefix(dateKey) || entry.startDateLocal.hasPrefix(dateKey) {
+            return true
+        }
+        return entry.fileName == "home:\(id)"
+    }
+}
 
-    @State private var offset: CGFloat = 0
-    @GestureState private var dragTranslation: CGFloat = 0
-
-    private let actionWidth: CGFloat = 72
-    private let gap: CGFloat = 14
-
-    var body: some View {
-        ZStack(alignment: .trailing) {
-            Button {
-                Haptics.tap()
-                withAnimation(.spring(duration: 0.3)) { offset = 0 }
-                onEdit()
-            } label: {
-                Text("EDIT")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundColor(.white)
-                    .frame(width: actionWidth, height: 44)
-                    .background(WarmInstrument.editAction)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .opacity(offset < -20 ? 1 : 0)
-
-            content
-                .background(WarmInstrument.paper)
-                .offset(x: offset + dragTranslation)
-                .gesture(
-                    DragGesture(minimumDistance: 12)
-                        .updating($dragTranslation) { value, state, _ in
-                            guard value.translation.width < 0 else { return }
-                            state = max(value.translation.width, -(actionWidth + gap))
-                        }
-                        .onEnded { value in
-                            let projected = offset + value.translation.width
-                            withAnimation(.spring(duration: 0.3)) {
-                                offset = projected < -(actionWidth / 2) ? -(actionWidth + gap) : 0
-                            }
-                        }
-                )
+private extension WarmSportId {
+    /// HealthKit-shaped string so `ActivityLedgerItem` picks the same tick, glyph, and stat columns.
+    var ledgerSportType: String {
+        switch self {
+        case .badminton: return "Badminton"
+        case .cycling: return "Ride"
+        case .run: return "Run"
+        case .foundation, .strength, .weightTraining, .calisthenics, .workout: return "WeightTraining"
+        default: return rawValue
         }
     }
 }
