@@ -1,10 +1,12 @@
 # Badminton plugin
 
 > **NOT WIRED UP YET.** SOUL points at `propagated/docs/badminton-plugin.md`, but
-> `carve-skeleton.mjs` writes no docs at all — ADR 0021 removed that step — so this file does not
-> exist in any athlete repo today. Coach follows the pointer and finds nothing. Restoring it is
-> phase 2 of `docs/eng-docs/soul-path-to-v6.md`; `validate-soul` carries the dangling reference as
-> a known `rot` finding until then.
+> `carve-skeleton.mjs`'s `PROPAGATED_DOCS` array doesn't list this file (it carves three others:
+> `current-week-contract.md`, `timer-state-machine.md`, `pipeline-tools.md`) — so this file does
+> not exist in any athlete repo today. Coach follows the pointer and finds nothing. Restoring it
+> is phase 2 of `docs/eng-docs/soul-path-to-v6.md`, which names this the more urgent of the two
+> files still missing; `validate-soul` carries the dangling reference as a known `rot` finding
+> until then.
 >
 > Once carved: Coach reads this on demand, only when the plugin is enabled and match data is
 > actually in play. SOUL keeps the gate and a pointer.
