@@ -670,3 +670,106 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
 });
+
+// Live-verified (#727 review): reproduced twice in 5 real OpenRouter runs - a "reps"-type
+// exercise with no reps field at all. Gemini's structured-output mode has no
+// conditional-required support, so nothing stops the model from omitting it; this is a
+// pre-emptive check before the write path's own refusal, one reprompt attempt to self-correct.
+function malformedRepsSpec() {
+  return {
+    title: "Upper Body",
+    workout_type: "strength",
+    phases: [
+      {
+        name: "Main",
+        exercises: [
+          {
+            name: "Dumbbell row",
+            type: "reps",
+            sets: 3,
+            form_cue: "Squeeze the shoulder blade.",
+            why: "Back strength.",
+            // reps intentionally omitted - the live failure shape.
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("requestCoachReply malformed workout_create reprompt (#727 live-test finding)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once when a reps-type exercise has no reps field", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Here's an upper body session.",
+        coach_note: "Built a routine.",
+        workout_create: malformedRepsSpec(),
+      })
+      .mockResolvedValueOnce({
+        reply: "Here's an upper body session, saved to your page.",
+        coach_note: "Built a routine.",
+        workout_create: {
+          ...malformedRepsSpec(),
+          phases: [
+            {
+              name: "Main",
+              exercises: [{ ...malformedRepsSpec().phases[0].exercises[0], reps: 10 }],
+            },
+          ],
+        },
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(
+      (
+        result as {
+          reply: { workout_create?: { phases: { exercises: { reps?: number }[] }[] } };
+        }
+      ).reply.workout_create?.phases[0]?.exercises[0]?.reps,
+    ).toBe(10);
+  });
+
+  it("does not reprompt when workout_create is well-formed", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Here's your session.",
+      coach_note: "Built a routine.",
+      workout_create: {
+        ...malformedRepsSpec(),
+        phases: [
+          {
+            name: "Main",
+            exercises: [{ ...malformedRepsSpec().phases[0].exercises[0], reps: 10 }],
+          },
+        ],
+      },
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when there is no workout_create at all", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "Sure, tell me more about what you want." });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});

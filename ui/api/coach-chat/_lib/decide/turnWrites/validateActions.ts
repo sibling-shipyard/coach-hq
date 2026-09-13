@@ -164,11 +164,35 @@ function categoryChangeIsConfirmed(
   return hasConfirmationCue(athleteMessage);
 }
 
+// Live-verified (#727 review): a real conversation had Coach invent a brand-new session (no
+// session_id), already marked "done", on a date that still had a real session sitting in
+// "planned" - instead of referencing that real session's id, it left it stale and fabricated an
+// unrelated one. A day legitimately holds more than one session (a planned anchor plus a real
+// unplanned extra the athlete mentions separately), so "a session already exists that day" alone
+// isn't the signal - the narrower, still-real shape of the actual bug is a *brand-new* entry that
+// *already claims a terminal outcome* while a *planned* entry for that same day is still sitting
+// unaddressed. Requiring confirmation for that combination costs an occasional extra turn on a
+// genuine same-day extra (rare) in exchange for never silently leaving a real planned session
+// stale next to a fabricated one (the actual failure mode this guard exists for).
+function newSessionMayDuplicatePlan(
+  date: string,
+  status: string | undefined,
+  plannedSessionsByDate: ReadonlyMap<string, { id: string; title: string }[]>,
+  athleteMessage: string,
+): { id: string; title: string } | null {
+  if (status !== "done" && status !== "skipped") return null;
+  const planned = plannedSessionsByDate.get(date);
+  if (!planned || planned.length === 0) return null;
+  if (hasConfirmationCue(athleteMessage)) return null;
+  return planned[0];
+}
+
 // existingSessions/athleteMessage take no default value on purpose - an empty map and empty
 // string both make categoryChangeIsConfirmed fail open (nothing to compare against, or no message
 // text to find a cue in), so a caller must pass `new Map()`/`""` explicitly to opt out of the
 // whole Bug 3 content-diff guard rather than disabling it by omission. Every real caller
-// (buildTurnWrites) always has both.
+// (buildTurnWrites) always has both. plannedSessionsByDate takes the same opt-out convention -
+// pass `new Map()` to disable the new-session-duplicate guard specifically.
 //
 // ADR 0042 replaces session_reconcile/plan_edit with one week_update field, sent as a sparse
 // per-day/per-session patch. A full-week-kickoff-shaped update (isFullWeekKickoff) is the old
@@ -184,6 +208,7 @@ export function validateWeekUpdate(
   validSessionIds: ReadonlySet<string>,
   existingSessions: ReadonlyMap<string, ExistingSessionForDiff>,
   athleteMessage: string,
+  plannedSessionsByDate: ReadonlyMap<string, { id: string; title: string }[]> = new Map(),
 ): { valid: WeekUpdate | undefined; dropped: DroppedAction[] } {
   if (!update) return { valid: undefined, dropped: [] };
   if (isFullWeekKickoff(update)) return { valid: update, dropped: [] };
@@ -208,7 +233,26 @@ export function validateWeekUpdate(
           });
           return false;
         }
-        if (!session.session_id) return true;
+        if (!session.session_id) {
+          const duplicate = newSessionMayDuplicatePlan(
+            day.date,
+            session.status,
+            plannedSessionsByDate,
+            athleteMessage,
+          );
+          if (duplicate) {
+            dropped.push({
+              field: "week_update",
+              reason:
+                `a new session already marked "${session.status}" was proposed for ${day.date},` +
+                ` but session "${duplicate.id}" (${duplicate.title}) is still planned for that` +
+                " same date with no confirmation in the athlete's message this turn - likely meant" +
+                " to update that real session, not create a duplicate; not committing",
+            });
+            return false;
+          }
+          return true;
+        }
         if (!validSessionIds.has(session.session_id)) {
           dropped.push({
             field: "week_update",

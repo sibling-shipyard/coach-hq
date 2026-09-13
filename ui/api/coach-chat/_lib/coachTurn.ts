@@ -477,6 +477,33 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
   return facts.length > 0 ? facts : null;
 }
 
+// Live-verified (#727 review): reproduced twice in 5 real OpenRouter runs - a "reps"-type
+// exercise with no reps field at all (not a wrong type, just omitted). Gemini's structured-output
+// mode has no conditional-required support (a field required only when a sibling field has a
+// given value isn't representable in this schema shape - see workout_create's own schema
+// comment), so nothing stops the model from skipping it. The write path already refuses to commit
+// this (never commit invalid data) - this is a pre-emptive structural check on the raw reply, one
+// reprompt attempt before that refusal ever has to fire, same class of fix as
+// findOversizedTextField above for a text cap. Checks only the two fields the live failure
+// actually hit; the full invariant set (progression id, dose cap, injury ack) still gets its own
+// enforcement at the write path regardless; this only catches what a reprompt can plausibly fix
+// with a second, cheap generation.
+function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
+  const spec = reply.workout_create;
+  if (!spec) return null;
+  for (const phase of spec.phases ?? []) {
+    for (const ex of phase.exercises ?? []) {
+      if (ex.type === "reps" && typeof ex.reps !== "number") {
+        return `"${ex.name}" is type "reps" but has no reps field`;
+      }
+      if (ex.type === "timed" && typeof ex.duration_secs !== "number") {
+        return `"${ex.name}" is type "timed" but has no duration_secs field`;
+      }
+    }
+  }
+  return null;
+}
+
 // Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
 // injuries 3/8 times even with unrecorded_facts live - the same same-generation blind spot as
 // everywhere else it's missed a real omission. A general keyword heuristic across every turn was
@@ -673,6 +700,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+    const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
     // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
     // RepliedTurn.stillUnrecordedFacts).
@@ -687,7 +715,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       unrecordedFacts ||
       missedInjuryLanguage ||
       missedHabitLanguage ||
-      unconfirmedAssumption
+      unconfirmedAssumption ||
+      malformedExercise
     ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
@@ -696,6 +725,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedInjuryLanguage,
         missedHabitLanguage,
         unconfirmedAssumption,
+        malformedExercise,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -741,6 +771,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " ask again instead, or proceed only if the athlete's message genuinely does answer it",
         );
       }
+      if (malformedExercise) {
+        notes.push(
+          `your workout_create has a structural problem: ${malformedExercise} - a "reps" exercise` +
+            ' needs a real reps number, a "timed" exercise needs a real duration_secs number;' +
+            " fix that one field, keep everything else the same",
+        );
+      }
       const repromptMessage = [
         turn.geminiMessage,
         `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
@@ -769,6 +806,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
+      const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
       // - the model stops self-flagging the miss on retry (it now believes its confabulated
       // excuse resolved it), even though the field still isn't captured. Carry forward the
@@ -783,7 +821,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUnrecordedFacts ||
         stillMissedInjuryLanguage ||
         stillMissedHabitLanguage ||
-        stillUnconfirmedAssumption
+        stillUnconfirmedAssumption ||
+        stillMalformedExercise
       ) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
@@ -794,6 +833,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedInjuryLanguage,
             stillMissedHabitLanguage,
             stillUnconfirmedAssumption,
+            stillMalformedExercise,
           },
           { traceId: turn.traceId },
         );
@@ -1122,6 +1162,19 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       { id: session.id, discipline: session.discipline, kind: session.kind },
     ]),
   );
+  // #727 live-test finding: a brand-new session (no session_id) that arrives already marked
+  // done/skipped, on a date that still has a real session sitting in "planned", is exactly the
+  // shape of a real bug found live - Coach invented a duplicate instead of referencing the real
+  // session already on that date, leaving it stale. Keyed by date (not id) so
+  // validateWeekUpdate can check what's already on a day before accepting a brand-new entry for
+  // it.
+  const plannedSessionsByDate = new Map<string, { id: string; title: string }[]>();
+  for (const session of weekSessions) {
+    if (session.status !== "planned") continue;
+    const list = plannedSessionsByDate.get(session.date) ?? [];
+    list.push({ id: session.id, title: session.title });
+    plannedSessionsByDate.set(session.date, list);
+  }
 
   const { valid: validatedWeekUpdate, dropped: droppedWeekUpdate } = validateWeekUpdate(
     effectiveWeekUpdate,
@@ -1129,6 +1182,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validSessionIds,
     existingSessionsForDiff,
     turn.geminiMessage,
+    plannedSessionsByDate,
   );
   droppedActions.push(...droppedWeekUpdate);
 
