@@ -71,10 +71,10 @@ what makes them safe against the model's narration style drifting. And each has 
 this turn) that removes the ambiguity a bare keyword match would otherwise carry.
 
 **Test pattern** (`ui/api/coach-chat/_tests/integration/coachTurn-reprompt.test.ts:419-522`, the
-`missed-habit-language` block) - five tests per field: fires and reprompts once; doesn't reprompt
-twice, just logs; doesn't fire on the wrong turn type; doesn't fire when the field's already
-covered; doesn't fire on unrelated language. Every new field below gets its own `describe` block
-in this same file, same five-test shape.
+`missed-habit-language` block) - five tests per field. It fires and reprompts once. It doesn't
+reprompt twice, only logs. It doesn't fire on the wrong turn type. It doesn't fire when the field
+is already covered. It doesn't fire on unrelated language. Every new field below gets its own
+`describe` block in this same file, same five-test shape.
 
 **Applier-level tests** for all six target fields already exist (not reprompt tests - structural
 validation tests): `profile_update`, `injury_event`, `coaching_style_update`, `sports_update`,
@@ -103,19 +103,22 @@ need it (checks the athlete's phrasing only, not id validity - that's the applie
 
 ### `profile_update`
 
-**Prompt reinforcement**, `coachPromptText.ts`:
-- First-session branch (~line 118-120, after "Use profile_update for name, date of birth,
-  timezone, height, and weight"): add "Never describe a stated age, height, weight, or timezone
-  as saved without setting profile_update in the same turn."
-- Returning-athlete branch (~line 160-161, after "set profile_update with one entry per field
-  changed"): same sentence.
+**Prompt reinforcement**, `coachPromptText.ts` - add this new sentence to both branches:
+
+> Never describe a stated age, height, weight, or timezone as saved without setting
+> profile_update in the same turn.
+
+Place it in the first-session branch right after the existing "Use profile_update for name, date
+of birth, timezone, height, and weight" instruction (~line 118-120), and in the returning-athlete
+branch after "set profile_update with one entry per field changed" (~line 160-161).
 
 **Schema** (`coachReplySchema.ts:40-44`):
 ```ts
 profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string }[];
 ```
 
-**New detector**, `coachTurn.ts`, placed after `findMissedSeasonLanguage` (~line 603):
+**New detector**, `coachTurn.ts`, placed after `findMissedSeasonLanguage` (~line 603).
+
 ```ts
 const AGE_LANGUAGE_PATTERN = /\b\d{1,2}\s*(?:years?\s*old|yo)\b|\bborn\b/i;
 const BODY_METRIC_PATTERN = /\b\d{2,3}\s*(?:cm|kg|lbs?|ft|feet|inches)\b/i;
@@ -141,11 +144,12 @@ function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): string 
   return null;
 }
 ```
-(Illustrative - tune per the narrowing pass every new pattern in this plan needs, same as
-`GOAL_LANGUAGE_PATTERN`'s own history: its first draft included `target`/`targeting`/`training
-for`/`aim for` and two *existing* unit tests caught it colliding with ordinary chat. Budget for
-the same here - run the full `api/coach-chat/` suite after wiring this in, before writing new
-tests, and fix any existing-test collision by narrowing the pattern, not by weakening the check.)
+
+This is illustrative, not final. Tune it per the narrowing pass every new pattern in this plan
+needs. `GOAL_LANGUAGE_PATTERN`'s own first draft included `target`/`targeting`/`training
+for`/`aim for`, and two *existing* unit tests caught it colliding with ordinary chat. Budget for
+the same here. Run the full `api/coach-chat/` suite after wiring this in, before writing new
+tests, and fix any existing-test collision by narrowing the pattern, not by weakening the check.
 
 Wire into `requestCoachReply`'s OR-list, `notes.push`, and "still" block exactly like the three
 existing checks - add `missedProfileLanguage` alongside `missedSeasonLanguage` at every one of
@@ -159,17 +163,17 @@ field's only gap is "saved nothing," which the reprompt above closes.
 `coachTurn-reprompt.test.ts`, five tests per the pattern above, one sub-case each for
 age/height-weight/timezone.
 
-**Live test:** reuse `test/727-fsp-transition-a`'s exact approach from the #999 round - null one
-profile field on a scratch branch, state it in a dense first message, confirm `profile_update`
-lands and (separately, may need several attempts per the #727 round's own experience) confirm the
-reprompt fires when a first attempt holds it back.
+**Live test:** reuse `test/727-fsp-transition-a`'s exact approach from the #999 round. Null one
+profile field on a scratch branch, state it in a dense first message, and confirm `profile_update`
+lands. Separately, confirm the reprompt fires when a first attempt holds it back - this may need
+several attempts, per the #727 round's own experience.
 
 ### `coaching_style_update` - prompt only
 
 **Why no reprompt:** the field's own prompt text (`coachPromptText.ts:169-172`) already requires
-"an explicit request to change this... never infer it from mood or a single tough session." There
-is no phrasing narrow enough to key a detector on that wouldn't also match an athlete venting
-("push me harder today") without meaning a permanent style change - the same class of risk gap 2a
+"an explicit request to change this... never infer it from mood or a single tough session." No
+phrasing is narrow enough to key a detector on without also matching an athlete venting ("push me
+harder today") with no intent to change style permanently. That's the same class of risk gap 2a
 was rejected for in the #727 review.
 
 **Prompt reinforcement only:** add "Never describe a coaching-style change as applied without
@@ -178,12 +182,12 @@ first-session, ~line 169-172 returning-athlete).
 
 ### Standalone `quest_create` (returning athlete) - prompt only
 
-**Why no reprompt:** `findMissedHabitLanguage` already covers the first-session case (checks
+**Why no reprompt:** `findMissedHabitLanguage` already covers the first-session case. It checks
 `quest_create` as an OR-alternative to `season_start.new_habits`, gated `firstSession &&
-validQuestIds.size === 0`). Extending `HABIT_LANGUAGE_PATTERN`
+validQuestIds.size === 0`. Extending `HABIT_LANGUAGE_PATTERN`
 (`every ?day|daily|habit|routine|track(?:ing)?|log(?:ging)?|streak`) to returning turns has no
-equivalent "nothing on file yet" disambiguator - an established athlete says "routine" and "track"
-constantly about existing training, not a new habit quest. Same conclusion as
+equivalent "nothing on file yet" disambiguator. An established athlete says "routine" and "track"
+constantly about existing training, not a new habit quest - same conclusion as
 `coaching_style_update`.
 
 **Prompt reinforcement only:** add "Never describe a new daily habit as tracked without setting
@@ -227,8 +231,9 @@ without setting sports_update to the full list."
 
 **Schema** (`coachReplySchema.ts:30`): `sports_update?: string[];`
 
-**New detector** - narrower than the others on purpose, since a bare sport name risks matching an
-ordinary session report ("badminton was rough today") with no update intent at all:
+A bare sport name risks matching an ordinary session report ("badminton was rough today") with no
+update intent at all, so this new detector is narrower than the others on purpose.
+
 ```ts
 const NEW_ACTIVITY_LANGUAGE_PATTERN =
   /\b(started|new sport|picked up|also (?:play|do|doing))\b/i;
@@ -243,10 +248,11 @@ function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): string |
   return hit;
 }
 ```
-**Explicitly flagged for extra care during implementation:** this is the one new pattern in this
-plan most likely to need a real narrowing pass against the existing test suite, the same way
-`GOAL_LANGUAGE_PATTERN`'s first draft did. Do not ship it without running the full
-`api/coach-chat/` suite first and fixing any collision by narrowing, not by dropping the check.
+
+This is the one new pattern in this plan most likely to need a real narrowing pass against the
+existing test suite, the same way `GOAL_LANGUAGE_PATTERN`'s first draft did. Do not ship it
+without running the full `api/coach-chat/` suite first, and fix any collision by narrowing the
+pattern, not by dropping the check.
 
 **Tests + live test:** same shape, plus an explicit test confirming it does NOT fire on an
 ordinary session report mentioning an existing sport by name.
@@ -258,9 +264,9 @@ ordinary session report mentioning an existing sport by name.
 **Why this one needs its own scoping, not a copy of `findMissedInjuryLanguage`:**
 `INJURY_LANGUAGE_PATTERN` is proven safe only under that function's specific gate -
 `turn.validInjuryFlagIds.size === 0` ("nothing to reference yet, so it must be new"). `injury_event`
-is the opposite case: flags already exist, which is exactly what makes plain injury language
-ambiguous - is the athlete updating a known flag, reporting a new one (should be `injury_flag`),
-or describing ordinary training discomfort that isn't flag-worthy at all?
+is the opposite case: flags already exist. That's exactly what makes plain injury language
+ambiguous. Is the athlete updating a known flag, reporting a new one (should be `injury_flag`), or
+describing ordinary training discomfort that isn't flag-worthy at all?
 
 **The narrow, safe version:** only fire when exactly one active flag exists - "which injury" stops
 being ambiguous.
@@ -286,15 +292,15 @@ Deliberately **not** scoped to `firstSession` - injury updates are a returning-a
 flow. The single-active-flag condition is what makes this safe instead, replacing the
 first-session/zero-flags disambiguator the sibling function uses.
 
-**Tests:** same five-test shape, **plus an explicit test that it does NOT fire with 2+ active
-flags** - name this in the test comment as a deliberate scope boundary (the same way
-`newSessionMayDuplicatePlan`'s own known tradeoff is documented in its code comment), not an
+**Tests:** same five-test shape, plus one more. Add an explicit test that it does NOT fire with 2+
+active flags. Name this in the test comment as a deliberate scope boundary - the same way
+`newSessionMayDuplicatePlan`'s own known tradeoff is documented in its code comment - not an
 oversight to fix later.
 
 **Also check during this batch, per the parent doc's note:** whether `injury_event`'s "updated the
 wrong flag" failure shape (as opposed to "updated no flag") is better served by a
-`validateActions.ts`-style write-time guard than a reprompt - live-test both athletes-with-one-flag
-and athletes-with-two-flags scenarios before deciding definitively either way.
+`validateActions.ts`-style write-time guard than a reprompt. Live-test both
+athletes-with-one-flag and athletes-with-two-flags scenarios before deciding either way.
 
 **Live test:** seed a scratch branch with exactly one active injury flag, describe it changing
 ("my knee's better now"), confirm `injury_event` lands. Separately seed two active flags, confirm

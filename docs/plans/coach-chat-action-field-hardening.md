@@ -16,9 +16,9 @@ The fix pattern is recorded as durable reference in `docs/eng-docs/gemini-flow.m
 That section's own coverage table names six action fields with **zero** protection today:
 `profile_update`, `injury_event`, `coaching_style_update`, `sports_update`, `workout_remove`, and
 standalone `quest_create` (no `season_start` in the same turn). The athlete asked for these to be
-closed the same way, starting with `profile_update` - flagged in that doc as the most urgent, since
-it fires on the same dense first-session turns already shown (Finding D) to silently drop fields
-under load.
+closed the same way, starting with `profile_update`. That doc already flags it as the most
+urgent - it fires on the same dense first-session turns already shown (Finding D) to silently
+drop fields under load.
 
 This plan applies the documented 3-step pattern (prompt reinforcement → deterministic reprompt,
 only with a safe trigger signal → write-time guard, for a different failure shape) field by field,
@@ -34,13 +34,11 @@ existing injury pattern.
    the last one).
 2. Worktree off `origin/main` per batch, e.g.
    `git worktree add -b core/1009-profile-update-hardening /tmp/wt-1009a origin/main`.
-3. Land as 3 stacked PRs, in this order:
-   - **PR A - Batch 1** (`profile_update`, plus the two prompt-only conclusions for
-     `coaching_style_update` and standalone `quest_create`) ships first - it's the flagged
-     priority, and the prompt-only pieces are free to include alongside it.
-   - **PR B - Batch 2** (`workout_remove`, `sports_update`), stacked on PR A.
-   - **PR C - Batch 3** (`injury_event`), stacked on PR B - last, since its false-positive-safe
-     scoping (exactly-one-active-flag) needs the most care.
+3. Land as 3 stacked PRs. PR A (Batch 1: `profile_update`, plus the two prompt-only conclusions
+   for `coaching_style_update` and standalone `quest_create`) ships first - it's the flagged
+   priority, and the prompt-only pieces are free to include alongside it. PR B (Batch 2:
+   `workout_remove`, `sports_update`) stacks on PR A. PR C (Batch 3: `injury_event`) stacks on PR
+   B, last, since its false-positive-safe scoping (exactly-one-active-flag) needs the most care.
    Each batch is independently reviewable and live-testable, same bar as #999.
 4. Update `docs/eng-docs/gemini-flow.md`'s coverage table after each batch lands - the one place
    this state is recorded, not a second copy.
@@ -69,9 +67,9 @@ Full reasoning, exact patterns, wiring locations, and test plans: see the LLD.
 - `npx tsc --noEmit` clean, full `api/coach-chat/` suite passing, zero regressions - same bar as
   #999.
 - New unit tests per field, mirroring the existing `missed-habit-language`/`missed-season-language`
-  `describe` block structure: fires on the target phrasing, stays silent when the field's already
-  covered, stays silent on the wrong turn type, stays silent on adjacent-but-different phrasing
-  that should NOT trigger it.
+  `describe` block structure. Fires on the target phrasing. Stays silent when the field's already
+  covered, on the wrong turn type, and on adjacent-but-different phrasing that should NOT trigger
+  it.
 - Live test each field against `coach-skanda-2003` on a scratch branch before calling its batch
   done. Expect, per the #727 round's own finding, that a live rerun may not reproduce the exact
   trigger on demand even when the fix is correct - the unit test is the real proof, the live test
