@@ -152,6 +152,15 @@ export function needsLiveRecomputation(week: DashboardSnapshotInput["current_wee
   return false;
 }
 
+// ADR 0042 dropped coach_comments from the schema - nothing writes it anymore, so the raw
+// current_week.json on disk genuinely has no coach_comments key. currentWeekAdapter.ts and
+// liveWeekContract.ts already default it to [] for their callers; this is the one path that
+// skipped that normalization and cast the raw stored contract straight through, which crashed
+// warmHomeModel.ts's activeComment() on the missing field (#1027).
+function normalizeStoredCurrentWeek(week: CurrentWeekContract): CurrentWeekContract {
+  return { ...week, coach_comments: week.coach_comments ?? [] };
+}
+
 export function generateWidgetSnapshotsFromDashboardSnapshot(
   aggregate: DashboardSnapshotInput,
   latestCoachMessageFile?: unknown,
@@ -168,7 +177,7 @@ export function generateWidgetSnapshotsFromDashboardSnapshot(
 
   const contract = needsLiveRecomputation(aggregate.current_week)
     ? buildLiveWeekContract(activities)
-    : (aggregate.current_week as CurrentWeekContract);
+    : normalizeStoredCurrentWeek(aggregate.current_week as CurrentWeekContract);
 
   return buildWidgetSnapshotsFile(
     activities,
