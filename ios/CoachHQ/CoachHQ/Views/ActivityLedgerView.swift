@@ -151,8 +151,7 @@ private struct ActivityLedgerWeekView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(week.items.enumerated()), id: \.element.id) { index, item in
                         let isPulled = pulledID == item.id
-                        ActivityLedgerCard(item: item, isPulled: isPulled)
-                            .frame(height: cardHeight(index: index, isPulled: isPulled))
+                        card(item: item, index: index, isPulled: isPulled)
                             .padding(.top, topMargin(index: index, isPulled: isPulled))
                             .zIndex(Double(week.items.count - index))
                             .onTapGesture {
@@ -209,6 +208,13 @@ private struct ActivityLedgerWeekView: View {
         }
         .padding(.horizontal, 8)
         .contentShape(Rectangle())
+    }
+
+    private func card(item: ActivityLedgerItem, index: Int, isPulled: Bool) -> some View {
+        ActivityLedgerCard(item: item, isPulled: isPulled)
+            .frame(height: ActivityLedgerMetrics.cardHeight)
+            .frame(height: cardHeight(index: index, isPulled: isPulled), alignment: .bottom)
+            .clipped()
     }
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
@@ -324,7 +330,9 @@ private struct ActivityLedgerClosedStack: View {
     var body: some View {
         VStack(spacing: 0) {
             ActivityLedgerCard(item: item, isPulled: false)
-                .frame(height: ActivityLedgerMetrics.peek)
+                .frame(height: ActivityLedgerMetrics.cardHeight)
+                .frame(height: ActivityLedgerMetrics.peek, alignment: .bottom)
+                .clipped()
                 .overlay(alignment: .trailing) {
                     if hiddenCount > 0 {
                         Text("+\(hiddenCount) MORE")
@@ -343,11 +351,11 @@ private struct ActivityLedgerClosedStack: View {
                 }
 
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(red: 0xf6 / 255.0, green: 0xf2 / 255.0, blue: 0xe9 / 255.0))
+                .fill(WarmInstrument.surfaceMuted.opacity(0.72))
                 .frame(height: 9)
                 .padding(.horizontal, 10)
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(red: 0xf1 / 255.0, green: 0xec / 255.0, blue: 0xe2 / 255.0))
+                .fill(WarmInstrument.surfaceMuted.opacity(0.95))
                 .frame(height: 9)
                 .padding(.horizontal, 20)
         }
@@ -447,7 +455,8 @@ private struct ActivityLedgerWeek: Identifiable {
     }
 
     var verdict: String {
-        load == nil ? "load pending" : "filed"
+        guard let load else { return "load pending" }
+        return load >= 250 ? "in the band" : "below the band"
     }
 
     static func group(entries: [SyncCacheEntry]) -> [ActivityLedgerWeek] {
