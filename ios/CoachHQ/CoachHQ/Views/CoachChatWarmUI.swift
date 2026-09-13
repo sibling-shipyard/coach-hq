@@ -265,8 +265,8 @@ struct CoachChatEmptyThreadPrompt: View {
 /// Just-synced batch in Coach Chat — same paper cards as All Activity, no page chrome.
 struct CoachChatSyncedActivityList: View {
     let activities: [SyncedActivityRow]
-    var resolveEntry: (SyncedActivityRow) -> SyncCacheEntry?
-    var onSelect: (SyncedActivityRow) -> Void
+    var drafts: [SyncedActivityDraft] = []
+    var onSelect: (SyncCacheEntry) -> Void
 
     private var sessionLabel: String {
         activities.count == 1 ? "1 SESSION" : "\(activities.count) SESSIONS"
@@ -282,16 +282,16 @@ struct CoachChatSyncedActivityList: View {
     }
 
     var body: some View {
-        let entries = activities.map { $0.ledgerEntry(from: resolveEntry($0)) }
+        let cache = SyncCache.load()
+        let entries = activities.map { $0.ledgerEntry(from: $0.cacheEntry(in: cache, drafts: drafts)) }
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
                 ActivityLedgerView(
                     entries: entries,
                     onSelect: { entry in
-                        if let row = activities.first(where: { $0.matches(entry) }) {
-                            onSelect(row)
-                        }
+                        guard !entry.fileName.hasPrefix("chat:") else { return }
+                        onSelect(entry)
                     },
                     style: .embed,
                     listedLoads: listedLoads(for: entries)
@@ -313,12 +313,6 @@ private extension SyncedActivityRow {
             elapsedTime: durationSeconds,
             hasDescription: false
         )
-    }
-
-    func matches(_ entry: SyncCacheEntry) -> Bool {
-        entry.activity?.activityId == id
-            || entry.fileName.contains(id)
-            || entry.fileName == "chat:\(id)"
     }
 }
 

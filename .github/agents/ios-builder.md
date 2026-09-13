@@ -39,9 +39,10 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
   `chatThreads.ts`), not an append, so a truncated stub silently discards the real thread's
   history/attachments on the next reply. Only a seed with no server record (`local-proactive-<id>`)
   may be materialized locally — see `CoachChatView.swift`'s `openRequestedProactiveRoute`.
-- `CoachChatSyncedActivityList.body` maps `resolveEntry` once into a `let entries` — that closure
-  is `cacheEntry(for:)` → `SyncCache.load()`. Split computed `entries` / `listedLoads` decode
-  UserDefaults twice per render. `listedLoads(for:)` takes that array and uses
-  `Dictionary(..., uniquingKeysWith:)` — `uniqueKeysWithValues` fatals on duplicate ids.
+- `CoachChatSyncedActivityList.body` loads `SyncCache.load()` once into `let cache`, then
+  `SyncedActivityRow.cacheEntry(in:drafts:)`. `listedLoads` uses `Dictionary(..., uniquingKeysWith:)`
+  — `uniqueKeysWithValues` fatals on duplicate ids. Do not call `SyncCache.load()` inside a
+  per-row closure. `HRStreamCache` is the session shelf for `streams/<uuid>.json`; SyncCache
+  cannot hold the curve (ADR 0027).
 - All Activity hist listing lives on `AllActivitiesStore` (`CoachHQApp` `@StateObject`), never
   `SyncCache` (7-day backfill / 30-day eviction) and never the pushed view's `@State`.

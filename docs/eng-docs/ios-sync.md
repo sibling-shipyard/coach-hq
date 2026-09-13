@@ -318,7 +318,10 @@ the safe idempotent check: a no-op if the user already decided.
 `user_data/activities/hist` once via `GitHubAPIClient.listFiles` (filenames encode the date,
 so a lexical sort is enough for newest-first) and paginates activity-body fetches in memory.
 Popping All Activity does not refetch. A later hist sync prepends only new names. Sign-out
-and account switch call `reset()`. Nothing is written into `SyncCache`.
+and account switch call `reset()`. Nothing is written into `SyncCache`. Activity Detail's
+HR stream sidecar (ADR 0027) is kept in process memory (`HRStreamCache`), not SyncCache.
+The curve stays off the activity record; a second open of the same session does not pay
+GitHub again. Sign-out clears it.
 
 Before rebuilding those files, `regenerate_derived.py` adds `vs_usual` to each activity changed
 by the triggering push. The block is the median of up to 20 prior same-sport activities and is

@@ -31,6 +31,20 @@ struct SyncedActivityRow: Codable, Equatable, Identifiable {
         case id, title, sport, start, load
         case durationSeconds = "duration_s"
     }
+
+    /// Match a synced-chat row to a SyncCache entry. Caller loads `cache` once.
+    func cacheEntry(in cache: [SyncCacheEntry], drafts: [SyncedActivityDraft]) -> SyncCacheEntry? {
+        if let hit = cache.first(where: { $0.activity?.activityId == id }) {
+            return hit
+        }
+        if let hit = cache.first(where: { $0.fileName.contains(id) }) {
+            return hit
+        }
+        if let draft = drafts.first(where: { $0.activityId == id }) {
+            return cache.first(where: { $0.fileName == draft.fileName })
+        }
+        return nil
+    }
 }
 
 struct SyncedActivityListAttachment: Codable, Equatable {

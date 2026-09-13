@@ -388,11 +388,9 @@ struct CoachChatView: View {
                 if let list = message.syncedActivityList {
                     CoachChatSyncedActivityList(
                         activities: list.activities,
-                        resolveEntry: { cacheEntry(for: $0) }
-                    ) { row in
-                        if let entry = cacheEntry(for: row) {
-                            openedActivity = entry
-                        }
+                        drafts: syncManager.lastSyncedActivities
+                    ) { entry in
+                        openedActivity = entry
                     }
                 }
                 if !(message.paragraphs ?? []).isEmpty {
@@ -521,20 +519,6 @@ struct CoachChatView: View {
             threads.insert(created, at: 0)
         }
         activeThreadId = Self.provisionalSyncThreadId
-    }
-
-    private func cacheEntry(for row: SyncedActivityRow) -> SyncCacheEntry? {
-        let cache = SyncCache.load()
-        if let hit = cache.first(where: { $0.activity?.activityId == row.id }) {
-            return hit
-        }
-        if let hit = cache.first(where: { $0.fileName.contains(row.id) }) {
-            return hit
-        }
-        if let draft = syncManager.lastSyncedActivities.first(where: { $0.activityId == row.id }) {
-            return cache.first(where: { $0.fileName == draft.fileName })
-        }
-        return nil
     }
 
     private var chatFetchToken: String {
