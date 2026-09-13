@@ -244,9 +244,7 @@ export function repairBenchmarkSpecForInvariants(
   progressions: ProgressionsJson | null,
   activeInjuryFlagIds: ReadonlySet<string>,
 ): WorkoutCreateSpec {
-  const progressionsById = new Map(
-    (progressions?.progressions ?? []).map((p) => [p.id, p]),
-  );
+  const progressionsById = new Map((progressions?.progressions ?? []).map((p) => [p.id, p]));
 
   const phases = spec.phases.map((phase) => ({
     ...phase,
@@ -300,7 +298,9 @@ export function repairBenchmarkSpecForInvariants(
 // depends on catalog data, progressions, or injury text matching, so this cannot fail the same way
 // a generated spec theoretically could. Same BENCHMARK_TITLE as buildBenchmarkSpec, so it slugifies
 // to the same BENCHMARK_ROUTINE_ID and satisfies the same "benchmark exists" manifest check.
-export function buildFallbackBenchmarkSpec(activeInjuryFlagIds: ReadonlySet<string>): WorkoutCreateSpec {
+export function buildFallbackBenchmarkSpec(
+  activeInjuryFlagIds: ReadonlySet<string>,
+): WorkoutCreateSpec {
   return {
     title: BENCHMARK_TITLE,
     workout_type: "foundation",
