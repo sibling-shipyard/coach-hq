@@ -1,11 +1,48 @@
 # Athlete repo migration: the Current Week and Workouts stacks (#973, #727)
 
-> Status: Ready, not started · Owner: Tech Lead · Created: 2026-09-11
+> Status: Ready, not started · Owner: Tech Lead · Created: 2026-09-11 · Re-verified: 2026-09-13
 >
 > Deferred on purpose: do this after Workouts lands, not before. Nothing in the #973 stack
 > breaks an unmigrated repo. The hosted chat handler and the schema live in HQ, not in the
 > athlete repo, so an old-shaped `current_week.json` just keeps working under the old rules
 > until its repo is migrated. There's no forcing deadline.
+>
+> **#727 has now merged to `main` (`c5ecc36a`).** Every finding in this doc was re-checked from
+> scratch against that real, fully-merged tip - a fresh `carve-skeleton.mjs --dry-run` and fresh
+> clones of all five real athlete repos, not the earlier pre-merge stack-tip check. Nothing below
+> is stale. One new, repo-wide finding surfaced this round - see "New finding this round" right
+> after this header, before the rest of the doc.
+>
+> **Nothing has been pushed or migrated yet.** This re-verification pass is read-only: a dry-run
+> carve, five fresh clones, diffs. `sibling-shipyard/coach-skeleton` itself has not been
+> re-stamped, and no athlete repo has been touched. Everything below is still the plan, not a
+> report of completed work.
+
+## New finding this round: `user_data/activities/streams/` and `user_data/health/zones.json`
+
+Not in scope of anything #973 or #727 touched, and not part of #966's already-tracked
+skanda/akash leftover list. Found by diffing all five repos' full `user_data/` file list against
+a fresh carve, not assumed.
+
+**Every one of the five real repos has both `user_data/activities/streams/*.json` (dozens to
+hundreds of per-activity files, HealthKit-shaped UUIDs as filenames) and
+`user_data/health/zones.json`.** A fresh carve produces neither - `carve-skeleton.mjs` has no
+shape for either path at all, not even a `.gitkeep` placeholder. This is uniform across all five
+repos, including the three (`date2022`, `prateekdevaraju`, `shreyas-95-cyber`) that otherwise have
+no leftover-file problem. That reads as real, load-bearing iOS-sync output the skeleton has simply
+never accounted for - not per-athlete drift the way #966's list is.
+
+**This needs a decision, not a guess:**
+1. If the coach-chat backend or the iOS app reads either path today, `carve-skeleton.mjs` is
+   missing a real directory shape a fresh athlete needs from day one - a carve gap, fix it there.
+2. If nothing reads them and they're dead output from a retired sync step, that's its own cleanup
+   question, same shape as #966's but repo-wide instead of two-athlete-specific. It probably
+   deserves its own issue rather than folding into #966, since #966 is scoped to skanda/akash
+   leftovers specifically and this is universal.
+
+Not resolved in this doc. Whoever picks up execution should grep the coach-chat backend and the
+iOS app for `activities/streams/` and `health/zones.json` before deciding either way - that's a
+fast check this pass didn't do, since it's outside this doc's own HQ-vs-repo carve scope.
 
 ## Why this exists
 
@@ -128,7 +165,10 @@ Six total. `ui/scripts/run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map only
 (`skanda`, `akash`) - out of date. Worth adding the other three there while doing this migration,
 so a live test against any of them doesn't need `--repo`/`--local-path` spelled out by hand.
 
-Checked directly against each local clone (not assumed) on 2026-09-11:
+Checked directly against each local clone (not assumed) on 2026-09-11. Re-confirmed with fresh
+clones against the real merged `main` on 2026-09-13 - identical results, down to the exact session
+ids and offending discipline values (`WeightTraining` x2 + `Badminton` x1 for akash, `hiking` x1
+for date2022):
 
 | Repo | `coach_comments`? | Any `planned_load`? | Off-enum `discipline`? | `data_status` | `reconcile`/`rollover` scripts |
 |---|---|---|---|---|---|
@@ -153,12 +193,12 @@ skipped by the athlete's own decision, so it's not counted as shipped anywhere b
 outstanding follow-up, not a gap this doc found by accident. **A6's actual scope:** open a PR
 against `skanda-2003/coach-skanda-2003` carrying the recomposed `SOUL.claude.md` and
 `engine/scripts/compile-workout-cli.mts`. That's what lets the BYO Claude Code path create a
-routine in that repo - the same "Done when" `workouts-redesign.md`'s A6 row already defines.
-That repo's `SOUL.claude.md` is also already well behind HQ's current composed build, for reasons
-unrelated to this stack (missing `coaching_style`, season-start changes, etc.). The athlete's own
-call was not to bundle that drift into A6, so A6 is really two decisions in one PR: a
-targeted patch for just the workouts-redesign soul change, or a full refresh that catches
-everything else up too. See "Everything outside `user_data/` - drift check against a fresh carve"
+routine in that repo. That repo's `SOUL.claude.md` is also already well behind HQ's current
+composed build, for reasons unrelated to this stack (missing `coaching_style`, season-start
+changes, etc.). The athlete's own call was not to bundle that drift into A6, so A6 is really two
+decisions in one PR: a targeted patch for just the workouts-redesign soul change, or a full
+refresh that catches everything else up too. See "Everything outside `user_data/` - drift check
+against a fresh carve"
 below for the same fork applied to all five repos generally. Audited each PR's own diff against
 its own base branch, not
 the whole stack at once, so each finding below traces to the PR that actually introduced it.
@@ -203,7 +243,10 @@ the whole stack at once, so each finding below traces to the PR that actually in
 
 ## Repos in scope, Workouts stack
 
-Checked directly against each local clone on 2026-09-12:
+Checked directly against each local clone on 2026-09-12. Re-confirmed with fresh clones against
+the real merged `main` on 2026-09-13 - identical results, down to the exact missing manifest ids
+(`foundation`, `strength_a` missing from `template_ids` on prateek and shreyas; no manifest file
+at all on date2022):
 
 | Repo | `shared/workout-library/`? | `engine/lib/compileWorkout.mts`? | `compile-workout-cli.mts`? | Manifest orphan bug? | `training_availability` present? |
 |---|---|---|---|---|---|
@@ -225,24 +268,38 @@ full stop. HQ keeps shipping carve-affecting changes these repos never automatic
 repo only picks up a new carve when someone re-runs it by hand. Checked that broader question here,
 once, against a dry-run carve of this whole stack's tip.
 
-**Method:** `node platform/scripts/carve-skeleton.mjs --dry-run --out-dir <dir>` with no `--sha`,
-so it carves from `a6e047e2` (this PR stack's own HEAD at the time of this check, 2026-09-12) -
-the state every real repo should converge on once #727 merges. Diffed each repo's own
-non-`user_data/` tree against that output: `CLAUDE.md`, `README.md`, `SETUP.md`,
-`SOUL.claude.md`, `.gitignore`, `.coach-engine-version`, `.claude/`, `.github/workflows/`,
-`engine/`, `propagated/docs/`. `user_data/` itself is out of scope for this check - see the next
-section for why.
+**Method, re-run 2026-09-13 against the real merged tip:** `node platform/scripts/carve-skeleton.mjs
+--dry-run --out-dir <dir>` with no `--sha`, carving from `c5ecc36a` - `main`'s actual current
+HEAD, not an intermediate stack-tip SHA. Fresh, separate clones of all five real repos (not
+reused from any earlier check). Diffed each repo's own non-`user_data/` tree against that output:
+`CLAUDE.md`, `README.md`, `SETUP.md`, `SOUL.claude.md`, `.gitignore`, `.coach-engine-version`,
+`.claude/`, `.github/workflows/sync.yml`, `engine/`, `propagated/docs/`. `user_data/` itself is
+out of scope for this check - see the next section for why.
 
-**Every one of the five real repos is behind, on all of the above except `CLAUDE.md`.** None have
-picked up a carve since before the #973 stack, so none carry either #973's or #727's changes yet:
+**Every one of the five real repos is still behind, on all of the above except `CLAUDE.md` and
+`.claude/`.** None have picked up a carve since before the #973 stack, so none carry either
+#973's or #727's changes. The gap has grown since the last check (#727 added more to `SOUL.claude.md`
+and `current-week-contract.md` after that check ran) - real, current numbers:
 
-| Repo | `.coach-engine-version` pinned SHA | `SOUL.claude.md` diff | `sync.yml` has reconcile/rollover steps? | `engine/lib`, `engine/scripts` |
-|---|---|---|---|---|
-| `coach-skanda-2003` | `df3d1423` (#461) | 124 lines behind | no | missing `compileWorkout.mts`, `compile-workout-cli.mts`, `reconcile-current-week*`, `rollover-current-week*`, `hrZones.mjs`, `hr_zones.py`, `projectActivity.d.mts`, `text-caps.mts`, `validate-text-caps.py`, `vs_usual.py`; `current-week.mts` on the pre-#973 schema |
-| `coach-akash-suresh` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
-| `coach-prateekdevaraju` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
-| `coach-date2022` | `df3d1423` (#461) | 124 lines behind | no | same gap list as skanda |
-| `coach-shreyas-95-cyber` | `b731c3c3` (#663) - a later carve than the other four, but still pre-#973 | 113 lines behind | no | has `hrZones.mjs`, `projectActivity.d.mts`, `text-caps.mts`, `vs_usual.py` already (from its later carve); still missing `compileWorkout.mts`, `compile-workout-cli.mts`, `reconcile-current-week*`, `rollover-current-week*`; `current-week.mts` still on the pre-#973 schema |
+| Repo | `.coach-engine-version` pinned SHA | `SOUL.claude.md` diff | `current-week-contract.md` diff | `sync.yml` diff | `sync.yml` has reconcile/rollover steps? |
+|---|---|---|---|---|---|
+| `coach-skanda-2003` | `df3d1423` (#461) | 197 lines behind | 197 lines behind | 97 lines behind | no |
+| `coach-akash-suresh` | `df3d1423` (#461) | 197 lines behind | 197 lines behind | 97 lines behind | no |
+| `coach-prateekdevaraju` | `df3d1423` (#461) | 197 lines behind | 197 lines behind | 97 lines behind | no |
+| `coach-date2022` | `df3d1423` (#461) | 197 lines behind | 197 lines behind | 97 lines behind | no |
+| `coach-shreyas-95-cyber` | `b731c3c3` (#663) - a later carve than the other four, still pre-#973 | 180 lines behind | 197 lines behind | 97 lines behind | no |
+
+`engine/lib`/`engine/scripts`, re-checked directly (`diff -rq` against the fresh carve, not
+estimated): all five are still missing everything #727 added -
+`compileWorkout.mts`/`.test.mts`/its golden fixtures, `compile-workout-cli.mts`,
+`reconcile-current-week*`, `rollover-current-week*`. `coach-skanda-2003`, `coach-akash-suresh`,
+`coach-date2022`, and `coach-prateekdevaraju` are still also missing the older #973-adjacent set
+(`hrZones.mjs`, `hr_zones.py`, `projectActivity.d.mts`, `text-caps.mts`, `validate-text-caps.py`)
+and their `current-week.mts` is still on the pre-#973 schema. `coach-shreyas-95-cyber` already
+has that older set from its own later carve (#663) and only needs the #727-era files.
+
+`.claude/` matches the fresh carve exactly on every repo checked (`diff -rq`, zero output) -
+**not** a drift item, confirmed rather than assumed since it wasn't explicitly checked before.
 
 `README.md`, `SETUP.md`, and `.gitignore` also drifted in `coach-skanda-2003` and
 `coach-akash-suresh` specifically - both predate a `gen/aggregate.json` to
@@ -251,42 +308,102 @@ which this stack introduced. `coach-prateekdevaraju`, `coach-date2022`, and
 `coach-shreyas-95-cyber` already match the skeleton on those three files.
 
 This confirms the doc's existing per-file findings above (manifest, `shared/`, `training_availability`)
-still hold - none of the pulled branches touched anything this check reads. The new finding is
-broader: once #727 merges, all five repos need a full re-carve, not just the specific files
-#973 and #727 called out.
+still hold - none of the pulled branches touched anything this check reads. The finding is
+still the same shape as before, now reconfirmed against the real merged tip instead of a stack-tip
+preview: all five repos need a full re-carve, not just the specific files #973 and #727 called
+out.
 
 ## Next step, not yet done: re-stamp the skeleton, then reconcile each repo
 
+#727 has merged. This is the real next step now, not a future contingency.
+
 The dry-run above previewed what a carve *would* produce. It did not touch
-`sibling-shipyard/coach-skeleton` - no live clone of that repo exists locally right now, and
-nobody has run `carve-skeleton.mjs --push` since before this stack started. Three steps, strictly
-in this order, once #727 merges:
+`sibling-shipyard/coach-skeleton`. Checked directly (2026-09-13, not assumed): that repo is real,
+exists, and is pinned to `92c658ad` (#967) via its own `.coach-engine-version` - 54 commits
+behind current `main` (`c5ecc36a`), and still from well before both #973 and #727. Nobody has run
+`carve-skeleton.mjs --push` since before this stack started.
+
+**Prerequisite, before any of the three steps below:** `git pull` (or a fresh clone) every local
+copy of every one of the five athlete repos, plus `sibling-shipyard/coach-skeleton` itself, from
+each repo's real `main` on GitHub. A stale local clone silently comparing against old content is a
+real, previously-hit failure mode this session - a local worktree diffing against a branch that
+had moved on GitHub underneath it, twice, earlier in this same effort. Do not skip this even
+though it feels redundant with "just cloned it fresh" from an earlier pass. Re-pull immediately
+before each of the three steps, not just once at the start, since step 1 itself changes what
+`sibling-shipyard/coach-skeleton`'s `main` contains.
+
+Three steps, strictly in this order:
 
 1. **Re-stamp the skeleton first.** Run `carve-skeleton.mjs --push` from a current HQ `main`
-   checkout so `sibling-shipyard/coach-skeleton` reflects post-#727 HQ, not the pre-#973 state it's
-   pinned to today. Nothing below is valid until this runs.
+   checkout so `sibling-shipyard/coach-skeleton` reflects post-#727 HQ (`c5ecc36a`), not `92c658ad`.
+   This is a real push to a real repo - confirm before running, same as any other live action.
+   Nothing below is valid until this runs.
 2. **Then diff each of the five real repos' non-`user_data/` tree against the refreshed skeleton**
-   and reconcile drift by hand - the same file list checked in the section above, using the real
-   skeleton repo instead of a dry-run preview.
+   and reconcile drift by hand. The dry-run carve in the section above already previewed this
+   faithfully (same HQ source, same carve logic - a dry-run and a real push produce identical
+   content), so the findings above are trustworthy as-is. This step is about closing the loop
+   against the *real* repo once it exists, and about actually doing the reconciliation, not just
+   previewing it.
 3. **Only after both of those, the skeleton becomes a valid reference for `user_data/`'s
    *structure*** - directory shape and expected file names, not content, since each athlete's data
    is obviously different from a fresh carve's placeholders. Checking `user_data/` structure
    against a stale skeleton would just re-detect the same staleness as step 1, not real drift.
+   This round's `user_data/` structure check (the new finding at the top of this doc, and the
+   #966 cross-check below) was run against the dry-run carve, for the same reason step 2 is
+   trustworthy pre-push. It's a valid preview of what step 3 will confirm for real.
 
-None of this has run yet. It's a documented next step for whoever picks up the migration after
-#727 merges, not a completed check.
+None of this has run yet. It's the documented next step, not a completed migration.
+
+### `user_data/` structure re-check against #966's tracked leftover list
+
+Re-diffed all five repos' `user_data/` file lists against the fresh carve, filtering out
+legitimately-variable per-athlete content (`activities/hist/`, `workout_plans/sessions/`,
+`workout_plans/templates/*.json`) to isolate real structural differences. Beyond the
+`activities/streams/`/`health/zones.json` finding at the top of this doc (universal, not
+#966-related), found more:
+
+- **`coach-skanda-2003`:** `#966`'s tracked list is confirmed still present and accurate. Two
+  more items found, not yet in #966: `user_data/coach/archive/roadmap.md`,
+  `user_data/coach/reference/progression_paths.md`.
+- **`coach-akash-suresh`:** `#966`'s tracked list is confirmed still present. Several more items
+  found, not yet in #966: `user_data/coach/archive/early_challenge_log.md`,
+  `user_data/coach/reference/badminton.md`, `user_data/coach/reference/league_warmup.md`,
+  `user_data/profile.md`, `user_data/activities/workout_plans/templates/workout_templates.md`.
+  `user_data/activities/badminton_match_data.json` and `user_data/activities/match_history.json`
+  are almost certainly legitimate badminton-plugin files, not leftovers - `SOUL.claude.md`'s own
+  guardrails section names `gen/badminton_analytics_snapshot.json` as a real, on-demand-read
+  plugin file in the same family, so these two are very likely load-bearing, not drift. Flagging
+  rather than asserting, since this doc didn't confirm a coach-chat/plugin read site for these two
+  specific paths.
+- **`coach-date2022`, `coach-prateekdevaraju`, `coach-shreyas-95-cyber`:** no `user_data/`
+  structural differences found beyond the universal `activities/streams/`/`health/zones.json`
+  finding. These three genuinely match the skeleton shape otherwise, confirming the athlete's own
+  expectation that non-skanda/akash repos should already be clean.
+
+**Not resolved here:** whether to expand #966 to cover the newly-found skanda/akash items, or file
+them separately - #966 is explicitly scoped to its own named list, and silently expanding it
+changes what that issue means without anyone deciding to. Flagging for a decision, not deciding
+unilaterally.
 
 ## Done when
 
 - All six repos above pass `./engine/scripts/validate-current-week` on `main`.
 - Each athlete repo's `sync.yml` has run at least once post-migration with the Reconcile and
   Rollover steps both green.
-- `ATHLETE_REPOS` in `run-manual-coach-chat-test.ts` lists all five athletes, not two.
-- `carve-skeleton.mjs` carves `shared/workout-library/exercises.json` into new and re-carved repos.
-- `sibling-shipyard/coach-skeleton` is re-stamped to post-#727 HQ (`carve-skeleton.mjs --push`).
+- `ATHLETE_REPOS` in `run-manual-coach-chat-test.ts` lists all five athletes, not two (still
+  unchanged, reconfirmed 2026-09-13 - still just `skanda` and `akash`).
+- `carve-skeleton.mjs` carves `shared/workout-library/exercises.json` into new and re-carved repos
+  (still unhandled, reconfirmed 2026-09-13 - a fresh dry-run carve still produces no `shared/`
+  directory at all).
+- `sibling-shipyard/coach-skeleton` is re-stamped to post-#727 HQ (`carve-skeleton.mjs --push`) -
+  currently pinned to `92c658ad`, 54 commits behind `main`.
 - All five real repos' non-`user_data/` tree has been re-carved and matches that refreshed skeleton.
 - All five real repos' `templates/_manifest.json` lists every starter template file actually on
   disk.
+- The `activities/streams/`/`health/zones.json` question (new finding, top of this doc) has an
+  explicit decision - carve-skeleton gap or dead-output cleanup - not silent inaction.
+- The newly-found skanda/akash leftover items (not yet in #966) have an explicit home - folded
+  into #966, or filed as their own issue - not silently undecided.
 - A6 has landed against `coach-skanda-2003`: `SOUL.claude.md` and `compile-workout-cli.mts`
   carried over, and that athlete's own BYOB "give me a routine" ask actually works there.
 - This file is deleted in the finishing PR, per the plan-delete-on-last-PR rule.

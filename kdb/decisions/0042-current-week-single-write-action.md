@@ -9,19 +9,18 @@
   an ordinary edit like "swap tomorrow's badminton for football" into two separate
   action-field entries (`coachPromptText.ts:213-221`) instead of writing one. The file
   also only ever refreshes when the model writes it - miss a day of chat and the week
-  goes `stale` after one grace day (`current-week.mts:562-564`). Full findings in
-  `docs/plans/current-week-redesign-lld.md`.
+  goes `stale` after one grace day (`current-week.mts:562-564`).
 - **Decision:** Replace the three action fields with one, `week_update`, sent as a
   sparse per-day/per-session patch. Code fills in every mechanical field. Move
   reconciliation (matching a synced activity to a planned session) out of the model
   into a deterministic rules pass that only asks Coach about genuinely ambiguous rows.
   Add a scheduled rollover job to the sync pipeline so the week advances on its own.
   Drop `planned_load`, `coach_comments`, and the `draft` half of `data_status` from the
-  schema once each clears the consumer audit in the LLD.
+  schema - shipped shape in `docs/eng-docs/coach-data-schema.md`.
 - **Why:** This is the same principle already proven for workouts, applied to the
-  week. `docs/plans/workouts-redesign.md` calls it "Coach writes exercises, code
-  writes timer physics." The model should express intent and exceptions, not own
-  routing between competing write paths or drive a lifecycle nothing else reads.
+  week: Coach writes exercises, code writes timer physics. The model should express
+  intent and exceptions, not own routing between competing write paths or drive a
+  lifecycle nothing else reads.
 - **Rejected:** Leave the three actions and only add validation to stop the silent
   drop → treats the symptom, the routing puzzle itself is the defect. Keep `draft` and
   teach the model to use it → no second confirmation turn exists in this pipeline's
