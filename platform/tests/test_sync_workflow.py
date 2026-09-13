@@ -76,6 +76,17 @@ class TestAddHistory(unittest.TestCase):
 
 
 class TestWorkflowShape(unittest.TestCase):
+    def test_node_version_supports_strip_types(self):
+        # Wrappers pass --experimental-strip-types, a Node 22+ flag. Pinning 20
+        # ships a Sync that dies at Reconcile on every athlete repo (#1022).
+        self.assertRegex(WORKFLOW, r"node-version:\s*['\"]?22")
+        wrappers = list((REPO_ROOT / "engine/scripts").glob("*-current-week"))
+        self.assertTrue(wrappers, "no current-week wrappers found")
+        for wrapper in wrappers:
+            text = wrapper.read_text()
+            if "--experimental-strip-types" in text:
+                self.assertRegex(WORKFLOW, r"node-version:\s*['\"]?22")
+
     def test_both_call_sites_go_through_the_helper(self):
         self.assertEqual(len(re.findall(r"^\s*add_history$", WORKFLOW, re.M)), 2)
 
