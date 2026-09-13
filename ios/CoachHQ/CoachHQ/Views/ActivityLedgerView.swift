@@ -4,7 +4,6 @@ struct ActivityLedgerView<Footer: View>: View {
     let entries: [SyncCacheEntry]
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
-    var zoomNamespace: Namespace.ID? = nil
     @ViewBuilder var footer: () -> Footer
 
     @State private var openWeekIDs: Set<String> = []
@@ -25,7 +24,6 @@ struct ActivityLedgerView<Footer: View>: View {
                     week: week,
                     isOpen: openWeekIDs.contains(week.id),
                     pulledID: pulledID,
-                    zoomNamespace: zoomNamespace,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
                     onOpen: { open($0) }
@@ -148,13 +146,11 @@ extension ActivityLedgerView where Footer == EmptyView {
     init(
         entries: [SyncCacheEntry],
         onSelect: @escaping (SyncCacheEntry) -> Void,
-        onBack: (() -> Void)? = nil,
-        zoomNamespace: Namespace.ID? = nil
+        onBack: (() -> Void)? = nil
     ) {
         self.entries = entries
         self.onSelect = onSelect
         self.onBack = onBack
-        self.zoomNamespace = zoomNamespace
         self.footer = { EmptyView() }
     }
 }
@@ -163,7 +159,6 @@ private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
-    var zoomNamespace: Namespace.ID? = nil
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
@@ -254,9 +249,6 @@ private struct ActivityLedgerWeekView: View {
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
                 .contentShape(Rectangle())
-                // Only the pulled card opens detail — marking every overlapping
-                // slip as a zoom source collapsed the negative-margin stack.
-                .ledgerZoomSource(id: item.id, in: isPulled ? zoomNamespace : nil)
                 .onTapGesture {
                     if isPulled {
                         onOpen(item.entry)
@@ -877,21 +869,5 @@ private enum LedgerHaptics {
 
     static func rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-    }
-}
-
-private extension View {
-    /// Marks a ledger card as the zoom source for Activity Detail. No-op when the
-    /// parent didn't pass a namespace (e.g. future chat embeds).
-    @ViewBuilder
-    func ledgerZoomSource(id: String, in namespace: Namespace.ID?) -> some View {
-        if let namespace {
-            matchedTransitionSource(id: id, in: namespace) { source in
-                source
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            }
-        } else {
-            self
-        }
     }
 }
