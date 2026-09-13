@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildBenchmarkSpec,
+  repairBenchmarkSpecForInvariants,
+  buildFallbackBenchmarkSpec,
   seedBenchmarkProgressions,
   inferTrainingAvailability,
   loadExerciseCatalog,
@@ -139,6 +141,99 @@ describe("buildBenchmarkSpec", () => {
       .find((ex) => catalog.find((e) => e.name === ex.name)?.movement_pattern === "push");
     const pushEntry = catalog.find((e) => e.name === pushWithFlag?.name);
     expect(pushEntry?.muscle_group).not.toBe(flaggedGroup);
+  });
+});
+
+describe("repairBenchmarkSpecForInvariants", () => {
+  it("clamps a dose down to a since-updated progression's real current, to one set", () => {
+    const spec = buildBenchmarkSpec(memory(), injuries());
+    const target = spec.phases[0].exercises.find((ex) => ex.progression_id)!;
+    const progressions: ProgressionsJson = {
+      version: 1,
+      _meta: { updated_at: "t", updated_by: "model", trace_id: "t1" },
+      progressions: [
+        {
+          id: target.progression_id!,
+          name: target.name,
+          current: "1 (already benchmarked)",
+          target: "",
+          unit: null,
+          history: [],
+        },
+      ],
+    };
+    const repaired = repairBenchmarkSpecForInvariants(spec, progressions, new Set());
+    const repairedTarget = repaired.phases
+      .flatMap((p) => p.exercises)
+      .find((ex) => ex.progression_id === target.progression_id)!;
+    const dose =
+      repairedTarget.type === "timed"
+        ? (repairedTarget.duration_secs ?? 0) * repairedTarget.sets
+        : (repairedTarget.reps ?? 0) * repairedTarget.sets;
+    expect(dose).toBeLessThanOrEqual(1);
+    expect(() =>
+      applyWorkoutCreate(repaired, new Set(), new Set(), progressions, "t1"),
+    ).not.toThrow();
+  });
+
+  it("leaves every exercise alone when nothing needs repair", () => {
+    const spec = buildBenchmarkSpec(memory(), injuries());
+    const repaired = repairBenchmarkSpecForInvariants(spec, null, new Set());
+    expect(repaired).toEqual(spec);
+  });
+
+  it("fills a generic ack for an active flag activeInjuryFlagIds knows about but spec.injury_ack doesn't", () => {
+    const spec = buildBenchmarkSpec(memory(), injuries());
+    expect(spec.injury_ack ?? []).toEqual([]);
+    const repaired = repairBenchmarkSpecForInvariants(spec, null, new Set(["flag_x"]));
+    expect(repaired.injury_ack?.map((a) => a.flag)).toEqual(["flag_x"]);
+  });
+
+  it("synthesizes scaled_from for a progression_id with no matching entry and none set", () => {
+    const spec = buildBenchmarkSpec(memory(), injuries());
+    const stripped = {
+      ...spec,
+      phases: spec.phases.map((p) => ({
+        ...p,
+        exercises: p.exercises.map((ex) => ({ ...ex, scaled_from: undefined })),
+      })),
+    };
+    const repaired = repairBenchmarkSpecForInvariants(stripped, null, new Set());
+    for (const ex of repaired.phases.flatMap((p) => p.exercises)) {
+      if (ex.progression_id) expect(ex.scaled_from?.trim()).toBeTruthy();
+    }
+  });
+});
+
+describe("buildFallbackBenchmarkSpec", () => {
+  it("compiles and passes every invariant with no injury flags", () => {
+    const spec = buildFallbackBenchmarkSpec(new Set());
+    const { content } = applyWorkoutCreate(spec, new Set(), new Set(), null, "t1");
+    expect(() => validateWorkout(JSON.parse(content), "fallback test")).not.toThrow();
+  });
+
+  it("compiles and passes invariant 7 with active injury flags acked for free", () => {
+    const spec = buildFallbackBenchmarkSpec(new Set(["flag_1", "flag_2"]));
+    const { content } = applyWorkoutCreate(
+      spec,
+      new Set(),
+      new Set(["flag_1", "flag_2"]),
+      null,
+      "t1",
+    );
+    expect(() => validateWorkout(JSON.parse(content), "fallback test")).not.toThrow();
+  });
+
+  it("slugifies to the exact same BENCHMARK_ROUTINE_ID buildBenchmarkSpec does", () => {
+    const spec = buildFallbackBenchmarkSpec(new Set());
+    expect(spec.title).toBe(buildBenchmarkSpec(memory(), injuries()).title);
+  });
+
+  it("carries no progression_id, so invariants 1/2/8 never apply", () => {
+    const spec = buildFallbackBenchmarkSpec(new Set());
+    for (const ex of spec.phases.flatMap((p) => p.exercises)) {
+      expect(ex.progression_id).toBeUndefined();
+    }
   });
 });
 

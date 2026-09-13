@@ -32,6 +32,8 @@ import {
 } from "./decide/coachWorkoutFiles.js";
 import {
   buildBenchmarkSpec,
+  repairBenchmarkSpecForInvariants,
+  buildFallbackBenchmarkSpec,
   seedBenchmarkProgressions,
   inferTrainingAvailability,
   BENCHMARK_ROUTINE_ID,
@@ -1378,21 +1380,26 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 // this is on the critical path of the turn's own response, so a failure here only logs and moves
 // on.
 //
-// Gated on the false->true profileComplete transition (never just "profileComplete is true"):
-// isAthleteProfileComplete (coachChatFiles.ts) is a field-presence check recomputed every turn
-// from current profile/memory/seasons content, so it stays true forever once an athlete's profile
-// is complete - a live-verified regression (#727 review) found that dropping the transition
-// requirement here made this fire, and commit a synthetic first week, on every single ordinary
-// turn from any already-established athlete, since it has no reason to ever get the benchmark's
-// id into its manifest otherwise. ALSO gated on the benchmark's own routine id being absent from
-// the manifest, not on the manifest merely existing - carve-skeleton now seeds a manifest with two
-// starter templates at carve time (A4), so "does a manifest exist" was always true and this never
-// ran for a freshly carved repo either (the original P0, #727 review). A dropped invariant on the
-// transition turn itself still means no automatic retry - a known, narrower gap than the one this
-// replaces, tracked as follow-up rather than papered over with something unsafe for existing
-// athletes.
+// Gated on first_session_benchmark_pending (profile.json), not on the wasProfileComplete
+// transition alone (#727 retry fix). isAthleteProfileComplete (coachChatFiles.ts) is a
+// field-presence check recomputed every turn from current profile/memory/seasons content, so it
+// stays true forever once an athlete's profile is complete - a live-verified regression (#727
+// review) found that gating on "profileComplete is true" alone made this fire, and commit a
+// synthetic first week, on every single ordinary turn from any already-established athlete, since
+// it has no reason to ever get the benchmark's id into its manifest otherwise. The pending marker
+// (coachSinceStamp.ts's injectCoachSinceIfNeeded, set in the same merge patch as coach_since on
+// the real false->true transition) is the durable version of that same one-shot signal: an
+// already-established athlete never gets it set, so this still never fires for them, but a
+// genuinely new signup whose first attempt threw stays pending and gets retried on the very next
+// turn instead of being stuck forever. Cleared below only once a benchmark actually commits.
+// ALSO gated on the benchmark's own routine id being absent from the manifest, not on the
+// manifest merely existing - carve-skeleton now seeds a manifest with two starter templates at
+// carve time (A4), so "does a manifest exist" was always true and this never ran for a freshly
+// carved repo either (the original P0, #727 review).
 export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrites): Promise<void> {
-  if (turn.wasProfileComplete || !turn.profileComplete) return;
+  const firstSessionTransition = !turn.wasProfileComplete && turn.profileComplete;
+  const pendingFromEarlierAttempt = turn.context.profile?.first_session_benchmark_pending === true;
+  if (!turn.profileComplete || (!firstSessionTransition && !pendingFromEarlierAttempt)) return;
   try {
     const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
     const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
@@ -1405,19 +1412,48 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
     );
     const progressions = turn.context.progressions ?? null;
 
-    const spec = buildBenchmarkSpec(memory, injuries);
-    const { writes: benchmarkWrites, dropped } = buildWorkoutCreateAndRemoveWrites(
+    // Fix 1: repair the generated spec against the two invariants that depend on repo state
+    // buildBenchmarkSpec doesn't see fresh at call time (dose vs. a since-updated progression,
+    // an injury flag the caller knows about that the spec didn't). Fix 2: if a repaired spec
+    // still somehow trips an invariant, fall back to one fixed bodyweight movement structurally
+    // incapable of tripping any of them, so a benchmark + first week always commits.
+    const generatedSpec = repairBenchmarkSpecForInvariants(
+      buildBenchmarkSpec(memory, injuries),
+      progressions,
+      activeInjuryFlagIds,
+    );
+    let { writes: benchmarkWrites, dropped } = buildWorkoutCreateAndRemoveWrites(
       turn.traceId,
-      spec,
+      generatedSpec,
       undefined,
       existingRoutineIds,
       activeInjuryFlagIds,
       progressions,
     );
+    let spec = generatedSpec;
     if (dropped.length > 0 || benchmarkWrites.length === 0) {
-      throw new Error(
+      console.error(
+        "[coach-chat] repaired first session benchmark spec still invalid - falling back:",
         dropped.map((d) => d.reason).join("; ") || "workout_create produced no writes",
+        { traceId: turn.traceId },
       );
+      const fallbackSpec = buildFallbackBenchmarkSpec(activeInjuryFlagIds);
+      const fallbackResult = buildWorkoutCreateAndRemoveWrites(
+        turn.traceId,
+        fallbackSpec,
+        undefined,
+        existingRoutineIds,
+        activeInjuryFlagIds,
+        null,
+      );
+      if (fallbackResult.dropped.length > 0 || fallbackResult.writes.length === 0) {
+        throw new Error(
+          fallbackResult.dropped.map((d) => d.reason).join("; ") ||
+            "fallback workout_create produced no writes",
+        );
+      }
+      spec = fallbackSpec;
+      benchmarkWrites = fallbackResult.writes;
     }
     const benchmarkRoutineId = benchmarkWrites[0].path
       .slice(TEMPLATES_PATH_PREFIX.length)
@@ -1464,6 +1500,27 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       memoryWrite,
       { path: CURRENT_WEEK_PATH, content: weekContent },
     ];
+
+    // Clear first_session_benchmark_pending in the same atomic commit as the benchmark itself -
+    // the marker only exists to make a failed attempt retryable, so it must come off exactly when
+    // (and only when) a benchmark actually lands, never before. Reading fresh here (not
+    // turn.context.profile, loaded at the top of the turn) picks up the pending:true this same
+    // turn's own commitTurn facts-commit may have just written on a real transition turn.
+    const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+    if (freshProfileContent) {
+      const clearedPending = applyJsonMergePatch(
+        freshProfileContent,
+        JSON.stringify({ first_session_benchmark_pending: false }),
+      );
+      if (clearedPending.ok) {
+        writes.push({ path: PROFILE_PATH, content: clearedPending.content });
+      } else {
+        console.warn(
+          `[coach-chat] could not clear first_session_benchmark_pending: ${clearedPending.error}`,
+          { traceId: turn.traceId },
+        );
+      }
+    }
 
     await commitFilesAtomic(writes, "coach: first session benchmark and first week", {
       repo: turn.repo,

@@ -21,6 +21,13 @@ export interface ProfileJson {
   timezone: string;
   height_cm: number | null;
   weight_kg: number | null;
+  // A3 retry fix (#727): set alongside coach_since on the wasProfileComplete false->true
+  // transition (coachSinceStamp.ts), cleared once generateFirstSessionWorkoutsAfterCompletion
+  // actually commits a benchmark. Lets that function retry on a later turn after a failed
+  // attempt without also firing for an already-established athlete, who never gets this field
+  // set in the first place. Optional so every profile.json written before this field existed
+  // still parses as "not pending" (undefined is falsy) - no backfill needed.
+  first_session_benchmark_pending?: boolean;
 }
 
 // The six memory_update labels - fixed set, per gemini-flow.md's "constrained values over free
