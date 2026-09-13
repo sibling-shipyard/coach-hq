@@ -22,6 +22,7 @@ struct WarmInstrumentHomeView: View {
     @State private var isEditingLayout = false
     @State private var navigationPath: [HomeRoute] = []
     @State private var badmintonShowsRanked = false
+    @Namespace private var activityZoom
 
     @AppStorage("engineOverlayDismissed") private var engineOverlayDismissed = false
     @State private var enginePulse: Bool = false
@@ -95,10 +96,12 @@ struct WarmInstrumentHomeView: View {
                     // Full paginated history, not the 7-day widget cache — see
                     // AllActivitiesListView's doc comment for why it's a separate view.
                     AllActivitiesListView(
-                        onSelectEntry: { entry in navigationPath.append(.activity(entry)) }
+                        onSelectEntry: { entry in navigationPath.append(.activity(entry)) },
+                        zoomNamespace: activityZoom
                     )
                 case .activity(let entry):
                     ActivityDetailView(entry: entry)
+                        .navigationTransition(.zoom(sourceID: entry.id, in: activityZoom))
                 }
             }
             .task(id: homeFetchToken) {

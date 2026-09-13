@@ -17,6 +17,7 @@ struct AllActivitiesListView: View {
     /// feed views use, so this pushes onto the *caller's* NavigationStack (Home's)
     /// rather than nesting a second one.
     var onSelectEntry: (SyncCacheEntry) -> Void
+    var zoomNamespace: Namespace.ID? = nil
 
     @EnvironmentObject var authManager: GitHubAuthManager
     @Environment(\.dismiss) private var dismiss
@@ -62,6 +63,7 @@ struct AllActivitiesListView: View {
                         entries: loadedEntries,
                         onSelect: onSelectEntry,
                         onBack: { dismiss() },
+                        zoomNamespace: zoomNamespace,
                         footer: { loadMoreFooter }
                     )
                     // Keep ledger @State across load-more footer/spinner swaps.
