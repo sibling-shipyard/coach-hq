@@ -254,7 +254,9 @@ private struct ActivityLedgerWeekView: View {
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
                 .contentShape(Rectangle())
-                .ledgerZoomSource(id: item.id, in: zoomNamespace)
+                // Only the pulled card opens detail — marking every overlapping
+                // slip as a zoom source collapsed the negative-margin stack.
+                .ledgerZoomSource(id: item.id, in: isPulled ? zoomNamespace : nil)
                 .onTapGesture {
                     if isPulled {
                         onOpen(item.entry)
