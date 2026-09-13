@@ -17,6 +17,7 @@ struct WarmInstrumentHomeView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
     @EnvironmentObject var syncManager: HealthKitSyncManager
+    @EnvironmentObject var allActivitiesStore: AllActivitiesStore
 
     @State private var toast: Toast?
     @State private var isEditingLayout = false
@@ -122,6 +123,14 @@ struct WarmInstrumentHomeView: View {
                 toast = Toast(kind: .success, message: syncToastMessage(n: n))
                 enginePulse = true
                 Task { try? await Task.sleep(for: .seconds(0.55)); enginePulse = false }
+                if let repo = authManager.repoFullName {
+                    Task {
+                        await allActivitiesStore.ingestNewHist(
+                            repo: repo,
+                            client: GitHubActivityHistClient(authManager: authManager)
+                        )
+                    }
+                }
             }
             .onChange(of: syncManager.coachReplyHomeCopy) { _, copy in
                 guard let copy, !copy.isEmpty else { return }

@@ -50,6 +50,7 @@ struct CoachHQApp: App {
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
     @StateObject private var widgetStore = WidgetSnapshotStore()
+    @StateObject private var allActivitiesStore = AllActivitiesStore()
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
@@ -68,6 +69,7 @@ struct CoachHQApp: App {
                         .environmentObject(syncManager)
                         .environmentObject(workoutService)
                         .environmentObject(widgetStore)
+                        .environmentObject(allActivitiesStore)
                         .environmentObject(bottomDock)
                         .environmentObject(router)
                 case .needsSetup(let login):
@@ -111,13 +113,18 @@ struct CoachHQApp: App {
                     DiagnosticsManager.setAthlete(repoFullName: nil)
                     workoutService.reset()
                     widgetStore.reset()
+                    allActivitiesStore.reset()
                     CoachMessageRoute.clear()
                 }
             }
             .onAppear {
                 // Lets AppRouter.checkAccountSwitch() reset these on an account switch
                 // (not just the explicit sign-out path above).
-                router.bindAccountScopedServices(workoutService: workoutService, widgetStore: widgetStore)
+                router.bindAccountScopedServices(
+                    workoutService: workoutService,
+                    widgetStore: widgetStore,
+                    allActivitiesStore: allActivitiesStore
+                )
             }
         }
     }

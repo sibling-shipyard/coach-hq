@@ -60,12 +60,18 @@ final class AppRouter: ObservableObject {
     // once via `bindAccountScopedServices` shortly after launch.
     private weak var workoutService: WorkoutService?
     private weak var widgetStore: WidgetSnapshotStore?
+    private weak var allActivitiesStore: AllActivitiesStore?
 
     /// Called once from `CoachHQApp` so `checkAccountSwitch()` can reset these stores when
     /// it detects a different GitHub login signed in — not just on the explicit sign-out path.
-    func bindAccountScopedServices(workoutService: WorkoutService, widgetStore: WidgetSnapshotStore) {
+    func bindAccountScopedServices(
+        workoutService: WorkoutService,
+        widgetStore: WidgetSnapshotStore,
+        allActivitiesStore: AllActivitiesStore
+    ) {
         self.workoutService = workoutService
         self.widgetStore = widgetStore
+        self.allActivitiesStore = allActivitiesStore
     }
 
     /// Returns .complete when sessionExpired so fullScreenCovers never render above the
@@ -203,13 +209,14 @@ final class AppRouter: ObservableObject {
             Task { await skipOnboardingIfAlreadyComplete() }
         } else if stored != login {
             // Different account — reset onboarding so the new user gets the full flow, and
-            // drop any previous account's cached workouts/Home data so it can't flash on
-            // screen before the new account's fetch lands.
+            // drop any previous account's cached workouts/Home/All Activity data so it
+            // can't flash on screen before the new account's fetch lands.
             persistPhase(.notStarted)
             defaults.set(false, forKey: "hkAuthorizationGranted")
             defaults.set(login, forKey: lastLoginKey)
             workoutService?.reset()
             widgetStore?.reset()
+            allActivitiesStore?.reset()
         }
         // Same login — no action.
     }

@@ -132,13 +132,14 @@ Rules about app state and first paint. Breaking one fails silently, not loudly.
   `CoachChatAPIClient.profileStatus()` (`/api/coach-chat-profile-status`, the same one
   `CoachSetupBootstrap.shouldOpenChatFirst` uses). On either yes it jumps `onboardingPhase`
   straight to `.complete`.
-- **Account-scoped data must be reset on _both_ exits.** `WorkoutService` and `WidgetSnapshotStore`
-  are app-lifetime `@StateObject`s that `GitHubAuthManager.signOut()` does not own: sign-out clears
-  them from `CoachHQApp`'s `.onChange(of: router.authManager.isAuthenticated)`, and account *switch*
-  clears them from `AppRouter.checkAccountSwitch()` (services bound in via
-  `bindAccountScopedServices`, called once from `CoachHQApp.onAppear`). Persisted caches need the
-  same scoping — `WidgetSnapshotStore` defers `loadCached()` to `configure(apiClient:)` (the account
-  is unknown in `init()`) and tags the cache with `apiClient.repoFullName`, refusing a mismatch.
+- **Account-scoped data must be reset on _both_ exits.** `WorkoutService`, `WidgetSnapshotStore`,
+  and `AllActivitiesStore` are app-lifetime `@StateObject`s. `GitHubAuthManager.signOut()` does
+  not own them. Sign-out clears them from `CoachHQApp`'s
+  `.onChange(of: router.authManager.isAuthenticated)`. Account switch clears them from
+  `AppRouter.checkAccountSwitch()`. `bindAccountScopedServices` is called once from
+  `CoachHQApp.onAppear`. Persisted caches need the same scoping.
+  `WidgetSnapshotStore` defers `loadCached()` to `configure(apiClient:)` because the account is
+  unknown in `init()`. It tags the cache with `apiClient.repoFullName` and refuses a mismatch.
   Otherwise a prior account's Home paints on cold launch until the real fetch lands ~5s later.
 - **Persisted Coach-message routes are account-scoped too.** A notification can arrive before
   `MainTabView` mounts, so its exact body and seed survive in `UserDefaults` with the repo identity.
