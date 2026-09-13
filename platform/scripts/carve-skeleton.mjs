@@ -30,6 +30,8 @@ const SHARED_DIR = path.join(REPO_ROOT, "shared");
 /** Scripts carved into engine/scripts/ */
 const SKELETON_SCRIPT_FILES = [
   "scripts/regenerate_derived.py",
+  "scripts/record_sync_failure.py",
+  "scripts/notify_sync_failure.py",
   "scripts/build-dashboard-snapshot.mjs",
   "scripts/generate-athlete-insights.mjs",
   "scripts/generate_quest_history.py",
@@ -398,9 +400,19 @@ After sync, \`gen/dashboard_snapshot.json\` and \`gen/athlete_insights.json\` re
 
 ---
 
+## 6. Turn on failure alerts
+
+GitHub does **not** notify you about failed Actions runs unless you ask it to, and a failed Sync
+leaves the app showing your previous numbers. Two minutes, once:
+
+**github.com → your avatar → Settings → Notifications → Actions** — tick **Email** and
+**Only notify for failed workflows**.
+
+---
+
 ## Troubleshooting
 
-- **Sync workflow fails:** open **Actions → Sync** and read the failed run's log. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
+- **Sync workflow fails:** \`gen/sync_failure.json\` names the step that died and links the run. Open **Actions → Sync** and read that run's log. Until the next green Sync, everything in \`gen/\` is from the last one that worked. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
 `;
 
 function parseArgs(argv) {
@@ -476,6 +488,36 @@ function copyFromShared(outDir, rel) {
   }
 }
 
+/** The one line in sync.user.yml that carries a value HQ does not commit. */
+const SYNC_DSN_PLACEHOLDER = '          SENTRY_DSN: ""';
+
+/**
+ * Stamp the Sentry DSN into the carved Sync workflow.
+ *
+ * A DSN is write-only — it can send events, not read them — and ours already ships in the
+ * public web bundle, so it needs no athlete secret and no GitHub secret. It is not committed
+ * at HQ either: the operator exports `SENTRY_DSN` when they carve. Unset, the carve still
+ * succeeds and the athlete's failed syncs simply reach nobody, so it says so loudly.
+ */
+function stampSyncDsn(yaml) {
+  const dsn = (process.env.SENTRY_DSN || "").trim();
+  if (!yaml.includes(SYNC_DSN_PLACEHOLDER)) {
+    throw new Error(
+      `sync.user.yml no longer has the line \`${SYNC_DSN_PLACEHOLDER.trim()}\` — ` +
+        "the carved workflow would silently lose its Sentry alert",
+    );
+  }
+  if (!dsn) {
+    console.warn(
+      "warning: SENTRY_DSN is not set — the carved repo will not report failed syncs.\n" +
+        "  Export the coach-hq-api project DSN and carve again to turn alerts on.",
+    );
+    return yaml;
+  }
+  // Function form: a `$` in the DSN would otherwise be read as a replacement pattern.
+  return yaml.replace(SYNC_DSN_PLACEHOLDER, () => `          SENTRY_DSN: "${dsn}"`);
+}
+
 function copyEngineTemplate(outDir, filename) {
   const src = path.join(PLATFORM_DIR, "skeleton-templates", filename);
   const dest = path.join(
@@ -499,10 +541,11 @@ function copyWorkflows(outDir) {
   // requests `/actions/workflows/sync.yml/runs`. Rename it here and that call 404s, so every
   // failed sync degrades to an unactionable "status unknown" warning and no real failure ever
   // surfaces. Change both sides together (#883).
-  fs.copyFileSync(
+  const sync = fs.readFileSync(
     path.join(ENGINE_DIR, ".github/workflows/sync.user.yml"),
-    path.join(wfDir, "sync.yml"),
+    "utf8",
   );
+  fs.writeFileSync(path.join(wfDir, "sync.yml"), stampSyncDsn(sync));
 
   for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));

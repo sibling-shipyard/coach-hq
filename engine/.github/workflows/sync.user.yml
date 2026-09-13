@@ -1,7 +1,8 @@
 # User-repo sync (coach-skeleton / coach-<user>). iOS path only — the HealthKit app commits
 # history directly, this regenerates derived files (quest_history, sync_status,
 # dashboard_snapshot, athlete_insights), reconciles current_week.json against newly-synced
-# activities, and rolls it over once it ages out (ADR 0039) — on every push.
+# activities, and rolls it over once it ages out (ADR 0039) — on every push. A run that dies
+# instead commits gen/sync_failure.json — the record of why gen/ is stale — and alerts Sentry.
 
 name: Sync
 
@@ -30,19 +31,23 @@ jobs:
       CI: "true"
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
+        id: setup_python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Python dependencies
+        id: install_deps
         run: pip install requests
 
       - name: Find changed activities
+        id: changed_activities
         if: github.event_name == 'push'
         run: |
           {
@@ -52,14 +57,17 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run pipeline
+        id: run_pipeline
         run: python3 engine/scripts/regenerate_derived.py
 
       - name: Set up Node
+        id: setup_node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Build dashboard snapshot and athlete insights
+        id: build_snapshot
         run: |
           node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
           node engine/scripts/generate-athlete-insights.mjs
@@ -69,6 +77,7 @@ jobs:
       # passes parseCurrentWeek - a validation failure exits nonzero and leaves the file alone,
       # same as every other step below.
       - name: Reconcile current week
+        id: reconcile_current_week
         run: ./engine/scripts/reconcile-current-week
 
       # ADR 0039's scheduled rollover: runs after reconciliation (so the old week's last real
@@ -76,9 +85,11 @@ jobs:
       # out - a still-current live or placeholder week is left untouched. Fixes the "dark week"
       # bug: an athlete who never chats still gets a Current Week naming the real dates.
       - name: Roll over an aged-out current week
+        id: rollover_current_week
         run: ./engine/scripts/rollover-current-week
 
       - name: Commit pipeline changes
+        id: commit_and_push
         run: |
           # Stage the athlete's activity history. Two states break a plain `git add` here and
           # they need different handling, which is why this is a function and not one flag:
@@ -106,6 +117,8 @@ jobs:
           add_current_week
           git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
           git add gen/quest_history.json gen/sync_status.json
+          rm -f gen/sync_failure.json
+          git rm -q --cached --ignore-unmatch gen/sync_failure.json
           if git diff --cached --quiet; then
             echo "No changes"
             exit 0
@@ -132,6 +145,8 @@ jobs:
             add_current_week
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
             git add gen/quest_history.json gen/sync_status.json
+            rm -f gen/sync_failure.json
+            git rm -q --cached --ignore-unmatch gen/sync_failure.json
             if git diff --cached --quiet; then
               echo "No changes after re-run"
               exit 0
@@ -141,3 +156,55 @@ jobs:
           done
           echo "All push attempts failed"
           exit 1
+
+      # A failed Sync leaves gen/ untouched, so every reader keeps serving the previous run's
+      # numbers as if they were current. This writes the run's own gravestone. It cannot trust
+      # anything the dead step left behind, so it re-derives its state from origin/main and
+      # pushes that one file. Failing here would only hide the original failure, so it never
+      # exits non-zero — it annotates and stops. It also sends one Sentry event, because a file
+      # in the repo is only read by someone who already suspects something is wrong. `set +e` is
+      # what makes the never-fail promise true: GitHub runs this block under `bash -e`, which
+      # would otherwise abort on a transient `git fetch` and skip the annotation and the retries.
+      - name: Record sync failure
+        if: failure()
+        env:
+          SYNC_STEPS_JSON: ${{ toJSON(steps) }}
+          SYNC_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SYNC_RUN_ID: ${{ github.run_id }}
+          SYNC_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SYNC_ATHLETE_ID: ${{ github.repository_owner }}
+          # Stamped in at carve time by platform/scripts/carve-skeleton.mjs. A Sentry DSN
+          # only writes — it cannot read an event back — so it is not a secret and the athlete
+          # sets nothing. Empty here means no alert; the record file below is still written.
+          SENTRY_DSN: ""
+        run: |
+          set +e
+          # First, and behind `||`: the alert is the half that reaches a human, and it is the
+          # only half that still works when this job cannot push. It exits 0 on every internal
+          # failure; the `||` covers the case where checkout died and the script is not there.
+          python3 engine/scripts/notify_sync_failure.py \
+            || echo "::warning::Could not alert Sentry about this failed Sync. Run: $SYNC_RUN_URL"
+          if [ ! -d .git ]; then
+            echo "::error::Sync failed before checkout — nowhere to record it. Run: $SYNC_RUN_URL"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            if ! python3 engine/scripts/record_sync_failure.py; then
+              echo "::error::Could not write the failure record. Run: $SYNC_RUN_URL"
+              exit 0
+            fi
+            git add -f gen/sync_failure.json
+            if git diff --cached --quiet; then
+              echo "Failure record already current — nothing to commit"
+              exit 0
+            fi
+            git commit -q -m "data: record failed sync run [skip ci]"
+            git push && exit 0
+            echo "push rejected — retrying the failure record (attempt $attempt)"
+          done
+          echo "::error::Sync failed and the failure record could not be pushed. Run: $SYNC_RUN_URL"
+          exit 0
