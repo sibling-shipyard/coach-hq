@@ -83,7 +83,9 @@ Home → All Activity is `AllActivitiesListView` hosting `ActivityLedgerView`: w
 
 Coach chat's SESSION SYNCED slot embeds the same stack (`ActivityLedgerStyle.embed`) — compact metrics, kicker only, no title or load sheet. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
 
-Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card. Riffle is UIKit-only; SwiftUI hold-then-drag stole `ScrollView`.
+Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card.
+
+Page riffle is UIKit-only. A custom recognizer on the All Activity `UIScrollView` shows a press (opacity 0.82, 2pt lift) after 80ms still, then arms at 180ms with 12pt slop. The armed card lifts 10pt; `.light` on arm, `.selection` on each new card; release pulls it. A flick still scrolls because the recognizer fails if the finger moves first. Embed does not riffle. Do not put a SwiftUI long-press plus drag on the stacked cards — that stole `ScrollView`.
 
 ---
 
