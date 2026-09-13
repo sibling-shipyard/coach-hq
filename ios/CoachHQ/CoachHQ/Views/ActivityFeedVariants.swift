@@ -1,44 +1,5 @@
 import SwiftUI
 
-// MARK: - Day grouping
-
-struct DayGroup: Identifiable {
-    let id: String       // YYYY-MM-DD
-    let label: String    // "Today", "Yesterday", "Wed 8 Jul"
-    let entries: [SyncCacheEntry]
-}
-
-private let _dayFmt: DateFormatter = {
-    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = .current; return f
-}()
-private let _inputFmt: DateFormatter = {
-    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current; return f
-}()
-
-func groupByDay(_ entries: [SyncCacheEntry]) -> [DayGroup] {
-    let cal = Calendar.current
-    let today = cal.startOfDay(for: Date())
-    let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
-    let buckets = Dictionary(grouping: entries) { e -> String in
-        guard let d = _inputFmt.date(from: e.startDateLocal) else { return "" }
-        return _dayFmt.string(from: d)
-    }
-    return buckets
-        .filter { !$0.key.isEmpty }
-        .sorted { $0.key > $1.key }
-        .map { dateStr, dayEntries in
-            let label: String
-            if let d = _dayFmt.date(from: dateStr) {
-                let s = cal.startOfDay(for: d)
-                if s == today            { label = "Today" }
-                else if s == yesterday   { label = "Yesterday" }
-                else                     { label = d.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
-            } else { label = dateStr }
-            return DayGroup(id: dateStr, label: label,
-                            entries: dayEntries.sorted { $0.startDateLocal > $1.startDateLocal })
-        }
-}
-
 // MARK: - Shared components
 
 /// 5 small HR zone circles: filled at zone color if ≥8% time in that zone, else dimmed.
@@ -59,75 +20,6 @@ struct ZoneDots: View {
                     .fill(Theme.hrZoneColors[i])
                     .frame(width: 6, height: 6)
                     .opacity(fractions[i] > 0.08 ? 1.0 : 0.18)
-            }
-        }
-    }
-}
-
-// MARK: - Week summary widget
-
-struct WeekSummaryWidget: View {
-    let entries: [SyncCacheEntry]
-
-    private var sessionCount: Int { entries.count }
-    private var totalSeconds: Int { entries.reduce(0) { $0 + $1.elapsedTime } }
-
-    private var activeDayCount: Int {
-        let cal = Calendar.current
-        let days = Set(entries.compactMap { e -> String? in
-            guard let d = _inputFmt.date(from: e.startDateLocal) else { return nil }
-            return _dayFmt.string(from: cal.startOfDay(for: d))
-        })
-        return days.count
-    }
-
-    private var timeString: String { Format.duration(seconds: totalSeconds) }
-
-    private struct DayDot {
-        let color: Color; let isToday: Bool; let isEmpty: Bool; let isFuture: Bool
-    }
-
-    private var dots: [DayDot] {
-        let cal = Calendar.current; let today = Date()
-        let daysSince = (cal.component(.weekday, from: today) + 5) % 7
-        guard let monday = cal.date(byAdding: .day, value: -daysSince, to: cal.startOfDay(for: today)) else { return [] }
-        let map = Dictionary(grouping: entries) { e -> String in
-            guard let d = _inputFmt.date(from: e.startDateLocal) else { return "" }
-            return _dayFmt.string(from: d)
-        }
-        return (0..<7).compactMap { i -> DayDot? in
-            guard let date = cal.date(byAdding: .day, value: i, to: monday) else { return nil }
-            let ds = _dayFmt.string(from: date)
-            let de = map[ds] ?? []
-            return DayDot(color: Theme.sportBadge(for: de.first?.sportType ?? "").color,
-                          isToday: cal.isDateInToday(date), isEmpty: de.isEmpty, isFuture: date > today)
-        }
-    }
-
-    var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    MonoLabel("This week", tracking: 2)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        ForEach(dots.indices, id: \.self) { i in
-                            let d = dots[i]
-                            Circle()
-                                .fill(d.isFuture || d.isEmpty ? WarmInstrument.surfaceMuted : d.color)
-                                .frame(width: 9, height: 9)
-                                .overlay(Circle().stroke(
-                                    d.isToday ? Theme.ink.opacity(0.45) : Color.clear,
-                                    lineWidth: 1.5))
-                        }
-                    }
-                }
-
-                HStack(alignment: .bottom, spacing: 0) {
-                    StatCell(value: "\(sessionCount)", label: "SESSIONS", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
-                    StatCell(value: timeString, label: "ACTIVE", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
-                    StatCell(value: "\(activeDayCount) / 7", label: "DAYS", valueFont: .system(size: 22, weight: .bold, design: .monospaced))
-                }
             }
         }
     }
@@ -182,7 +74,8 @@ extension SyncedActivityRow {
     }
 }
 
-/// Receipt-style activity row used in the home feed and inline in Coach Chat post-sync turns.
+/// Receipt-style row used in Coach Chat post-sync turns. All Activity uses
+/// `ActivityLedgerView`; chat moves onto those cards in the follow-up PR.
 struct ActivityLedgerRow: View {
     let vm: ActivityRowViewModel
 
@@ -265,136 +158,5 @@ struct ActivityLedgerRow: View {
         let out = DateFormatter()
         out.dateFormat = "h:mm a"
         return out.string(from: date)
-    }
-}
-
-// MARK: - Activity feed
-
-/// Week summary + single ledger card with inline day groups. Taps via parent `onSelect`.
-struct ActivityFeedView: View {
-    let entries: [SyncCacheEntry]
-    let grouped: [DayGroup]
-    let onSelect: (SyncCacheEntry) -> Void
-    /// When false, rows appear instantly — use for embedded pushes from Home.
-    var animateEntrance: Bool = true
-    /// Label shown in the ledger card's top-left kicker. Defaults to the 7-day framing;
-    /// full-history views (e.g. "All activity") pass something else in.
-    var kickerLabel: String = "LAST 7 DAYS"
-    /// The week-summary strip above the ledger only makes sense for a 7-day window —
-    /// a full-history paginated list skips it.
-    var showWeekSummary: Bool = true
-    /// Extra content appended after the last row inside the ledger card — used for a
-    /// "Load more" control in paginated views.
-    var footer: AnyView? = nil
-
-    private var sessionLabel: String {
-        entries.count == 1 ? "1 SESSION" : "\(entries.count) SESSIONS"
-    }
-
-    var body: some View {
-        LazyVStack(spacing: 0) {
-            if showWeekSummary { weekSummary }
-            ledgerCard
-            Color.clear.frame(height: 12)
-        }
-    }
-
-    @ViewBuilder
-    private var weekSummary: some View {
-        let widget = WeekSummaryWidget(entries: entries)
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 8)
-        if animateEntrance {
-            widget.staggerReveal(delay: PremiumMotion.staggerDelay(index: 0))
-        } else {
-            widget
-        }
-    }
-
-    @ViewBuilder
-    private var ledgerCard: some View {
-        let card = WarmCard {
-            VStack(alignment: .leading, spacing: 0) {
-                CardKicker(label: kickerLabel, trailing: sessionLabel)
-                    .padding(.bottom, 12)
-
-                ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
-                    dayHeader(groupIndex: groupIndex, label: group.label)
-
-                    ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, entry in
-                        Button {
-                            onSelect(entry)
-                        } label: {
-                            ActivityLedgerRow(vm: entry.asRowViewModel)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(RowPressButtonStyle())
-                        .modifier(OptionalStaggerReveal(
-                            animate: animateEntrance,
-                            delay: PremiumMotion.staggerDelay(index: revealIndex(groupIndex: groupIndex, entryIndex: entryIndex))
-                        ))
-
-                        if !isLastRow(groupIndex: groupIndex, entryIndex: entryIndex) {
-                            Divider()
-                                .overlay(WarmInstrument.headerRule)
-                        }
-                    }
-                }
-
-                if let footer {
-                    footer
-                        .padding(.top, 12)
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
-
-        if animateEntrance {
-            card.staggerReveal(delay: PremiumMotion.staggerDelay(index: 1))
-        } else {
-            card
-        }
-    }
-
-    @ViewBuilder
-    private func dayHeader(groupIndex: Int, label: String) -> some View {
-        let header = MonoLabel(label, size: 11, tracking: 1.5)
-            .padding(.top, groupIndex == 0 ? 0 : 16)
-            .padding(.bottom, 8)
-        if animateEntrance {
-            header.staggerReveal(delay: PremiumMotion.staggerDelay(index: revealIndex(groupIndex: groupIndex, entryIndex: -1)))
-        } else {
-            header
-        }
-    }
-
-    /// Global stagger index: week summary = 0, ledger card = 1, then headers + rows.
-    private func revealIndex(groupIndex: Int, entryIndex: Int) -> Int {
-        var index = 2
-        for g in 0..<groupIndex {
-            index += 1 + grouped[g].entries.count
-        }
-        if entryIndex < 0 { return index }
-        return index + 1 + entryIndex
-    }
-
-    private func isLastRow(groupIndex: Int, entryIndex: Int) -> Bool {
-        groupIndex == grouped.count - 1 && entryIndex == grouped[groupIndex].entries.count - 1
-    }
-}
-
-/// Applies stagger reveal only when `animate` is true.
-private struct OptionalStaggerReveal: ViewModifier {
-    let animate: Bool
-    let delay: Double
-
-    func body(content: Content) -> some View {
-        if animate {
-            content.staggerReveal(delay: delay)
-        } else {
-            content
-        }
     }
 }
