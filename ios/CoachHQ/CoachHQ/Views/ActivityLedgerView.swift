@@ -5,10 +5,13 @@ struct ActivityLedgerView: View {
     let onSelect: (SyncCacheEntry) -> Void
     var onBack: (() -> Void)? = nil
     var footer: AnyView? = nil
+    var onRiffleChange: ((Bool) -> Void)? = nil
 
     @State private var openWeekIDs: Set<String> = []
     @State private var pulledID: String?
+    @State private var riffledID: String?
     @State private var showingLoadSheet = false
+    @State private var justRiffled = false
 
     private var weeks: [ActivityLedgerWeek] {
         ActivityLedgerWeek.group(entries: entries)
@@ -23,9 +26,25 @@ struct ActivityLedgerView: View {
                     week: week,
                     isOpen: openWeekIDs.contains(week.id),
                     pulledID: pulledID,
+                    riffledID: riffledID,
                     onToggle: { toggle(week) },
                     onPull: { pull($0) },
-                    onOpen: { open($0) }
+                    onOpen: { open($0) },
+                    onRiffleChanged: { id in
+                        if riffledID != id {
+                            riffledID = id
+                            if id != nil {
+                                LedgerHaptics.selection()
+                            }
+                        }
+                    },
+                    onRiffleArmed: { armed in
+                        onRiffleChange?(armed)
+                    },
+                    consumeRiffleEnd: { id in
+                        finishRiffle(id)
+                    },
+                    shouldIgnoreTap: { justRiffled }
                 )
             }
 
@@ -138,15 +157,34 @@ struct ActivityLedgerView: View {
         LedgerHaptics.medium()
         onSelect(entry)
     }
+
+    private func finishRiffle(_ id: String?) {
+        justRiffled = true
+        onRiffleChange?(false)
+        if let id, let item = weeks.flatMap(\.items).first(where: { $0.id == id }), pulledID != id {
+            pull(item)
+        }
+        riffledID = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            justRiffled = false
+        }
+    }
 }
 
 private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
+    let riffledID: String?
     let onToggle: () -> Void
     let onPull: (ActivityLedgerItem) -> Void
     let onOpen: (SyncCacheEntry) -> Void
+    let onRiffleChanged: (String?) -> Void
+    let onRiffleArmed: (Bool) -> Void
+    let consumeRiffleEnd: (String?) -> Void
+    let shouldIgnoreTap: () -> Bool
+
+    private var stackSpace: String { "ledger-stack-\(week.id)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -229,12 +267,14 @@ private struct ActivityLedgerWeekView: View {
                 ActivityLedgerCard(
                     item: item,
                     isPulled: isPulled,
-                    visibleHeight: height
+                    visibleHeight: height,
+                    isRiffled: riffledID == item.id && !isPulled
                 )
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
                 .zIndex(Double(week.items.count - index))
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    guard !shouldIgnoreTap() else { return }
                     if isPulled {
                         onOpen(item.entry)
                     } else {
@@ -244,6 +284,35 @@ private struct ActivityLedgerWeekView: View {
             }
         }
         .padding(.top, 2)
+        .coordinateSpace(.named(stackSpace))
+        // Hold still ~180ms, then drag. Moving sooner fails the long-press so ScrollView keeps the pan.
+        .simultaneousGesture(riffleGesture)
+    }
+
+    private var riffleGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.18, maximumDistance: 8)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(stackSpace)))
+            .onChanged { value in
+                switch value {
+                case .first(true):
+                    onRiffleArmed(true)
+                case .second(true, let drag):
+                    onRiffleArmed(true)
+                    if let drag {
+                        onRiffleChanged(week.cardID(at: drag.location.y, pulledID: pulledID))
+                    }
+                default:
+                    break
+                }
+            }
+            .onEnded { value in
+                onRiffleArmed(false)
+                if case .second(true, let drag) = value, let drag {
+                    consumeRiffleEnd(week.cardID(at: drag.location.y, pulledID: pulledID))
+                } else {
+                    onRiffleChanged(nil)
+                }
+            }
     }
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
@@ -265,6 +334,7 @@ private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
     let visibleHeight: CGFloat
+    var isRiffled = false
 
     private var statsHeight: CGFloat {
         max(0, visibleHeight - ActivityLedgerMetrics.peek)
@@ -290,14 +360,16 @@ private struct ActivityLedgerCard: View {
         )
         .compositingGroup()
         .shadow(
-            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : 0.08),
-            radius: isPulled ? 14 : 6,
+            color: LedgerPaper.shadow.opacity(isPulled ? 0.20 : isRiffled ? 0.16 : 0.08),
+            radius: isPulled ? 14 : isRiffled ? 10 : 6,
             x: 0,
-            y: isPulled ? 12 : 4
+            y: isPulled ? 12 : isRiffled ? 8 : 4
         )
         .scaleEffect(isPulled ? 1.012 : 1)
+        .offset(y: isRiffled ? -5 : 0)
         .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
         .animation(ActivityLedgerMetrics.cardMotion, value: visibleHeight)
+        .animation(ActivityLedgerMetrics.riffleMotion, value: isRiffled)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
@@ -339,7 +411,7 @@ private struct ActivityLedgerCard: View {
             Text(item.dayLabel)
                 .foregroundColor(item.isToday ? WarmInstrument.accent : WarmInstrument.inkMuted)
                 .fontWeight(item.isToday ? .bold : .regular)
-            Text(" · \(item.timeLabel) · \(item.durationLabel)")
+            Text(" · \(item.durationLabel)")
                 .foregroundColor(WarmInstrument.inkMuted)
         }
         .font(WarmInstrument.monoLabel(9.5, weight: .regular))
@@ -584,6 +656,26 @@ private struct ActivityLedgerWeek: Identifiable {
         return height
     }
 
+    func cardID(at y: CGFloat, pulledID: String?) -> String? {
+        var cursor: CGFloat = 2
+        var frames: [(id: String, range: ClosedRange<CGFloat>)] = []
+        for (index, item) in items.enumerated() {
+            let isPulled = pulledID == item.id
+            let height = index == 0
+                ? (isPulled ? ActivityLedgerMetrics.cardHeight : ActivityLedgerMetrics.peek)
+                : ActivityLedgerMetrics.cardHeight
+            let margin = index == 0 ? 0 : (isPulled ? ActivityLedgerMetrics.pullGap : -ActivityLedgerMetrics.peek)
+            cursor += margin
+            let top = cursor
+            let bottom = cursor + height
+            frames.append((item.id, top...bottom))
+            cursor = bottom
+        }
+        // Prefer the topmost (newest) card when overlaps share a Y.
+        return frames.reversed().first(where: { $0.range.contains(y) })?.id
+            ?? frames.min(by: { abs(($0.range.lowerBound + $0.range.upperBound) / 2 - y) < abs(($1.range.lowerBound + $1.range.upperBound) / 2 - y) })?.id
+    }
+
     @MainActor
     static func group(entries: [SyncCacheEntry]) -> [ActivityLedgerWeek] {
         let items = entries.map(ActivityLedgerItem.init(entry:))
@@ -613,7 +705,6 @@ private struct ActivityLedgerItem: Identifiable {
     let sportIcon: String
     let startDate: Date
     let dayLabel: String
-    let timeLabel: String
     let durationLabel: String
     let isToday: Bool
     let weekID: String
@@ -635,7 +726,6 @@ private struct ActivityLedgerItem: Identifiable {
         self.sportIcon = Theme.sportIcon(for: entry.sportType)
         self.startDate = date
         self.dayLabel = ActivityLedgerFormat.dayLabel(for: date)
-        self.timeLabel = ActivityLedgerFormat.timeLabel(for: date)
         self.durationLabel = ActivityLedgerFormat.compactDuration(seconds: entry.elapsedTime)
         self.isToday = Calendar.current.isDateInToday(date)
         self.weekID = ActivityLedgerFormat.weekID(for: date)
@@ -646,7 +736,7 @@ private struct ActivityLedgerItem: Identifiable {
     }
 
     var metaLine: String {
-        [dayLabel, timeLabel, durationLabel]
+        [dayLabel, durationLabel]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
     }
@@ -724,12 +814,6 @@ private enum ActivityLedgerFormat {
         return formatter
     }()
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-
     private static let monthFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM"
@@ -743,10 +827,6 @@ private enum ActivityLedgerFormat {
     static func dayLabel(for date: Date) -> String {
         if Calendar.current.isDateInToday(date) { return "TODAY" }
         return dayFormatter.string(from: date).uppercased()
-    }
-
-    static func timeLabel(for date: Date) -> String {
-        date == .distantPast ? "" : timeFormatter.string(from: date)
     }
 
     static func compactDuration(seconds: Int) -> String {
@@ -822,6 +902,7 @@ private enum ActivityLedgerMetrics {
     static let zoneWeights = [1, 2, 3, 4, 5]
     static let cardMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42)
     static let weekMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.46).delay(0.06)
+    static let riffleMotion = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.22)
 }
 
 private enum LedgerPaper {
@@ -866,5 +947,9 @@ private enum LedgerHaptics {
 
     static func rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+    }
+
+    static func selection() {
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }

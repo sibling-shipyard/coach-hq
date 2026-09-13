@@ -29,6 +29,7 @@ struct AllActivitiesListView: View {
     @State private var isLoadingMore = false
     @State private var loadError: String?
     @State private var didInitialLoad = false
+    @State private var isRiffling = false
 
     private var activityFetchToken: String {
         [
@@ -62,10 +63,12 @@ struct AllActivitiesListView: View {
                         entries: loadedEntries,
                         onSelect: onSelectEntry,
                         onBack: { dismiss() },
-                        footer: AnyView(loadMoreFooter)
+                        footer: AnyView(loadMoreFooter),
+                        onRiffleChange: { isRiffling = $0 }
                     )
                 }
             }
+            .scrollDisabled(isRiffling)
             .scrollClipDisabled()
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
@@ -86,14 +89,10 @@ struct AllActivitiesListView: View {
                 Haptics.tap()
                 dismiss()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("HQ")
-                }
-                .font(WarmInstrument.monoLabel(10, weight: .bold))
-                .tracking(1.2)
-                .foregroundColor(WarmInstrument.inkMuted)
+                Text("‹ HQ")
+                    .font(WarmInstrument.monoLabel(10, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundColor(WarmInstrument.inkMuted)
             }
             .buttonStyle(.plain)
 
@@ -104,7 +103,7 @@ struct AllActivitiesListView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 22)
-        .padding(.top, 64)
+        .padding(.top, 12)
     }
 
     // MARK: - Load more
