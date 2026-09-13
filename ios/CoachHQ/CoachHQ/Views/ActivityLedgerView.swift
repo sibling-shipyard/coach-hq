@@ -15,7 +15,7 @@ struct ActivityLedgerView: View {
     }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 26) {
+        LazyVStack(alignment: .leading, spacing: 24) {
             header
 
             ForEach(weeks) { week in
@@ -37,19 +37,19 @@ struct ActivityLedgerView: View {
             Color.clear.frame(height: 8)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 64)
+        .padding(.top, 56)
         .padding(.bottom, 40)
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in seedInitialState() }
         .sheet(isPresented: $showingLoadSheet) {
             ActivityLedgerLoadSheet()
-                .presentationDetents([.medium])
+                .presentationDetents([.height(438)])
                 .presentationDragIndicator(.visible)
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             if let onBack {
                 Button {
                     LedgerHaptics.light()
@@ -68,8 +68,7 @@ struct ActivityLedgerView: View {
             }
 
             Text("Activity Ledger")
-                .font(.system(size: 30, weight: .semibold))
-                .tracking(-0.9)
+                .font(.system(size: 29, weight: .semibold))
                 .foregroundColor(WarmInstrument.ink)
 
             Button {
@@ -87,7 +86,7 @@ struct ActivityLedgerView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 4)
     }
 
     private func seedInitialState() {
@@ -141,7 +140,7 @@ private struct ActivityLedgerWeekView: View {
     let onOpen: (SyncCacheEntry) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Button(action: onToggle) {
                 weekHeader
             }
@@ -206,15 +205,17 @@ private struct ActivityLedgerWeekView: View {
                     .rotationEffect(.degrees(isOpen ? 0 : -90))
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
         .contentShape(Rectangle())
     }
 
     private func card(item: ActivityLedgerItem, index: Int, isPulled: Bool) -> some View {
-        ActivityLedgerCard(item: item, isPulled: isPulled)
-            .frame(height: ActivityLedgerMetrics.cardHeight)
-            .frame(height: cardHeight(index: index, isPulled: isPulled), alignment: .bottom)
-            .clipped()
+        ActivityLedgerCard(
+            item: item,
+            isPulled: isPulled,
+            showsStats: index != 0 || isPulled
+        )
+        .frame(height: cardHeight(index: index, isPulled: isPulled))
     }
 
     private func cardHeight(index: Int, isPulled: Bool) -> CGFloat {
@@ -233,10 +234,13 @@ private struct ActivityLedgerWeekView: View {
 private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
+    var showsStats = true
 
     var body: some View {
         VStack(spacing: 0) {
-            statsStrip
+            if showsStats {
+                statsStrip
+            }
             row
         }
         .frame(maxWidth: .infinity)
@@ -247,12 +251,12 @@ private struct ActivityLedgerCard: View {
                 .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
         .shadow(
-            color: Color(red: 57 / 255.0, green: 52 / 255.0, blue: 42 / 255.0).opacity(isPulled ? 0.24 : 0.16),
-            radius: isPulled ? 17 : 12,
+            color: Color(red: 57 / 255.0, green: 52 / 255.0, blue: 42 / 255.0).opacity(isPulled ? 0.18 : 0.08),
+            radius: isPulled ? 15 : 8,
             x: 0,
-            y: isPulled ? 18 : 12
+            y: isPulled ? 14 : 7
         )
-        .scaleEffect(isPulled ? 1.012 : 1)
+        .scaleEffect(isPulled ? 1.008 : 1)
         .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.42), value: isPulled)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -261,16 +265,16 @@ private struct ActivityLedgerCard: View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(item.sportColor)
-                .frame(width: 3, height: 30)
+                .frame(width: 3, height: showsStats ? 30 : 34)
 
             Image(systemName: item.sportIcon)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: showsStats ? 20 : 21, weight: .semibold))
                 .foregroundColor(Color(red: 0x4a / 255.0, green: 0x4c / 255.0, blue: 0x46 / 255.0))
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: showsStats ? 15 : 16, weight: .semibold))
                     .tracking(-0.15)
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
@@ -284,14 +288,16 @@ private struct ActivityLedgerCard: View {
 
             Spacer(minLength: 10)
 
-            Text(item.loadLabel)
-                .font(WarmInstrument.figures(17, weight: .bold))
-                .tracking(-0.5)
-                .foregroundColor(WarmInstrument.ink)
-                .contentTransition(.numericText())
+            if showsStats {
+                Text(item.loadLabel)
+                    .font(WarmInstrument.figures(17, weight: .bold))
+                    .tracking(-0.5)
+                    .foregroundColor(WarmInstrument.ink)
+                    .contentTransition(.numericText())
+            }
         }
         .frame(height: ActivityLedgerMetrics.peek)
-        .padding(.horizontal, 18)
+        .padding(.horizontal, showsStats ? 18 : 20)
     }
 
     private var statsStrip: some View {
@@ -317,7 +323,7 @@ private struct ActivityLedgerCard: View {
         .padding(.horizontal, 18)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(WarmInstrument.headerRule)
+                .fill(WarmInstrument.headerRule.opacity(0.82))
                 .frame(height: 1)
         }
     }
@@ -329,36 +335,48 @@ private struct ActivityLedgerClosedStack: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ActivityLedgerCard(item: item, isPulled: false)
-                .frame(height: ActivityLedgerMetrics.cardHeight)
-                .frame(height: ActivityLedgerMetrics.peek, alignment: .bottom)
-                .clipped()
+            ActivityLedgerCard(item: item, isPulled: false, showsStats: false)
+                .frame(height: ActivityLedgerMetrics.peek)
                 .overlay(alignment: .trailing) {
-                    if hiddenCount > 0 {
-                        Text("+\(hiddenCount) MORE")
-                            .font(WarmInstrument.monoLabel(8.5, weight: .bold))
-                            .tracking(0.9)
-                            .foregroundColor(WarmInstrument.inkMuted)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(WarmInstrument.paper)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
-                            )
-                            .padding(.trailing, 18)
+                    HStack(spacing: 8) {
+                        if hiddenCount > 0 {
+                            Text("+\(hiddenCount)")
+                                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                                .tracking(0.6)
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(WarmInstrument.paper.opacity(0.7))
+                                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                        .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
+                                )
+                        }
+
+                        Text(item.loadLabel)
+                            .font(WarmInstrument.figures(16, weight: .bold))
+                            .tracking(-0.4)
+                            .foregroundColor(WarmInstrument.ink)
                     }
+                    .padding(.trailing, 20)
                 }
 
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(WarmInstrument.surfaceMuted.opacity(0.72))
-                .frame(height: 9)
-                .padding(.horizontal, 10)
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(WarmInstrument.surfaceMuted.opacity(0.95))
-                .frame(height: 9)
-                .padding(.horizontal, 20)
+            stackEdge(inset: 18, opacity: 0.62)
+            stackEdge(inset: 36, opacity: 0.42)
         }
+    }
+
+    private func stackEdge(inset: CGFloat, opacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(WarmInstrument.paper.opacity(opacity))
+            .frame(height: 7)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(WarmInstrument.border.opacity(0.45), lineWidth: 1)
+            )
+            .padding(.horizontal, inset)
+            .offset(y: -1)
     }
 }
 
@@ -366,7 +384,7 @@ private struct ActivityLedgerLoadSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center) {
                 Text("How load is computed")
                     .font(.system(size: 22, weight: .semibold))
@@ -382,21 +400,21 @@ private struct ActivityLedgerLoadSheet: View {
             }
 
             Text("LOAD = SUM ( MINUTES x ZONE WEIGHT )")
-                .font(WarmInstrument.monoLabel(13, weight: .bold))
-                .tracking(0.6)
+                .font(WarmInstrument.monoLabel(12, weight: .bold))
+                .tracking(0.55)
                 .foregroundColor(WarmInstrument.accent)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(WarmInstrument.accent.opacity(0.05))
+                .background(WarmInstrument.accent.opacity(0.045))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(WarmInstrument.accent.opacity(0.3), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .strokeBorder(WarmInstrument.accent.opacity(0.28), lineWidth: 1)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
 
             Text("Every minute is weighted by its heart-rate zone and summed. The same rule applies across sports.")
-                .font(WarmInstrument.coachVoice(16))
+                .font(WarmInstrument.coachVoice(15))
                 .foregroundColor(WarmInstrument.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -404,23 +422,23 @@ private struct ActivityLedgerLoadSheet: View {
                 ForEach(ActivityLedgerMetrics.zoneWeights.indices, id: \.self) { index in
                     VStack(spacing: 5) {
                         Text("Z\(index + 1)")
-                            .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                            .font(WarmInstrument.monoLabel(8, weight: .bold))
                             .tracking(0.8)
                             .foregroundColor(WarmInstrument.inkMuted)
                         Text("x\(ActivityLedgerMetrics.zoneWeights[index])")
-                            .font(WarmInstrument.figures(15, weight: .bold))
+                            .font(WarmInstrument.figures(14, weight: .bold))
                             .foregroundColor(WarmInstrument.ink)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(WarmInstrument.surfaceMuted)
+                    .padding(.vertical, 11)
+                    .background(WarmInstrument.surfaceMuted.opacity(0.75))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 
             Text("WEEKLY BAND = YOUR 8-WEEK RHYTHM +/-20%")
-                .font(WarmInstrument.monoLabel(9, weight: .bold))
-                .tracking(1.1)
+                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                .tracking(1.05)
                 .foregroundColor(WarmInstrument.inkFaintText)
 
             Text("Zone weights are provisional until the engine's canonical load constants are wired into iOS.")
@@ -428,11 +446,10 @@ private struct ActivityLedgerLoadSheet: View {
                 .foregroundColor(WarmInstrument.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
-        .padding(.bottom, 20)
+        .padding(.bottom, 22)
         .background(WarmInstrument.paper.ignoresSafeArea())
     }
 }
@@ -459,6 +476,7 @@ private struct ActivityLedgerWeek: Identifiable {
         return load >= 250 ? "in the band" : "below the band"
     }
 
+    @MainActor
     static func group(entries: [SyncCacheEntry]) -> [ActivityLedgerWeek] {
         let items = entries.map(ActivityLedgerItem.init(entry:))
         let buckets = Dictionary(grouping: items) { $0.weekID }
