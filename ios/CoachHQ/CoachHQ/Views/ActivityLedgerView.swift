@@ -18,6 +18,10 @@ struct ActivityLedgerView<Footer: View>: View {
 
     @State private var openWeekIDs: Set<String> = []
     @State private var pulledID: String?
+    @State private var riffleID: String?
+    @State private var pressID: String?
+    @State private var riffleStore = LedgerRiffleFrameStore()
+    @State private var ignoreCardTapUntil: TimeInterval = 0
     @State private var showingLoadSheet = false
     @State private var didSeed = false
 
@@ -38,6 +42,9 @@ struct ActivityLedgerView<Footer: View>: View {
                     week: week,
                     isOpen: isEmbed || openWeekIDs.contains(week.id),
                     pulledID: pulledID,
+                    riffleID: riffleID,
+                    pressID: pressID,
+                    ignoreCardTapUntil: ignoreCardTapUntil,
                     showsHeader: !isEmbed,
                     metrics: isEmbed ? .embed : .page,
                     onToggle: { toggle(week) },
@@ -58,6 +65,18 @@ struct ActivityLedgerView<Footer: View>: View {
         // ScrollView content already clears the safe area, so keep this tight.
         .padding(.top, isEmbed ? 0 : 12)
         .padding(.bottom, isEmbed ? 0 : 40)
+        .onPreferenceChange(LedgerRiffleFramesKey.self) { riffleStore.frames = $0 }
+        .background {
+            if !isEmbed {
+                LedgerRiffleBridge(
+                    store: riffleStore,
+                    pulledID: pulledID,
+                    onPress: { pressID = $0 },
+                    onRiffle: { riffleID = $0 },
+                    onCommit: commitRiffle
+                )
+            }
+        }
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in reconcileAfterEntriesChange() }
         .sheet(isPresented: $showingLoadSheet) {
@@ -139,9 +158,11 @@ struct ActivityLedgerView<Footer: View>: View {
         LedgerHaptics.rigid()
     }
 
-    private func pull(_ item: ActivityLedgerItem) {
+    private func pull(_ item: ActivityLedgerItem, opensIfCurrent: Bool = true) {
         guard pulledID != item.id else {
-            open(item.entry)
+            if opensIfCurrent {
+                open(item.entry)
+            }
             return
         }
 
@@ -152,6 +173,12 @@ struct ActivityLedgerView<Footer: View>: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             LedgerHaptics.soft()
         }
+    }
+
+    private func commitRiffle(_ id: String) {
+        ignoreCardTapUntil = CACurrentMediaTime() + 0.08
+        guard let item = weeks.flatMap(\.items).first(where: { $0.id == id }) else { return }
+        pull(item, opensIfCurrent: false)
     }
 
     private func open(_ entry: SyncCacheEntry) {
@@ -181,6 +208,9 @@ private struct ActivityLedgerWeekView: View {
     let week: ActivityLedgerWeek
     let isOpen: Bool
     let pulledID: String?
+    var riffleID: String?
+    var pressID: String?
+    var ignoreCardTapUntil: TimeInterval = 0
     var showsHeader: Bool = true
     var metrics: ActivityLedgerMetrics = .page
     let onToggle: () -> Void
@@ -251,10 +281,12 @@ private struct ActivityLedgerWeekView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, metrics.riffleBleed)
         .padding(.horizontal, metrics.sideBleed)
         .padding(.bottom, metrics.shadowBleed)
-        .frame(height: bodyHeight + metrics.shadowBleed, alignment: .top)
+        .frame(height: bodyHeight + metrics.shadowBleed + metrics.riffleBleed, alignment: .top)
         .clipped()
+        .padding(.top, -metrics.riffleBleed)
         .padding(.horizontal, -metrics.sideBleed)
         .padding(.bottom, -metrics.shadowBleed)
     }
@@ -269,17 +301,24 @@ private struct ActivityLedgerWeekView: View {
         VStack(spacing: 0) {
             ForEach(Array(week.items.enumerated()), id: \.element.id) { index, item in
                 let isPulled = pulledID == item.id
+                let isRiffled = riffleID == item.id
+                let isPressed = pressID == item.id
                 let height = cardHeight(index: index, isPulled: isPulled)
+                let z = Double(week.items.count - index)
                 ActivityLedgerCard(
                     item: item,
                     isPulled: isPulled,
+                    isRiffled: isRiffled,
+                    isPressed: isPressed,
                     visibleHeight: height,
+                    riffleZ: z,
                     metrics: metrics
                 )
                 .padding(.top, topMargin(index: index, isPulled: isPulled))
-                .zIndex(Double(week.items.count - index))
+                .zIndex(z)
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    guard CACurrentMediaTime() >= ignoreCardTapUntil else { return }
                     if isPulled {
                         onOpen(item.entry)
                     } else {
@@ -309,11 +348,32 @@ private struct ActivityLedgerWeekView: View {
 private struct ActivityLedgerCard: View {
     let item: ActivityLedgerItem
     let isPulled: Bool
+    var isRiffled: Bool = false
+    var isPressed: Bool = false
     let visibleHeight: CGFloat
+    var riffleZ: Double = 0
     var metrics: ActivityLedgerMetrics = .page
 
     private var statsHeight: CGFloat {
         max(0, visibleHeight - metrics.peek)
+    }
+
+    private var paperShadowOpacity: Double {
+        if isPulled { return metrics.pulledShadowOpacity }
+        if isRiffled { return metrics.riffleShadowOpacity }
+        return metrics.tuckedShadowOpacity
+    }
+
+    private var paperShadowRadius: CGFloat {
+        if isPulled { return metrics.pulledShadowRadius }
+        if isRiffled { return metrics.riffleShadowRadius }
+        return metrics.tuckedShadowRadius
+    }
+
+    private var paperShadowY: CGFloat {
+        if isPulled { return metrics.pulledShadowY }
+        if isRiffled { return metrics.riffleShadowY }
+        return metrics.tuckedShadowY
     }
 
     var body: some View {
@@ -336,14 +396,35 @@ private struct ActivityLedgerCard: View {
         )
         .compositingGroup()
         .shadow(
-            color: LedgerPaper.shadow.opacity(isPulled ? metrics.pulledShadowOpacity : metrics.tuckedShadowOpacity),
-            radius: isPulled ? metrics.pulledShadowRadius : metrics.tuckedShadowRadius,
+            color: LedgerPaper.shadow.opacity(paperShadowOpacity),
+            radius: paperShadowRadius,
             x: 0,
-            y: isPulled ? metrics.pulledShadowY : metrics.tuckedShadowY
+            y: paperShadowY
         )
         .scaleEffect(isPulled ? metrics.pulledScale : 1)
+        .opacity(isPressed && !isRiffled ? 0.82 : 1)
+        .offset(y: isRiffled ? -metrics.riffleLift : (isPressed ? -metrics.pressLift : 0))
         .animation(ActivityLedgerMetrics.cardMotion, value: isPulled)
         .animation(ActivityLedgerMetrics.cardMotion, value: visibleHeight)
+        .animation(ActivityLedgerRiffle.riffleMotion, value: isRiffled)
+        .animation(ActivityLedgerRiffle.pressMotion, value: isPressed)
+        .background {
+            if metrics.riffleLift > 0 {
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: LedgerRiffleFramesKey.self,
+                        value: [
+                            LedgerRiffleFrame(
+                                id: item.id,
+                                global: geo.frame(in: .global),
+                                peek: metrics.peek,
+                                z: riffleZ
+                            )
+                        ]
+                    )
+                }
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
     }
 
@@ -880,6 +961,13 @@ private struct ActivityLedgerMetrics: Equatable {
     var pulledShadowOpacity: Double
     var pulledShadowRadius: CGFloat
     var pulledShadowY: CGFloat
+    var riffleShadowOpacity: Double
+    var riffleShadowRadius: CGFloat
+    var riffleShadowY: CGFloat
+    /// Page-only. Zero on embed so chat's ScrollView is unchanged.
+    var riffleLift: CGFloat
+    var pressLift: CGFloat
+    var riffleBleed: CGFloat { riffleLift == 0 ? 0 : riffleLift + 16 }
 
     static let page = ActivityLedgerMetrics(
         peek: 64,
@@ -907,7 +995,12 @@ private struct ActivityLedgerMetrics: Equatable {
         tuckedShadowY: 4,
         pulledShadowOpacity: 0.20,
         pulledShadowRadius: 14,
-        pulledShadowY: 12
+        pulledShadowY: 12,
+        riffleShadowOpacity: 0.16,
+        riffleShadowRadius: 10,
+        riffleShadowY: 8,
+        riffleLift: 10,
+        pressLift: 2
     )
 
     /// Chat SESSION SYNCED — same stack, smaller so it sits with the bubbles.
@@ -937,7 +1030,12 @@ private struct ActivityLedgerMetrics: Equatable {
         tuckedShadowY: 1,
         pulledShadowOpacity: 0.12,
         pulledShadowRadius: 7,
-        pulledShadowY: 3
+        pulledShadowY: 3,
+        riffleShadowOpacity: 0.05,
+        riffleShadowRadius: 3,
+        riffleShadowY: 1,
+        riffleLift: 0,
+        pressLift: 0
     )
 
     static let zoneWeights = [1, 2, 3, 4, 5]
