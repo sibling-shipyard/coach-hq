@@ -82,12 +82,36 @@ function conflictsWithInjury(entry: ExerciseCatalogEntry, activeInjuryTexts: str
   });
 }
 
-// Prefers the entry with the fewest equipment requirements (bodyweight/no-equipment first) so a
-// benchmark is always answerable by a brand-new athlete who hasn't reported what they own yet -
-// intake's equipment question lands later in the conversation than the benchmark does. Ties break
-// on id for determinism. Among equally-cheap candidates, one that doesn't textually conflict with
-// an active injury flag is preferred; if every candidate for this pattern conflicts, falls back to
-// the equipment-only pick rather than dropping benchmark coverage for that pattern.
+// Equipment *count* isn't the same as equipment *accessibility* - a one-item ["full_gym"] array
+// and a one-item ["bodyweight"] array tied under the old "fewest items" sort, and full_gym could
+// win the tie alphabetically (live-verified, #727 review: a fresh athlete who'd never confirmed
+// owning any equipment got a cable-machine exercise in their benchmark). Ranked lowest-barrier
+// first instead; an equipment array's cost is its most expensive item, so a mixed-equipment entry
+// never looks cheaper than it really is.
+const EQUIPMENT_COST: Record<string, number> = {
+  bodyweight: 0,
+  resistance_band: 1,
+  dumbbells: 2,
+  bench: 2,
+  pull_up_bar: 2,
+  full_gym: 3,
+};
+
+function equipmentCost(equipment: string[]): number {
+  if (equipment.length === 0) return 0;
+  return Math.max(...equipment.map((item) => EQUIPMENT_COST[item] ?? 3));
+}
+
+function byAccessibility(a: ExerciseCatalogEntry, b: ExerciseCatalogEntry): number {
+  return equipmentCost(a.equipment) - equipmentCost(b.equipment) || a.id.localeCompare(b.id);
+}
+
+// Prefers the most accessible entry (bodyweight/no-equipment first) so a benchmark is always
+// answerable by a brand-new athlete who hasn't reported what they own yet - intake's equipment
+// question lands later in the conversation than the benchmark does. Ties break on id for
+// determinism. Among equally-accessible candidates, one that doesn't textually conflict with an
+// active injury flag is preferred; if every candidate for this pattern conflicts, falls back to
+// the accessibility-only pick rather than dropping benchmark coverage for that pattern.
 function pickPrimary(
   catalog: ExerciseCatalogEntry[],
   pattern: string,
@@ -96,23 +120,23 @@ function pickPrimary(
 ): ExerciseCatalogEntry | null {
   const candidates = catalog
     .filter((e) => e.movement_pattern === pattern && !exclude.has(e.id))
-    .sort((a, b) => a.equipment.length - b.equipment.length || a.id.localeCompare(b.id));
+    .sort(byAccessibility);
   const safe = candidates.filter((e) => !conflictsWithInjury(e, activeInjuryTexts));
   return safe[0] ?? candidates[0] ?? null;
 }
 
 // The easier/harder alternative folded into the exercise's own coaching cue (the LLD's explicit
 // shape - "each exercise carrying an easier and a harder alternative in its coaching cue", not a
-// separate schema field). Easier = the same pattern's lowest-equipment other entry; harder = the
-// highest-equipment other entry. A pattern with only one catalog entry states there's no
-// alternative on file rather than inventing one.
+// separate schema field). Easier = the same pattern's most-accessible other entry; harder = the
+// least-accessible. A pattern with only one catalog entry states there's no alternative on file
+// rather than inventing one.
 function alternativesFor(
   catalog: ExerciseCatalogEntry[],
   primary: ExerciseCatalogEntry,
 ): { easier: string; harder: string } {
   const siblings = catalog
     .filter((e) => e.movement_pattern === primary.movement_pattern && e.id !== primary.id)
-    .sort((a, b) => a.equipment.length - b.equipment.length || a.id.localeCompare(b.id));
+    .sort(byAccessibility);
   if (siblings.length === 0) {
     return { easier: "no easier variant on file", harder: "no harder variant on file" };
   }

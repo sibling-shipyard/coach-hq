@@ -33,7 +33,9 @@ function assertString(value: unknown, field: string): void {
 
 function assertNumber(value: unknown, field: string): void {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`workout schema: ${field} should be a finite number`);
+    throw new Error(
+      `workout schema: ${field} should be a finite number, got ${JSON.stringify(value)}`,
+    );
   }
 }
 

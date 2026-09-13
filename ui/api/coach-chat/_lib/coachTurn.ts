@@ -65,6 +65,7 @@ import {
   weekDayDatesFromCurrentWeek,
   isFullWeekKickoff,
   applyWeekUpdate,
+  assertCurrentWeekCommitReady,
 } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
@@ -891,10 +892,16 @@ function formatDroppedActionsNote(droppedActions: DroppedAction[]): string | und
 // back this turn, not a rewrite of the model's own prose (that's fragile string surgery on
 // generated text) - just an honest addendum naming what didn't stick. Undefined when nothing was
 // dropped, same as formatDroppedActionsNote.
+// Live-verified (#727): this was hardcoded to claim every drop was "didn't match anything on
+// file" - true for a stale quest_id/flag_id/template_id reference, false for a workout_create
+// dropped over a structural validation failure (e.g. a model-omitted field), which read as an
+// athlete-facing lie about why nothing saved. Never surfaces the raw internal reason text either
+// (schema/field names an athlete has no reason to see) - just an honest, generic "something about
+// that request didn't go through."
 function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string | undefined {
   if (droppedActions.length === 0) return undefined;
   const fields = droppedActions.map((dropped) => dropped.field).join(", ");
-  return `(Note: couldn't save ${fields} - it didn't match anything on file.)`;
+  return `(Note: couldn't save ${fields} this turn - something about that request didn't go through. If it's still relevant, ask again.)`;
 }
 
 // Finding E: the athlete-facing counterpart to synthesizeQuestEventFromUnrecordedFacts - same
@@ -1123,15 +1130,52 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
   droppedActions.push(...droppedWeekUpdate);
 
-  const currentWeekWrite = buildCurrentWeekWrite(
-    repo,
-    token,
-    timezone,
-    traceId,
-    validatedWeekUpdate,
-    validTemplateIds,
-    currentWeekContent,
-  );
+  // Live-verified (#727): a full-week-kickoff week_update is built and structurally validated
+  // eagerly inside buildCurrentWeekWrite (not deferred behind a resolve()), so a real validation
+  // failure - reproduced live: two days missing/empty `intent` - threw straight out of this
+  // function with no error boundary, crashing the whole turn. Every other action field in this
+  // pipeline drops just the one bad action and keeps the rest of the turn; week_update didn't.
+  //
+  // The patch-mode path has the same shape of risk one level later: buildCurrentWeekWrite defers
+  // its own applyWeekUpdate/assertCurrentWeekCommitReady call behind an async resolve(), which
+  // commitFilesAtomic calls with no try/catch of its own - a bad patch result wouldn't just drop
+  // week_update, it could crash the whole atomic commit and lose every other write in this turn.
+  // Not yet live-reproduced (patch mode's surface is narrower than kickoff's), but the same
+  // eager-validate-first shape closes it before it needs to be: run the exact same
+  // applyWeekUpdate + assertCurrentWeekCommitReady pass once, synchronously, against the content
+  // already fetched above - if it throws, skip the write entirely rather than betting on
+  // commitFilesAtomic's resolve() surviving it. buildCurrentWeekWrite still redoes this same work
+  // against a possibly-fresher read at actual commit time for the real write, preserving its
+  // retry-safety for the happy path this validates.
+  let currentWeekWrite: FileEntry | undefined;
+  try {
+    if (validatedWeekUpdate != null && !isFullWeekKickoff(validatedWeekUpdate)) {
+      assertCurrentWeekCommitReady(
+        applyWeekUpdate(
+          currentWeekContent ?? null,
+          validatedWeekUpdate,
+          validTemplateIds,
+          timezone,
+          traceId,
+          new Date(),
+        ),
+      );
+    }
+    currentWeekWrite = buildCurrentWeekWrite(
+      repo,
+      token,
+      timezone,
+      traceId,
+      validatedWeekUpdate,
+      validTemplateIds,
+      currentWeekContent,
+    );
+  } catch (err) {
+    droppedActions.push({
+      field: "week_update",
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   for (const dropped of droppedActions) {
     console.error("[coach-chat] dropped a structured-fact action - bad reference:", dropped, {
