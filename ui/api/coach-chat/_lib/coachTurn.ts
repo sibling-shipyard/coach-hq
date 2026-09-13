@@ -43,6 +43,7 @@ import { PROGRESSIONS_PATH } from "./decide/coachQuestFiles.js";
 import {
   PROFILE_PATH,
   MEMORY_PATH,
+  WEEKDAYS,
   type ProfileJson,
   type MemoryJson,
   type CoachLogJson,
@@ -101,6 +102,7 @@ import {
   buildWorkoutCreateAndRemoveWrites,
 } from "./decide/turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
+import { exerciseTypeFieldViolation } from "./decide/workoutSchema.js";
 
 import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
 
@@ -493,12 +495,13 @@ function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
   if (!spec) return null;
   for (const phase of spec.phases ?? []) {
     for (const ex of phase.exercises ?? []) {
-      if (ex.type === "reps" && typeof ex.reps !== "number") {
-        return `"${ex.name}" is type "reps" but has no reps field`;
-      }
-      if (ex.type === "timed" && typeof ex.duration_secs !== "number") {
-        return `"${ex.name}" is type "timed" but has no duration_secs field`;
-      }
+      // Review finding (P2, #727 hardening): this used to hand-check reps/duration_secs presence
+      // itself, duplicating workoutSchema.ts's validateExercise - real risk of the two drifting
+      // apart, since that file is meant to be the one place this shape is defined. Reuses its
+      // exported exerciseTypeFieldViolation instead; only the wording changed slightly (this
+      // note's caller prefixes it with the exercise name either way).
+      const violation = exerciseTypeFieldViolation(ex);
+      if (violation) return `"${ex.name}" ${violation}`;
     }
   }
   return null;
@@ -512,22 +515,15 @@ function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
 // history references), but this specific shape isn't that: a reply naming 5+ distinct weekday
 // names is not something ordinary coaching chat produces by accident, only a real day-by-day
 // week narration does. Scoped to non-firstSession turns only, since a first-session athlete never
-// gets week_update at all (see the firstSession prompt branch above).
-const WEEKDAY_NAMES = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
+// gets week_update at all (see the firstSession prompt branch above). Reuses WEEKDAYS
+// (coachMemoryFiles.ts) rather than a third hand-copied weekday list - coachFirstSessionBenchmark.ts
+// already has its own WEEKDAY_PATTERN for a different purpose (P2, #727 review).
 const PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD = 5;
 
 function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
   if (firstSession || reply.week_update) return false;
   const lowerReply = reply.reply.toLowerCase();
-  const mentionedWeekdays = WEEKDAY_NAMES.filter((day) => lowerReply.includes(day)).length;
+  const mentionedWeekdays = WEEKDAYS.filter((day) => lowerReply.includes(day)).length;
   return mentionedWeekdays >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
 }
 
@@ -1453,13 +1449,25 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   // profile_update and coach_since can target profile.json together. Merge them into one resolver
   // because commitFilesAtomic does not merge duplicate paths.
+  //
+  // Review finding (P1, #727 hardening): this used to hand-write just { coach_since }, discarding
+  // first_session_benchmark_pending: true even though injectCoachSinceIfNeeded (above) always sets
+  // both fields together in the same patch (coachSinceStamp.ts) - this branch only runs when that
+  // function already fired, so the two fields are never set independently. On the common case (the
+  // athlete's last profile field arrives the same turn as onboarding completion), the pending
+  // marker never actually got written true, defeating the retry mechanism for exactly the athletes
+  // who'd need it. Fixed by mirroring the same two-field patch instead of reconstructing a
+  // narrower one.
   if (validUpdates.some((update) => update.path === PROFILE_PATH) && profileUpdateWrite) {
     const resolveProfileUpdate = profileUpdateWrite.resolve;
     profileUpdateWrite.resolve = async () => {
       const updated = await resolveProfileUpdate();
       const merged = applyJsonMergePatch(
         updated,
-        JSON.stringify({ coach_since: todayDateString(timezone, new Date()) }),
+        JSON.stringify({
+          coach_since: todayDateString(timezone, new Date()),
+          first_session_benchmark_pending: true,
+        }),
       );
       return merged.ok ? merged.content : updated;
     };
@@ -1501,30 +1509,51 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
+// Review finding (P2, #727 hardening): factored out of two near-identical read/merge-patch call
+// sites that both cleared this same field (the standalone stale-marker path below, and the
+// success-path clear inline in generateFirstSessionWorkoutsAfterCompletion) - same fresh-read,
+// same patch shape, same warning on failure. Returns the FileEntry to commit, or null if there was
+// nothing to write (no profile content, or the patch itself failed) - callers decide whether to
+// commit it standalone or append it to a batch already in flight.
+async function buildClearPendingWrite(turn: TurnWrites): Promise<FileEntry | null> {
+  const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+  if (!freshProfileContent) return null;
+  const cleared = applyJsonMergePatch(
+    freshProfileContent,
+    // Resets the attempt counter too, not just pending - if pending ever legitimately gets set
+    // true again later (a fresh signup edge case, not the retry loop this counts), it should start
+    // counting from zero rather than carrying over a stale count from an unrelated earlier attempt.
+    JSON.stringify({ first_session_benchmark_pending: false, first_session_benchmark_attempts: 0 }),
+  );
+  if (!cleared.ok) {
+    console.warn(`[coach-chat] could not clear first_session_benchmark_pending: ${cleared.error}`, {
+      traceId: turn.traceId,
+    });
+    return null;
+  }
+  return { path: PROFILE_PATH, content: cleared.content };
+}
+
 // Standalone commit for the case generateFirstSessionWorkoutsAfterCompletion finds the benchmark
 // already in the manifest but the marker still pending - a prior turn's own clear (below, folded
 // into that turn's benchmark commit) must have dropped. There's no other write to piggyback on
 // here, unlike the main path, so this is its own small commit rather than appended to `writes`.
 async function clearFirstSessionBenchmarkPending(turn: TurnWrites): Promise<void> {
-  const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
-  if (!freshProfileContent) return;
-  const cleared = applyJsonMergePatch(
-    freshProfileContent,
-    JSON.stringify({ first_session_benchmark_pending: false }),
-  );
-  if (!cleared.ok) {
-    console.warn(
-      `[coach-chat] could not clear stale first_session_benchmark_pending: ${cleared.error}`,
-      { traceId: turn.traceId },
-    );
-    return;
-  }
-  await commitFilesAtomic(
-    [{ path: PROFILE_PATH, content: cleared.content }],
-    "coach: clear stale first_session_benchmark_pending marker",
-    { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
-  );
+  const write = await buildClearPendingWrite(turn);
+  if (!write) return;
+  await commitFilesAtomic([write], "coach: clear stale first_session_benchmark_pending marker", {
+    repo: turn.repo,
+    branch: resolveCoachChatBranch(),
+    token: turn.token,
+  });
 }
+
+// Review finding (P1, #727 hardening): without a cap, a real failure unrelated to spec validity
+// (a commit error, a transient GitHub API failure) left first_session_benchmark_pending stuck true
+// forever - every future turn re-ran the full generation attempt with no backoff. 3 attempts is
+// generous given the fallback spec is structurally safe from every invariant this pipeline checks;
+// past this, whatever's failing is not something a 4th identical attempt will fix.
+const FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS = 3;
 
 // Writes one benchmark routine (coachFirstSessionBenchmark.ts's buildBenchmarkSpec, compiled
 // through the same applyWorkoutCreate/buildWorkoutCreateAndRemoveWrites path an ordinary
@@ -1555,6 +1584,23 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
   const firstSessionTransition = !turn.wasProfileComplete && turn.profileComplete;
   const pendingFromEarlierAttempt = turn.context.profile?.first_session_benchmark_pending === true;
   if (!turn.profileComplete || (!firstSessionTransition && !pendingFromEarlierAttempt)) return;
+  const attemptsSoFar = turn.context.profile?.first_session_benchmark_attempts ?? 0;
+  if (attemptsSoFar >= FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS) {
+    console.error(
+      `[coach-chat] first session benchmark generation gave up after ${attemptsSoFar} failed` +
+        " attempts - clearing pending instead of retrying again",
+      { traceId: turn.traceId },
+    );
+    const write = await buildClearPendingWrite(turn);
+    if (write) {
+      await commitFilesAtomic(
+        [write],
+        "coach: give up on first session benchmark after repeated failures",
+        { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
+      );
+    }
+    return;
+  }
   try {
     const manifestContent = await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
     const existingRoutineIds = validTemplateIdsFromManifest(manifestContent);
@@ -1663,26 +1709,14 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       { path: CURRENT_WEEK_PATH, content: weekContent },
     ];
 
-    // Clear first_session_benchmark_pending in the same atomic commit as the benchmark itself -
-    // the marker only exists to make a failed attempt retryable, so it must come off exactly when
-    // (and only when) a benchmark actually lands, never before. Reading fresh here (not
-    // turn.context.profile, loaded at the top of the turn) picks up the pending:true this same
-    // turn's own commitTurn facts-commit may have just written on a real transition turn.
-    const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
-    if (freshProfileContent) {
-      const clearedPending = applyJsonMergePatch(
-        freshProfileContent,
-        JSON.stringify({ first_session_benchmark_pending: false }),
-      );
-      if (clearedPending.ok) {
-        writes.push({ path: PROFILE_PATH, content: clearedPending.content });
-      } else {
-        console.warn(
-          `[coach-chat] could not clear first_session_benchmark_pending: ${clearedPending.error}`,
-          { traceId: turn.traceId },
-        );
-      }
-    }
+    // Clear first_session_benchmark_pending (and the attempt counter) in the same atomic commit
+    // as the benchmark itself - the marker only exists to make a failed attempt retryable, so it
+    // must come off exactly when (and only when) a benchmark actually lands, never before. Reading
+    // fresh here (not turn.context.profile, loaded at the top of the turn) picks up the
+    // pending:true this same turn's own commitTurn facts-commit may have just written on a real
+    // transition turn.
+    const clearPendingWrite = await buildClearPendingWrite(turn);
+    if (clearPendingWrite) writes.push(clearPendingWrite);
 
     await commitFilesAtomic(writes, "coach: first session benchmark and first week", {
       repo: turn.repo,
@@ -1702,6 +1736,38 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
         traceId: turn.traceId,
       },
     );
+    // Review finding (P1, #727 hardening): records the failed attempt so the cap check at the top
+    // of this function can eventually give up instead of retrying forever - see
+    // FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS. Its own failure (a bad read, a bad patch, a commit
+    // error) only logs - this is already inside the outermost catch, so there's nothing further to
+    // fall back to, and the athlete's turn must still complete either way.
+    try {
+      const freshProfileContent = await getFileRaw(turn.repo, PROFILE_PATH, turn.token);
+      if (freshProfileContent) {
+        const incremented = applyJsonMergePatch(
+          freshProfileContent,
+          JSON.stringify({ first_session_benchmark_attempts: attemptsSoFar + 1 }),
+        );
+        if (incremented.ok) {
+          await commitFilesAtomic(
+            [{ path: PROFILE_PATH, content: incremented.content }],
+            "coach: record failed first session benchmark attempt",
+            { repo: turn.repo, branch: resolveCoachChatBranch(), token: turn.token },
+          );
+        } else {
+          console.warn(
+            `[coach-chat] could not record failed first session benchmark attempt: ${incremented.error}`,
+            { traceId: turn.traceId },
+          );
+        }
+      }
+    } catch (attemptErr) {
+      console.error(
+        "[coach-chat] could not record failed first session benchmark attempt:",
+        attemptErr,
+        { traceId: turn.traceId },
+      );
+    }
   }
 }
 

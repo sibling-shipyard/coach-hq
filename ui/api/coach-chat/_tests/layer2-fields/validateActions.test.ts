@@ -329,6 +329,34 @@ describe("validateWeekUpdate duplicate-plan guard (#727)", () => {
     expect(dropped).toEqual([]);
   });
 
+  // Review finding (P1, #727 hardening): hasConfirmationCue alone is tuned for yes/confirm/go-ahead
+  // words, not "this is a distinct extra" language - a real, plain statement like this got
+  // silently dropped before, discarding a real training log entry. No "yes"/"confirm"/etc. word
+  // anywhere in this message on purpose, so this only passes if EXTRA_SESSION_CUE_PATTERN itself
+  // (not hasConfirmationCue) is what's catching it.
+  it("keeps the new session when the athlete describes it as separate, with no yes/confirm word at all", () => {
+    const update = {
+      days: [
+        {
+          date: "2026-08-17",
+          sessions: [
+            { discipline: "swim", kind: "easy", title: "Morning swim", status: "done" as const },
+          ],
+        },
+      ],
+    };
+    const { valid, dropped } = validateWeekUpdate(
+      update,
+      REAL_WEEK_DATES,
+      new Set(),
+      new Map(),
+      "also swam this morning, separate thing",
+      plannedOnThe17th,
+    );
+    expect(valid).toEqual(update);
+    expect(dropped).toEqual([]);
+  });
+
   it("keeps a brand-new session with no terminal status even without confirmation", () => {
     const update = {
       days: [

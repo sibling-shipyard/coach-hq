@@ -249,6 +249,97 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
     expect(compiledPush.reps * compiledPush.sets).toBeLessThanOrEqual(1);
   });
 
+  // Review finding (P1, #727 hardening): without a cap, a real failure unrelated to spec
+  // validity (a commit error, a transient GitHub API failure) left first_session_benchmark_pending
+  // stuck true forever - every future turn re-ran the full generation attempt with no backoff.
+  describe("attempt cap (P1, #727 hardening)", () => {
+    it("gives up after the max attempt cap instead of attempting generation again", async () => {
+      getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+        path.endsWith("profile.json")
+          ? JSON.stringify({
+              version: 1,
+              name: "A",
+              first_session_benchmark_pending: true,
+              first_session_benchmark_attempts: 3,
+            })
+          : null,
+      );
+      await generateFirstSessionWorkoutsAfterCompletion(
+        baseTurn({
+          wasProfileComplete: true,
+          profileComplete: true,
+          context: {
+            injuries: { flags: [] },
+            progressions: null,
+            profile: { first_session_benchmark_pending: true, first_session_benchmark_attempts: 3 },
+          },
+        }) as never,
+      );
+      // Gives up via its own commit - never reaches the manifest read a real generation
+      // attempt would need, so no such attempt happened.
+      expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
+      expect(getFileRaw).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining("_manifest.json"),
+        expect.anything(),
+      );
+      const writes = commitFilesAtomic.mock.calls[0][0];
+      const parsed = JSON.parse(writes[0].content!);
+      expect(parsed.first_session_benchmark_pending).toBe(false);
+      expect(parsed.first_session_benchmark_attempts).toBe(0);
+    });
+
+    it("still attempts generation below the cap", async () => {
+      getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+        path.endsWith("profile.json")
+          ? JSON.stringify({
+              version: 1,
+              name: "A",
+              first_session_benchmark_pending: true,
+              first_session_benchmark_attempts: 2,
+            })
+          : path.endsWith("_manifest.json")
+            ? JSON.stringify({ template_ids: ["foundation", "strength_a"] })
+            : null,
+      );
+      await generateFirstSessionWorkoutsAfterCompletion(
+        baseTurn({
+          wasProfileComplete: true,
+          profileComplete: true,
+          context: {
+            injuries: { flags: [] },
+            progressions: null,
+            profile: { first_session_benchmark_pending: true, first_session_benchmark_attempts: 2 },
+          },
+        }) as never,
+      );
+      expect(getFileRaw).toHaveBeenCalledWith(
+        "owner/repo",
+        expect.stringContaining("_manifest.json"),
+        "token",
+      );
+      expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
+    });
+
+    it("records a failed attempt when the whole generation throws, without giving up on this one turn", async () => {
+      commitFilesAtomic.mockRejectedValueOnce(new Error("network blip"));
+      getFileRaw.mockImplementation(async (_repo: string, path: string) =>
+        path.endsWith("profile.json")
+          ? JSON.stringify({ version: 1, name: "A" })
+          : path.endsWith("_manifest.json")
+            ? JSON.stringify({ template_ids: ["foundation", "strength_a"] })
+            : null,
+      );
+      await generateFirstSessionWorkoutsAfterCompletion(
+        baseTurn({ wasProfileComplete: false, profileComplete: true }) as never,
+      );
+      // First call is the (rejected) main benchmark commit, second call records the failure.
+      expect(commitFilesAtomic).toHaveBeenCalledTimes(2);
+      const attemptWrite = commitFilesAtomic.mock.calls[1][0];
+      expect(JSON.parse(attemptWrite[0].content!).first_session_benchmark_attempts).toBe(1);
+    });
+  });
+
   // Fix 2: a spec repair can't rescue (compileWorkout/validateWorkout structurally reject it, not
   // one of the four invariants repair targets) still lands a benchmark, via the fixed fallback.
   it("falls back to the fixed bodyweight benchmark when the generated spec is unrecoverable", async () => {

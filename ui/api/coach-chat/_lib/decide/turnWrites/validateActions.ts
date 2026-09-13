@@ -164,6 +164,16 @@ function categoryChangeIsConfirmed(
   return hasConfirmationCue(athleteMessage);
 }
 
+// Review finding (P1, #727 hardening): hasConfirmationCue alone is tuned for "did the athlete
+// affirmatively answer a yes/no question" (categoryChangeIsConfirmed's use), not "did the athlete
+// describe this as a genuinely separate session" - a real, clear statement like "also swam this
+// morning, separate thing" carries none of hasConfirmationCue's yes/confirm/go-ahead words and got
+// silently dropped, discarding a real training log entry. This is the narrower signal that
+// combination actually needs: words naming the session as additional/distinct, not a general
+// affirmation.
+const EXTRA_SESSION_CUE_PATTERN =
+  /\b(separate|extra|another|different|unplanned|on top of|in addition|as well|also (?:did|went|swam|ran|played|trained|hit))\b/i;
+
 // Live-verified (#727 review): a real conversation had Coach invent a brand-new session (no
 // session_id), already marked "done", on a date that still had a real session sitting in
 // "planned" - instead of referencing that real session's id, it left it stale and fabricated an
@@ -173,7 +183,9 @@ function categoryChangeIsConfirmed(
 // *already claims a terminal outcome* while a *planned* entry for that same day is still sitting
 // unaddressed. Requiring confirmation for that combination costs an occasional extra turn on a
 // genuine same-day extra (rare) in exchange for never silently leaving a real planned session
-// stale next to a fabricated one (the actual failure mode this guard exists for).
+// stale next to a fabricated one (the actual failure mode this guard exists for). Accepts either
+// a general confirmation cue or the narrower "this is a distinct extra" language above - either
+// one is real evidence this isn't a duplicate.
 function newSessionMayDuplicatePlan(
   date: string,
   status: string | undefined,
@@ -184,6 +196,7 @@ function newSessionMayDuplicatePlan(
   const planned = plannedSessionsByDate.get(date);
   if (!planned || planned.length === 0) return null;
   if (hasConfirmationCue(athleteMessage)) return null;
+  if (EXTRA_SESSION_CUE_PATTERN.test(athleteMessage)) return null;
   return planned[0];
 }
 

@@ -28,6 +28,15 @@ export interface ProfileJson {
   // set in the first place. Optional so every profile.json written before this field existed
   // still parses as "not pending" (undefined is falsy) - no backfill needed.
   first_session_benchmark_pending?: boolean;
+  // Review finding (P1, #727 hardening): without a cap, a repeated failure (a real commit error,
+  // not just an invariant trip - the fallback spec is structurally safe from those) left
+  // first_session_benchmark_pending stuck true forever, so every single future turn from that
+  // athlete re-ran the full generation attempt with no backoff. Incremented on each failed
+  // attempt in generateFirstSessionWorkoutsAfterCompletion; past FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS
+  // the marker is cleared anyway (giving up, not looping) so the athlete gets a working chat
+  // experience even without a benchmark rather than a silent retry storm. Optional/undefined reads
+  // as 0 attempts so far - same backfill-free discipline as the field above.
+  first_session_benchmark_attempts?: number;
 }
 
 // The six memory_update labels - fixed set, per gemini-flow.md's "constrained values over free
