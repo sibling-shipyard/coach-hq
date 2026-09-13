@@ -78,28 +78,22 @@ Mapped in `Theme.sportIcon(for:)`:
 
 ---
 
-## Activity Feed — Chosen Direction ✅
+## All Activity — Paper ledger
 
-**Variant 1** is the selected layout (stored in `@AppStorage("feedVariant")`, default 0).
+Home → All Activity is `AllActivitiesListView` hosting `ActivityLedgerView`: week groups, one pulled paper card, load sheet, tap → `ActivityDetailView`.
 
-- Top: `WeekSummaryWidget` card — sessions · active time · days/7 + 7 sport-colored day dots
-- Feed: day-grouped with sticky `DayGroupHeader`, each row uses `IconRow`:
-  - 40pt circular sport icon (SF Symbol in sport color)
-  - Activity name (14pt semibold) + time + `ZoneDots` (if HR data available)
-  - Calories right-aligned (16pt bold monospace); falls back to duration if cal not backfilled
-- Variant picker (1/2/3) in `BrandHeader` trailing — keep for A/B testing until fully decided
+Coach chat still draws `ActivityLedgerRow` in the SESSION SYNCED slot. A stacked PR swaps that to the same card. Home recent sessions stay on `RecentSessionsCard` / `SessionRow`.
 
-**Variants 2 and 3** remain in `ActivityFeedVariants.swift` for reference.
+Do not put `matchedTransitionSource` on stacked (negative-margin) cards — it merges the next slip into the pulled card. Riffle is UIKit-only; SwiftUI hold-then-drag stole `ScrollView`.
 
 ---
 
 ## Phases — Status
 
 ### ✅ Phase 1 — Activity Feed Polish
-- Day-grouped feed with sticky headers
-- Circular sport icon rows with zone dots + calorie stat
-- WeekSummaryWidget (stats + dot strip)
-- 3 feed variants built; Variant 1 chosen
+- All Activity is the paper ledger stack (`ActivityLedgerView`)
+- Old day-grouped `ActivityFeedView` / `WeekSummaryWidget` removed as dead
+- Chat still uses `ActivityLedgerRow` until the follow-up PR
 
 ### ✅ Phase 2 — Activity Detail Upgrade
 - Hero stats card: 3pt sport color stripe, 22pt bold name, 19pt monospace stat columns
