@@ -50,8 +50,7 @@ import {
 } from "./decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
-import type { GeminiUsage } from "../../_lib/sentry.js";
-import { sumDefined } from "../../_lib/llmAdapters/openRouterAdapter.js";
+import { sumUsage, type GeminiUsage } from "../../_lib/sentry.js";
 import {
   captureGeminiFailure,
   captureValidationFailure,
@@ -1067,33 +1066,10 @@ function friendlyGeminiErrorMessage(status: number): string {
   return "Coach couldn't reply to that - try rephrasing or try again.";
 }
 
-/**
- * Sums two GeminiUsage snapshots field by field - used when a turn's content-violation or
- * bad-reference reprompt fires a second/third askGemini() call, so the turn's total cost reflects
- * every call actually made, not just the last one. `costUsd` sums too (OpenRouter reports it per
- * call); `resolvedProvider`/`resolvedModel` keep the latest call's value since they don't change
- * mid-turn in practice. Either side missing just returns the other unchanged. Field summing itself
- * is openRouterAdapter.ts's own sumDefined() - same absent-vs-zero-safe logic, reused rather than
- * re-copied here.
- */
-export function sumUsage(
-  a: GeminiUsage | undefined,
-  b: GeminiUsage | undefined,
-): GeminiUsage | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  const addOpt = sumDefined;
-  return {
-    promptTokens: addOpt(a.promptTokens, b.promptTokens),
-    completionTokens: addOpt(a.completionTokens, b.completionTokens),
-    totalTokens: addOpt(a.totalTokens, b.totalTokens),
-    cachedPromptTokens: addOpt(a.cachedPromptTokens, b.cachedPromptTokens),
-    thinkingTokens: addOpt(a.thinkingTokens, b.thinkingTokens),
-    costUsd: addOpt(a.costUsd, b.costUsd),
-    resolvedProvider: b.resolvedProvider ?? a.resolvedProvider,
-    resolvedModel: b.resolvedModel ?? a.resolvedModel,
-  };
-}
+// sumUsage now lives in sentry.ts (next to GeminiUsage itself, imported above) so
+// geminiClient.ts's own JSON-parse retry can reuse the exact same merge instead of hand-rolling a
+// second copy - re-exported here so sumUsage.test.ts's existing import keeps working unchanged.
+export { sumUsage };
 
 /**
  * #1053 gap 2 (revised after review): a turn's real summed usage, surfaced as a response header
@@ -1103,10 +1079,14 @@ export function sumUsage(
  * turn). A header carried on the real per-request Response object has no such risk: it's scoped
  * to that one response, same as any other response data.
  *
- * Gated behind COACH_CHAT_EXPOSE_USAGE=1, set only by the local test harness
- * (run-manual-coach-chat-test.ts) - never set in production, so a real athlete's response never
- * carries this header. Internal token/cost telemetry still doesn't belong in the response BODY
- * (athlete-facing JSON), which is why this is a header, not a field alongside `reply`/`threadId`.
+ * Gated behind two independent checks, both required: COACH_CHAT_EXPOSE_USAGE=1 (set only by the
+ * local test harness, run-manual-coach-chat-test.ts) AND VERCEL_ENV !== "production" (Vercel
+ * stamps this itself - nobody sets it by hand, so it can't be copy-pasted into place the way an
+ * env var can). A real athlete's response only ever skips the header if both checks pass, so one
+ * misconfigured var alone - a stray .env.local value, a stale preview override - can't leak
+ * internal cost/token data into production traffic. Internal token/cost telemetry still doesn't
+ * belong in the response BODY (athlete-facing JSON) either way, which is why this is a header,
+ * not a field alongside `reply`/`threadId`.
  */
 export const TURN_USAGE_HEADER = "x-coach-chat-turn-usage";
 
@@ -1114,7 +1094,9 @@ export function usageResponseInit(
   usage: GeminiUsage | undefined,
   init: ResponseInit = {},
 ): ResponseInit {
-  if (process.env.COACH_CHAT_EXPOSE_USAGE !== "1" || !usage) return init;
+  const exposeRequested = process.env.COACH_CHAT_EXPOSE_USAGE === "1";
+  const isProduction = process.env.VERCEL_ENV === "production";
+  if (!exposeRequested || isProduction || !usage) return init;
   const headers = new Headers(init.headers);
   headers.set(TURN_USAGE_HEADER, JSON.stringify(usage));
   return { ...init, headers };
@@ -2418,13 +2400,16 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
     console.error("[coach-chat] chat commitFilesAtomic failed:", err, {
       traceId: turn.traceId,
     });
+    // Gemini already ran and was billed by this point regardless of whether the commit itself
+    // succeeds - drop the usage header here too and a harness reading it sees $0 for a turn that
+    // really cost money (review finding).
     return Response.json(
       {
         error: `Coach replied but saving failed: ${message}`,
         traceId: turn.traceId,
         reply: turn.finalReplyText,
       },
-      { status: 502 },
+      usageResponseInit(turn.usage, { status: 502 }),
     );
   }
 

@@ -16,7 +16,7 @@
  * do not read a span as proof of it.
  */
 import { fetchWithTimeout } from "../httpTimeout.js";
-import { withGeminiSpan, type GeminiUsage } from "../sentry.js";
+import { withGeminiSpan, sumDefined, type GeminiUsage } from "../sentry.js";
 import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 export const OPENROUTER_MODEL = "google/gemini-3.8-flash";
@@ -75,17 +75,8 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
   return usage?.prompt_tokens_details?.cached_tokens;
 }
 
-/**
- * Adds two optional counts the same absent-vs-zero-safe way cachedPromptTokens above does:
- * undefined only when neither side ever reported a value, otherwise a real sum. Used here to
- * accumulate usage across a truncation retry (below); exported so geminiClient.ts's JSON-parse
- * retry and coachTurn.ts's sumUsage() can reuse the same field-summing logic instead of each
- * growing its own copy.
- */
-export function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
-  if (a === undefined && b === undefined) return undefined;
-  return (a ?? 0) + (b ?? 0);
-}
+// sumDefined moved to sentry.ts, next to GeminiUsage itself, so it has one home instead of
+// living in a provider-specific adapter file that geminiClient.ts/coachTurn.ts had to reach into.
 
 /**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one

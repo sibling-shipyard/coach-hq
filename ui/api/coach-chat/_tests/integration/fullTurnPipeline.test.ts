@@ -25,6 +25,7 @@ import {
   requestCoachReply,
   buildTurnWrites,
   commitTurn,
+  TURN_USAGE_HEADER,
   type TurnRequest,
 } from "../../_lib/coachTurn.js";
 
@@ -432,6 +433,52 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(body.reply).toBe("Got it, noted.");
     expect(body.error).toContain("saving failed");
     expect(body.traceId).toBeTruthy();
+  });
+
+  it("review finding: a forced chat-commit failure still carries the usage header - Gemini was already billed", async () => {
+    // Same forced-failure setup as the test above, but checking the thing that review caught:
+    // usageResponseInit() was only ever called on the success path, so a commit failure silently
+    // dropped real, already-billed usage instead of reporting it on the error response too.
+    const originalExpose = process.env.COACH_CHAT_EXPOSE_USAGE;
+    const originalVercelEnv = process.env.VERCEL_ENV;
+    process.env.COACH_CHAT_EXPOSE_USAGE = "1";
+    delete process.env.VERCEL_ENV;
+    try {
+      const repo = createFakeRepo(repoFixture());
+      const gemini = createFakeGemini([{ reply: "Got it, noted." }]);
+      fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
+        if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
+        if (url.endsWith("/git/blobs")) return jsonResponse(500, { message: "forced failure" });
+        return repo.handle(url, init);
+      });
+
+      const turnState = await loadTurnState(
+        {
+          threadId: "thread-usage-on-failure",
+          priorMessages: [],
+          trimmed: "Just checking in",
+          geminiMessage: "Just checking in",
+        },
+        "owner/repo-usage-on-failure",
+        "test-token",
+        "test-api-key",
+      );
+      if (turnState instanceof Response) throw new Error("loadTurnState failed");
+      const replied = await requestCoachReply(turnState);
+      if (replied instanceof Response) throw new Error("requestCoachReply failed");
+      const writes = await buildTurnWrites(replied);
+      const response = await commitTurn(writes);
+
+      expect(response.status).toBe(502);
+      const usageHeader = response.headers.get(TURN_USAGE_HEADER);
+      expect(usageHeader).toBeTruthy();
+      const usage = JSON.parse(usageHeader!);
+      expect(usage.promptTokens).toBe(50);
+    } finally {
+      if (originalExpose === undefined) delete process.env.COACH_CHAT_EXPOSE_USAGE;
+      else process.env.COACH_CHAT_EXPOSE_USAGE = originalExpose;
+      if (originalVercelEnv !== undefined) process.env.VERCEL_ENV = originalVercelEnv;
+    }
   });
 
   it("D1 (#736): a dropped action folds into the *next* turn's athleteContext, not just the response", async () => {

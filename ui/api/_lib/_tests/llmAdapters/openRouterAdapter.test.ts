@@ -26,7 +26,10 @@ const { withGeminiSpan, recordedUsage } = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../sentry.js", () => ({ withGeminiSpan }));
+vi.mock("../../sentry.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../sentry.js")>()),
+  withGeminiSpan,
+}));
 
 import {
   cachedPromptTokens,
