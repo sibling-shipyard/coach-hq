@@ -11,11 +11,11 @@ Format: `<prefix>: <description>`
 
 | Prefix | Used by | When |
 |---|---|---|
-| `coach:` | Coach Phelps | Session data: state.md, coach_notes.md, challenge_v2.json, sessions/, roadmap.md |
+| `coach:` | Coach Phelps | Coaching memory: `user_data/coach/*.json`, `user_data/ledger/*.json`, `user_data/coach/archive/week_plans.md`, `user_data/activities/workout_plans/sessions/**` — see `docs/eng-docs/coach-data-schema.md` for the full current file list |
 | `core:` | Tech Lead | Architecture, `soul/` layers, docs, agent configs |
 | `feat:` | Bob, UI Expert | New features — include issue ref: `feat: <desc> (#N)` |
 | `fix:` | Bob, UI Expert | Bug fixes — include issue ref: `fix: <desc> (#N)` |
-| `data:` | Pipeline (auto) | Auto-generated: sync, quest_log, sync_status |
+| `data:` | Pipeline (auto) | Auto-generated: sync, quest_history, sync_status |
 | `ui:` | UI Expert | Frontend-only changes with no data impact |
 | `ios:` | iOS Builder | App code (Swift/SwiftUI) — include issue ref: `ios: <desc> (#N)`; iOS Builder also uses `core:` for cross-cutting changes |
 
@@ -131,8 +131,8 @@ Paths below are the athlete-repo layout (`user_data/`, `gen/`) - HQ itself doesn
 coach data (ADR 0011, R5); these conventions apply once carved out to a real athlete repo.
 
 **Direct to main (no PR):**
-- Coach session data: `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `sessions/`
-- Pipeline-generated: `user_data/activities/hist/`, `gen/quest_log.md`, `user_data/sync_status.json`
+- Coach session data: `user_data/coach/*.json`, `user_data/ledger/*.json`, `user_data/coach/archive/week_plans.md`, `user_data/activities/workout_plans/sessions/**` (see `docs/eng-docs/coach-data-schema.md`)
+- Pipeline-generated: `user_data/activities/hist/`, `gen/quest_history.json`, `user_data/sync_status.json`
 - UI data bundle (pipeline writes): `ui/client/src/data/`
 - Activity renames (history JSON only)
 
