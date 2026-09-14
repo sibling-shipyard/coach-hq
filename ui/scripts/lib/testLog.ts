@@ -6,9 +6,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
 /**
- * mkdir -p's and returns tests/<YYYY-MM-DD>/<kind>/, plus the day/time stamps used to name the
- * file inside it - shared by writeTestLog below and by run-tests-logged.ts, so every one of the
- * dated tests/<date>/<kind>/ folders (eval, manual, unit) comes from the same formula.
+ * mkdir -p's and returns test-results/raw/<YYYY-MM-DD>/<kind>/, plus the day/time stamps used to
+ * name the file inside it - shared by writeTestLog below and by run-tests-logged.ts, so every one
+ * of the dated test-results/raw/<date>/<kind>/ folders (eval, manual, unit) comes from the same
+ * formula.
  */
 export function dailyLogDir(kind: "eval" | "manual" | "unit"): {
   dir: string;
@@ -18,7 +19,7 @@ export function dailyLogDir(kind: "eval" | "manual" | "unit"): {
   const now = new Date();
   const day = now.toISOString().slice(0, 10);
   const time = now.toISOString().slice(11, 19).replace(/:/g, "-");
-  const dir = path.join(repoRoot, "tests", day, kind);
+  const dir = path.join(repoRoot, "test-results", "raw", day, kind);
   fs.mkdirSync(dir, { recursive: true });
   return { dir, day, time };
 }
@@ -38,7 +39,7 @@ export interface TestLogEntry {
 }
 
 /**
- * Writes tests/<YYYY-MM-DD>/<kind>/<prefix>-log-<HH-MM-SS>.json, mkdir -p'd.
+ * Writes test-results/raw/<YYYY-MM-DD>/<kind>/<prefix>-log-<HH-MM-SS>.json, mkdir -p'd.
  * Returns whether the write actually succeeded - the whole point of running either script is
  * this file landing on disk, so a caller that ignores the return value and exits 0 on a disk-full
  * or permissions failure would report a normal pass/fail with zero audit trail and nothing to

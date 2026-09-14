@@ -76,7 +76,7 @@ shapes where practical (eval transcripts, real logged manual runs, issue #609's 
 reply) rather than invented ones.
 
 **Logged runs:** `npm run test:logged` runs the same suite and additionally writes a dated JSON
-report to `tests/<YYYY-MM-DD>/unit/vitest-results-<HH-MM-SS>.json` (`ui/scripts/run-tests-logged.ts`),
+report to `test-results/raw/<YYYY-MM-DD>/unit/vitest-results-<HH-MM-SS>.json` (`ui/scripts/run-tests-logged.ts`),
 matching the `eval/` and `manual/` folders below. Use this - not a bare `npm test` - whenever a run
 needs to leave a record someone can point at later.
 
@@ -161,7 +161,7 @@ one turn, or `--turns <file.json>` for a scripted conversation - see `ui/scripts
 ready-to-run ones, including `manual-coach-chat-turns-fsp.json` (a full First Session) and
 `manual-coach-chat-turns-daily.json`/`-daily-2.json` (ordinary daily check-ins).
 
-Both `eval` and `manual` log to `tests/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not
+Both `eval` and `manual` log to `test-results/raw/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not
 gitignored) - a permanent, dated record of every run: what was sent, the raw reply, PASS/FAIL/ERROR,
 and which files changed. That last field carries a `confidence` tag:
 - `"derived"` (eval only) - a guess, based on which action field fired. No real write happened.
@@ -171,14 +171,22 @@ and which files changed. That last field carries a `confidence` tag:
 Never treat a `derived` entry as evidence of a real bug - only `observed` entries are.
 
 **Known gaps:**
-- **No repeatable, tracked suite.** The FSP/daily example turn-scripts above are real and
-  realistic, but they're run by hand, one file at a time, whenever someone remembers to. There's
-  no driver that runs the full set and scores it the way `eval:coach-chat` scores its 23
-  transcripts, no aggregate pass/fail report, and no tracking of when a given scenario was last
-  verified against current code. `docs/plans/vade-the-tester.md` plans to formalize this into a
-  fourth, tracked test type.
 - Cleanup is manual and easy to skip - scratch branches accumulate on real athlete repos (see the
   workflow section below) and nothing currently sweeps them automatically.
+
+**The fourth test type - the simulation suite** (`ui/scripts/run-simulation-suite.ts`, paid, live
+model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
+above are no longer just run by hand. `run-simulation-suite.ts` drives a small tracked library of
+those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`) one at a time through
+`test:coach-chat-manual`'s real pipeline - a child-process invocation, same real
+SOUL/repo/Gemini/commit path above. It then scores each against its own `expect` block: which
+`turnIndex`es must land, which changed files each one must or must not include. That's matched
+against the real `filesChanged.files` (`confidence: "observed"`) the manual run's own log entry
+already wrote. `npm run test:simulation-suite -- --list` prints the library; `--only <substring>`
+runs a subset; `--dry-run` prints the plan without spending anything. Each run writes one
+`manual:<scenario-id>` entry to `test-results/coverage-index.json` (`last_pass_sha`,
+`last_run_date`, `watched_paths`, `status`), the
+same selective-re-run index the layered/eval kinds use.
 
 ## Testing against a local athlete repo - the practical workflow
 
@@ -254,7 +262,7 @@ fix; reading the real prompt is faster than re-deriving it from the source.
 
 **Verifying a result - never trust PASS/FAIL alone.** The harness's own PASS/FAIL is a heuristic
 based on which files changed, not a check against what should have changed. After a turn:
-1. Read the run log at `tests/<date>/manual/manual-coach-chat-<repo-slug>-log-<time>.json` for the
+1. Read the run log at `test-results/raw/<date>/manual/manual-coach-chat-<repo-slug>-log-<time>.json` for the
    raw reply JSON and which fields actually fired.
 2. Independently confirm against the real repo: `git -C <local-clone> fetch origin <branch>` then
    `git -C <local-clone> diff <before-sha>..<after-sha>` (the harness prints both shas), or read
@@ -299,15 +307,24 @@ A green `npm test` means "our logic is sound against known-real inputs." It does
 is up" or "GitHub commits are working right now" - that's what the live tools verify. Neither is
 sufficient alone; both stay in the loop.
 
+## The day-doc: primary artifact, raw JSON as backing evidence
+
+`test-results/<YYYY-MM-DD>.md` is the primary, readable record of what ran on a given day - one
+file per day, every run that day appending a new section to it. The dated JSON under
+`test-results/raw/<date>/<eval|manual|unit>/` still gets written exactly as before; it's now backing
+evidence for the day-doc's claims (the real prompt/reply/diff behind a PASS/FAIL line) rather than
+the thing a person reads directly. Format: `kdb/test-doc-style.md`.
+
 ## What still needs a human
 
 Vitest and the manual harness never render a screen. Anything about actual UX - does the chat feel
 right, does the iOS app render correctly, real latency as experienced live - needs a person on
 web/iOS. If that ever produces something worth keeping (a recording, a written note), it goes in
-`tests/<date>/manual-ui/`, same dated convention as the rest of this tree.
+`test-results/raw/<date>/manual-ui/`, same dated convention as the rest of this tree.
 
 ## Done when
 
 A `npm test` / `npm run test:logged` run ends with every file green. An eval/manual run's console
-output ends with `N/M passed`; open the newest file under `tests/<today>/` to see the real
-input/output/diff behind that number.
+output ends with `N/M passed`; check today's `test-results/<today>.md` for the readable summary, or
+open the newest file under `test-results/raw/<today>/` to see the real input/output/diff behind that
+number.
