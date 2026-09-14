@@ -77,11 +77,12 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
 
 /**
  * Adds two optional counts the same absent-vs-zero-safe way cachedPromptTokens above does:
- * undefined only when neither side ever reported a value, otherwise a real sum. Used to
- * accumulate usage across a truncation retry (below) without a missing/zero wire value on one
- * attempt silently zeroing out a real number the other attempt already reported.
+ * undefined only when neither side ever reported a value, otherwise a real sum. Used here to
+ * accumulate usage across a truncation retry (below); exported so geminiClient.ts's JSON-parse
+ * retry and coachTurn.ts's sumUsage() can reuse the same field-summing logic instead of each
+ * growing its own copy.
  */
-function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
+export function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
   if (a === undefined && b === undefined) return undefined;
   return (a ?? 0) + (b ?? 0);
 }

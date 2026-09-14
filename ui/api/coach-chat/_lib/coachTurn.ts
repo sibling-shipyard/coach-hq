@@ -51,6 +51,7 @@ import {
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
 import type { GeminiUsage } from "../../_lib/sentry.js";
+import { sumDefined } from "../../_lib/llmAdapters/openRouterAdapter.js";
 import {
   captureGeminiFailure,
   captureValidationFailure,
@@ -193,8 +194,8 @@ interface RepliedTurn extends TurnState {
   // call plus up to two reprompts - content-violation and bad-reference). Additive-only field, so
   // every caller still typed against a plain RepliedTurn/TurnWrites keeps working; nothing that
   // persists a turn's reply spreads the whole object into committed athlete data, so this never
-  // reaches a file write. See getLastTurnUsage() below for how a test harness reads it back -
-  // deliberately not part of commitTurn's athlete-facing JSON response.
+  // reaches a file write. See usageResponseInit() below for how a test harness reads it back, via
+  // a response header - deliberately not part of commitTurn's athlete-facing JSON response body.
   usage?: GeminiUsage;
 }
 
@@ -1071,7 +1072,9 @@ function friendlyGeminiErrorMessage(status: number): string {
  * bad-reference reprompt fires a second/third askGemini() call, so the turn's total cost reflects
  * every call actually made, not just the last one. `costUsd` sums too (OpenRouter reports it per
  * call); `resolvedProvider`/`resolvedModel` keep the latest call's value since they don't change
- * mid-turn in practice. Either side missing just returns the other unchanged.
+ * mid-turn in practice. Either side missing just returns the other unchanged. Field summing itself
+ * is openRouterAdapter.ts's own sumDefined() - same absent-vs-zero-safe logic, reused rather than
+ * re-copied here.
  */
 export function sumUsage(
   a: GeminiUsage | undefined,
@@ -1079,8 +1082,7 @@ export function sumUsage(
 ): GeminiUsage | undefined {
   if (!a) return b;
   if (!b) return a;
-  const addOpt = (x?: number, y?: number): number | undefined =>
-    x === undefined && y === undefined ? undefined : (x ?? 0) + (y ?? 0);
+  const addOpt = sumDefined;
   return {
     promptTokens: addOpt(a.promptTokens, b.promptTokens),
     completionTokens: addOpt(a.completionTokens, b.completionTokens),
@@ -1094,22 +1096,28 @@ export function sumUsage(
 }
 
 /**
- * #1053 gap 2: the last turn's summed real token usage, for a test harness running in-process
- * (run-manual-coach-chat-test.ts calls handle() directly, not over HTTP) to read after a turn
- * completes. Deliberately not part of commitTurn's response JSON - that response is athlete-facing
- * production API surface, and internal token/cost telemetry doesn't belong there. Module-level
- * state is safe here because both production (one turn per serverless invocation) and the test
- * harness (one turn at a time, synchronous script) never process two turns concurrently in the
- * same process.
+ * #1053 gap 2 (revised after review): a turn's real summed usage, surfaced as a response header
+ * instead of module-level state - a plain module variable is unsafe if a warm serverless instance
+ * ever processes two requests concurrently (nothing reads it in production today, but a later
+ * feature easily could, and the bug would be silent - one athlete's cost attributed to another's
+ * turn). A header carried on the real per-request Response object has no such risk: it's scoped
+ * to that one response, same as any other response data.
+ *
+ * Gated behind COACH_CHAT_EXPOSE_USAGE=1, set only by the local test harness
+ * (run-manual-coach-chat-test.ts) - never set in production, so a real athlete's response never
+ * carries this header. Internal token/cost telemetry still doesn't belong in the response BODY
+ * (athlete-facing JSON), which is why this is a header, not a field alongside `reply`/`threadId`.
  */
-let lastTurnUsage: GeminiUsage | undefined;
-export function getLastTurnUsage(): GeminiUsage | undefined {
-  return lastTurnUsage;
-}
-/** Set by coach-chat.ts's handleGreet too - a greet turn calls askGemini() directly, outside
- * requestCoachReply/commitTurn, but a test harness scoring a scripted run still needs its cost. */
-export function setLastTurnUsage(usage: GeminiUsage | undefined): void {
-  lastTurnUsage = usage;
+export const TURN_USAGE_HEADER = "x-coach-chat-turn-usage";
+
+export function usageResponseInit(
+  usage: GeminiUsage | undefined,
+  init: ResponseInit = {},
+): ResponseInit {
+  if (process.env.COACH_CHAT_EXPOSE_USAGE !== "1" || !usage) return init;
+  const headers = new Headers(init.headers);
+  headers.set(TURN_USAGE_HEADER, JSON.stringify(usage));
+  return { ...init, headers };
 }
 
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
@@ -2345,9 +2353,6 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
 // chat commit is the one true risk point left: if that fails, the response carries Gemini's
 // already-generated reply text alongside the error, instead of discarding it.
 export async function commitTurn(turn: TurnWrites): Promise<Response> {
-  // Recorded before any commit attempt - the cost was already incurred by askGemini() regardless
-  // of whether the commit itself succeeds. See getLastTurnUsage() above.
-  lastTurnUsage = turn.usage;
   const factWrites = [...turn.validUpdates, ...turn.optionalWrites];
   const commitFailureDrops: DroppedAction[] = [];
   if (factWrites.length > 0) {
@@ -2424,14 +2429,17 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
   }
 
   await generateFirstSessionWorkoutsAfterCompletion(turn);
-  return Response.json({
-    reply: turn.finalReplyText,
-    threadId: turn.finalThreadId,
-    threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
-    repoSha,
-    stale: turn.stale,
-    profileComplete: turn.profileComplete,
-    traceId: turn.traceId,
-    droppedActions: [...(turn.droppedActions ?? []), ...commitFailureDrops],
-  });
+  return Response.json(
+    {
+      reply: turn.finalReplyText,
+      threadId: turn.finalThreadId,
+      threads: withComputedDayOffsets(pruneForResponse(turn.latestThreads), turn.timezone),
+      repoSha,
+      stale: turn.stale,
+      profileComplete: turn.profileComplete,
+      traceId: turn.traceId,
+      droppedActions: [...(turn.droppedActions ?? []), ...commitFailureDrops],
+    },
+    usageResponseInit(turn.usage),
+  );
 }

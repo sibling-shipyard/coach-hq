@@ -28,9 +28,11 @@ const GEMINI_RATE_PER_MILLION_TOKENS = { input: 1.5, output: 7.5 } as const;
  * nothing to price (no usage at all - shouldn't happen in practice per llmClient.ts's own
  * comment, but a caller must not fabricate a cost when the provider reported none).
  *
- * Gemini: `promptTokens`/`completionTokens` (thinking tokens bill as output too, per #827, but
- * `completionTokens` already excludes them on the Gemini side - see geminiAdapter.ts's
- * usageMetadata mapping - so this deliberately does NOT add thinkingTokens a second time).
+ * Gemini: `promptTokens` at the input rate; `completionTokens` PLUS `thinkingTokens` at the output
+ * rate - thinking tokens bill as output per #827, and `completionTokens` on the Gemini side is a
+ * genuinely separate field from `thinkingTokens` (geminiAdapter.ts's usageMetadata mapping sets
+ * `completionTokens` from `candidatesTokenCount` and `thinkingTokens` from `thoughtsTokenCount`
+ * independently - neither already contains the other), so both need adding, not just one.
  * OpenRouter: trusts the wire `costUsd` outright; only falls back to the table if OpenRouter's
  * own response ever omits it (e.g. `usage: {include: true}` didn't round-trip).
  */
@@ -41,15 +43,15 @@ export function estimateCostUsd(
   if (!usage) return undefined;
   if (provider === "openrouter" && usage.costUsd !== undefined) return usage.costUsd;
   const promptTokens = usage.promptTokens ?? 0;
-  const completionTokens = usage.completionTokens ?? 0;
-  if (promptTokens === 0 && completionTokens === 0) return undefined;
+  const outputTokens = (usage.completionTokens ?? 0) + (usage.thinkingTokens ?? 0);
+  if (promptTokens === 0 && outputTokens === 0) return undefined;
   return (
     (promptTokens / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.input +
-    (completionTokens / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.output
+    (outputTokens / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.output
   );
 }
 
-/** Formats a cost the way the day-doc format (docs/plans/vade-the-tester.md) shows it: "$0.014". */
+/** Formats a cost the way the day-doc format (kdb/test-doc-style.md) shows it: "$0.014". */
 export function formatCostUsd(usd: number | undefined): string {
   if (usd === undefined) return "unknown";
   return `$${usd.toFixed(3)}`;

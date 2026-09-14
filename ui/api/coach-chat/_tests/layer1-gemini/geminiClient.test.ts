@@ -146,6 +146,30 @@ describe("askGemini", () => {
     expect(generateCalls).toHaveLength(2);
   });
 
+  it("sums usage across the parse-failure retry instead of discarding the first call's tokens (review finding)", async () => {
+    // The malformed-JSON fixture above never reproduced this bug because its first response
+    // carries no usageMetadata at all. Real Gemini traffic bills the first call's tokens
+    // regardless of whether its text parsed - this test's first response reports real usage, so
+    // discarding it on the retry (rather than summing) would make this test fail.
+    let call = 0;
+    fetchWithTimeout.mockImplementation(async (url: string) => {
+      if (url.includes("cachedContents")) return jsonResponse(500, {});
+      call += 1;
+      if (call === 1) {
+        return jsonResponse(200, {
+          candidates: [{ content: { parts: [{ text: '{"reply": "unterminated' }] } }],
+          usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 20 },
+        });
+      }
+      return geminiEnvelope({ reply: "Recovered after malformed JSON." });
+    });
+
+    const result = await askGemini(...args);
+
+    expect(result.usage?.promptTokens).toBe(150); // 50 (discarded call) + 100 (retry)
+    expect(result.usage?.completionTokens).toBe(20); // discarded call only - retry reports none
+  });
+
   // Review finding: this retry stacks with the adapter's own 503/504/truncation retry and
   // coachTurn.ts's up to two reprompt calls, none of which know how much of the 300s Vercel
   // budget the others have already spent - the retry must not reuse the full 45s timeout again.

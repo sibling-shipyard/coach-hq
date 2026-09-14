@@ -1,6 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
- * run-simulation-suite.ts - the fourth, tracked test type docs/plans/vade-the-tester.md names:
+ * run-simulation-suite.ts - the fourth, tracked test type (vade-the-tester's original design plan
+ * is gone now that its finishing PR landed - see kdb/decisions/0044-vade-the-tester-agent.md):
  * a small library of real FSP/daily-conversation `--turns` scenarios, run one at a time through
  * run-manual-coach-chat-test.ts's real pipeline (real SOUL, real athlete repo, real Gemini call,
  * real commit), scored against each scenario's own `expect` block, with one coverage-index.json
@@ -49,6 +50,7 @@ import { fileURLToPath } from "node:url";
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
+import { formatCostUsd } from "./lib/llmPricing.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -84,18 +86,9 @@ interface Scenario {
 }
 
 /**
- * #1053 gap 3: --branch <name> on the CLI overrides which scratch branch every selected scenario
- * runs against, passed straight through to run-manual-coach-chat-test.ts's own --branch. Needed
- * for fsp-basic: it runs against coach-skanda-testing, which needs a fresh reset onto a NEW
- * scratch branch first (docs/eng-docs/coach-chat-testing.md's reset procedure) - without this,
- * the driver could only ever run fsp-basic against an auto-named branch it creates itself, never
- * the specific already-reset one. Applies to every scenario the invocation selects (--only
- * narrows to one in practice) - there was no need for a per-scenario field in the library above.
- */
-
-/**
- * Seeded from the FSP/daily example files already in examples/ (docs/plans/vade-the-tester.md's
- * PR1 scope). The `-727-*` files (fsp-transition-a, season-fsp) are single/double-turn probes
+ * Seeded from the FSP/daily example files already in examples/ (vade-the-tester plan's PR1 scope
+ * - see kdb/decisions/0044-vade-the-tester-agent.md). The `-727-*` files (fsp-transition-a,
+ * season-fsp) are single/double-turn probes
  * for one specific #727 migration question each, not a realistic full FSP or daily conversation
  * shape - I left them out of the library rather than force-fit an `expect` block onto a scenario
  * that was never meant to stand alone as regression coverage. They stay in examples/ for anyone
@@ -182,9 +175,16 @@ function parseArgs(argv: string[]) {
     list: argv.includes("--list"),
     only: get("--only"),
     dryRun: argv.includes("--dry-run"),
-    // Bypasses the selective-re-run check below entirely - "Tech Lead wants a full run before a
-    // release" (docs/plans/vade-the-tester.md), an explicit ask, not the default.
+    // Bypasses the selective-re-run check below entirely - a full run before a release, an
+    // explicit ask, not the default.
     force: argv.includes("--force"),
+    // #1053 gap 3: overrides which scratch branch every selected scenario runs against, passed
+    // straight through to run-manual-coach-chat-test.ts's own --branch. Needed for fsp-basic: it
+    // runs against coach-skanda-testing, which needs a fresh reset onto a NEW scratch branch first
+    // (docs/eng-docs/coach-chat-testing.md's reset procedure) - without this, the driver could
+    // only ever run fsp-basic against an auto-named branch it creates itself, never the specific
+    // already-reset one. Applies to every scenario the invocation selects (--only narrows to one
+    // in practice) - there was no need for a per-scenario field in the SCENARIOS library above.
     branch: get("--branch"),
   };
 }
@@ -382,7 +382,7 @@ async function main() {
     const { pass, failures } = scoreScenario(scenario, entries);
     const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
     console.log(
-      `${scenario.id}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: $${scenarioCostUsd.toFixed(3)})`,
+      `${scenario.id}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: ${formatCostUsd(scenarioCostUsd)})`,
     );
     for (const f of failures) console.log(`  - ${f}`);
     if (!pass) anyFailed = true;

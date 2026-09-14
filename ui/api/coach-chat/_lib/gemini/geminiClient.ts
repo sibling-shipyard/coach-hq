@@ -7,6 +7,7 @@
  * throughout M2 - this file never sets it, so nothing here flips a provider.
  */
 import { selectLlmAdapter, type LlmMessage, type LlmResult } from "../../../_lib/llmClient.js";
+import { sumDefined } from "../../../_lib/llmAdapters/openRouterAdapter.js";
 import { log } from "../../../_lib/log.js";
 import { GEMINI_MODEL } from "../../../_lib/geminiModel.js";
 import type { ChatMessage } from "../chatThreads.js";
@@ -142,8 +143,35 @@ export async function askGemini(
       traceId,
     });
     try {
+      const firstUsage = result.usage;
       result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
       parsed = JSON.parse(result.text) as GeminiReply;
+      // The first call's tokens were real and billed even though its text didn't parse -
+      // summing here (instead of letting the reassignment above silently drop firstUsage)
+      // keeps the reported cost honest about both calls this retry actually made.
+      if (firstUsage) {
+        result = {
+          ...result,
+          usage: result.usage
+            ? {
+                promptTokens: sumDefined(firstUsage.promptTokens, result.usage.promptTokens),
+                completionTokens: sumDefined(
+                  firstUsage.completionTokens,
+                  result.usage.completionTokens,
+                ),
+                totalTokens: sumDefined(firstUsage.totalTokens, result.usage.totalTokens),
+                cachedPromptTokens: sumDefined(
+                  firstUsage.cachedPromptTokens,
+                  result.usage.cachedPromptTokens,
+                ),
+                thinkingTokens: sumDefined(firstUsage.thinkingTokens, result.usage.thinkingTokens),
+                costUsd: sumDefined(firstUsage.costUsd, result.usage.costUsd),
+                resolvedProvider: result.usage.resolvedProvider ?? firstUsage.resolvedProvider,
+                resolvedModel: result.usage.resolvedModel ?? firstUsage.resolvedModel,
+              }
+            : firstUsage,
+        };
+      }
     } catch (err) {
       throw withModelTag(err);
     }
