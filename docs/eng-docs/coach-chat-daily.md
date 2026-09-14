@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
 
 ## Context
 
@@ -217,6 +217,19 @@ On every returning-athlete turn:
   `validate-current-week` — right before the content is handed to `commitFilesAtomic()`. A
   write that fails parsing or comes back with `availability: "invalid"` throws instead of
   committing.
+- Beyond the length-cap/missing-`coach_note` reprompt above, `requestCoachReply()` also runs a
+  whole family of `findMissed*Language`/`findUncounted*Language` detectors (`coachTurn.ts`). Each
+  one covers an action field with a known narration-vs-action risk - the model describes a fact
+  as saved without setting the matching field, or captures only some of several real facts in one
+  message. Same one-shot reprompt mechanism, same "still" check afterward. `gemini-flow.md`'s
+  coverage table is the authoritative per-field list - not repeated here, so it stays the one
+  place this state lives. If a detector is still unresolved after its reprompt,
+  `captureStillUnresolvedGuard` (`ui/api/_lib/sentry.ts`) sends it to Sentry alongside the
+  existing local `console.warn`, so a guard that doesn't hold shows up in production monitoring,
+  not just local logs.
+- `sports_update` merges the reported list against what's already on file rather than replacing
+  it (`applySportsUpdate`, `coachIntents.ts`) - a returning-athlete turn naming one new sport
+  doesn't drop the others.
 - Server-side intent appliers (`turnWrites/*.ts`, wrapping the pure appliers in `coachIntents.ts`,
   `coachWorkoutFiles.ts`, `coachWeekFiles.ts`) validate ids, add dates and timestamps, and resolve
   each action against fresh file content. The resulting split JSON files and `chat_history.json`

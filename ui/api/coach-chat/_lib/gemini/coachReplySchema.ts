@@ -172,7 +172,8 @@ const RESPONSE_PROPERTIES = {
     enum: ["accountability", "encouragement", "analysis"],
   },
   // Separate top-level memory.json field, not a labelled memory note. First Session Protocol
-  // writes it when first stated; later chat may replace the full list.
+  // writes it when first stated; later chat merges the reported list against what's already on
+  // file rather than replacing it (applySportsUpdate, #1037 PR E).
   sports_update: { type: "array", items: { type: "string" } },
   // A brand-new injury the athlete has never mentioned before. No id in the wire shape -
   // server mints one (coachIntents.ts's applyInjuryFlag), same discipline as quest_create.

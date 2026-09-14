@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-11
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
 
 ## Context
 
@@ -86,7 +86,8 @@ that section inline; hosted chat receives the same section through
 split JSON files, while chat emits structured actions as each answer lands. Chat walks through:
 warm intro → conversational intake → confirm → quest setup → transition. Each fact maps to a
 structured action as it lands:
-- Missing name → `profile_update`; missing sports → `sports_update`.
+- Missing name → `profile_update`; missing sports → `sports_update` (merges against what's
+  already on file rather than replacing it, same as any other turn - see `coach-chat-daily.md`).
 - Training frequency/fitness level → `memory_update` (`fitness_baseline`).
 - Upcoming events, a rough season timeline, AND the 3-6 month goal → `season_start`, bundled
   together in one call. `main_quest` is part of its own payload (B3) — `memory.json` has no goal
@@ -102,6 +103,10 @@ structured action as it lands:
 Each ordinary turn commits any profile, memory, injury, season, or quest writes it produced,
 along with `chat_history.json` itself, in one small atomic commit. Every turn is fully persisted,
 First Session or day-to-day — there is no separate close-out turn any more (C1).
+
+A First Session turn runs through the same `findMissed*Language` reprompt-guard family as any
+other turn - `coach-chat-daily.md`'s "Every turn commits (C1)" section covers the detector list
+and the Sentry escalation for one that doesn't hold; not repeated here.
 `season_start`/`quest_create` are available on every turn for every athlete (B3) — a returning
 athlete can start a new season with its goal, or add a habit quest, the same as during First
 Session.
