@@ -27,7 +27,6 @@
     "pretest:simulation-suite": "node scripts/build-soul.mjs",
     "test:simulation-suite": "tsx --tsconfig tsconfig.json scripts/run-simulation-suite.ts",
     "test:coach-message-manual": "tsx --tsconfig tsconfig.json scripts/run-manual-coach-message-test.ts",
-    "cleanup-scratch-branches": "tsx --tsconfig tsconfig.json scripts/cleanup-scratch-branches.ts",
     "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run",
     "pretest:logged": "node scripts/build-soul.mjs",

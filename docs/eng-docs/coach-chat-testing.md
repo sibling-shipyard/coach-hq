@@ -172,8 +172,14 @@ and which files changed. That last field carries a `confidence` tag:
 
 Never treat a `derived` entry as evidence of a real bug - only `observed` entries are.
 
-**Known gaps:** none tracked here - `ui/scripts/cleanup-scratch-branches.ts` now sweeps scratch
-branches (see the Cleanup section below), closing the gap this used to name.
+**Known gaps:**
+- Cleanup is manual and easy to skip - scratch branches accumulate on real athlete repos (see the
+  workflow section below) and nothing currently sweeps them automatically. A dedicated sweep tool
+  was considered and deliberately not built. Nothing schedules vade-the-tester to run one on a
+  cadence, so a tool here would still need a human to remember to invoke it. That's no less manual
+  than running the `gh` commands directly - ADR 0023's principle, a signal only earns automation
+  when something other than a person keeps it current. Sweep by hand, periodically, using
+  `gh api repos/<owner>/<repo>/branches --paginate` filtered to `test/`/`retest/`.
 
 **The fourth test type - the simulation suite** (`ui/scripts/run-simulation-suite.ts`, paid, live
 model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
@@ -306,19 +312,15 @@ onto that state:
 **Cleanup.** Scratch branches on athlete repos are local-only (never a PR, never touching `main`)
 but they do accumulate - dozens of `test/`/`retest/` branches across the repos used in a single
 investigation is normal. Not urgent to delete mid-investigation (evidence for a finding may live
-only on one), but worth a periodic sweep once a testing pass is fully wrapped up.
-
-`ui/scripts/cleanup-scratch-branches.ts` sweeps them - lists every remote branch matching
-`^(test|retest)/` on a given repo, with its real age (a real `gh api` commit-date lookup, not a
-guess). List-only by default; `--delete` actually removes what's listed. `--older-than <days>`
-narrows to branches past that age. It refuses to touch the repo's default branch or anything
-literally named `main`, same hard-coded discipline `run-manual-coach-chat-test.ts` already has for
-creating one, with no override flag for that specific check.
+only on one), but worth a periodic sweep once a testing pass is fully wrapped up. No dedicated tool
+for this - nothing schedules a sweep on a cadence, so a script would still need a human to remember
+to run it, no less manual than the raw command below. A signal only earns automation when something
+other than a person keeps it current (ADR 0023).
 
 ```bash
-npm run cleanup-scratch-branches -- --athlete skanda            # list only
-npm run cleanup-scratch-branches -- --athlete akash --older-than 14
-npm run cleanup-scratch-branches -- --athlete akash --older-than 14 --delete
+gh api repos/<owner>/<repo>/branches --paginate --jq '.[] | select(.name | test("^(test|retest)/")) | .name'
+# review the list, then delete by hand:
+gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch-name>
 ```
 
 ## Two different questions, answered by different tools

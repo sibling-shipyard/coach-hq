@@ -1073,7 +1073,10 @@ function friendlyGeminiErrorMessage(status: number): string {
  * call); `resolvedProvider`/`resolvedModel` keep the latest call's value since they don't change
  * mid-turn in practice. Either side missing just returns the other unchanged.
  */
-function sumUsage(a: GeminiUsage | undefined, b: GeminiUsage | undefined): GeminiUsage | undefined {
+export function sumUsage(
+  a: GeminiUsage | undefined,
+  b: GeminiUsage | undefined,
+): GeminiUsage | undefined {
   if (!a) return b;
   if (!b) return a;
   const addOpt = (x?: number, y?: number): number | undefined =>
