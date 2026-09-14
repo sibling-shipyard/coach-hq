@@ -332,7 +332,11 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function questNameReferencedIn(questName: string, factText: string): boolean {
+// Exported for coachTurn.ts's findMissedQuestLanguage (#1037 PR D) - that detector needs
+// turn.context.quests, not the synthesis inputs this file works with, so it can't just call
+// synthesizeQuestEventFromUnrecordedFacts itself, but the name-matching problem underneath is the
+// same either way. Duplicating this function in coachTurn.ts would let the two copies drift.
+export function questNameReferencedIn(questName: string, factText: string): boolean {
   const words = questName
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")

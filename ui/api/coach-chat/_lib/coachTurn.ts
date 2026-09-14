@@ -63,6 +63,7 @@ import {
   validateWeekUpdate,
   synthesizeQuestEventFromUnrecordedFacts,
   hasConfirmationCue,
+  questNameReferencedIn,
   type DroppedAction,
   type ExistingSessionForDiff,
 } from "./decide/turnWrites/validateActions.js";
@@ -606,6 +607,33 @@ function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
+// #1037 PR D: quest_event had no dedicated guard at all before this - its only backstop
+// (synthesizeQuestEventFromUnrecordedFacts) rescues at most one completion and bails entirely
+// once 2+ dropped facts each name-match a distinct quest, the exact multi-drop case that needs
+// rescuing. Unlike the boolean findMissed*Language checks above, this one counts: it compares the
+// number of active quests the athlete's own message names alongside completion/miss/excusal
+// language against reply.quest_event.length, so "2 of 3 landed" still fires instead of being
+// suppressed by the array being non-empty. Reuses questNameReferencedIn (validateActions.ts) for
+// the actual name-matching rather than duplicating that logic.
+// This is a LOWER BOUND, not an exact count - a quest name mentioned without status language
+// nearby, or two quests with overlapping name words, can both misfire. Same risk class
+// GOAL_LANGUAGE_PATTERN and sports_update's NEW_ACTIVITY_LANGUAGE_PATTERN already carry - run the
+// full api/coach-chat/ suite after wiring this in and narrow on any collision, never drop the check.
+const QUEST_STATUS_LANGUAGE_PATTERN =
+  /\b(complet(?:ed|ing)|done|finish(?:ed)?|hit|nailed|crushed|missed|skip(?:ped)?|excused)\b/i;
+
+function findMissedQuestLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  const activeQuests = (turn.context.quests?.quests ?? []).filter((q) => q.status === "active");
+  if (activeQuests.length === 0) return null;
+  if (!QUEST_STATUS_LANGUAGE_PATTERN.test(turn.geminiMessage)) return null;
+  const mentionedNames = activeQuests.filter((q) =>
+    questNameReferencedIn(q.name, turn.geminiMessage),
+  );
+  const capturedIds = new Set((reply.quest_event ?? []).map((e) => e.quest_id));
+  const uncaptured = mentionedNames.filter((q) => !capturedIds.has(q.id));
+  return uncaptured.length > 0 ? uncaptured.map((q) => q.name).join(", ") : null;
+}
+
 // #1009 (profile_update hardening): same scoping as the checks above - first-session
 // only, since that's the only turn type where a stated age/height/weight/timezone is reliably
 // new rather than a restatement of something already on file. Four independent field checks
@@ -691,6 +719,55 @@ function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): st
   if ((reply.injury_event ?? []).length > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+}
+
+// #1037 PR D: returning-athlete counterpart to findMissedInjuryLanguage, and also the fix for
+// findMissedInjuryUpdateLanguage's 2+-flag blind spot above - one function covers both gaps since
+// they share INJURY_LANGUAGE_PATTERN and the same "did fewer things land than were described"
+// question. Not scoped to "zero flags" (that disambiguator only makes sense pre-onboarding) and
+// not scoped to exactly one flag either - resolving WHICH flag a bare mention means is
+// findMissedInjuryUpdateLanguage's job (single-active-flag only); this only asks whether the
+// count of things captured (injury_flag + injury_event entries) is lower than the count of real,
+// distinct injury mentions in the message. A lower bound, not exact matching to a specific flag.
+//
+// INJURY_LANGUAGE_PATTERN matches keywords like "sore"/"hurt"/"pain" - a single injury described
+// across two sentences ("my knee still hurts, it's sore in the mornings") produces 2 keyword hits
+// for 1 real injury, which would over-count and false-positive a reprompt for an injury already
+// captured once. Raw per-keyword counting isn't safe to ship as-is, so this collapses keyword
+// hits that land close together in the message into a single mention before counting, on the
+// theory that a real second injury needs its own location/context words first and so reliably
+// sits farther from the prior keyword than a restated hit on the same injury does. Verified
+// against both shapes in the test suite: a same-injury-restated-nearby case (must not fire) and a
+// two-injuries-described-far-apart case (must still fire). 12 words is a starting point, not a
+// proven constant - narrow it if a live transcript shows it collapsing two real distinct
+// injuries, per the LLD's instruction to narrow on collision, never drop the check.
+const INJURY_MENTION_COLLAPSE_WINDOW_WORDS = 12;
+
+function countDistinctInjuryMentions(text: string): string[] {
+  const pattern = new RegExp(INJURY_LANGUAGE_PATTERN, "gi");
+  const hits: { keyword: string; wordIndex: number }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const wordIndex = text.slice(0, match.index).split(/\s+/).filter(Boolean).length;
+    hits.push({ keyword: match[0], wordIndex });
+  }
+  const distinct: string[] = [];
+  let lastCountedWordIndex = -Infinity;
+  for (const hit of hits) {
+    if (hit.wordIndex - lastCountedWordIndex > INJURY_MENTION_COLLAPSE_WINDOW_WORDS) {
+      distinct.push(hit.keyword);
+    }
+    lastCountedWordIndex = hit.wordIndex;
+  }
+  return distinct;
+}
+
+function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (turn.firstSession) return null; // covered by findMissedInjuryLanguage above
+  const mentions = countDistinctInjuryMentions(turn.geminiMessage);
+  if (mentions.length === 0) return null;
+  const captured = (reply.injury_flag ?? []).length + (reply.injury_event ?? []).length;
+  return mentions.length > captured ? mentions[captured] : null;
 }
 
 // Single source of truth for "which fields count as schedule-changing" - both this function and
@@ -840,6 +917,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
     const missedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
+    const missedQuestLanguage = findMissedQuestLanguage(turn, reply);
+    const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -862,6 +941,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedRemovalLanguage ||
       missedSportsLanguage ||
       missedInjuryUpdateLanguage ||
+      missedQuestLanguage ||
+      uncountedInjuryLanguage ||
       unconfirmedAssumption ||
       malformedExercise ||
       proseOnlyWeekPlan
@@ -877,6 +958,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedRemovalLanguage,
         missedSportsLanguage,
         missedInjuryUpdateLanguage,
+        missedQuestLanguage,
+        uncountedInjuryLanguage,
         unconfirmedAssumption,
         malformedExercise,
         proseOnlyWeekPlan,
@@ -956,6 +1039,22 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " flag_id; if it genuinely doesn't describe an injury update, disregard this note",
         );
       }
+      if (missedQuestLanguage) {
+        notes.push(
+          `the athlete's message names these active quests with completion/miss/excusal` +
+            ` language, but they have no quest_event this turn: ${missedQuestLanguage} - add a` +
+            " quest_event now for each one that genuinely was completed, missed, or excused this" +
+            " turn, using its real quest_id",
+        );
+      }
+      if (uncountedInjuryLanguage) {
+        notes.push(
+          `the athlete's message contains "${uncountedInjuryLanguage}" but fewer injury_flag/` +
+            "injury_event entries were set this turn than the message appears to describe - if a" +
+            " real injury update or new injury was left out, add it now with the right field and" +
+            " real flag_id; if this is the same injury already captured, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
@@ -1011,6 +1110,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
       const stillMissedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
+      const stillMissedQuestLanguage = findMissedQuestLanguage(turn, reply);
+      const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -1033,6 +1134,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
         stillMissedInjuryUpdateLanguage ||
+        stillMissedQuestLanguage ||
+        stillUncountedInjuryLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercise ||
         stillProseOnlyWeekPlan
@@ -1050,6 +1153,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
             stillMissedInjuryUpdateLanguage,
+            stillMissedQuestLanguage,
+            stillUncountedInjuryLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
             stillProseOnlyWeekPlan,
@@ -1072,6 +1177,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
             stillMissedSportsLanguage ? "missedSportsLanguage" : null,
             stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
+            stillMissedQuestLanguage ? "missedQuestLanguage" : null,
+            stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercise ? "malformedExercise" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,

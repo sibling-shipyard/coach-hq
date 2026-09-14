@@ -1311,18 +1311,33 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
 
   // Deliberate scope boundary, not an oversight to fix later (see the code comment above
   // findMissedInjuryUpdateLanguage in coachTurn.ts): with 2+ active flags, "which injury" is
-  // ambiguous and this detector stays silent rather than risk a false-positive reprompt on an
-  // ordinary mention of one of several known issues.
-  it("does not reprompt with 2+ active flags, even with the same injury language (deliberate scope boundary)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+  // ambiguous and THIS detector stays silent rather than risk a false-positive reprompt naming a
+  // specific flag_id on an ordinary mention of one of several known issues. That scope boundary is
+  // still true. What changed in #1037 PR D: findUncountedInjuryLanguage now covers the "something
+  // was said, nothing landed" case even with 2+ flags, without needing to resolve which flag - so
+  // a reprompt now DOES fire here, just from the newer, broader detector rather than this one.
+  it("findMissedInjuryUpdateLanguage itself stays silent with 2+ active flags, but findUncountedInjuryLanguage still reprompts (#1037)", async () => {
+    askGemini
+      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
+      .mockResolvedValueOnce({
+        reply: "Noted, thanks for the update.",
+        coach_note: "Knee still sore.",
+        injury_event: [{ status: "active", flag_id: "inj_1" }],
+      });
 
-    await requestCoachReply(
+    const result = await requestCoachReply(
       oneActiveFlagTurnState({
         activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_event?.[0]?.flag_id).toBe("inj_1");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    // Fired by the new detector, not the old one - the note text is generic ("fewer
+    // injury_flag/injury_event entries..."), never a specific flag_id, since which of the 2+
+    // flags is meant is still genuinely ambiguous.
+    expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
   });
 });
 
@@ -1427,6 +1442,354 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
 
     await requestCoachReply(baseTurnState());
 
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #1037 PR D: quest_event had no dedicated guard before this - see findMissedQuestLanguage in
+// coachTurn.ts. Every test below is a returning-athlete turn (baseTurnState's default); the
+// detector doesn't gate on firstSession at all, it only cares about active quests on file.
+describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function twoQuestTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      context: {
+        soul: "soul",
+        quests: {
+          quests: [
+            { id: "q1", name: "Long Run", status: "active" },
+            { id: "q2", name: "Mobility Work", status: "active" },
+          ],
+        },
+      },
+      // findInvalidReference (a different, pre-existing detector) treats any quest_id outside
+      // this set as a bad reference and reprompts on it too - keep it in sync with the quests
+      // above so these tests isolate findMissedQuestLanguage's own behavior.
+      validQuestIds: new Set<string>(["q1", "q2"]),
+      ...overrides,
+    });
+  }
+
+  it("fires when 2 of 2 active quests are mentioned with status language but only 1 has a quest_event", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Nice work today.",
+        coach_note: "Logged the run.",
+        quest_event: [{ quest_id: "q1", status: "completed" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Nice work today.",
+        coach_note: "Logged the run and mobility work.",
+        quest_event: [
+          { quest_id: "q1", status: "completed" },
+          { quest_id: "q2", status: "completed" },
+        ],
+      });
+
+    const result = await requestCoachReply(
+      twoQuestTurnState({
+        trimmed: "finished my long run and did my mobility work today",
+        geminiMessage: "finished my long run and did my mobility work today",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(
+      "reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort(),
+    ).toEqual(["q1", "q2"]);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("Mobility Work");
+  });
+
+  it("fires when 1 of 1 mentioned quest has no quest_event at all", async () => {
+    askGemini
+      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
+      .mockResolvedValueOnce({
+        reply: "ok",
+        coach_note: "note",
+        quest_event: [{ quest_id: "q3", status: "completed" }],
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        context: {
+          soul: "soul",
+          quests: { quests: [{ id: "q3", name: "Strength Quest", status: "active" }] },
+        },
+        validQuestIds: new Set<string>(["q3"]),
+        trimmed: "finished my strength quest today",
+        geminiMessage: "finished my strength quest today",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.quest_event?.[0]?.quest_id).toBe("q3");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("Strength Quest");
+  });
+
+  it("stays silent when the message has no quest-status language at all (ordinary chat)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(twoQuestTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays silent when all mentioned quests already have a quest_event this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      quest_event: [
+        { quest_id: "q1", status: "completed" },
+        { quest_id: "q2", status: "completed" },
+      ],
+    });
+
+    await requestCoachReply(
+      twoQuestTurnState({
+        trimmed: "finished my long run and did my mobility work today",
+        geminiMessage: "finished my long run and did my mobility work today",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays silent when a quest name is mentioned with no status language nearby (purely descriptive)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      baseTurnState({
+        context: {
+          soul: "soul",
+          quests: { quests: [{ id: "q3", name: "Strength Quest", status: "active" }] },
+        },
+        trimmed: "my strength quest usually happens Tuesdays",
+        geminiMessage: "my strength quest usually happens Tuesdays",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  // The actual bug this fixes (#1037): a dense multi-fact turn where the model captures some but
+  // not all of the quests it just narrated as done/missed/skipped. Before this PR, quest_event's
+  // only backstop (synthesizeQuestEventFromUnrecordedFacts) bails entirely once 2+ dropped facts
+  // each name-match a distinct quest - the exact case here.
+  it("fires and names every uncaptured quest when a dense multi-quest turn only partially lands", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Solid day of training.",
+        coach_note: "Run done, strength skipped.",
+        quest_event: [{ quest_id: "q1", status: "completed" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Solid day of training.",
+        coach_note: "Run and mobility done, strength skipped.",
+        quest_event: [
+          { quest_id: "q1", status: "completed" },
+          { quest_id: "q2", status: "completed" },
+          { quest_id: "q3", status: "missed" },
+        ],
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        context: {
+          soul: "soul",
+          quests: {
+            quests: [
+              { id: "q1", name: "Long Run", status: "active" },
+              { id: "q2", name: "Mobility Work", status: "active" },
+              { id: "q3", name: "Strength Quest", status: "active" },
+            ],
+          },
+        },
+        validQuestIds: new Set<string>(["q1", "q2", "q3"]),
+        trimmed: "did my long run and my mobility work today, but skipped my strength quest",
+        geminiMessage: "did my long run and my mobility work today, but skipped my strength quest",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(
+      "reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort(),
+    ).toEqual(["q1", "q2", "q3"]);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("Mobility Work");
+    expect(repromptMessage).toContain("Strength Quest");
+  });
+});
+
+// #1037 PR D: findUncountedInjuryLanguage closes both injury_flag's returning-athlete gap and
+// injury_event's 2+-flag gap in one function - see the code comment above it in coachTurn.ts for
+// why one detector covers both. Every test below is a returning-athlete turn.
+describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  const twoDistinctInjuryMessage =
+    "I tweaked my ankle this morning during warmup and then much later in the day I also" +
+    " strained my shoulder lifting boxes";
+
+  function injuryTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
+      trimmed: twoDistinctInjuryMessage,
+      geminiMessage: twoDistinctInjuryMessage,
+      ...overrides,
+    });
+  }
+
+  it("fires when injury language describes more than was captured this turn", async () => {
+    askGemini
+      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
+      .mockResolvedValueOnce({
+        reply: "Sorry to hear that - noted both.",
+        coach_note: "New ankle tweak and shoulder strain.",
+        injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
+      });
+
+    const result = await requestCoachReply(injuryTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
+  });
+
+  it("stays silent on a first-session turn (covered by findMissedInjuryLanguage instead)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    // Keep the default validInjuryFlagIds (non-empty) so findMissedInjuryLanguage's own
+    // zero-flags gate stays closed too - this test isolates findUncountedInjuryLanguage's
+    // firstSession gate specifically.
+    await requestCoachReply(injuryTurnState({ firstSession: true }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays silent when everything described was already captured this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
+    });
+
+    await requestCoachReply(injuryTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays silent when the message has no injury language at all", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      injuryTurnState({
+        trimmed: "had a great tempo run today, feeling strong",
+        geminiMessage: "had a great tempo run today, feeling strong",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires and names the uncaptured injury on a partial-capture (2 injuries named, 1 landed)", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the ankle.",
+        coach_note: "New ankle tweak.",
+        injury_flag: [{ text: "tweaked ankle" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted both.",
+        coach_note: "New ankle tweak and shoulder strain.",
+        injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
+      });
+
+    const result = await requestCoachReply(injuryTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
+  });
+
+  // The false-positive guard the LLD explicitly required: one injury restated across two clauses
+  // close together ("still hurts" ... "pretty sore" a few words later) must NOT be double-counted
+  // as two separate injuries once it's already been captured once.
+  it("does not fire on one injury restated with 2 nearby keyword hits, already captured once", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Glad it's improving.",
+      coach_note: "Knee still sore, watching it.",
+      injury_event: [{ status: "active", flag_id: "inj_1" }],
+    });
+
+    await requestCoachReply(
+      injuryTurnState({
+        trimmed: "my knee still hurts, and honestly it's been pretty sore all week",
+        geminiMessage: "my knee still hurts, and honestly it's been pretty sore all week",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  // The athlete's own original scenario (#1037's origin question): 2 pre-existing active flags
+  // (shoulder, knee), one message stating the knee resolving AND a new ankle injury in the same
+  // turn. Documented limitation: only "tweaked" matches INJURY_LANGUAGE_PATTERN in this exact
+  // phrasing - "feeling a lot better" (the knee resolving) and "still bugging me" (the shoulder)
+  // don't match any of its keywords, so this detector only ever sees 1 distinct mention here
+  // regardless of how the real message is worded, and can only catch the case where the model
+  // captures 0 of the 3 real facts, not "2 of 3" or "1 of 3" in this particular phrasing - the
+  // detector is a lower bound on the message, not a fact-level oracle.
+  const athleteOriginalMessage =
+    "my knee's feeling a lot better now, but I think I tweaked my ankle earlier and my" +
+    " shoulder's still bugging me too";
+
+  it("the athlete's original scenario: fires only when the model captures 0 of the 3 real facts", async () => {
+    askGemini
+      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
+      .mockResolvedValueOnce({
+        reply: "Got it, noted the ankle.",
+        coach_note: "New ankle tweak.",
+        injury_flag: [{ text: "tweaked ankle" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({
+        trimmed: athleteOriginalMessage,
+        geminiMessage: athleteOriginalMessage,
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(1);
+  });
+
+  it("the athlete's original scenario: stays silent once the model captures even 1 of the 3 real facts", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Got it, noted the ankle.",
+      coach_note: "New ankle tweak.",
+      injury_flag: [{ text: "tweaked ankle" }],
+    });
+
+    await requestCoachReply(
+      injuryTurnState({
+        trimmed: athleteOriginalMessage,
+        geminiMessage: athleteOriginalMessage,
+      }),
+    );
+
+    // Only 1 distinct keyword mention exists in this phrasing ("tweaked"), so once 1 entry lands
+    // the count check is already satisfied - even though the knee-resolving and shoulder facts
+    // are still missing. This is the detector's known lower-bound limitation, not a bug: it can
+    // only count what has injury-keyword language, and this phrasing only gives it one hit.
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
 });
