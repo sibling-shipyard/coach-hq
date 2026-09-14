@@ -1023,6 +1023,196 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
   });
 });
 
+describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function returningRemovalTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: false,
+      trimmed: "delete my old strength routine, I don't use it anymore",
+      geminiMessage: "delete my old strength routine, I don't use it anymore",
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when removal language is present but workout_remove was never set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Done, that routine is gone.",
+        coach_note: "Removed the old strength routine.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Done, that routine is gone.",
+        coach_note: "Removed the old strength routine.",
+        workout_remove: { routine_id: "routine_1" },
+      });
+
+    const result = await requestCoachReply(returningRemovalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.workout_remove?.routine_id).toBe("routine_1");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no workout_remove was");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Done, that routine is gone.",
+      coach_note: "Removed the old strength routine.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(returningRemovalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedRemovalLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedRemovalLanguage"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt on a first-session turn even with the same removal language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(returningRemovalTurnState({ firstSession: true }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when workout_remove was already captured this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      workout_remove: { routine_id: "routine_1" },
+    });
+
+    await requestCoachReply(returningRemovalTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on adjacent-but-different phrasing (skipping a session, not removing a routine)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      returningRemovalTurnState({
+        trimmed: "skip today's run, I'm not feeling it",
+        geminiMessage: "skip today's run, I'm not feeling it",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function newSportTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      trimmed: "I started climbing this month alongside my usual running",
+      geminiMessage: "I started climbing this month alongside my usual running",
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when new-activity language is present but sports_update was never set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Nice, climbing sounds fun.",
+        coach_note: "Athlete picked up climbing.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Nice, climbing sounds fun.",
+        coach_note: "Athlete picked up climbing.",
+        sports_update: ["running", "climbing"],
+      });
+
+    const result = await requestCoachReply(newSportTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.sports_update).toEqual(["running", "climbing"]);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no sports_update was set");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Nice, climbing sounds fun.",
+      coach_note: "Athlete picked up climbing.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(newSportTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedSportsLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedSportsLanguage"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt when sports_update was already captured this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      sports_update: ["running", "climbing"],
+    });
+
+    await requestCoachReply(newSportTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on an ordinary session report naming an existing sport with no update intent", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      newSportTurnState({
+        trimmed: "badminton was rough today, legs are still tired",
+        geminiMessage: "badminton was rough today, legs are still tired",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on adjacent-but-different phrasing (a PR, not a new sport)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      newSportTurnState({
+        trimmed: "hit a new 5k PR this morning",
+        geminiMessage: "hit a new 5k PR this morning",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Live-verified (#727 review, 2026-09-13): reproduced live - the Weekly Kick-off Ritual
 // narrated a full 7-day plan in reply text (day-by-day bulleted breakdown) without ever setting
 // week_update. isProseOnlyWeekPlan's weekday-name-count detector catches this deterministically;
