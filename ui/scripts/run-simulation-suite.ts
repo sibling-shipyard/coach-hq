@@ -87,10 +87,10 @@ interface Scenario {
 
 /**
  * Seeded from the FSP/daily example files already in examples/ (vade-the-tester plan's PR1 scope
- * - see kdb/decisions/0044-vade-the-tester-agent.md). The 2026-09-14 eval-audit pass
- * (docs/eng-docs/coach-chat-test-scenarios.md) deleted the old `-727-*` probe files -
- * single/double-turn checks for one specific #727 migration question each, never wired into this
- * library and not referenced anywhere else in the repo.
+ * - see kdb/decisions/0044-vade-the-tester-agent.md). No `-727-*` probe files here on purpose -
+ * see docs/eng-docs/coach-chat-test-scenarios.md for the full scenario catalog and cut rationale;
+ * a single/double-turn check for one specific #727 migration question doesn't belong in a
+ * standing regression library.
  *
  * fsp.json runs against coach-skanda-testing, not coach-skanda/coach-akash - a First Session
  * Protocol scenario needs an athlete who hasn't done FSP yet (coachTurn.ts's `firstSession` gate

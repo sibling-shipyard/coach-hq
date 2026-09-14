@@ -1,4 +1,4 @@
-# Coach chat — test scenario catalog
+# Coach chat - test scenario catalog
 
 > Status: Current · Owner: vade-the-tester · Verified: 2026-09-14
 
@@ -9,11 +9,11 @@ turns library. Numbering had drifted (01, 02, 10, 11, ... 42) from years of ad h
 Several transcripts were redundant with each other, and most tested one dropped fact per turn
 rather than the multi-fact conversations real check-ins actually are. 11 example turns files in
 `ui/scripts/examples/` were unused by anything, too. This doc is the catalog of record for both
-test libraries going forward — update it whenever a scenario is added, removed, or renumbered.
+test libraries going forward - update it whenever a scenario is added, removed, or renumbered.
 
 ## Eval transcripts
 
-`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/` — run by `npm run eval:coach-chat`, see
+`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/` - run by `npm run eval:coach-chat`, see
 `docs/eng-docs/coach-chat-testing.md`'s Type 2 section for mechanics.
 
 | # | file | turns | what it tests | key expect assertions |
@@ -36,29 +36,29 @@ test libraries going forward — update it whenever a scenario is added, removed
 | 16 | `16-quest-completions-across-two-checkins.json` | 2 | new; one quest completion needing a `coach_note`, then a later check-in reporting two completions at once (array-shaped) | turn 1: `quest_event`; turn 2: `quest_event` |
 
 **Cut (redundant/subset), not merged:**
-- `28-fsp-new-injuries.json` — strict content subset of what's now `08` (same `injury_flag` assertion, `08` also covers the goal/habit case).
-- `32-returning-season-change-with-goal.json` — strict content subset of what's now `10` (`10`'s absent-list is a superset that also covers `quest_create`).
-- `34-coach-note-absent-filler.json` — its core assertion (`coach_note` optional on filler) duplicates `13`'s turn 3. The extra fields it also asserted absent (`quest_event`, `profile_update`, `memory_update`) aren't tested against any content that could trigger them, so nothing distinct was lost.
+- `28-fsp-new-injuries.json` - strict content subset of what's now `08` (same `injury_flag` assertion, `08` also covers the goal/habit case).
+- `32-returning-season-change-with-goal.json` - strict content subset of what's now `10` (`10`'s absent-list is a superset that also covers `quest_create`).
+- `34-coach-note-absent-filler.json` - its core assertion (`coach_note` optional on filler) duplicates `13`'s turn 3. The extra fields it also asserted absent (`quest_event`, `profile_update`, `memory_update`) aren't tested against any content that could trigger them, so nothing distinct was lost.
 
 **Merged into 14/15/16 above:** `10-quest-event-array`, `11-injury-event-array`,
 `33-coach-note-required-with-quest-event`, `37-memory-update-learned-pattern`,
 `38-sports-update-new-sport`, `39-returning-coaching-style-explicit-change`,
-`40-injury-event-real-id-among-several` — each was a single dropped-fact test. Real check-ins
+`40-injury-event-real-id-among-several` - each was a single dropped-fact test. Real check-ins
 report several things in one sitting, so these became the multi-turn conversations above instead
 of seven separate one-fact files.
 
 ## Simulation scenarios
 
-`ui/scripts/run-simulation-suite.ts`'s `SCENARIOS` array — real live-model, real-write runs
+`ui/scripts/run-simulation-suite.ts`'s `SCENARIOS` array - real live-model, real-write runs
 through `test:coach-chat-manual`'s pipeline. See `docs/eng-docs/coach-chat-testing.md`'s section on
 the fourth test type for mechanics.
 
 | id | file | turns | what it tests | expected files/behavior |
 |---|---|---|---|---|
-| `fsp-basic` | `manual-coach-chat-turns-fsp.json` | 6 (incl. greet) | full First Session Protocol — profile, goal, injury, training freq, wrap-up | turn 1: `user_data/coach/profile.json`; turn 3: `user_data/coach/injuries.json`; turn 5: PASS |
-| `daily-basic` | `manual-coach-chat-turns-daily.json` | 5 (incl. greet) | ordinary daily check-in — weight, hip soreness, a finished run, wrap-up | turn 1: `profile.json`; turn 2: `injuries.json`; turns 3-4: PASS |
-| `daily-sleep-skip` | `manual-coach-chat-turns-daily-2.json` | 5 (incl. greet) | ordinary daily check-in — poor sleep, a skipped session, tomorrow's commitment, wrap-up | turns 1-4: PASS |
-| `ambiguous-contradiction` | `manual-coach-chat-turns-ambiguous-contradiction.json` | 5 (incl. greet) | new; athlete reports a planned session done, immediately contradicts it, then confirms the real one — checks the coach reconciles rather than double-writing | turn 1: `current_week.json` changed; turn 3: `current_week.json` changed (see the scenario's own code comment for what this can't verify) |
+| `fsp-basic` | `manual-coach-chat-turns-fsp.json` | 6 (incl. greet) | full First Session Protocol - profile, goal, injury, training freq, wrap-up | turn 1: `user_data/coach/profile.json`; turn 3: `user_data/coach/injuries.json`; turn 5: PASS |
+| `daily-basic` | `manual-coach-chat-turns-daily.json` | 5 (incl. greet) | ordinary daily check-in - weight, hip soreness, a finished run, wrap-up | turn 1: `profile.json`; turn 2: `injuries.json`; turns 3-4: PASS |
+| `daily-sleep-skip` | `manual-coach-chat-turns-daily-2.json` | 5 (incl. greet) | ordinary daily check-in - poor sleep, a skipped session, tomorrow's commitment, wrap-up | turns 1-4: PASS |
+| `ambiguous-contradiction` | `manual-coach-chat-turns-ambiguous-contradiction.json` | 5 (incl. greet) | new; athlete reports a planned session done, immediately contradicts it, then confirms the real one - checks the coach reconciles rather than double-writing | turn 1: `current_week.json` changed; turn 3: `current_week.json` changed (see the scenario's own code comment for what this can't verify) |
 
 ## What replaced what
 
@@ -70,5 +70,5 @@ anywhere by grep before deletion, was 11. It also gained one new file
 (`manual-coach-chat-turns-ambiguous-contradiction.json`).
 
 This doc is the catalog of record going forward, replacing the ad hoc numbering that grew up
-around individual issue fixes — update it on the next add/remove/renumber, don't let it drift
+around individual issue fixes - update it on the next add/remove/renumber, don't let it drift
 again. Cross-referenced from `docs/eng-docs/coach-chat-testing.md`.
