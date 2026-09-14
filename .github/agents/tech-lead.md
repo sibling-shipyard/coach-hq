@@ -43,10 +43,10 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 	plus `platform/tests/**` and `platform/skills/**`. CI runs the pushed SHA and is authoritative.
 	Run a failing check locally when you need its evidence, or when the PR changes the check itself.
 	A new `checks.conf` line is local-only unless some workflow's own `paths:` trigger also covers
-	the file it points at — a workflow merely *mentioning* `check.sh`/`checks.conf` in a comment
+	the file it points at - a workflow merely *mentioning* `check.sh`/`checks.conf` in a comment
 	(grep matches, but proves nothing) is not the same as its `paths:` list actually running that
 	file. #911 added a test with no CI enforcement until this line's own path list was extended to
-	catch it — verify the real `paths:` block, not just a text match.
+	catch it - verify the real `paths:` block, not just a text match.
 2. the diff is a subset of the phase's declared files
 3. explicit paths were staged
 4. the PR's file list checked against the branch, not local `main`, which has under-reported one
@@ -109,14 +109,14 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 | **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 | **Cyclops** | Triage thread | Sentry event triage (read-only, no code changes) |
-| **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) — never application/production code |
+| **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) - never application/production code |
 
 **Boundaries:**
-- Coach Phelps owns `user_data/coach/profile.json`, `memory.json`, `injuries.json`, `coach_log.json`, `user_data/ledger/seasons.json`, `quests.json`, `progress.json`, `progressions.json`, `current_week.json`, `user_data/coach/archive/week_plans.md`, and `user_data/activities/workout_plans/sessions/**` — the exact commit list `platform/SOUL.claude.md` §2 gives Coach, cross-checked against `docs/eng-docs/coach-data-schema.md`. (`chat_history.json`/`latest_message.json` exist in the same schema but are server/pipeline-committed, not Coach's own push.) `state.md`/`coach_notes.md`/`challenge_v2.json`/bare `sessions/`/`roadmap.md` are retired names from before the coach-chat/SOUL redesign — don't use them. Do not edit Coach's files unless the athlete explicitly asks.
+- Coach Phelps owns `user_data/coach/profile.json`, `memory.json`, `injuries.json`, `coach_log.json`, `user_data/ledger/seasons.json`, `quests.json`, `progress.json`, `progressions.json`, `current_week.json`, `user_data/coach/archive/week_plans.md`, and `user_data/activities/workout_plans/sessions/**` - the exact commit list `platform/SOUL.claude.md` §2 gives Coach, cross-checked against `docs/eng-docs/coach-data-schema.md`. (`chat_history.json`/`latest_message.json` exist in the same schema but are server/pipeline-committed, not Coach's own push.) `state.md`/`coach_notes.md`/`challenge_v2.json`/bare `sessions/`/`roadmap.md` are retired names from before the coach-chat/SOUL redesign - don't use them. Do not edit Coach's files unless the athlete explicitly asks.
 - `platform/soul/*.md` and the composed `platform/SOUL.chat.md` / `platform/SOUL.claude.md` are **Tech Lead only** — never edit as Coach.
 - `platform/skeleton-templates/*.json` are base workout templates. Only you can authorize changes to these.
-- iOS Builder's scope is `ios/` only — never `user_data/`, `platform/skeleton-templates/`, `ui/`, or pipeline scripts.
-- vade-the-tester's scope is testing infrastructure only (see `.github/agents/vade-the-tester.md` § Scope) — never application/production code.
+- iOS Builder's scope is `ios/` only - never `user_data/`, `platform/skeleton-templates/`, `ui/`, or pipeline scripts.
+- vade-the-tester's scope is testing infrastructure only (see `.github/agents/vade-the-tester.md` § Scope) - never application/production code.
 - Workers read their role doc from `.github/agents/` in this repo.
 
 ## Boot Sequence

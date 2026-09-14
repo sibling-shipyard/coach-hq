@@ -1,0 +1,10 @@
+# 0045 — Typed per-concern JSON files supersede challenge_v2.json
+
+- **Status:** Accepted · 2026-09-14 · Tech Lead
+- **Area:** cross-cutting
+- **Context:** ADR 0006 locked `challenge_v2.json` (version 4) as the one canonical schema, 2026-07-26. The chat-commit redesign (docs/eng-docs/coach-chat-design-history.md's "2026-09-02" entry, a 29-PR stack, merged 2026-09-11) replaced it. It also replaced `state.md`/`coach_notes.md`, with the typed per-file schema `docs/eng-docs/coach-data-schema.md` now documents. The driver was a real production bug: `quest_create` silently dropping a stated goal, traced to a placeholder `main_quest` fooling the completion gate. That redesign shipped with no ADR of its own; its own design-history entry says so plainly.
+- **Decision:** `user_data/coach/profile.json`, `memory.json`, `injuries.json`, `coach_log.json`, `user_data/ledger/seasons.json`, `quests.json`, `progress.json`, `progressions.json`, and `current_week.json` are the canonical schema. `challenge_v2.json`, `state.md`, `coach_notes.md`, and `roadmap.md` are retired for any repo migrated to this shape.
+- **Why:** One typed file per concern, not one blob covering profile, goals, quests, and progress at once, makes a write like `quest_create` structurally unable to silently overwrite an unrelated field the way the old blob could. `docs/eng-docs/coach-data-schema.md` is the spec; `platform/SOUL.claude.md` §2 is the real commit list a live Coach session follows today.
+- **Rejected:** Patch `challenge_v2.json`'s write path to stop the specific `quest_create` bug → the bug traced to the blob shape itself (one write touching fields it shouldn't reach), not a fixable edge case in isolation.
+- **Enforces:** No new code reads or writes `challenge_v2.json`, `state.md`, `coach_notes.md`, or `roadmap.md`. A repo not yet migrated (`coach-akash`, per `docs/eng-docs/challenge-v2-schema.md`'s own note) is a known, tracked exception, not a second canonical shape.
+- **How to apply:** Full field-by-field spec in `docs/eng-docs/coach-data-schema.md` - that doc, not this ADR, is what a future agent re-verifies against real TypeScript.
