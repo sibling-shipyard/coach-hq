@@ -272,7 +272,9 @@ test already covers.
 | `coaching_style_update` | prompt reinforcement | - |
 | standalone `quest_create` | prompt reinforcement | - |
 | `memory_update` | prompt reinforcement | - |
-| `injury_event`, `sports_update`, `workout_remove` | none | none |
+| `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
+| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | - |
+| `injury_event` | none | none |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
@@ -284,6 +286,16 @@ only. None has a phrasing narrow enough for a safe reprompt trigger without real
 risk against ordinary conversation - see
 `docs/plans/coach-chat-action-field-hardening.md`'s per-field table for why. `injury_event`,
 `sports_update`, and `workout_remove` are follow-up PRs on the same stack, not yet shipped.
+
+**#1009 hardening round, PR B (2026-09-14):** `workout_remove` and `sports_update` now have the
+same reprompt-guard treatment. `findMissedRemovalLanguage` checks the athlete's own message for
+removal language ("delete"/"remove"/"get rid of"/"don't want" near "routine"/"workout"/"template"),
+gated to returning-athlete turns only - a first-session athlete has no existing routines to remove.
+`findMissedSportsLanguage` checks for explicit new-activity phrasing ("started"/"new sport"/"picked
+up"/"also play/do/doing"), deliberately the narrowest pattern in this round. A bare sport name
+risks colliding with an ordinary session report ("badminton was rough today"). The pattern never
+matches on a sport name alone. Both run through the same `captureStillUnresolvedGuard` Sentry path
+PR A added. `injury_event` remains the last field, follow-up PR C on the same stack.
 
 The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, after every
 detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`

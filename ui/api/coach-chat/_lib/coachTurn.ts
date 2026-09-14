@@ -644,6 +644,34 @@ function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): string 
   return null;
 }
 
+// #1009 (workout_remove hardening): returning-athlete only - a first-session athlete has no
+// existing routines yet (coachPromptText.ts explicitly withholds workout_remove on that branch),
+// so there's nothing to remove and this check would never have anything real to key on. No
+// id-set check here on purpose - applyWorkoutRemove (decide/coachWorkoutFiles.ts) already throws
+// if the model invents an id not in the real manifest, which is the right layer for a "removed
+// the wrong thing" failure. This detector only asks whether the athlete described removing
+// something that the model never acted on at all.
+const REMOVAL_LANGUAGE_PATTERN =
+  /\b(delete|remove|get rid of|don'?t want)\b.{0,20}\b(routine|workout|template)\b/i;
+
+function findMissedRemovalLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (turn.firstSession) return null;
+  if (reply.workout_remove) return null;
+  return firstMatch(turn.geminiMessage, REMOVAL_LANGUAGE_PATTERN);
+}
+
+// #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport
+// name risks matching an ordinary session report with no update intent at all ("badminton was
+// rough today" is not a sports_update moment), so this keys only on explicit new-activity
+// phrasing, never a sport name alone. Runs on every turn, not gated to first-session or
+// returning - a new/changed sport can arrive on either.
+const NEW_ACTIVITY_LANGUAGE_PATTERN = /\b(started|new sport|picked up|also (?:play|do|doing))\b/i;
+
+function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if ((reply.sports_update ?? []).length > 0) return null;
+  return firstMatch(turn.geminiMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
+}
+
 // Single source of truth for "which fields count as schedule-changing" - both this function and
 // buildTurnWrites's blockedFields computation need the exact same list, and drift between two
 // separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
@@ -788,6 +816,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
     const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
+    const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
+    const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -807,6 +837,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedHabitLanguage ||
       missedSeasonLanguage ||
       missedProfileLanguage ||
+      missedRemovalLanguage ||
+      missedSportsLanguage ||
       unconfirmedAssumption ||
       malformedExercise ||
       proseOnlyWeekPlan
@@ -819,6 +851,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedHabitLanguage,
         missedSeasonLanguage,
         missedProfileLanguage,
+        missedRemovalLanguage,
+        missedSportsLanguage,
         unconfirmedAssumption,
         malformedExercise,
         proseOnlyWeekPlan,
@@ -874,6 +908,22 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " profile fact, disregard this note",
         );
       }
+      if (missedRemovalLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedRemovalLanguage}" but no workout_remove was` +
+            " set this turn - if they genuinely asked to remove one of their real routines, add" +
+            " it now with that routine's real id from context; if it genuinely doesn't describe a" +
+            " removal request, disregard this note",
+        );
+      }
+      if (missedSportsLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedSportsLanguage}" but no sports_update was set` +
+            " this turn - if a new or changed sport was genuinely stated, add it now as" +
+            " sports_update with the full list; if it genuinely doesn't describe a new or changed" +
+            " sport, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
@@ -926,6 +976,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
       const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
+      const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
+      const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -945,6 +997,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedHabitLanguage ||
         stillMissedSeasonLanguage ||
         stillMissedProfileLanguage ||
+        stillMissedRemovalLanguage ||
+        stillMissedSportsLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercise ||
         stillProseOnlyWeekPlan
@@ -959,6 +1013,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedHabitLanguage,
             stillMissedSeasonLanguage,
             stillMissedProfileLanguage,
+            stillMissedRemovalLanguage,
+            stillMissedSportsLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
             stillProseOnlyWeekPlan,
@@ -978,6 +1034,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedHabitLanguage ? "missedHabitLanguage" : null,
             stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
             stillMissedProfileLanguage ? "missedProfileLanguage" : null,
+            stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
+            stillMissedSportsLanguage ? "missedSportsLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercise ? "malformedExercise" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
