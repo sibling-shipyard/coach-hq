@@ -590,4 +590,39 @@ export async function captureValidationFailure(
   return { eventId, sent };
 }
 
+/**
+ * #1009: what a still-unresolved reprompt guard must carry to see the pattern from Sentry alone.
+ * The "still" block in coachTurn.ts's `requestCoachReply` re-runs every findMissed*Language/
+ * structural detector after the one-shot reprompt fires, and until now only ever logged
+ * `console.warn` when one was still unresolved - invisible outside a local log. There's no thrown
+ * error here (the turn still completes, just with the gap unfixed), so this captures a message
+ * rather than an exception.
+ */
+export interface StillUnresolvedGuardDetails {
+  traceId?: string;
+  /** `TurnMode` - greeting, ordinary, activity_sync. */
+  turnMode: string;
+  /** Names of every detector still unresolved after the reprompt, e.g. ["missedProfileLanguage"]. */
+  detectors: string[];
+}
+
+export async function captureStillUnresolvedGuard(
+  details: StillUnresolvedGuardDetails,
+): Promise<CaptureResult> {
+  if (!initServerMonitoring()) return { sent: false };
+  const eventId = Sentry.captureMessage(
+    `coach-chat reprompt guard still unresolved: ${details.detectors.join(", ")}`,
+    {
+      level: "warning",
+      tags: {
+        ...(details.traceId ? { vercel_trace_id: details.traceId } : {}),
+        turn_mode: details.turnMode,
+      },
+      contexts: { coach_turn: { detectors: details.detectors } },
+    },
+  );
+  const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
+  return { eventId, sent };
+}
+
 export { Sentry };

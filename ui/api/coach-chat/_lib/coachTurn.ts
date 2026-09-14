@@ -50,7 +50,11 @@ import {
 } from "./decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
-import { captureGeminiFailure, captureValidationFailure } from "../../_lib/sentry.js";
+import {
+  captureGeminiFailure,
+  captureValidationFailure,
+  captureStillUnresolvedGuard,
+} from "../../_lib/sentry.js";
 import {
   validateQuestEvents,
   validateInjuryEvents,
@@ -602,6 +606,44 @@ function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
+// #1009 (profile_update hardening): same scoping as the checks above - first-session
+// only, since that's the only turn type where a stated age/height/weight/timezone is reliably
+// new rather than a restatement of something already on file. Four independent field checks
+// (dob, height_cm, weight_kg, timezone), each gated on its own "is this actually missing" check
+// (no value on file yet AND no matching profile_update entry this turn for that specific field) -
+// a bare number or "based in" phrase means nothing on its own without that gate, and would
+// otherwise collide constantly with ordinary first-session chat. height_cm and weight_kg share
+// BODY_METRIC_PATTERN since one regex matches either unit, but they're checked separately so the
+// model capturing one doesn't suppress a reprompt for the other still being missing. Keys on the
+// athlete's own message, never the model's reply/coach_note phrasing, for the same reason
+// findMissedInjuryLanguage/findMissedHabitLanguage/findMissedSeasonLanguage do.
+const AGE_LANGUAGE_PATTERN = /\b\d{1,2}\s*(?:years?\s*old|yo)\b|\bborn\b/i;
+const BODY_METRIC_PATTERN = /\b\d{2,3}\s*(?:cm|kg|lbs?|ft|feet|inches)\b/i;
+const TIMEZONE_LANGUAGE_PATTERN = /\bbased in\b|\btime ?zone\b|\bIST\b|\bGMT\b|\bUTC\b/i;
+
+function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (!turn.firstSession) return null;
+  const updatedFields = new Set((reply.profile_update ?? []).map((u) => u.field));
+  const profile = turn.context.profile;
+  if (!profile?.dob && !updatedFields.has("dob")) {
+    const hit = firstMatch(turn.geminiMessage, AGE_LANGUAGE_PATTERN);
+    if (hit) return hit;
+  }
+  if (!profile?.height_cm && !updatedFields.has("height_cm")) {
+    const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
+    if (hit) return hit;
+  }
+  if (!profile?.weight_kg && !updatedFields.has("weight_kg")) {
+    const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
+    if (hit) return hit;
+  }
+  if (!profile?.timezone && !updatedFields.has("timezone")) {
+    const hit = firstMatch(turn.geminiMessage, TIMEZONE_LANGUAGE_PATTERN);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 // Single source of truth for "which fields count as schedule-changing" - both this function and
 // buildTurnWrites's blockedFields computation need the exact same list, and drift between two
 // separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
@@ -745,6 +787,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
     const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
+    const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -763,6 +806,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedInjuryLanguage ||
       missedHabitLanguage ||
       missedSeasonLanguage ||
+      missedProfileLanguage ||
       unconfirmedAssumption ||
       malformedExercise ||
       proseOnlyWeekPlan
@@ -774,6 +818,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedInjuryLanguage,
         missedHabitLanguage,
         missedSeasonLanguage,
+        missedProfileLanguage,
         unconfirmedAssumption,
         malformedExercise,
         proseOnlyWeekPlan,
@@ -819,6 +864,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           `the athlete's message contains "${missedSeasonLanguage}" but no season_start was set` +
             " this turn - if a real goal/season was stated, add it now as season_start; if it" +
             " genuinely doesn't describe a new goal or season, disregard this note",
+        );
+      }
+      if (missedProfileLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedProfileLanguage}" but no matching` +
+            " profile_update was set this turn - if a real age, height, weight, or timezone was" +
+            " stated, add it now as profile_update; if it genuinely doesn't describe a new" +
+            " profile fact, disregard this note",
         );
       }
       if (unconfirmedAssumption) {
@@ -872,6 +925,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
       const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
+      const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -890,6 +944,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedInjuryLanguage ||
         stillMissedHabitLanguage ||
         stillMissedSeasonLanguage ||
+        stillMissedProfileLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercise ||
         stillProseOnlyWeekPlan
@@ -903,12 +958,31 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedInjuryLanguage,
             stillMissedHabitLanguage,
             stillMissedSeasonLanguage,
+            stillMissedProfileLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
             stillProseOnlyWeekPlan,
           },
           { traceId: turn.traceId },
         );
+        // #1009 Sentry gap: the block above was log-only for every detector, old and new - this
+        // is the first thing to actually reach Sentry when a reprompt's fix doesn't hold.
+        await captureStillUnresolvedGuard({
+          traceId: turn.traceId,
+          turnMode: mode,
+          detectors: [
+            stillOversized ? "oversizedField" : null,
+            stillMissingNote ? "missingCoachNote" : null,
+            stillUnrecordedFacts ? "unrecordedFacts" : null,
+            stillMissedInjuryLanguage ? "missedInjuryLanguage" : null,
+            stillMissedHabitLanguage ? "missedHabitLanguage" : null,
+            stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
+            stillMissedProfileLanguage ? "missedProfileLanguage" : null,
+            stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
+            stillMalformedExercise ? "malformedExercise" : null,
+            stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
+          ].filter((detector): detector is string => detector !== null),
+        });
       }
     }
     // unconfirmedAssumption truthy always triggers the reprompt block above (it's one of the OR

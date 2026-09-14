@@ -19,6 +19,17 @@ vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   return { ...original, getFileRaw };
 });
 
+// #1009 Sentry gap: real captureGeminiFailure/captureValidationFailure stay wired to the real
+// module (no-op without SENTRY_DSN, which the test env never sets) - only captureStillUnresolvedGuard
+// is stubbed, so the still-unresolved describe block below can assert on it directly.
+const { captureStillUnresolvedGuard } = vi.hoisted(() => ({
+  captureStillUnresolvedGuard: vi.fn(async () => ({ sent: true })),
+}));
+vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
+  return { ...original, captureStillUnresolvedGuard };
+});
+
 import { requestCoachReply } from "../../_lib/coachTurn.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
 
@@ -820,12 +831,13 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
     expect(repromptMessage).toContain("no season_start was set");
   });
 
-  it("does not reprompt a second time if still uncaptured, but logs it", async () => {
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
     askGemini.mockResolvedValue({
       reply: "Season locked in.",
       coach_note: "Athlete committed to a strength season through end of 2026.",
     });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
 
     await requestCoachReply(firstSessionGoalTurnState());
 
@@ -834,6 +846,14 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedSeasonLanguage: expect.any(String) }),
       expect.objectContaining({ traceId: "trace-1" }),
+    );
+    // #1009 Sentry gap: the still-unresolved block now reaches Sentry alongside console.warn for
+    // every existing detector, not just the new profile one - proven here on the season detector.
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedSeasonLanguage"]),
+      }),
     );
     warnSpy.mockRestore();
   });
@@ -875,6 +895,131 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
     );
 
     expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function firstSessionAgeTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: true,
+      trimmed: "I just turned 29 years old",
+      geminiMessage: "I just turned 29 years old",
+      context: { soul: "soul", profile: null },
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when age language is present but profile_update was never set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your age.",
+        coach_note: "Athlete is 29.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your age.",
+        coach_note: "Athlete is 29.",
+        profile_update: [{ field: "dob", value: "1997-01-01" }],
+      });
+
+    const result = await requestCoachReply(firstSessionAgeTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.profile_update?.[0]?.field).toBe("dob");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no matching profile_update was set");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Got it, noted your age.",
+      coach_note: "Athlete is 29.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(firstSessionAgeTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedProfileLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedProfileLanguage"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt on a returning-athlete turn even with the same age language", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(firstSessionAgeTurnState({ firstSession: false }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when profile_update was already captured this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      profile_update: [{ field: "dob", value: "1997-01-01" }],
+    });
+
+    await requestCoachReply(firstSessionAgeTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on adjacent-but-different phrasing (a distance, not a body metric)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      firstSessionAgeTurnState({
+        trimmed: "ran 10km today, felt great",
+        geminiMessage: "ran 10km today, felt great",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("reprompts for weight_kg when the athlete states both height and weight but the model only captures height_cm", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your height.",
+        coach_note: "Athlete is 180cm and 75kg.",
+        profile_update: [{ field: "height_cm", value: 180 }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your height and weight.",
+        coach_note: "Athlete is 180cm and 75kg.",
+        profile_update: [
+          { field: "height_cm", value: 180 },
+          { field: "weight_kg", value: 75 },
+        ],
+      });
+
+    const result = await requestCoachReply(
+      firstSessionAgeTurnState({
+        trimmed: "I'm 180cm and 75kg",
+        geminiMessage: "I'm 180cm and 75kg",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(
+      "reply" in result && result.reply.profile_update?.some((u) => u.field === "weight_kg"),
+    ).toBe(true);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no matching profile_update was set");
   });
 });
 
