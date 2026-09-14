@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Regression coverage for a live-verified bug (#727 review, manual OpenRouter test against a
 // real athlete repo): generateFirstSessionWorkoutsAfterCompletion must never fire for an
@@ -81,6 +81,19 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
     getFileRaw.mockClear();
     buildBenchmarkSpec.mockReset();
     buildBenchmarkSpec.mockImplementation(originalHolder.fn!);
+    // baseTurn's today ("2026-09-12") only agrees with reality on the day this test happens to
+    // run. generateFirstSessionWorkoutsAfterCompletion calls real `new Date()` internally
+    // (applyFullWeekKickoff's coach_read.valid_from) independently of turn.today, which
+    // compileFirstWeek uses for the compiled week's own end_date - the two silently drift apart
+    // as real time passes, eventually inverting valid_from > valid_until and throwing. Pin the
+    // system clock to the fixture's own date so this test's outcome doesn't depend on when it's
+    // run.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-12T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("regression: never fires for an already-established athlete, even with no benchmark id in the manifest", async () => {
