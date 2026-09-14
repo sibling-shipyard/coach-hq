@@ -29,12 +29,12 @@ real interface only once a second implementation of either actually exists.
 A question worth answering explicitly, since it's easy to assume every test exercises the real
 coaching prompt and it doesn't:
 
-| Test type | SOUL value | Why |
-|---|---|---|
-| Layered suite (`layer1-gemini/`, `integration/`) | `"soul"` / `"soul text"` - a placeholder string | These tests prove pipeline mechanics (schema handling, reprompt logic, commit payloads), not coaching quality. Real SOUL content would be dead weight in every fixture and a maintenance burden every time SOUL's prose changes. |
-| `layer2-fields/`, `layer3-commit` | N/A - no prompt built at all | These layers test pure appliers and commit logic; neither touches SOUL or prompt construction. |
-| `eval:coach-chat` | `""` - genuinely empty, not even a placeholder | Deliberate (`eval-coach-chat.ts`'s own header comment). ADR 0024: a paid check runs only where it can actually catch something in the diff. This eval exercises `askGemini`'s own logic (schema compliance, retries, JSON parsing) against a live model - a SOUL wording change can't fail here, so SOUL isn't paid for. |
-| `test:coach-chat-manual` | The real, current composed SOUL | This tool calls the real production `handle()` (`ui/api/coach-chat.ts`) unmodified, which calls `loadCoachContext()`, which sets `soul: SOUL` straight from `ui/api/_generated/soul.ts` - the same build artifact a real athlete's request gets. Nothing is stubbed. |
+| Test type                                        | SOUL value                                      | Why                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layered suite (`layer1-gemini/`, `integration/`) | `"soul"` / `"soul text"` - a placeholder string | These tests prove pipeline mechanics (schema handling, reprompt logic, commit payloads), not coaching quality. Real SOUL content would be dead weight in every fixture and a maintenance burden every time SOUL's prose changes.                                                                                         |
+| `layer2-fields/`, `layer3-commit`                | N/A - no prompt built at all                    | These layers test pure appliers and commit logic; neither touches SOUL or prompt construction.                                                                                                                                                                                                                           |
+| `eval:coach-chat`                                | `""` - genuinely empty, not even a placeholder  | Deliberate (`eval-coach-chat.ts`'s own header comment). ADR 0024: a paid check runs only where it can actually catch something in the diff. This eval exercises `askGemini`'s own logic (schema compliance, retries, JSON parsing) against a live model - a SOUL wording change can't fail here, so SOUL isn't paid for. |
+| `test:coach-chat-manual`                         | The real, current composed SOUL                 | This tool calls the real production `handle()` (`ui/api/coach-chat.ts`) unmodified, which calls `loadCoachContext()`, which sets `soul: SOUL` straight from `ui/api/_generated/soul.ts` - the same build artifact a real athlete's request gets. Nothing is stubbed.                                                     |
 
 **SOUL's own correctness is checked by neither.** Two separate, non-LLM structural linters do
 that instead, both part of the 9-check local gate. `compose-soul --check` catches drift between
@@ -132,6 +132,7 @@ zero existing injury flags, verified 3/3 on a fresh live sample. The dynamic-enu
 guard once deferred pending D1 is in now too (`#40`), D1 having landed.
 
 **Known gaps:**
+
 - The workouts/`current_week` redesign this section once anticipated (#727) has since shipped -
   `session_plan` and the new `workout_create`/`workout_remove` actions still have no dedicated
   live-transcript coverage here, a real gap rather than a deferred one. `workout_create` has a
@@ -142,12 +143,12 @@ guard once deferred pending D1 is in now too (`#40`), D1 having landed.
   (see `gemini-flow.md`'s "Narration-vs-action reliability guards" coverage table) is working.
   Only `test:coach-chat-manual` and the layered `coachTurn-reprompt.test.ts` suite can.
 - No persona/voice judging, by design (see Purpose above) - a SOUL-wording regression that changes
-  *tone* without breaking structure passes here silently. `docs/ref-docs/soul-calibration.md` is
+  _tone_ without breaking structure passes here silently. `docs/ref-docs/soul-calibration.md` is
   the closest thing to a fixture for that, and it isn't wired into any automated run.
 
 ## Type 3: `test:coach-chat-manual` (paid, live Gemini, real writes)
 
-**Purpose:** the only tool that proves the *whole* real pipeline end to end - real SOUL, real
+**Purpose:** the only tool that proves the _whole_ real pipeline end to end - real SOUL, real
 athlete repo data, real Gemini call, real GitHub commit - the way an actual athlete's request
 does. Everything upstream of this (layers 1-3, `eval:coach-chat`) tests a slice with something
 faked; this is the slice with nothing faked.
@@ -164,15 +165,15 @@ ready-to-run ones, including `manual-coach-chat-turns-fsp.json` (a full First Se
 Both `eval` and `manual` log to `test-results/raw/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not
 gitignored) - a permanent, dated record of every run: what was sent, the raw reply, PASS/FAIL/ERROR,
 and which files changed. That last field carries a `confidence` tag:
+
 - `"derived"` (eval only) - a guess, based on which action field fired. No real write happened.
 - `"observed"` (manual only) - a real `git diff` across the turn's before/after commit sha. Ground
   truth, not a guess.
 
 Never treat a `derived` entry as evidence of a real bug - only `observed` entries are.
 
-**Known gaps:**
-- Cleanup is manual and easy to skip - scratch branches accumulate on real athlete repos (see the
-  workflow section below) and nothing currently sweeps them automatically.
+**Known gaps:** none tracked here - `ui/scripts/cleanup-scratch-branches.ts` now sweeps scratch
+branches (see the Cleanup section below), closing the gap this used to name.
 
 **The fourth test type - the simulation suite** (`ui/scripts/run-simulation-suite.ts`, paid, live
 model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
@@ -182,11 +183,17 @@ those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`) one at a time t
 SOUL/repo/Gemini/commit path above. It then scores each against its own `expect` block: which
 `turnIndex`es must land, which changed files each one must or must not include. That's matched
 against the real `filesChanged.files` (`confidence: "observed"`) the manual run's own log entry
-already wrote. `npm run test:simulation-suite -- --list` prints the library; `--only <substring>`
-runs a subset; `--dry-run` prints the plan without spending anything. Each run writes one
-`manual:<scenario-id>` entry to `test-results/coverage-index.json` (`last_pass_sha`,
-`last_run_date`, `watched_paths`, `status`), the
-same selective-re-run index the layered/eval kinds use.
+already wrote. `npm run test:simulation-suite -- --list` prints the library. `--only <substring>`
+runs a subset. `--dry-run` prints the plan without spending anything. `--branch <name>` overrides
+which scratch branch every selected scenario runs against - needed for `fsp-basic`, which needs a
+freshly reset branch (see the reset procedure below). Each run writes one `manual:<scenario-id>`
+entry to `test-results/coverage-index.json` (`last_pass_sha`, `last_run_date`, `watched_paths`,
+`status`, `last_cost_usd`), the same selective-re-run index the layered/eval kinds use.
+
+Before actually running a case, the driver checks that index. A case with `status: "pass"` and an
+empty `git diff --quiet <last_pass_sha> HEAD -- <watched_paths...>` is skipped - logged, not
+silent - rather than re-run for free. A case with no entry, or `status: "fail"`, always runs.
+`--force` bypasses this check entirely, for a full pre-release run.
 
 ## Testing against a local athlete repo - the practical workflow
 
@@ -200,12 +207,14 @@ OpenRouter) `OPENROUTER_API_KEY`, loaded automatically via `process.loadEnvFile`
 `run-manual-coach-chat-test.ts` - no manual `export` needed. Before spending a real call, sanity
 check the key actually has credit. A depleted key fails identically whether direct or via
 `soulCache`'s caching path: `429 RESOURCE_EXHAUSTED - "Your prepayment credits are depleted"`.
+
 ```bash
 source ui/.env.local
 curl -s -o /dev/null -w "%{http_code}" \
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"ping"}]}]}'
 ```
+
 `200` means it's live. Anything else, check billing at ai.studio before running anything real
 against it.
 
@@ -216,6 +225,7 @@ Setting `LLM_PROVIDER=openrouter` against `main` can then silently no-op, or sil
 setting and hit direct Gemini anyway, instead of erroring. That's worse than a crash - it looks
 like a clean pass. Always confirm which checkout you're actually running against before trusting a
 result. Use a fresh worktree off the PR branch under test, never the primary checkout:
+
 ```bash
 git fetch origin <pr-branch> -q
 git worktree add /tmp/wt-<brief> origin/<pr-branch> -q
@@ -223,7 +233,8 @@ cp ui/.env.local /tmp/wt-<brief>/ui/.env.local
 cd /tmp/wt-<brief> && node platform/scripts/compose-soul.mjs && node ui/scripts/build-soul.mjs
 ln -s <primary-checkout>/ui/node_modules /tmp/wt-<brief>/ui/node_modules
 ```
-The `node_modules` symlink is fine for *running* the harness read-only against a real repo. If
+
+The `node_modules` symlink is fine for _running_ the harness read-only against a real repo. If
 this worktree will also `git push`, the pre-push gate needs real installed deps first - see
 AGENTS.md's stale-`node_modules` note; `rm -rf node_modules && npm ci` fixes it. Remove the
 worktree when done (`git worktree remove /tmp/wt-<brief> --force`).
@@ -262,6 +273,7 @@ fix; reading the real prompt is faster than re-deriving it from the source.
 
 **Verifying a result - never trust PASS/FAIL alone.** The harness's own PASS/FAIL is a heuristic
 based on which files changed, not a check against what should have changed. After a turn:
+
 1. Read the run log at `test-results/raw/<date>/manual/manual-coach-chat-<repo-slug>-log-<time>.json` for the
    raw reply JSON and which fields actually fired.
 2. Independently confirm against the real repo: `git -C <local-clone> fetch origin <branch>` then
@@ -275,6 +287,7 @@ onboarding testing) - only ever do this on `coach-skanda-testing`. `platform/scr
 has the exact blank shape for each FSP-owned file (`PROFILE_TEMPLATE`, `MEMORY_TEMPLATE`,
 `INJURIES_TEMPLATE`, `SEASONS_TEMPLATE`, `QUESTS_TEMPLATE`). Two ways to get a fresh scratch branch
 onto that state:
+
 - Local git: create the branch, overwrite the 5 files with the blank templates, commit, push.
 - **Or, if a local `git push` to the athlete repo gets denied by a permission gate:** use the
   GitHub API directly instead. This is not a workaround. The harness's own branch creation already
@@ -294,6 +307,19 @@ onto that state:
 but they do accumulate - dozens of `test/`/`retest/` branches across the repos used in a single
 investigation is normal. Not urgent to delete mid-investigation (evidence for a finding may live
 only on one), but worth a periodic sweep once a testing pass is fully wrapped up.
+
+`ui/scripts/cleanup-scratch-branches.ts` sweeps them - lists every remote branch matching
+`^(test|retest)/` on a given repo, with its real age (a real `gh api` commit-date lookup, not a
+guess). List-only by default; `--delete` actually removes what's listed. `--older-than <days>`
+narrows to branches past that age. It refuses to touch the repo's default branch or anything
+literally named `main`, same hard-coded discipline `run-manual-coach-chat-test.ts` already has for
+creating one, with no override flag for that specific check.
+
+```bash
+npm run cleanup-scratch-branches -- --athlete skanda            # list only
+npm run cleanup-scratch-branches -- --athlete akash --older-than 14
+npm run cleanup-scratch-branches -- --athlete akash --older-than 14 --delete
+```
 
 ## Two different questions, answered by different tools
 

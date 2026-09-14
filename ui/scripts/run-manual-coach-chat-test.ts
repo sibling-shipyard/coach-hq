@@ -83,8 +83,11 @@ import { isTransient } from "../api/_lib/githubGitData.js";
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { handle } from "../api/coach-chat.js";
+import { getLastTurnUsage } from "../api/coach-chat/_lib/coachTurn.js";
+import type { GeminiUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
+import { estimateCostUsd, formatCostUsd } from "./lib/llmPricing.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -149,6 +152,11 @@ interface ManualLogEntry extends TestLogEntry {
   branch: string;
   shaBefore: string | null;
   shaAfter: string | null;
+  // #1053 gap 2: real token usage for this turn's askGemini call(s) - coachTurn.ts's
+  // getLastTurnUsage(), read right after handle() returns. Undefined on a turn that threw before
+  // any model call happened, or made no model call at all (shouldn't occur for a real turn/greet).
+  usage?: GeminiUsage;
+  costUsd?: number;
 }
 
 function parseArgs(argv: string[]) {
@@ -395,6 +403,11 @@ async function main() {
         auth,
       );
       const json = (await res.json()) as Record<string, unknown>;
+      // Read right after handle() returns - coachTurn.ts sets this whether the turn went through
+      // an ordinary commitTurn or a greet turn's own askGemini call (see setLastTurnUsage there).
+      const usage = getLastTurnUsage();
+      const providerName = usingOpenRouter ? "openrouter" : "gemini";
+      const costUsd = estimateCostUsd(usage, providerName);
 
       // Adopt the server's real threadId whenever a response actually returns one (every turn
       // does) - keeps a scripted "greet, then respond" run in one real thread instead of the
@@ -473,6 +486,8 @@ async function main() {
         filesChanged,
         shaBefore,
         shaAfter,
+        usage,
+        costUsd,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -508,6 +523,11 @@ async function main() {
 
   const passed = entries.filter((e) => e.result === "PASS").length;
   console.log(`\n${passed}/${entries.length} passed.`);
+  const totalCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
+  const callsWithUsage = entries.filter((e) => e.usage !== undefined).length;
+  console.log(
+    `Cost: ${callsWithUsage} call(s) with usage data, ${formatCostUsd(totalCostUsd || undefined)} total (provider: ${usingOpenRouter ? "openrouter" : "gemini"}).`,
+  );
   // A PASS can still carry a failures entry (a real assertion passed, but the sha lookup around
   // it failed, so filesChanged is unconfirmed) - that PASS is honest, but it's not a clean run,
   // and neither exit branch below would otherwise catch it.

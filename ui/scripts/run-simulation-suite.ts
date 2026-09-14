@@ -27,6 +27,15 @@
  *   npm run test:simulation-suite                       # run every scenario in the library
  *   npm run test:simulation-suite -- --only fsp          # substring-match on scenario id
  *   npm run test:simulation-suite -- --dry-run           # print what would run, call nothing
+ *   npm run test:simulation-suite -- --force              # ignore coverage-index.json, run every
+ *                                                          # case regardless of what changed since
+ *                                                          # its last pass (a full pre-release run)
+ *
+ * Selective re-run: before actually running a case, this checks coverage-index.json for an
+ * existing `status: "pass"` entry and, if one exists, runs `git diff --quiet <last_pass_sha> HEAD
+ * -- <watched_paths...>` - an empty diff means nothing this case exercises has changed since it
+ * last passed, so it's skipped (logged, not silent) rather than re-run for free. A case with no
+ * entry, or `status: "fail"`, always runs. --force bypasses this check entirely.
  *
  * Needs GEMINI_API_KEY (or OPENROUTER_API_KEY under LLM_PROVIDER=openrouter) the same way
  * run-manual-coach-chat-test.ts does - checked once up front here so a missing key fails fast
@@ -73,6 +82,16 @@ interface Scenario {
   localPath?: string;
   expect: TurnExpect[];
 }
+
+/**
+ * #1053 gap 3: --branch <name> on the CLI overrides which scratch branch every selected scenario
+ * runs against, passed straight through to run-manual-coach-chat-test.ts's own --branch. Needed
+ * for fsp-basic: it runs against coach-skanda-testing, which needs a fresh reset onto a NEW
+ * scratch branch first (docs/eng-docs/coach-chat-testing.md's reset procedure) - without this,
+ * the driver could only ever run fsp-basic against an auto-named branch it creates itself, never
+ * the specific already-reset one. Applies to every scenario the invocation selects (--only
+ * narrows to one in practice) - there was no need for a per-scenario field in the library above.
+ */
 
 /**
  * Seeded from the FSP/daily example files already in examples/ (docs/plans/vade-the-tester.md's
@@ -148,6 +167,10 @@ const WATCHED_PATHS = [
 interface ManualLogEntry extends TestLogEntry {
   turnIndex: number;
   filesChanged: FilesChanged;
+  // #1053 gap 2: real per-turn cost, written by run-manual-coach-chat-test.ts now that
+  // coachTurn.ts surfaces real usage - summed here so a scenario's console output shows real
+  // spend, same number a day-doc's Simulation suite section reports.
+  costUsd?: number;
 }
 
 function parseArgs(argv: string[]) {
@@ -155,7 +178,42 @@ function parseArgs(argv: string[]) {
     const idx = argv.indexOf(flag);
     return idx !== -1 ? argv[idx + 1] : undefined;
   };
-  return { list: argv.includes("--list"), only: get("--only"), dryRun: argv.includes("--dry-run") };
+  return {
+    list: argv.includes("--list"),
+    only: get("--only"),
+    dryRun: argv.includes("--dry-run"),
+    // Bypasses the selective-re-run check below entirely - "Tech Lead wants a full run before a
+    // release" (docs/plans/vade-the-tester.md), an explicit ask, not the default.
+    force: argv.includes("--force"),
+    branch: get("--branch"),
+  };
+}
+
+interface CoverageEntry {
+  type: string;
+  last_pass_sha: string | null;
+  last_run_date: string;
+  watched_paths: string[];
+  status: "pass" | "fail";
+  last_cost_usd?: number;
+}
+
+/**
+ * True when HQ has changed anything under `watchedPaths` since `lastPassSha`. `git diff --quiet`
+ * exits 0 (no diff -> execFileSync doesn't throw) or 1 (real diff -> throws) for a valid range;
+ * any other failure (bad/unreachable sha, e.g. after a history rewrite) is treated as "changed" -
+ * re-running an unnecessary case is cheap next to silently skipping a case that needs it.
+ */
+function watchedPathsChanged(lastPassSha: string, watchedPaths: string[]): boolean {
+  try {
+    execFileSync("git", ["diff", "--quiet", lastPassSha, "HEAD", "--", ...watchedPaths], {
+      cwd: repoRoot,
+      stdio: "pipe",
+    });
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function findLatestManualLog(repoSlug: string, sinceMs: number): string | undefined {
@@ -260,6 +318,20 @@ async function main() {
 
   let anyFailed = false;
   for (const scenario of scenarios) {
+    const key = `manual:${scenario.id}`;
+    const existing = coverageIndex[key] as CoverageEntry | undefined;
+    if (!args.force && existing?.status === "pass" && existing.last_pass_sha) {
+      const watched = existing.watched_paths ?? WATCHED_PATHS;
+      if (!watchedPathsChanged(existing.last_pass_sha, watched)) {
+        console.log(
+          `[skip] ${scenario.id}: no diff between ${existing.last_pass_sha.slice(0, 7)} and HEAD` +
+            ` across ${watched.length} watched path(s) (${watched.join(", ")}); last passed` +
+            ` ${existing.last_run_date}. Use --force to run anyway.`,
+        );
+        continue;
+      }
+    }
+
     const turnsPath = path.join(examplesDir, scenario.file);
     const scriptArgs = [
       "tsx",
@@ -269,16 +341,19 @@ async function main() {
       ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
       ...(scenario.repo ? ["--repo", scenario.repo] : []),
       ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
+      ...(args.branch ? ["--branch", args.branch] : []),
       "--turns",
       turnsPath,
     ];
 
     if (args.dryRun) {
-      console.log(`[dry-run] ${scenario.id}: npx ${scriptArgs.join(" ")}`);
+      console.log(`[dry-run] ${scenario.id}: would run - npx ${scriptArgs.join(" ")}`);
       continue;
     }
 
-    console.log(`\n=== ${scenario.id} ===`);
+    console.log(
+      `\n=== ${scenario.id} (running - ${existing ? "diff since last pass" : "no prior pass"}) ===`,
+    );
     const repoSlug = slugify(scenario.repo ?? scenario.athlete ?? scenario.id, "-");
     const startMs = Date.now();
     try {
@@ -289,7 +364,6 @@ async function main() {
     }
 
     const logPath = findLatestManualLog(repoSlug, startMs);
-    const key = `manual:${scenario.id}`;
     if (!logPath) {
       console.log(`${scenario.id}: no run log found - treating as a hard failure.`);
       anyFailed = true;
@@ -306,8 +380,9 @@ async function main() {
 
     const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
     const { pass, failures } = scoreScenario(scenario, entries);
+    const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
     console.log(
-      `${scenario.id}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)})`,
+      `${scenario.id}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: $${scenarioCostUsd.toFixed(3)})`,
     );
     for (const f of failures) console.log(`  - ${f}`);
     if (!pass) anyFailed = true;
@@ -320,6 +395,7 @@ async function main() {
       last_run_date: today,
       watched_paths: WATCHED_PATHS,
       status: pass ? "pass" : "fail",
+      last_cost_usd: scenarioCostUsd,
     };
   }
 
