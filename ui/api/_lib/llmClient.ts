@@ -10,6 +10,7 @@
  */
 import { createGeminiAdapter } from "./llmAdapters/geminiAdapter.js";
 import { createOpenRouterAdapter } from "./llmAdapters/openRouterAdapter.js";
+import type { GeminiUsage } from "./sentry.js";
 
 export type LlmProviderName = "gemini" | "openrouter";
 
@@ -106,6 +107,17 @@ export interface LlmResult {
   /** Raw JSON text matching `responseSchema` - the caller parses and validates it. */
   text: string;
   telemetry: LlmTelemetry;
+  /**
+   * Real token counts for this call, the same shape both adapters already compute for the
+   * Sentry `gen_ai` span (`sentry.ts`'s `GeminiUsage`) - just also handed back here instead of
+   * staying trapped inside `withGeminiSpan`'s `recordUsage` callback. Absent only if the
+   * provider's response never carried usage data at all (should not happen in practice, but
+   * neither adapter treats it as fatal if it does). `costUsd` is OpenRouter-only - it reports
+   * real per-call cost on the wire; direct Gemini does not, so a caller pricing a Gemini call
+   * multiplies `promptTokens`/`completionTokens` by `docs/eng-docs/llm-provider-current.md`'s
+   * own rate instead.
+   */
+  usage?: GeminiUsage;
 }
 
 export interface LlmAdapter {

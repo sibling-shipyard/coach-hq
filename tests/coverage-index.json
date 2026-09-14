@@ -1,0 +1,18 @@
+{
+  "manual:daily-basic": {
+    "type": "manual",
+    "last_pass_sha": "aec2933b4fee2feafc801c3e5c846f5efe19d4de",
+    "last_run_date": "2026-09-14",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass"
+  }
+}

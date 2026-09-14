@@ -269,6 +269,7 @@ export function createOpenRouterAdapter(
           resolvedProvider,
           resolvedModel,
         },
+        usage: cumulativeUsage,
       };
     },
   };

@@ -21,6 +21,16 @@ import {
 
 export { GEMINI_MODEL };
 
+/**
+ * `GeminiReply` plus the real token usage the adapter already computed for this call (#1044
+ * PR1). Additive only, on purpose - every existing caller stays typed against plain `GeminiReply`
+ * (a `GeminiReplyWithUsage` satisfies that structurally, extra field ignored) and nothing that
+ * persists a turn's reply spreads the whole object, so `usage` never leaks into committed
+ * athlete data. `usage` is absent only in the rare case the provider's own response carried no
+ * usage data at all.
+ */
+export type GeminiReplyWithUsage = GeminiReply & { usage?: LlmResult["usage"] };
+
 // A turn with a long conversation history carries a larger prompt than the shared
 // UPSTREAM_TIMEOUT_MS (25s, sized for file reads) can comfortably fit - give generateContent its
 // own longer budget. 60s, not the pre-CHAT_MAX_OUTPUT_TOKENS-bump 45s: the live evidence behind
@@ -45,7 +55,7 @@ export async function askGemini(
   traceId?: string,
   timezone = "UTC",
   referenceIds?: AthleteReferenceIds,
-): Promise<GeminiReply> {
+): Promise<GeminiReplyWithUsage> {
   // Ordered for implicit-caching fallback: stable content (persona, instructions, few-shots)
   // first, volatile today's-date last. See docs/eng-docs/gemini-flow.md. `cachePrefix` carries
   // this to the seam; the Gemini adapter decides whether it's actually cached this call.
@@ -143,5 +153,5 @@ export async function askGemini(
   // downstream in the POST handler. The reply stays off the breadcrumb.
   console.log("[coach-chat] response:", parsed, { traceId });
   log("coach-chat", "response", { traceId });
-  return parsed;
+  return { ...parsed, usage: result.usage };
 }

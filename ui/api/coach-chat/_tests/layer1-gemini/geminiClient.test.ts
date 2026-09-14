@@ -28,6 +28,17 @@ function geminiEnvelope(reply: unknown): Response {
   });
 }
 
+// Every geminiEnvelope() above reports this same usageMetadata - askGemini now surfaces it
+// straight through on the returned object (#1044 PR1), so every reply-shape assertion below
+// carries it too.
+const EXPECTED_USAGE = {
+  promptTokens: 100,
+  completionTokens: undefined,
+  totalTokens: undefined,
+  cachedPromptTokens: 0,
+  thinkingTokens: undefined,
+};
+
 // No GLOBAL_CONFIG in the test env, so geminiSoulCache's getCachedSoulName's readRecord() short-
 // circuits without hitting the network - but it still calls createCache(), which does call
 // fetchWithTimeout against the cachedContents endpoint. Route that away so tests default to the
@@ -66,7 +77,7 @@ describe("askGemini", () => {
 
     const result = await askGemini(...args);
 
-    expect(result).toEqual(reply);
+    expect(result).toEqual({ ...reply, usage: EXPECTED_USAGE });
   });
 
   it("passes a schema-optional field through unmodified, even a semantically bad value (issue #609)", async () => {
@@ -83,7 +94,7 @@ describe("askGemini", () => {
 
     const result = await askGemini(...args);
 
-    expect(result).toEqual(reply);
+    expect(result).toEqual({ ...reply, usage: EXPECTED_USAGE });
   });
 
   it("throws when Gemini returns no text content", async () => {
@@ -125,7 +136,10 @@ describe("askGemini", () => {
 
     const result = await askGemini(...args);
 
-    expect(result).toEqual({ reply: "Recovered after malformed JSON." });
+    expect(result).toEqual({
+      reply: "Recovered after malformed JSON.",
+      usage: EXPECTED_USAGE,
+    });
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
       (url as string).includes(":generateContent"),
     );
@@ -190,7 +204,7 @@ describe("askGemini", () => {
 
     const result = await askGemini(...args);
 
-    expect(result).toEqual({ reply: "Recovered without cache." });
+    expect(result).toEqual({ reply: "Recovered without cache.", usage: EXPECTED_USAGE });
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
       (url as string).includes(":generateContent"),
     );
