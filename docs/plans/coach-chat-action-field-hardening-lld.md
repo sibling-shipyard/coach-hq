@@ -1,11 +1,16 @@
 # Coach-chat action-field hardening: evidence and execution detail
 
-> Status: Proposal · Owner: Tech Lead · Created: 2026-09-13 · Issue: #1009
+> Status: Proposal · Owner: Tech Lead · Created: 2026-09-13 · Re-verified: 2026-09-14 · Issue: #1009
 >
 > Drill-down for [`coach-chat-action-field-hardening.md`](coach-chat-action-field-hardening.md).
 > Every fact below was pulled directly from `main` at `c5ecc36a` (the post-#999-merge tip) -
 > line numbers, quoted prompt text, quoted schema shapes, quoted existing detectors. Nothing here
 > is estimated.
+>
+> `memory_update` added 2026-09-14 as a seventh field, found missing from the HLD's coverage-table
+> cross-check against all 15 fields in `GeminiReply`. Its applier-level tests already exist
+> (`applyMemoryUpdate` in `coachIntents.test.ts:178-260`) - only the reprompt/prompt-only piece is
+> new work, same as the other six.
 
 ## The existing pattern this plan extends
 
@@ -76,11 +81,11 @@ reprompt twice, only logs. It doesn't fire on the wrong turn type. It doesn't fi
 is already covered. It doesn't fire on unrelated language. Every new field below gets its own
 `describe` block in this same file, same five-test shape.
 
-**Applier-level tests** for all six target fields already exist (not reprompt tests - structural
+**Applier-level tests** for all seven target fields already exist (not reprompt tests - structural
 validation tests): `profile_update`, `injury_event`, `coaching_style_update`, `sports_update`,
-`quest_create` in `ui/api/coach-chat/_tests/layer2-fields/coachIntents.test.ts`; `workout_remove`
-in `ui/api/coach-chat/_tests/layer2-fields/coachWorkoutCreate.test.ts`. Nothing to add there -
-this plan's new tests are exclusively in `coachTurn-reprompt.test.ts`.
+`quest_create`, `memory_update` in `ui/api/coach-chat/_tests/layer2-fields/coachIntents.test.ts`;
+`workout_remove` in `ui/api/coach-chat/_tests/layer2-fields/coachWorkoutCreate.test.ts`. Nothing to
+add there - this plan's new tests are exclusively in `coachTurn-reprompt.test.ts`.
 
 ## `TurnState` fields available for every detector (no extra I/O)
 
@@ -99,7 +104,7 @@ need it (checks the athlete's phrasing only, not id validity - that's the applie
 
 ---
 
-## PR A (Batch 1): `profile_update` + two prompt-only fields
+## PR A (Batch 1): `profile_update` + three prompt-only fields
 
 ### `profile_update`
 
@@ -192,6 +197,26 @@ constantly about existing training, not a new habit quest - same conclusion as
 
 **Prompt reinforcement only:** add "Never describe a new daily habit as tracked without setting
 quest_create" to the returning-athlete branch (~line 192-194).
+
+### `memory_update` - prompt only
+
+**Why no reprompt:** the field covers five different note categories (`fitness_baseline`,
+`coaching_priorities`, `learned_patterns.training`, `learned_patterns.nutrition`,
+`learned_patterns.mental`, `equipment`), each with its own free-text `text` value. No single
+narrow phrasing pattern covers "something durable changed" the way age/height/weight does for
+`profile_update`. A keyword broad enough to catch all six categories would match ordinary
+conversation constantly - an athlete describing what shoes they wear, how they usually eat, what's
+worked before. Same class of risk `coaching_style_update` was rejected for, not a variant of the
+profile pattern.
+
+**Prompt reinforcement only:** add "Never describe something durable as noted or remembered
+without setting memory_update" next to the existing instruction, both branches (~line 118,
+first-session; ~line 165, returning-athlete).
+
+**Applier already exists and already throws correctly** - `applyMemoryUpdate` (`coachIntents.ts`,
+tested in `coachIntents.test.ts:178-260`) is the correct layer for a "saved wrong" failure, same
+reasoning as `profile_update` above. This field's only gap was "saved nothing," and prompt
+reinforcement is the only safe tool available for it.
 
 ---
 

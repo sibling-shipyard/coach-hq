@@ -4,12 +4,19 @@
 
 ## Context
 
-Coach-chat testing splits into two kinds: **layered, no-network tests** that check our own code
-against known-real inputs on every `npm test`, and **live-API tools** that check whether Gemini
-and GitHub still behave the way our fixtures assume. Neither replaces the other - see "Two
-different questions" below.
+Coach-chat testing splits into three kinds today, answering three different questions:
 
-The layered tests exist because the pipeline itself has three layers: input -> decision, decision
+1. **The layered suite** (`npm test`, free, no network) - "given a specific Gemini/GitHub
+   response, does our code do the right thing with it?"
+2. **`eval:coach-chat`** (paid, live Gemini, no real repo writes) - "does the real Gemini API
+   still produce structured output shaped like our fixtures assume?"
+3. **`test:coach-chat-manual`** (paid, live Gemini, real repo writes) - "does the whole real
+   pipeline - prompt, SOUL, athlete data, Gemini, GitHub commit - still work end to end?"
+
+None of the three replaces another - see "Two different questions" below for why a green `npm
+test` run never means "Gemini is up" or "GitHub commits are working right now."
+
+The layered suite exists because the pipeline itself has three layers: input -> decision, decision
 -> file content, file content -> git commit. A test suite shaped the same way tells you which
 layer broke. That beats just hearing "something in coach-chat is wrong." No formal
 `LlmClient`/`RepoBackend` interface exists yet for a future Supabase/other-LLM swap - `askGemini`'s
@@ -17,13 +24,37 @@ layer broke. That beats just hearing "something in coach-chat is wrong." No form
 `(FileEntry[], message, ctx) => Promise<{ commitSha }>` signature are the documented seam. Add a
 real interface only once a second implementation of either actually exists.
 
-## The layered test suite (`npm test`, no network)
+## Whether SOUL is actually sent, per test type
 
-`layer1-gemini/`, `layer2-fields/`, and `integration/` live under `ui/api/coach-chat/_tests/`, see
-that directory's own `README.md` for the map. `layer3-commit`'s real test file is
-`ui/api/_lib/_tests/githubGitData.test.ts`, outside `coach-chat/` entirely - `commitFilesAtomic` is
-shared beyond coach-chat (also used by `coach-message.ts`/`waitlist.ts`), so its test stays with
-its source rather than moving under a `coach-chat/_tests/layer3-commit/` directory. In short:
+A question worth answering explicitly, since it's easy to assume every test exercises the real
+coaching prompt and it doesn't:
+
+| Test type | SOUL value | Why |
+|---|---|---|
+| Layered suite (`layer1-gemini/`, `integration/`) | `"soul"` / `"soul text"` - a placeholder string | These tests prove pipeline mechanics (schema handling, reprompt logic, commit payloads), not coaching quality. Real SOUL content would be dead weight in every fixture and a maintenance burden every time SOUL's prose changes. |
+| `layer2-fields/`, `layer3-commit` | N/A - no prompt built at all | These layers test pure appliers and commit logic; neither touches SOUL or prompt construction. |
+| `eval:coach-chat` | `""` - genuinely empty, not even a placeholder | Deliberate (`eval-coach-chat.ts`'s own header comment). ADR 0024: a paid check runs only where it can actually catch something in the diff. This eval exercises `askGemini`'s own logic (schema compliance, retries, JSON parsing) against a live model - a SOUL wording change can't fail here, so SOUL isn't paid for. |
+| `test:coach-chat-manual` | The real, current composed SOUL | This tool calls the real production `handle()` (`ui/api/coach-chat.ts`) unmodified, which calls `loadCoachContext()`, which sets `soul: SOUL` straight from `ui/api/_generated/soul.ts` - the same build artifact a real athlete's request gets. Nothing is stubbed. |
+
+**SOUL's own correctness is checked by neither.** Two separate, non-LLM structural linters do
+that instead, both part of the 9-check local gate. `compose-soul --check` catches drift between
+the `platform/soul/*.md` source layers and the composed build artifacts. `validate-soul` lints
+the composed text against ground truth instead - every path SOUL mentions exists in a real carved
+skeleton, every write SOUL claims is actually writable, cross-references resolve. Both use a real
+dry-run carve as the check, not a hand-maintained list, and neither makes a model call.
+
+## Type 1: The layered test suite (`npm test`, no network)
+
+**Purpose:** prove the pipeline's own logic is correct against known-real inputs, deterministically,
+on every commit. Never asks whether Gemini or GitHub actually behave a certain way - only whether
+our code handles a given input correctly.
+
+**Mechanics.** `layer1-gemini/`, `layer2-fields/`, and `integration/` live under
+`ui/api/coach-chat/_tests/`, see that directory's own `README.md` for the map. `layer3-commit`'s
+real test file is `ui/api/_lib/_tests/githubGitData.test.ts`, outside `coach-chat/` entirely -
+`commitFilesAtomic` is shared beyond coach-chat (also used by `coach-message.ts`/`waitlist.ts`), so
+its test stays with its source rather than moving under a `coach-chat/_tests/layer3-commit/`
+directory.
 
 - **`layer1-gemini/`** - the Gemini call end to end through `geminiClient.ts::askGemini` (prompt
   building) into `_lib/llmAdapters/geminiAdapter.ts` (the actual HTTP call, explicit cache, retry -
@@ -49,15 +80,32 @@ report to `tests/<YYYY-MM-DD>/unit/vitest-results-<HH-MM-SS>.json` (`ui/scripts/
 matching the `eval/` and `manual/` folders below. Use this - not a bare `npm test` - whenever a run
 needs to leave a record someone can point at later.
 
-## The two live-API tools (`tests/<date>/eval/` and `tests/<date>/manual/`)
+**Known gaps:** none tracked at this layer specifically - it's the free, always-on gate, and gaps
+here surface as ordinary test failures, not silent holes. The gaps worth naming live in the two
+paid tools below, where cost gates what actually gets run.
 
-**`npm run eval:coach-chat`** (`ui/scripts/eval-coach-chat.ts`) - runs golden transcripts
+## Type 2: `eval:coach-chat` (paid, live Gemini, no real writes)
+
+**Purpose:** confirm Gemini's structured output still complies with our schema and rubric under
+real model behavior - valid schema, no fabricated "saved" language, `coach_note` present when
+expected. Explicitly does not judge coaching voice/persona quality (see the SOUL table above) -
+that would need a second, more expensive judge-model call per transcript, deferred per
+`docs/eng-docs/llm-provider-current.md`'s Eval section.
+
+**Mechanics** (`ui/scripts/eval-coach-chat.ts`) - runs golden transcripts
 (`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`) against a live Gemini call. No real repo
 writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
 exercises `coachTurn.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
 single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
 real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024), so it's manual/CI-gated,
-never on every PR.
+never on every PR - `.github/workflows/eval-coach-chat.yml` only runs it on `workflow_dispatch` or
+a `push` to `main` matching prompt/schema/model/harness paths.
+
+**Cost discipline, already built in:** every call costs money and Gemini 503s non-deterministically,
+so a red run is usually infrastructure rather than the change under test. Transient failures retry
+with backoff. A transcript that already PASSED is not paid for twice either - its result is
+cached against a key covering the transcript, the model, and the prompt-construction code, so any
+change to those re-runs it, nothing else does.
 
 **The set:** 23 transcripts as of the K1 testing pass (2026-09-04). G1 (#670) trimmed the original
 29 down to 14. C2 added 2 more (`coach_note` day-keying, `#33`/`#34`). K1 added 8 more, closing
@@ -67,16 +115,11 @@ each for the kickoff and reconcile cases (`#41`/`#42`, originally targeting the 
 `week_plan`/`session_reconcile` actions). ADR 0042 later collapsed those, plus `plan_edit`, into one
 `week_update` action - `#41`/`#42`'s `expect` blocks were updated to match
 (`actionFieldsPresent: ["week_update"]`) in the #999 hardening round, 2026-09-13. Closing-turn
-behavior is gone (C1 removed the concept: no `mode: "closing"`, no `session_closed` field). The
-workouts/`current_week` redesign this section once anticipated (#727) has since shipped -
-`session_plan` and the new `workout_create`/`workout_remove` actions still have no dedicated
-live-transcript coverage here, now a real gap rather than a deferred one. `workout_create` has a
-narration-vs-action reprompt guard (`gemini-flow.md`'s coverage table); `workout_remove` has none
-yet - see that doc's own tracked follow-up. Every transcript was diagnosed against a live run before
-being kept, not just rewritten and assumed correct. A stale expectation got fixed; a real gap got
-its own issue and stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the
-transcripts directory for the current list (none currently - every flagged gap below is closed).
-#807 and #808 (both filed during G1's own pass) are resolved as of K1.
+behavior is gone (C1 removed the concept: no `mode: "closing"`, no `session_closed` field). Every
+transcript was diagnosed against a live run before being kept, not just rewritten and assumed
+correct. A stale expectation got fixed; a real gap got its own issue and stays red on purpose -
+grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the transcripts directory for the current list
+(none currently). #807 and #808 (both filed during G1's own pass) are resolved as of K1.
 
 `#27`'s `injury_flag` drop on a dense multi-fact FSP turn has a real fix now too, in two stages.
 It was reframed and partly fixed on 2026-09-09: the actual shape was a hallucinated
@@ -88,22 +131,54 @@ the next day as a genuine 5/8 fail rate on a larger live sample
 zero existing injury flags, verified 3/3 on a fresh live sample. The dynamic-enum/hallucination
 guard once deferred pending D1 is in now too (`#40`), D1 having landed.
 
-**`npm run test:coach-chat-manual`** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real
-conversation through the real `handle()` in `coach-chat.ts` against a real athlete repo
-(`coach-skanda`/`coach-akash`), using `gh auth token`. Real Gemini calls, real GitHub commits.
-`--branch` is optional - omit it and the script names and creates its own scratch branch off the
-repo's real default branch; it refuses outright to run against the real default branch or `main`.
-Use `--greet` / `--message "..."` for one turn, or `--turns <file.json>` for a scripted
-conversation - see `ui/scripts/examples/` for ready-to-run ones.
+**Known gaps:**
+- The workouts/`current_week` redesign this section once anticipated (#727) has since shipped -
+  `session_plan` and the new `workout_create`/`workout_remove` actions still have no dedicated
+  live-transcript coverage here, a real gap rather than a deferred one. `workout_create` has a
+  narration-vs-action reprompt guard (`gemini-flow.md`'s coverage table); `workout_remove` has none
+  yet - see that doc's own tracked follow-up.
+- Because this tool calls `askGemini()` directly, it structurally cannot exercise `coachTurn.ts`'s
+  reprompt mechanism - a false PASS here says nothing about whether the reprompt/guard layer
+  (`docs/plans/coach-chat-action-field-hardening.md`) is working. Only `test:coach-chat-manual`
+  and the layered `coachTurn-reprompt.test.ts` suite can.
+- No persona/voice judging, by design (see Purpose above) - a SOUL-wording regression that changes
+  *tone* without breaking structure passes here silently. `docs/ref-docs/soul-calibration.md` is
+  the closest thing to a fixture for that, and it isn't wired into any automated run.
 
-Both log to `tests/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not gitignored) - a permanent,
-dated record of every run: what was sent, the raw reply, PASS/FAIL/ERROR, and which files changed.
-That last field carries a `confidence` tag:
+## Type 3: `test:coach-chat-manual` (paid, live Gemini, real writes)
+
+**Purpose:** the only tool that proves the *whole* real pipeline end to end - real SOUL, real
+athlete repo data, real Gemini call, real GitHub commit - the way an actual athlete's request
+does. Everything upstream of this (layers 1-3, `eval:coach-chat`) tests a slice with something
+faked; this is the slice with nothing faked.
+
+**Mechanics** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real conversation through the
+real `handle()` in `coach-chat.ts` against a real athlete repo (`coach-skanda`/`coach-akash`), using
+`gh auth token`. Real Gemini calls, real GitHub commits. `--branch` is optional - omit it and the
+script names and creates its own scratch branch off the repo's real default branch; it refuses
+outright to run against the real default branch or `main`. Use `--greet` / `--message "..."` for
+one turn, or `--turns <file.json>` for a scripted conversation - see `ui/scripts/examples/` for
+ready-to-run ones, including `manual-coach-chat-turns-fsp.json` (a full First Session) and
+`manual-coach-chat-turns-daily.json`/`-daily-2.json` (ordinary daily check-ins).
+
+Both `eval` and `manual` log to `tests/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not
+gitignored) - a permanent, dated record of every run: what was sent, the raw reply, PASS/FAIL/ERROR,
+and which files changed. That last field carries a `confidence` tag:
 - `"derived"` (eval only) - a guess, based on which action field fired. No real write happened.
 - `"observed"` (manual only) - a real `git diff` across the turn's before/after commit sha. Ground
   truth, not a guess.
 
 Never treat a `derived` entry as evidence of a real bug - only `observed` entries are.
+
+**Known gaps:**
+- **No repeatable, tracked suite.** The FSP/daily example turn-scripts above are real and
+  realistic, but they're run by hand, one file at a time, whenever someone remembers to. There's
+  no driver that runs the full set and scores it the way `eval:coach-chat` scores its 23
+  transcripts, no aggregate pass/fail report, and no tracking of when a given scenario was last
+  verified against current code. `docs/plans/vade-the-tester.md` plans to formalize this into a
+  fourth, tracked test type.
+- Cleanup is manual and easy to skip - scratch branches accumulate on real athlete repos (see the
+  workflow section below) and nothing currently sweeps them automatically.
 
 ## Testing against a local athlete repo - the practical workflow
 
