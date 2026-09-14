@@ -758,7 +758,17 @@ const INJURY_MENTION_COLLAPSE_WINDOW_WORDS = 12;
 
 // Common body-part/location vocabulary - the signal that lets countDistinctInjuryMentions tell a
 // restated mention of the same injury apart from a second, genuinely different one. Not
-// exhaustive, just the common set an athlete would actually say out loud.
+// exhaustive, just the common set an athlete would actually say out loud when talking about a
+// running/lifting injury. Deliberately leaves out "head"/"skull" - "head" gets used
+// non-anatomically constantly in ordinary chat ("in my head," "ahead of," "get ahead") and the
+// false-positive cost of that outweighs the rare real case of a head injury, which an athlete
+// would almost always also name explicitly (concussion, headache) rather than relying on this
+// detector.
+//
+// I considered replacing this fixed list with "match any noun phrase after 'my'" so new terms
+// never need a manual add. Not doing that here - "my training," "my coach," "my week" aren't body
+// parts, and that approach needs its own false-positive narrowing pass against the test corpus
+// before it's safe to ship. Left as a future option, not built.
 const BODY_LOCATION_WORDS = [
   "ankle",
   "ankles",
@@ -798,8 +808,55 @@ const BODY_LOCATION_WORDS = [
   "heels",
   "rib",
   "ribs",
+  "glute",
+  "glutes",
+  "IT band",
+  "iliotibial band",
+  "tendon",
+  "tendons",
+  "tendinitis",
+  "ligament",
+  "ligaments",
+  "cartilage",
+  "meniscus",
+  "rotator cuff",
+  "labrum",
+  "plantar fascia",
+  "plantar fasciitis",
+  "sciatic",
+  "sciatica",
+  "spine",
+  "spinal",
+  "chest",
+  "pec",
+  "pecs",
+  "forearm",
+  "forearms",
+  "bicep",
+  "biceps",
+  "tricep",
+  "triceps",
+  "jaw",
+  "abdomen",
+  "abs",
+  "core",
+  "lat",
+  "lats",
 ];
 const LOCATION_PATTERN = new RegExp(`\\b(${BODY_LOCATION_WORDS.join("|")})\\b`, "i");
+
+// Trailing "s" on a matched word almost always means a simple plural ("ankles" -> "ankle"), so
+// stripping it collapses plural/singular phrasing of the same injury onto the same key. A few
+// medical terms end in "s" without being plural at all - stripping those would mangle the key
+// (e.g. "tendinitis" -> "tendiniti", "meniscus" -> "meniscu"). Those all end in "itis" or "us", so
+// checking for those suffixes first is enough to spare them without hand-listing every term.
+const LOCATION_FALSE_PLURAL_SUFFIXES = ["itis", "us"];
+
+function normalizeLocationWord(word: string): string {
+  const lower = word.toLowerCase();
+  if (LOCATION_FALSE_PLURAL_SUFFIXES.some((suffix) => lower.endsWith(suffix))) return lower;
+  return lower.replace(/s$/, "");
+}
 
 // Looks for a body-location word in a small window of words around a hit rather than across the
 // whole message, so a location word describing a different sentence/injury far away doesn't get
@@ -808,20 +865,49 @@ const LOCATION_PATTERN = new RegExp(`\\b(${BODY_LOCATION_WORDS.join("|")})\\b`, 
 // together can have overlapping windows, and taking "first match in the joined window text" would
 // attribute both to whichever location word appears earliest, even when a closer, different one
 // exists for the second hit.
+//
+// Checks a 2-word phrase starting at each index before falling back to the single word there, so
+// multi-word terms ("IT band," "rotator cuff," "plantar fasciitis") match - LOCATION_PATTERN can
+// only match against whatever string it's handed, and a single word from the `words` array never
+// contains a 2-word phrase on its own.
+//
+// Also checks for "left"/"right" immediately before the matched location word ("my left knee") and
+// folds it into the returned key, so two mentions of the same body part on opposite sides count as
+// distinct injuries instead of collapsing into one. Only checks directly-preceding words - rarer
+// phrasing like "knee on my left side" isn't worth the added complexity here. Laterality is always
+// optional: with no "left"/"right" nearby, the bare word comes back unchanged.
 function nearestLocationWord(words: string[], hitWordIndex: number): string | null {
   const windowRadius = 5;
   const start = Math.max(0, hitWordIndex - windowRadius);
   const end = Math.min(words.length, hitWordIndex + windowRadius + 1);
-  let closest: { word: string; distance: number } | null = null;
+  let closest: { word: string; distance: number; index: number } | null = null;
   for (let i = start; i < end; i++) {
-    const found = words[i].match(LOCATION_PATTERN);
+    // Try the 2-word phrase starting here first, but only trust it if the match actually spans
+    // both words (contains a space) - LOCATION_PATTERN also holds single-word alternatives, and
+    // `${words[i]} ${words[i + 1]}`.match(...) can match just one of those inside the joined
+    // string (e.g. "my glute" matching plain "glute"). Taking that as a hit here would credit the
+    // match to index i (the first word) instead of where the word actually is, throwing off the
+    // distance comparison against genuinely closer hits. Falling through to the single-word check
+    // on words[i] keeps that case anchored at its real index.
+    const twoWord = i + 1 < end ? `${words[i]} ${words[i + 1]}` : null;
+    const twoWordMatch = twoWord ? twoWord.match(LOCATION_PATTERN) : null;
+    const found =
+      twoWordMatch && twoWordMatch[0].includes(" ")
+        ? twoWordMatch
+        : words[i].match(LOCATION_PATTERN);
     if (!found) continue;
     const distance = Math.abs(i - hitWordIndex);
     if (!closest || distance < closest.distance) {
-      closest = { word: found[0].toLowerCase().replace(/s$/, ""), distance }; // normalize plural
+      closest = { word: normalizeLocationWord(found[0]), distance, index: i };
     }
   }
-  return closest ? closest.word : null;
+  if (!closest) return null;
+  const precedingWords = words
+    .slice(Math.max(0, closest.index - 2), closest.index)
+    .join(" ")
+    .toLowerCase();
+  const laterality = /\b(left|right)\b/.exec(precedingWords)?.[1];
+  return laterality ? `${laterality} ${closest.word}` : closest.word;
 }
 
 function countDistinctInjuryMentions(text: string): string[] {

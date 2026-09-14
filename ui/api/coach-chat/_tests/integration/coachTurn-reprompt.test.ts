@@ -1880,4 +1880,119 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     const injuryEventCount = ("reply" in result && result.reply.injury_event?.length) || 0;
     expect(injuryEventCount).toBe(1);
   });
+
+  // Laterality fix: nearestLocationWord used to return the bare body-part word ("knee"), so both
+  // sides of a paired injury collapsed onto the same key. Needs its own matching keyword per side
+  // to exercise this - "and my right knee both hurt" has only one keyword hit total ("hurt"), which
+  // countDistinctInjuryMentions can never split into 2 regardless of location matching, so this
+  // phrases each side with its own hit ("hurts" ... "hurts too").
+  it("counts left and right sides of the same body part as 2 distinct mentions", async () => {
+    const message = "my left knee hurts and my right knee hurts too";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the left knee.",
+        coach_note: "Left knee soreness.",
+        injury_flag: [{ text: "left knee" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted both knees.",
+        coach_note: "Left and right knee soreness.",
+        injury_flag: [{ text: "left knee" }, { text: "right knee" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
+  });
+
+  // Laterality is optional, never required - a single-sided mention with no "left"/"right" on
+  // the other side must still behave exactly as before the fix (1 distinct mention).
+  it("still counts a single-sided mention as 1 distinct mention (laterality unchanged when absent)", async () => {
+    const message = "my left knee hurts";
+    askGemini.mockResolvedValueOnce({
+      reply: "Noted.",
+      coach_note: "Left knee soreness.",
+      injury_flag: [{ text: "left knee" }],
+    });
+
+    await requestCoachReply(injuryTurnState({ trimmed: message, geminiMessage: message }));
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  // Vocabulary fix: body-part terms outside the original ~40-word list (including 2-word terms
+  // like "IT band" and "rotator cuff") now match LOCATION_PATTERN, so two mentions naming
+  // different new terms count as 2 distinct injuries instead of falling back to the weaker
+  // word-distance path. Each case needs its own keyword hit, same reasoning as the laterality
+  // tests above.
+  it("counts distinct mentions using newly-added vocabulary, including multi-word terms", async () => {
+    const message = "my IT band is sore and my glute also hurts";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the IT band.",
+        coach_note: "IT band soreness.",
+        injury_flag: [{ text: "IT band" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted both.",
+        coach_note: "IT band and glute soreness.",
+        injury_flag: [{ text: "IT band" }, { text: "glute" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+  });
+
+  it("counts distinct mentions across rotator cuff and plantar fascia (multi-word vocabulary)", async () => {
+    const message = "my rotator cuff is sore and my plantar fascia also hurts";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the rotator cuff.",
+        coach_note: "Rotator cuff soreness.",
+        injury_flag: [{ text: "rotator cuff" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted both.",
+        coach_note: "Rotator cuff and plantar fascia soreness.",
+        injury_flag: [{ text: "rotator cuff" }, { text: "plantar fascia" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+  });
+
+  it("counts distinct mentions across tendinitis and meniscus (false-plural-suffix vocabulary)", async () => {
+    const message = "my tendinitis flared up and now my meniscus hurts too";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the tendinitis.",
+        coach_note: "Tendinitis flare.",
+        injury_flag: [{ text: "tendinitis" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted both.",
+        coach_note: "Tendinitis and meniscus.",
+        injury_flag: [{ text: "tendinitis" }, { text: "meniscus" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+  });
 });
