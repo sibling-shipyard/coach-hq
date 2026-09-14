@@ -41,9 +41,9 @@ export function synthesizeQuestEventFromUnrecordedFacts(
 ```
 
 Called once per turn (`coachTurn.ts:1069`), returns a single `QuestEvent | null`, hardcodes
-`status: "completed"`. A message like "did my run and mobility, skipped strength" that the model
-only partially captures gets **no** rescue if 2+ of the dropped facts each cleanly match a distinct
-quest - the exact multi-drop case, not the single-drop case this function already handles well.
+`status: "completed"`. Take "did my run and mobility, skipped strength" as an example. If the model
+only partially captures that message, and 2+ of the dropped facts each cleanly match a distinct
+quest, this function rescues **none** of them - the exact multi-drop case it should be rescuing.
 
 **Mechanism - two parts, since detection and synthesis are different problems:**
 
@@ -78,26 +78,26 @@ quest - the exact multi-drop case, not the single-drop case this function alread
    currently unexported and private. Export it and import in `coachTurn.ts`, rather than
    duplicating the word-matching logic - avoids two copies drifting.
 
-2. **Synthesis extension** (lower priority, do only if the detector's reprompt still leaves gaps
-   live-testing shows it doesn't close): change
-   `synthesizeQuestEventFromUnrecordedFacts` to return `QuestEvent[]` and drop the
-   `nameMatches.length !== 1` bail in favor of "synthesize one entry per unambiguous 1:1 name
-   match, skip any fact that matches 0 or 2+ quests." Only attempt this after the detector above
-   ships and its live-test results show the reprompt alone isn't sufficient - don't do both at
-   once, the reprompt is safer (doesn't guess a wrong action) and should be measured first.
+2. **Synthesis extension** (lower priority - only build this if live-testing the detector above
+   shows real gaps remain). Change `synthesizeQuestEventFromUnrecordedFacts` to return
+   `QuestEvent[]`. Drop the `nameMatches.length !== 1` bail. Instead synthesize one entry per
+   unambiguous 1:1 name match, and skip any fact that matches 0 or 2+ quests. Attempt this only
+   after the detector ships and its live-test results show the reprompt alone isn't sufficient.
+   Don't build both at once - the reprompt is safer (it never guesses a wrong action) and should
+   be measured first.
 
 **Tests** (new `describe("requestCoachReply missed-quest-language reprompt (#1037)")`):
-- fires when 2 of 2 active quests are mentioned with status language but only 1 has a `quest_event`
-- fires when 1 of 1 mentioned quest has no `quest_event` at all
-- silent when the message has no quest-status language at all (ordinary chat)
-- silent when all mentioned quests already have a `quest_event` this turn
-- silent when a quest name is mentioned with no status language nearby (e.g. "my strength quest
-  usually happens Tuesdays" - purely descriptive, not a completion/miss claim)
-- **partial-capture case** (the actual bug this fixes): 2 quests mentioned with status language,
-  `reply.quest_event` has exactly 1 entry - must still fire, naming the uncaptured one
+- Fires when 2 of 2 active quests are mentioned with status language but only 1 has a `quest_event`.
+- Fires when 1 of 1 mentioned quest has no `quest_event` at all.
+- Silent when the message has no quest-status language at all (ordinary chat).
+- Silent when all mentioned quests already have a `quest_event` this turn.
+- Silent when a quest name is mentioned with no status language nearby. Example: "my strength quest
+  usually happens Tuesdays" is purely descriptive, not a completion/miss claim.
+- **Partial-capture case** (the actual bug this fixes): 2 quests mentioned with status language,
+  `reply.quest_event` has exactly 1 entry. Must still fire, naming the uncaptured one.
 
 **Live test:** scratch branch with 2+ active quests, one message: "finished my long run and did my
-mobility work, but skipped strength today" (3 quests, 3 statuses) - confirm all 3 land via
+mobility work, but skipped strength today" (3 quests, 3 statuses). Confirm all 3 land via
 before/after diff on `progress.json`, not just the harness's PASS/FAIL.
 
 ### `injury_flag` - no returning-athlete coverage, boolean first-session coverage
@@ -134,15 +134,15 @@ function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply): strin
 ```
 
 **Known limitation, be explicit about it in the PR:** `INJURY_LANGUAGE_PATTERN` matches keywords
-like "sore," "hurt," "pain" - a single injury described in 2 sentences ("my knee still hurts, it's
-sore in the mornings") produces 2 keyword hits for 1 real injury, which would over-count and
+like "sore," "hurt," "pain." A single injury described in 2 sentences ("my knee still hurts, it's
+sore in the mornings") produces 2 keyword hits for 1 real injury. That would over-count and
 false-positive a reprompt asking about an injury already captured once. **This needs a real
-narrowing pass before shipping** - possibly collapse adjacent/co-referential matches (e.g. within N
+narrowing pass before shipping** - possibly collapse adjacent/co-referential matches (within N
 words of each other) before counting, or count sentences/clauses containing injury language rather
 than raw keyword hits. Do not ship the naive per-keyword count above without running it against the
-existing test corpus and a batch of real transcripts first - flag this explicitly as the part of
-this PR most likely to need a design change once real data is in, same caution #1009's own LLD gave
-`sports_update`'s pattern.
+existing test corpus and a batch of real transcripts first. Flag this explicitly as the part of
+this PR most likely to need a design change once real data is in - the same caution #1009's own
+LLD gave `sports_update`'s pattern.
 
 **Tests:** same five-shape pattern, plus the partial-capture case (2 injuries named, 1
 `injury_flag` entry, still fires) and an explicit false-positive guard test (1 injury described
@@ -167,17 +167,17 @@ function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): st
 **Mechanism:** the exactly-one-flag gate is correct and stays - it's the only safe way to resolve
 *which* flag a bare mention means, and this LLD isn't proposing to touch that resolution problem.
 What's missing is a count check that works even with 2+ flags, without needing to resolve which
-flag each mention is about - reuse the same `findUncountedInjuryLanguage` mechanism proposed for
-`injury_flag` above (it already sums `injury_flag.length + injury_event.length` against total
-keyword-span count, doesn't care how many flags exist). **This means `findUncountedInjuryLanguage`
-covers both `injury_flag`'s returning-athlete gap and `injury_event`'s 2+-flag gap in one function**
-- no separate detector needed for `injury_event` specifically. Update the PR D file list
+flag each mention is about. Reuse the same `findUncountedInjuryLanguage` mechanism proposed for
+`injury_flag` above - it already sums `injury_flag.length + injury_event.length` against total
+keyword-span count, and doesn't care how many flags exist. **This means `findUncountedInjuryLanguage`
+covers both `injury_flag`'s returning-athlete gap and `injury_event`'s 2+-flag gap in one function,**
+so no separate detector is needed for `injury_event` specifically. Update the PR D file list
 accordingly: one new detector, not two.
 
-**Tests:** the athlete's own original scenario as a live-test case - 2 pre-existing active flags
-(shoulder, knee), message states knee resolving AND a new ankle injury: confirm `injury_event`
-(knee) + `injury_flag` (ankle) both land, or if the model drops one, confirm the count detector
-fires and the reprompt fixes it.
+**Tests:** the athlete's own original scenario as a live-test case. Seed 2 pre-existing active
+flags (shoulder, knee), then send a message stating knee resolving AND a new ankle injury. Confirm
+`injury_event` (knee) + `injury_flag` (ankle) both land, or if the model drops one, confirm the
+count detector fires and the reprompt fixes it.
 
 ## PR E: `sports_update` merge, not replace
 
@@ -234,11 +234,11 @@ shrinking list ever be trusted). Don't build that here; this PR only stops the *
 case, where the model just forgets to restate an existing sport.
 
 **Tests** (`coachIntents.test.ts`, extend the existing `applySportsUpdate` describe block):
-- new sport + existing sport both present in the list on file after a partial-list update
-- case-insensitive: "Running" in the new list doesn't duplicate an existing "running"
-- new list that already contains everything on file behaves identically to today (no duplicate,
-  same order for named entries)
-- still throws on an all-blank list (existing behavior preserved)
+- New sport + existing sport both present in the list on file after a partial-list update.
+- Case-insensitive: "Running" in the new list doesn't duplicate an existing "running".
+- New list that already contains everything on file behaves identically to today. No duplicate,
+  same order for named entries.
+- Still throws on an all-blank list (existing behavior preserved).
 
 **Live test:** scratch branch with 2 existing sports on file, message stating a 3rd new sport only
 ("started climbing this month") - confirm the file has all 3 after, not just the 1 new one, via
@@ -256,14 +256,14 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
   // ...
 }
 ```
-Same shape as `injury_flag`'s gap. #1009's own LLD already flagged why this is hard: "an
-established athlete says 'routine' and 'track' constantly about existing training, not a new habit
-quest." **Mechanism:** narrow the returning-athlete trigger to an explicit-new-habit phrase set
-(e.g. "starting a new habit," "want to start tracking," "going to floss every day" - phrases that
-imply *beginning* something, not describing an existing routine), not the broad
-`HABIT_LANGUAGE_PATTERN` used for the zero-quests first-session case. This needs the same
-narrowing-pass discipline as `sports_update`'s pattern did in #1009 - draft it, run the full suite,
-narrow on any collision, don't ship the broad pattern un-narrowed.
+Same shape as `injury_flag`'s gap. #1009's own LLD already flagged why this is hard: an established
+athlete says "routine" and "track" constantly about existing training, not a new habit quest.
+**Mechanism:** narrow the returning-athlete trigger to an explicit-new-habit phrase set,
+not the broad `HABIT_LANGUAGE_PATTERN` used for the zero-quests first-session case. Phrases like
+"starting a new habit," "want to start tracking," or "going to floss every day" imply *beginning*
+something, not describing an existing routine. This needs the same narrowing-pass discipline as
+`sports_update`'s pattern did in #1009: draft it, run the full suite, narrow on any collision, and
+never ship the broad pattern un-narrowed.
 
 **Tests:** standard five-shape, plus an explicit non-firing test for "I've been doing my usual
 strength routine" (existing-routine language, not a new-habit claim) on a returning-athlete turn.
@@ -302,21 +302,21 @@ just the first.
 
 **Evidence:** `validateActions.ts:218-260` (`validateWeekUpdate`, per-item `.filter`) vs.
 `coachWeekFiles.ts:380-393` (`applyWeekPatch`, "a batch with one bad reference fails the whole call
-rather than silently applying a partial patch"). The validator runs first in the real pipeline (its
-output is what `applyWeekPatch` receives), so the applier's own stricter guard is unreachable in
-practice - defense-in-depth that has never actually triggered, but it documents a design intent
+rather than silently applying a partial patch"). The validator runs first in the real pipeline, and
+its output is what `applyWeekPatch` receives. So the applier's own stricter guard is unreachable in
+practice - defense-in-depth that has never actually triggered. It still documents a design intent
 ("all-or-nothing") that disagrees with what actually ships (per-item drop).
 
-**Mechanism:** this is a documentation/consistency fix, not a behavior change - update
-`applyWeekPatch`'s comment to state the real, current contract (validated upstream, so this is a
-defense-in-depth backstop, not the primary discipline) rather than leaving a misleading "same
-discipline as `applyQuestEvent`'s id guards" claim that's no longer accurate for how week_update
-actually behaves end to end. **No safe count-based partial-capture detector is proposed for
-week_update in this round** - free text describing week changes is far less structured than
-injury/quest keyword matching (no fixed vocabulary, day names alone are ambiguous), and forcing one
-risks the same false-positive class #727 already rejected once for this exact field
-(`isProseOnlyWeekPlan`'s narrow weekday-count heuristic exists precisely because a broader one
-wasn't safe). Flagged as a genuinely harder problem needing its own scoping pass, not solved here.
+**Mechanism:** this is a documentation/consistency fix, not a behavior change. Update
+`applyWeekPatch`'s comment to state the real, current contract: validated upstream, so this is a
+defense-in-depth backstop, not the primary discipline. Drop the misleading "same discipline as
+`applyQuestEvent`'s id guards" claim - it's no longer accurate for how week_update actually behaves
+end to end. **No safe count-based partial-capture detector is proposed for week_update in this
+round.** Free text describing week changes is far less structured than injury/quest keyword
+matching - no fixed vocabulary, and day names alone are ambiguous. Forcing one risks the same
+false-positive class #727 already rejected once for this exact field (`isProseOnlyWeekPlan`'s
+narrow weekday-count heuristic exists precisely because a broader one wasn't safe). Flagged as a
+genuinely harder problem needing its own scoping pass, not solved here.
 
 **Tests:** none new needed - this is a comment/doc fix, not a behavior change. If the athlete wants
 the applier's guard actually removed (since it's unreachable dead code) rather than just
