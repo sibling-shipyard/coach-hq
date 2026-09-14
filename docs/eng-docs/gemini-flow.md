@@ -329,9 +329,9 @@ counts active-quest-name mentions co-occurring with completion/miss/excusal lang
 `reply.quest_event.length`, so "2 of 3 landed" still fires. It reuses `questNameReferencedIn`
 (now exported from `validateActions.ts`) rather than a second copy of the same word-matching
 logic. `findUncountedInjuryLanguage` closes two gaps at once - `injury_flag`'s zero coverage on
-returning-athlete turns, and `injury_event`'s zero coverage once 2+ active flags exist (the
+returning-athlete turns, and `injury_event`'s zero coverage once 2+ active flags exist. The
 exactly-one-flag gate on `findMissedInjuryUpdateLanguage` stays; it's the only safe way to resolve
-*which* flag a bare mention means, and this round doesn't touch that). It counts distinct
+*which* flag a bare mention means, and this round doesn't touch that. It counts distinct
 injury-keyword mentions in the message against `injury_flag.length + injury_event.length`
 combined. Raw per-keyword counting over-counts a single injury restated across nearby phrasing
 ("my knee still hurts... it's sore..."), so hits within a 12-word window of the prior hit collapse

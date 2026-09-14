@@ -1317,13 +1317,11 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
   // was said, nothing landed" case even with 2+ flags, without needing to resolve which flag - so
   // a reprompt now DOES fire here, just from the newer, broader detector rather than this one.
   it("findMissedInjuryUpdateLanguage itself stays silent with 2+ active flags, but findUncountedInjuryLanguage still reprompts (#1037)", async () => {
-    askGemini
-      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
-      .mockResolvedValueOnce({
-        reply: "Noted, thanks for the update.",
-        coach_note: "Knee still sore.",
-        injury_event: [{ status: "active", flag_id: "inj_1" }],
-      });
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+      reply: "Noted, thanks for the update.",
+      coach_note: "Knee still sore.",
+      injury_event: [{ status: "active", flag_id: "inj_1" }],
+    });
 
     const result = await requestCoachReply(
       oneActiveFlagTurnState({
@@ -1497,21 +1495,20 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
     );
 
     expect(askGemini).toHaveBeenCalledTimes(2);
-    expect(
-      "reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort(),
-    ).toEqual(["q1", "q2"]);
+    expect("reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort()).toEqual([
+      "q1",
+      "q2",
+    ]);
     const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Mobility Work");
   });
 
   it("fires when 1 of 1 mentioned quest has no quest_event at all", async () => {
-    askGemini
-      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
-      .mockResolvedValueOnce({
-        reply: "ok",
-        coach_note: "note",
-        quest_event: [{ quest_id: "q3", status: "completed" }],
-      });
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      quest_event: [{ quest_id: "q3", status: "completed" }],
+    });
 
     const result = await requestCoachReply(
       baseTurnState({
@@ -1616,9 +1613,11 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
     );
 
     expect(askGemini).toHaveBeenCalledTimes(2);
-    expect(
-      "reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort(),
-    ).toEqual(["q1", "q2", "q3"]);
+    expect("reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort()).toEqual([
+      "q1",
+      "q2",
+      "q3",
+    ]);
     const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Mobility Work");
     expect(repromptMessage).toContain("Strength Quest");
@@ -1647,13 +1646,11 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   }
 
   it("fires when injury language describes more than was captured this turn", async () => {
-    askGemini
-      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
-      .mockResolvedValueOnce({
-        reply: "Sorry to hear that - noted both.",
-        coach_note: "New ankle tweak and shoulder strain.",
-        injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
-      });
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+      reply: "Sorry to hear that - noted both.",
+      coach_note: "New ankle tweak and shoulder strain.",
+      injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
+    });
 
     const result = await requestCoachReply(injuryTurnState());
 
@@ -1753,13 +1750,11 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     " shoulder's still bugging me too";
 
   it("the athlete's original scenario: fires only when the model captures 0 of the 3 real facts", async () => {
-    askGemini
-      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" })
-      .mockResolvedValueOnce({
-        reply: "Got it, noted the ankle.",
-        coach_note: "New ankle tweak.",
-        injury_flag: [{ text: "tweaked ankle" }],
-      });
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+      reply: "Got it, noted the ankle.",
+      coach_note: "New ankle tweak.",
+      injury_flag: [{ text: "tweaked ankle" }],
+    });
 
     const result = await requestCoachReply(
       injuryTurnState({
