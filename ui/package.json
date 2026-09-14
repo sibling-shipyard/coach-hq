@@ -24,6 +24,8 @@
     "eval:coach-chat": "tsx --tsconfig tsconfig.json scripts/eval-coach-chat.ts",
     "pretest:coach-chat-manual": "node scripts/build-soul.mjs",
     "test:coach-chat-manual": "tsx --tsconfig tsconfig.json scripts/run-manual-coach-chat-test.ts",
+    "pretest:simulation-suite": "node scripts/build-soul.mjs",
+    "test:simulation-suite": "tsx --tsconfig tsconfig.json scripts/run-simulation-suite.ts",
     "test:coach-message-manual": "tsx --tsconfig tsconfig.json scripts/run-manual-coach-message-test.ts",
     "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run",

@@ -91,6 +91,11 @@ export function createGeminiAdapter(
         });
       }
 
+      // Escapes withGeminiSpan's recordUsage callback below so generate() can return it too -
+      // recordUsage's own job is setting Sentry span attributes, not handing usage back to the
+      // caller, so this is the only way this function sees what it already computed.
+      let usage: LlmResult["usage"];
+
       // `cachedName` truthy means this call actually carries `cachedContent`; `request.cachePrefix`
       // being set (regardless of whether the lookup above succeeded) is the broader "this is a
       // chat-shaped request" signal that gates the retry branches below.
@@ -205,13 +210,14 @@ export function createGeminiAdapter(
           }
           const payload = (await response.json()) as GeminiGenerateResponse;
           if (payload.usageMetadata) {
-            recordUsage({
+            usage = {
               promptTokens: payload.usageMetadata.promptTokenCount,
               completionTokens: payload.usageMetadata.candidatesTokenCount,
               totalTokens: payload.usageMetadata.totalTokenCount,
               cachedPromptTokens: payload.usageMetadata.cachedContentTokenCount,
               thinkingTokens: payload.usageMetadata.thoughtsTokenCount,
-            });
+            };
+            recordUsage(usage);
           }
           const finishReason = payload.candidates?.[0]?.finishReason;
           if (finishReason === "MAX_TOKENS") {
@@ -233,7 +239,7 @@ export function createGeminiAdapter(
         },
         { "llm.adapter": "gemini" },
       );
-      return { text, telemetry: { adapter: "gemini", model: GEMINI_MODEL } };
+      return { text, telemetry: { adapter: "gemini", model: GEMINI_MODEL }, usage };
     },
   };
 }
