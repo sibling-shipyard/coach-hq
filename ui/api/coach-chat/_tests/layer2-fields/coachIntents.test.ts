@@ -1123,6 +1123,39 @@ describe("applySportsUpdate", () => {
     );
     expect(result.sports).toEqual(["badminton"]);
   });
+
+  const EXISTING_WITH_SPORTS = JSON.stringify({
+    ...JSON.parse(EXISTING),
+    sports: ["running", "cycling"],
+  });
+
+  it("merges a partial-list update, keeping sports the new list dropped (#1037)", () => {
+    // This is the actual bug PR E fixes: the model names only the new sport and forgets to
+    // restate what's already on file. The old replace-only code would fail this - it set
+    // sports to exactly ["climbing"], silently dropping running and cycling.
+    const result = JSON.parse(applySportsUpdate(EXISTING_WITH_SPORTS, ["climbing"], "2026-08-18", "t2"));
+    expect(result.sports).toEqual(["climbing", "running", "cycling"]);
+  });
+
+  it("doesn't duplicate an existing sport named again with different casing", () => {
+    const result = JSON.parse(
+      applySportsUpdate(EXISTING_WITH_SPORTS, ["Running", "climbing"], "2026-08-18", "t2"),
+    );
+    expect(result.sports).toEqual(["Running", "climbing", "cycling"]);
+  });
+
+  it("behaves like a full replace when the new list already names everything on file", () => {
+    const result = JSON.parse(
+      applySportsUpdate(EXISTING_WITH_SPORTS, ["cycling", "running"], "2026-08-18", "t2"),
+    );
+    expect(result.sports).toEqual(["cycling", "running"]);
+  });
+
+  it("still throws on an all-blank list even with existing sports on file", () => {
+    expect(() =>
+      applySportsUpdate(EXISTING_WITH_SPORTS, ["", "   "], "2026-08-18", "t2"),
+    ).toThrow(/sports_update/);
+  });
 });
 
 describe("applySeasonStart", () => {
