@@ -23,6 +23,21 @@ describe("estimateCostUsd", () => {
     expect(estimateCostUsd(usage, "gemini")).toBeCloseTo(6.75, 10);
   });
 
+  it("bills thinking tokens as output too, per #827 - not silently excluded", () => {
+    // Reproduces the real bug: completionTokens and thinkingTokens are genuinely separate fields
+    // on the Gemini side (candidatesTokenCount vs thoughtsTokenCount) - a version of this function
+    // that only priced completionTokens would under-count every call with real thinking tokens.
+    const usage: GeminiUsage = {
+      promptTokens: 1_000_000,
+      completionTokens: 0,
+      thinkingTokens: 500_000,
+    };
+
+    const expected = (usage.thinkingTokens! / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.output;
+
+    expect(estimateCostUsd(usage, "gemini")).toBeCloseTo(1.5 + expected, 10);
+  });
+
   it("trusts OpenRouter's wire-reported costUsd directly instead of recomputing from tokens", () => {
     // These token counts would price very differently from costUsd under the Gemini table rate -
     // confirms the function isn't quietly ignoring costUsd and recomputing anyway.

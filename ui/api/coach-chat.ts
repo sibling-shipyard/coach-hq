@@ -40,7 +40,7 @@ import {
   loadTurnState,
   parseTurnRequest,
   requestCoachReply,
-  setLastTurnUsage,
+  usageResponseInit,
 } from "./coach-chat/_lib/coachTurn.js";
 import { handleActivitySync } from "./coach-chat/_lib/commit/activitySyncTurn.js";
 
@@ -140,10 +140,6 @@ async function handleGreet(
       undefined,
       timezone,
     );
-    // #1053 gap 2: a greet turn calls askGemini() directly, outside requestCoachReply/commitTurn
-    // - record its usage the same way so a test harness scoring a scripted run (turns[0].greet)
-    // sees real cost on the greet turn too, not just ordinary ones.
-    setLastTurnUsage(reply.usage);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
@@ -165,17 +161,20 @@ async function handleGreet(
   const repoSha = await getHeadSha(repo, token).catch(() => null);
   const freshContext =
     onboardingWrites.length > 0 ? await loadCoachContext(repo, token, { fresh: true }) : context;
-  return Response.json({
-    reply: reply.reply,
-    threadId: `t-${now}`,
-    threads: withComputedDayOffsets(pruneForResponse(history.threads), timezone),
-    repoSha,
-    profileComplete: isAthleteProfileComplete(
-      freshContext.profile,
-      freshContext.memory,
-      freshContext.seasons,
-    ),
-  });
+  return Response.json(
+    {
+      reply: reply.reply,
+      threadId: `t-${now}`,
+      threads: withComputedDayOffsets(pruneForResponse(history.threads), timezone),
+      repoSha,
+      profileComplete: isAthleteProfileComplete(
+        freshContext.profile,
+        freshContext.memory,
+        freshContext.seasons,
+      ),
+    },
+    usageResponseInit(reply.usage),
+  );
 }
 
 export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {

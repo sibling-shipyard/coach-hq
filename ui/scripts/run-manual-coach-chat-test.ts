@@ -83,7 +83,7 @@ import { isTransient } from "../api/_lib/githubGitData.js";
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { handle } from "../api/coach-chat.js";
-import { getLastTurnUsage } from "../api/coach-chat/_lib/coachTurn.js";
+import { TURN_USAGE_HEADER } from "../api/coach-chat/_lib/coachTurn.js";
 import type { GeminiUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
@@ -152,9 +152,10 @@ interface ManualLogEntry extends TestLogEntry {
   branch: string;
   shaBefore: string | null;
   shaAfter: string | null;
-  // #1053 gap 2: real token usage for this turn's askGemini call(s) - coachTurn.ts's
-  // getLastTurnUsage(), read right after handle() returns. Undefined on a turn that threw before
-  // any model call happened, or made no model call at all (shouldn't occur for a real turn/greet).
+  // #1053 gap 2 (revised after review): real token usage for this turn's askGemini call(s), read
+  // off the real Response's x-coach-chat-turn-usage header (coachTurn.ts's usageResponseInit) -
+  // no module-level state, so it can't leak between concurrent requests. Undefined on a turn that
+  // threw before any model call happened.
   usage?: GeminiUsage;
   costUsd?: number;
 }
@@ -205,6 +206,11 @@ async function main() {
     process.env.COACH_CHAT_DEBUG_PROMPT = "1";
     console.log("--debug: dumping the full assembled prompt for every turn.");
   }
+  // Always on for this harness (unlike --debug above) - this run's own cost is exactly what a
+  // day-doc needs to report every time, not just on request. coachTurn.ts's usageResponseInit()
+  // only reads this to decide whether to attach the x-coach-chat-turn-usage header at all - never
+  // set in production, so a real athlete's response never carries it.
+  process.env.COACH_CHAT_EXPOSE_USAGE = "1";
 
   let repo: string;
   let localPath: string;
@@ -403,9 +409,12 @@ async function main() {
         auth,
       );
       const json = (await res.json()) as Record<string, unknown>;
-      // Read right after handle() returns - coachTurn.ts sets this whether the turn went through
-      // an ordinary commitTurn or a greet turn's own askGemini call (see setLastTurnUsage there).
-      const usage = getLastTurnUsage();
+      // Real per-request data on the real Response - no module state to leak across turns/requests.
+      // Absent on a turn that threw before any model call happened (no header was ever attached).
+      const usageHeader = res.headers.get(TURN_USAGE_HEADER);
+      const usage: GeminiUsage | undefined = usageHeader
+        ? (JSON.parse(usageHeader) as GeminiUsage)
+        : undefined;
       const providerName = usingOpenRouter ? "openrouter" : "gemini";
       const costUsd = estimateCostUsd(usage, providerName);
 

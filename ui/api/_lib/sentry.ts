@@ -349,6 +349,43 @@ export interface GeminiUsage {
 }
 
 /**
+ * Adds two optional counts the absent-vs-zero-safe way: undefined only when neither side ever
+ * reported a value, otherwise a real sum. The shared primitive both openRouterAdapter.ts's own
+ * truncation-retry accumulation and sumUsage below use - defined here, next to GeminiUsage itself,
+ * so neither adapter file nor coachTurn.ts has to duplicate it (#1053 review finding).
+ */
+export function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+/**
+ * Sums two GeminiUsage snapshots field by field - shared by coachTurn.ts (accumulating usage
+ * across a turn's initial call plus up to two reprompts) and geminiClient.ts (accumulating usage
+ * across its own JSON-parse-failure retry), so a real bug in this math gets fixed once, not twice.
+ * costUsd sums too (OpenRouter reports it per call); resolvedProvider/resolvedModel keep the
+ * latest call's value since they don't change mid-turn in practice. Either side missing just
+ * returns the other unchanged.
+ */
+export function sumUsage(
+  a: GeminiUsage | undefined,
+  b: GeminiUsage | undefined,
+): GeminiUsage | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    promptTokens: sumDefined(a.promptTokens, b.promptTokens),
+    completionTokens: sumDefined(a.completionTokens, b.completionTokens),
+    totalTokens: sumDefined(a.totalTokens, b.totalTokens),
+    cachedPromptTokens: sumDefined(a.cachedPromptTokens, b.cachedPromptTokens),
+    thinkingTokens: sumDefined(a.thinkingTokens, b.thinkingTokens),
+    costUsd: sumDefined(a.costUsd, b.costUsd),
+    resolvedProvider: b.resolvedProvider ?? a.resolvedProvider,
+    resolvedModel: b.resolvedModel ?? a.resolvedModel,
+  };
+}
+
+/**
  * Attribute names are Sentry's own `gen_ai` convention, not ours. `@sentry/core`'s
  * `tracing/google-genai` integration emits exactly these for a `models.generateContent` call
  * (`gen-ai-attributes.js`), so our hand-rolled spans land in the same Sentry AI views as
