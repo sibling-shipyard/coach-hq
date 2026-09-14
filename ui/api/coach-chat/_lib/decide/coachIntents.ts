@@ -158,6 +158,14 @@ export function applyTrainingAvailabilityUpdate(
 // (isAthleteProfileComplete requires it non-empty, so a first session could never complete via
 // chat until this existed). A separate top-level field, not folded into memory_update's six
 // notes boxes - it's a plain array on MemoryJson, not a {text, updated_at, trace_id} box.
+//
+// #1037 PR E: this used to fully replace memory.sports with whatever Gemini sent, never
+// consulting the existing list. The prompt tells Gemini to send the full list every time, not
+// just what changed, but a model that forgets to restate an existing sport when adding a new one
+// silently and permanently deleted it - no detector could catch this either, since the only
+// guard here checks "did sports_update fire at all," never "does the list look complete." Now it
+// merges: union the new list with whatever's already on file instead of trusting the new list is
+// complete.
 export function applySportsUpdate(
   content: string | null,
   sports: string[],
@@ -170,6 +178,13 @@ export function applySportsUpdate(
   }
 
   const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
+  const existing = parsed.sports ?? [];
+  // Case-insensitive union, preserving the NEW list's casing/order for anything it names, then
+  // appending any existing sport the new list didn't mention - the prompt already tells Gemini
+  // to send "the full list, not just what changed," so this only protects against the model
+  // failing that instruction, it doesn't change intended behavior when the model gets it right.
+  const seen = new Set(cleaned.map((s) => s.toLowerCase()));
+  const merged = [...cleaned, ...existing.filter((s) => !seen.has(s.toLowerCase()))];
 
   const emptyNotes = () =>
     Object.fromEntries(
@@ -179,7 +194,7 @@ export function applySportsUpdate(
   const result: MemoryJson = {
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
-    sports: cleaned,
+    sports: merged,
     coaching_style: parsed.coaching_style ?? null,
     training_availability: parsed.training_availability ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },

@@ -273,7 +273,7 @@ test already covers.
 | standalone `quest_create` | prompt reinforcement | - |
 | `memory_update` | prompt reinforcement | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
-| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | - |
+| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736) |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
@@ -343,6 +343,20 @@ drop the check. The `quest_event` synthesis extension the HLD flagged as lower-p
 (`synthesizeQuestEventFromUnrecordedFacts` rescuing 2+ dropped facts, not just one) was
 deliberately not built this round - see the PR body for the live-test finding on whether it's
 still needed.
+
+**#1037 hardening round, PR E (2026-09-14): `sports_update` merges instead of replacing.**
+This one wasn't a missing detector, it was a write-side data-loss bug: `applySportsUpdate`
+(`coachIntents.ts`) fully replaced `memory.sports` with whatever the model sent, so a partial
+list silently deleted whatever it forgot to restate. The fix unions the new list against what's
+already on file, case-insensitive, preferring the new list's casing/order for anything it names.
+`findMissedSportsLanguage` (the guard above) still only catches "did sports_update fire at all" -
+it can't tell a complete list from a partial one. So the merge is what actually stops the data
+loss now; the detector just decides whether to fire at all. Live-tested against
+`coach-skanda-2003`: the model sent the full list on its own this run, so the merge was a no-op
+in practice. But the before/after diff confirms all three existing sports plus the new one
+landed - the partial-list case itself is covered by unit tests in `coachIntents.test.ts`. Explicit
+removal ("I stopped doing X") is still out of scope - there's no signal today that distinguishes
+an intentional drop from an accidental one, flagged as a follow-up design question in the PR.
 
 ## Retries, timeouts, rate limits
 
