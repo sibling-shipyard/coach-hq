@@ -239,7 +239,10 @@ warning above, it's easy to lose an afternoon to this exact mistake.
 
 **Choosing a provider.** Unset/`gemini` is production's real default (`gemini-pro-latest`, set in
 `ui/api/_lib/geminiModel.ts`). Prefix the command with `LLM_PROVIDER=openrouter` to test through
-OpenRouter instead - useful when direct Gemini credits are tight. OpenRouter and direct Gemini have
+OpenRouter instead - useful when direct Gemini credits are tight. **As of 2026-09-14,
+`GEMINI_API_KEY` has no credit in this dev environment - `LLM_PROVIDER=openrouter` is required for
+any live run here, not just an option; see `docs/eng-docs/llm-provider-current.md`'s status line.**
+OpenRouter and direct Gemini have
 measured, different reliability characteristics (see `OPENROUTER-K1-RETEST-FINDINGS.md` if it's
 still in the repo, or whatever findings doc it got folded into) - a clean OpenRouter run doesn't
 prove the same thing a clean direct-Gemini run does.
