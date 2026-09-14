@@ -53,12 +53,13 @@ existing injury pattern.
    the last one).
 2. Worktree off `origin/main` per batch, e.g.
    `git worktree add -b core/1009-profile-update-hardening /tmp/wt-1009a origin/main`.
-3. Land as 3 stacked PRs. PR A (Batch 1: `profile_update`, plus the three prompt-only conclusions
-   for `coaching_style_update`, standalone `quest_create`, and `memory_update`) ships first - it's
-   the flagged priority, and the prompt-only pieces are free to include alongside it. PR B
-   (Batch 2: `workout_remove`, `sports_update`) stacks on PR A. PR C (Batch 3: `injury_event`)
-   stacks on PR B, last, since its false-positive-safe scoping (exactly-one-active-flag) needs the
-   most care. Each batch is independently reviewable and live-testable, same bar as #999.
+3. Land as 3 stacked PRs. PR A ships first - it's the flagged priority. It carries Batch 1
+   (`profile_update`), the three prompt-only conclusions (`coaching_style_update`, standalone
+   `quest_create`, `memory_update`), and the Sentry fix below, since all three are free to
+   include alongside the priority field. PR B (Batch 2: `workout_remove`, `sports_update`)
+   stacks on PR A. PR C (Batch 3: `injury_event`) stacks on PR B, last, since its
+   false-positive-safe scoping (exactly-one-active-flag) needs the most care. Each batch is
+   independently reviewable and live-testable, same bar as #999.
 4. Update `docs/eng-docs/gemini-flow.md`'s coverage table after each batch lands - the one place
    this state is recorded, not a second copy.
 5. `bash platform/scripts/check.sh --quiet` before every push. Live-test every reprompt/guard
@@ -67,6 +68,33 @@ existing injury pattern.
 6. Per `docs/eng-docs/README.md`'s plan-delete-on-last-PR rule: PR C (the last PR in this stack)
    folds anything durable into `gemini-flow.md` and deletes both this doc and its LLD in the same
    PR. Git history is the archive.
+
+## Sentry gap, found during re-verification: the "still unresolved" case never reaches Sentry
+
+Checked directly (2026-09-14), not assumed: `requestCoachReply`'s reprompt mechanism
+(`coachTurn.ts`) already wraps the *whole* function - every `askGemini` call, including the
+reprompt - in one `try`/`catch` that calls `captureGeminiFailure` on a thrown error. That part is
+fine; a network/API failure on any call, first or reprompt, already reaches Sentry.
+
+**What's missing:** the "still" block (`coachTurn.ts:868-908`) - which runs after every reprompt
+to check whether the fix actually worked - only ever calls `console.warn` when a guard is still
+unresolved. It never calls Sentry. This is the exact failure mode this whole plan exists to catch:
+the reprompt ran, Gemini responded again, and the narration-vs-action problem is *still* there.
+Today that's invisible outside a local log, for every existing guard (`findMissedInjuryLanguage`,
+`findMissedHabitLanguage`, `findMissedSeasonLanguage`, the oversized-field/missing-note/
+unconfirmed-assumption/malformed-exercise/prose-only-week-plan checks) and for every new detector
+this plan adds.
+
+**The fix, part of PR A:** extend `ui/api/_lib/sentry.ts` with a small capture helper for this
+shape - a "still unresolved after reprompt" event naming which detector(s) fired, the turn mode,
+and the trace id. Call it from the "still" block's existing `if (...)`, alongside the current
+`console.warn`, not instead of it. Every batch after PR A gets this for free, since the "still"
+block is one shared mechanism all detectors, old and new, already run through.
+
+**Verification:** a unit test confirming the new Sentry capture fires when a detector is still
+unresolved after the reprompt. Mock the capture function and assert it was called with the right
+detector name, mirroring how `coachTurn-reprompt.test.ts` already asserts on `console.warn`'s
+arguments for the same case.
 
 ## Per-field design, summary
 

@@ -91,7 +91,7 @@ since the 2026-09-10 pass, nothing in this diff touches what they exercise.
 ### Unit suite
 412 passed, 0 failed, 3.1s. Raw: `test-results/raw/2026-09-14/unit/vitest-results-14-02-11.json`
 
-### Live eval — paid, model: gemini-pro-latest via OpenRouter
+### Live eval — paid, model: gemini-pro-latest via OpenRouter, 2 calls, $0.014
 | Transcript | Result | Notes |
 |---|---|---|
 | #12 workout-create-basic | PASS | |
@@ -101,20 +101,64 @@ since the 2026-09-10 pass, nothing in this diff touches what they exercise.
 block was rewritten. Fix: re-add the cross-reference sentence PR #1021 removed.
 
 ### Manual live-chat — athlete: skanda, repo: coach-skanda-2003, branch: test/1021-verify,
-model: gemini-pro-latest
+model: gemini-pro-latest, 1 call, $0.009
 1. Turn 1 - "give me a new core routine" → `workout_create` fired → commit `a1b2c3d` → diff:
    `+user_data/.../sessions/2026-09-14_core_a.json` → PASS
 
 ### Manual repo verification — repo: coach-akash-suresh, branch: core/973-migrate-akash
 `validate-current-week`: PASS. Diff reviewed: `engine/lib`/`engine/scripts` re-carved,
 `current_week.json` migrated (2 fields dropped, 0 discipline values normalized).
+
+**Run cost:** $0.023 (3 paid calls). **Day total so far:** $0.023.
 ```
 
 Every section states, at minimum: what ran, why it was selected (not just "everything"), the
 model/provider for any paid section, and a pass/fail verdict per case. A failure always gets a
 named root cause (file:line) handed to Tech Lead, not just "FAIL."
 
-### 3. Selective re-run: `test-results/coverage-index.json`
+**Cost is not optional, on every paid section.** Every call to a paid provider (`eval:coach-chat`,
+`test:coach-chat-manual`, and the simulation suite above) logs its call count and real dollar cost
+next to the model/provider it used - not just which model, how much it cost.
+
+**A real prerequisite, checked directly, not assumed:** `askGemini()`'s public return type is
+`Promise<GeminiReply>` only - token usage is computed internally by
+`geminiAdapter.ts`/`openRouterAdapter.ts` (for Sentry spans) but never reaches the caller today.
+The wiring PR needs to extend `askGemini`'s return shape to also carry the usage numbers the
+adapters already compute. That lets `eval-coach-chat.ts`/`run-manual-coach-chat-test.ts` multiply
+real token counts by the provider's own per-token pricing
+(`docs/eng-docs/llm-provider-current.md`'s Options table) - not an estimate, and not a new
+capability, just a value that already exists one layer too deep. Each run
+section ends with its own **Run cost**, and the day-doc's very last run of the day adds a
+**Day total**, so a week of day-docs is also a week of real spend, readable without opening a
+billing dashboard.
+
+### 3. The fourth test type: a tracked FSP/daily-conversation simulation suite
+
+Checked directly (2026-09-14): the *capability* already exists, just not as a tracked test type.
+`test:coach-chat-manual` already calls the real production `handle()` - real SOUL (from the
+generated build, not a stub), real athlete repo files, real multi-turn conversation via `--turns`.
+`ui/scripts/examples/` already has real, realistic scenario files for exactly this -
+`manual-coach-chat-turns-fsp.json` (a full six-turn First Session) and
+`manual-coach-chat-turns-daily.json`/`-daily-2.json` (ordinary daily check-ins). The gap is
+process, not mechanism: these are run by hand, one file at a time, whenever someone remembers to.
+No driver runs the full set, scores it, or tracks when a scenario was last verified - unlike
+`eval:coach-chat`'s 23 transcripts, which get exactly that treatment.
+
+**The fix:** a `vade-the-tester`-owned driver that runs a defined library of scenario files
+(seeded from the existing `examples/` FSP and daily files, grown over time) through
+`test:coach-chat-manual`'s real pipeline. It scores each against its own `expect` block, the same
+shape `eval:coach-chat`'s transcripts already use. Each scenario gets a day-doc section (see the
+format below) plus a `coverage-index.json` entry, so an unchanged scenario doesn't get re-run for
+free every single day.
+
+**Real-repo constraint, not a simplification:** only two people build this app and both have real
+athlete repos cloned locally (`coach-skanda-2003` and `coach-akash-suresh`, plus
+`coach-skanda-testing` for anything that needs a wipe). This test type always runs against one of
+those real repos on a scratch branch, never a synthetic/mocked one. That's the whole point of the
+type - proving the real pipeline against real data, the same guarantee `test:coach-chat-manual`
+already gives, just made repeatable and tracked instead of ad hoc.
+
+### 4. Selective re-run: `test-results/coverage-index.json`
 
 A small machine index, separate from the human day-doc (grepping prose for "did this pass
 before" would be fragile). One entry per test case:
@@ -139,7 +183,7 @@ unit suite is the one exception - it always runs in full; it's fast enough that 
 isn't worth the bookkeeping. Tech Lead can force a full run (ignoring the index) before a release -
 an explicit ask, not the default.
 
-### 4. The handoff loop
+### 5. The handoff loop
 
 1. Tech Lead hands off a diff to verify (a PR, or "full regression" before a release).
 2. vade-the-tester checks `coverage-index.json` for cases whose `watched_paths` intersect the
@@ -159,14 +203,31 @@ already has with a green CI check, not a blind trust that needs no evidence at a
 
 ## Wiring (the actual build, when this plan is picked up later)
 
-Suggested as 3 stacked PRs, mirroring how `docs/plans/agent-restructure.md` sequenced Cyclops's
-introduction:
+Suggested as 4 stacked PRs. The simulation suite ships first, deliberately - it's the one piece
+that closes a real, named gap in what's testable *today* (the FSP/daily-conversation regression
+hole `coach-chat-testing.md` now names explicitly) independent of whether the agent role itself
+ever lands. Establishing the role second means vade-the-tester's very first real duty, once it
+exists, is running a capability that already works end to end - not standing up infrastructure
+with nothing yet to point it at.
 
-**PR A - establish the role, no behavior change:**
+**PR1 - the FSP/daily-conversation simulation suite. Ships before the agent role exists.**
+- A small driver script runs a defined library of `--turns` scenario files (seeded from
+  `ui/scripts/examples/manual-coach-chat-turns-fsp.json` and the `-daily`/`-daily-2` files)
+  through `test:coach-chat-manual`'s real pipeline against real local athlete repos
+  (`coach-skanda-2003`/`coach-akash-suresh`/`coach-skanda-testing`). It scores each against an
+  `expect` block, and writes a `coverage-index.json` entry per scenario.
+- Extend `askGemini()`'s return shape to surface the token-usage numbers
+  `geminiAdapter.ts`/`openRouterAdapter.ts` already compute internally but never return today -
+  the real prerequisite for cost tracking, named above.
+- This PR can be reviewed and live-tested on its own, with no vade-the-tester role, no renamed
+  folder, no day-doc format yet - it's a standalone capability, not a dependency of the rest.
+
+**PR2 - establish the role, no behavior change:**
 - New ADR `kdb/decisions/0044-vade-the-tester-agent.md` (Context/Decision/Why/Rejected/Enforces,
   modeled on ADR 0034), indexed in `kdb/decisions/README.md`.
 - New role doc `.github/agents/vade-the-tester.md`, following the worker-doc skeleton
-  (`## Scope`, boot reads, mechanics, `## Learnings`) every other role doc uses.
+  (`## Scope`, boot reads, mechanics, `## Learnings`) every other role doc uses. Names the
+  simulation suite from PR1 as one of the four test types it owns from day one.
 - `AGENTS.md`: new routing table row, bump the "Six agents" count.
 - `tech-lead.md`: add to "The Team" table + boundaries bullets.
 - `CODEOWNERS` + `platform/scripts/gen-codeowners.py`'s `SCOPE_MAP`: vade-the-tester's owned
@@ -175,21 +236,24 @@ introduction:
   (already stale at "Five" vs. AGENTS.md's "Six" - pre-existing drift, fix alongside this change
   rather than leave two different wrong numbers).
 
-**PR B - the mechanical infrastructure:**
+**PR3 - the mechanical infrastructure:**
 - Rename `tests/` to `test-results/`, with a `raw/` subpath. Update every script that writes
-  there (`eval-coach-chat.ts`, `run-manual-coach-chat-test.ts`, `run-tests-logged.ts`, and
-  whatever shared lib computes the dated path) and every doc that references the old path.
-- New `kdb/test-doc-style.md`.
-- New `test-results/coverage-index.json` (seeded empty or backfilled from the existing 96 dated
-  JSON files' content where cheaply derivable).
+  there (`eval-coach-chat.ts`, `run-manual-coach-chat-test.ts`, `run-tests-logged.ts`, PR1's new
+  driver, and whatever shared lib computes the dated path) and every doc that references the
+  old path.
+- New `kdb/test-doc-style.md`, including the cost-tracking requirement above.
+- New `test-results/coverage-index.json` (seeded from PR1's simulation-suite entries plus, where
+  cheaply derivable, backfilled from the existing 96 dated JSON files).
 - Update `docs/eng-docs/coach-chat-testing.md` to describe the new day-doc system as primary,
-  raw JSON as backing evidence.
+  raw JSON as backing evidence, and the simulation suite as a fourth, tracked test type rather
+  than a known gap.
 
-**PR C - prove the loop works:**
+**PR4 - prove the loop works:**
 - vade-the-tester's first real verification pass against a real pending change, producing the
-  first real `test-results/<date>.md` and a real coverage-index update end to end.
+  first real `test-results/<date>.md` (with real cost figures) and a real coverage-index update
+  end to end.
 - Delete this plan file (`docs/plans/vade-the-tester.md`) per the plan-delete-on-last-PR rule,
-  once PR C lands.
+  once PR4 lands.
 
 ## Open decision - not resolved here
 
@@ -201,11 +265,15 @@ the athlete to decide later, not resolved by this plan.
 
 ## Done when
 
+- The FSP/daily-conversation simulation suite (PR1) runs against real local athlete repos,
+  scores its scenarios, and `askGemini()` surfaces real token usage to its callers.
 - ADR 0044 accepted, role doc merged, routing fully wired (`AGENTS.md`, `tech-lead.md`,
   `CODEOWNERS`, both routing-gate pointer files).
-- `test-results/` replaces `tests/` everywhere, `kdb/test-doc-style.md` exists and is followed.
+- `test-results/` replaces `tests/` everywhere, `kdb/test-doc-style.md` exists and is followed,
+  including its cost-tracking requirement.
 - `coverage-index.json` exists and a real verification pass has used it to skip at least one
   already-passing case.
-- One real day-doc exists from an actual vade-the-tester run, not a synthetic example.
+- One real day-doc exists from an actual vade-the-tester run, with real cost figures, not a
+  synthetic example.
 - The 6 root-level docs have an explicit decision (still open as of this plan).
 - This file is deleted in the finishing PR.
