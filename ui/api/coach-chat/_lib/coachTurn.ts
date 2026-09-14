@@ -50,6 +50,7 @@ import {
 } from "./decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
+import type { GeminiUsage } from "../../_lib/sentry.js";
 import {
   captureGeminiFailure,
   captureValidationFailure,
@@ -188,6 +189,13 @@ interface RepliedTurn extends TurnState {
   // week_update/template_edit/session_plan entirely this turn when this is set - silence
   // defaults to "don't overwrite," not "assume."
   stillUnconfirmedAssumption?: string | null;
+  // #1053 gap 2: real token usage summed across every askGemini() call this turn made (the first
+  // call plus up to two reprompts - content-violation and bad-reference). Additive-only field, so
+  // every caller still typed against a plain RepliedTurn/TurnWrites keeps working; nothing that
+  // persists a turn's reply spreads the whole object into committed athlete data, so this never
+  // reaches a file write. See getLastTurnUsage() below for how a test harness reads it back -
+  // deliberately not part of commitTurn's athlete-facing JSON response.
+  usage?: GeminiUsage;
 }
 
 export interface TurnWrites extends RepliedTurn {
@@ -1058,6 +1066,52 @@ function friendlyGeminiErrorMessage(status: number): string {
   return "Coach couldn't reply to that - try rephrasing or try again.";
 }
 
+/**
+ * Sums two GeminiUsage snapshots field by field - used when a turn's content-violation or
+ * bad-reference reprompt fires a second/third askGemini() call, so the turn's total cost reflects
+ * every call actually made, not just the last one. `costUsd` sums too (OpenRouter reports it per
+ * call); `resolvedProvider`/`resolvedModel` keep the latest call's value since they don't change
+ * mid-turn in practice. Either side missing just returns the other unchanged.
+ */
+export function sumUsage(
+  a: GeminiUsage | undefined,
+  b: GeminiUsage | undefined,
+): GeminiUsage | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const addOpt = (x?: number, y?: number): number | undefined =>
+    x === undefined && y === undefined ? undefined : (x ?? 0) + (y ?? 0);
+  return {
+    promptTokens: addOpt(a.promptTokens, b.promptTokens),
+    completionTokens: addOpt(a.completionTokens, b.completionTokens),
+    totalTokens: addOpt(a.totalTokens, b.totalTokens),
+    cachedPromptTokens: addOpt(a.cachedPromptTokens, b.cachedPromptTokens),
+    thinkingTokens: addOpt(a.thinkingTokens, b.thinkingTokens),
+    costUsd: addOpt(a.costUsd, b.costUsd),
+    resolvedProvider: b.resolvedProvider ?? a.resolvedProvider,
+    resolvedModel: b.resolvedModel ?? a.resolvedModel,
+  };
+}
+
+/**
+ * #1053 gap 2: the last turn's summed real token usage, for a test harness running in-process
+ * (run-manual-coach-chat-test.ts calls handle() directly, not over HTTP) to read after a turn
+ * completes. Deliberately not part of commitTurn's response JSON - that response is athlete-facing
+ * production API surface, and internal token/cost telemetry doesn't belong there. Module-level
+ * state is safe here because both production (one turn per serverless invocation) and the test
+ * harness (one turn at a time, synchronous script) never process two turns concurrently in the
+ * same process.
+ */
+let lastTurnUsage: GeminiUsage | undefined;
+export function getLastTurnUsage(): GeminiUsage | undefined {
+  return lastTurnUsage;
+}
+/** Set by coach-chat.ts's handleGreet too - a greet turn calls askGemini() directly, outside
+ * requestCoachReply/commitTurn, but a test harness scoring a scripted run still needs its cost. */
+export function setLastTurnUsage(usage: GeminiUsage | undefined): void {
+  lastTurnUsage = usage;
+}
+
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode: TurnMode = "ordinary";
   // Finding A (OpenRouter K1 retest): a patch-shaped week_update/template_edit were silently
@@ -1107,6 +1161,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       turn.timezone,
       referenceIds,
     );
+    let usageAccum: GeminiUsage | undefined = reply.usage;
     // Content-triggered retry, not a transport one (that's geminiClient.ts's own retry on
     // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt,
     // covering both content violations findOversizedTextField and missingRequiredCoachNote can
@@ -1316,6 +1371,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         turn.timezone,
         referenceIds,
       );
+      usageAccum = sumUsage(usageAccum, reply.usage);
       // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
       // in turnWrites/* will truncate silently downstream. Log it here so a persistent
       // oversize-then-truncate or still-missing-note pattern shows up somewhere instead of
@@ -1455,6 +1511,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         turn.timezone,
         referenceIds,
       );
+      usageAccum = sumUsage(usageAccum, reply.usage);
       const stillBad = findInvalidReferences(
         reply,
         turn.validQuestIds ?? new Set(),
@@ -1475,6 +1532,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       prefetchedCurrentWeekContent: currentWeekContent,
       stillUnrecordedFacts: stillUnrecordedFactsForSynthesis,
       stillUnconfirmedAssumption: stillUnconfirmedAssumptionForDrop,
+      usage: usageAccum,
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -2287,6 +2345,9 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
 // chat commit is the one true risk point left: if that fails, the response carries Gemini's
 // already-generated reply text alongside the error, instead of discarding it.
 export async function commitTurn(turn: TurnWrites): Promise<Response> {
+  // Recorded before any commit attempt - the cost was already incurred by askGemini() regardless
+  // of whether the commit itself succeeds. See getLastTurnUsage() above.
+  lastTurnUsage = turn.usage;
   const factWrites = [...turn.validUpdates, ...turn.optionalWrites];
   const commitFailureDrops: DroppedAction[] = [];
   if (factWrites.length > 0) {

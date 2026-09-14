@@ -16,7 +16,11 @@ import { loadChatHistory, pruneForResponse } from "./coach-chat/_lib/chatThreads
 import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/decide/coachIntents.js";
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
-import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/gemini/geminiClient.js";
+import {
+  askGemini,
+  GEMINI_MODEL,
+  type GeminiReplyWithUsage,
+} from "./coach-chat/_lib/gemini/geminiClient.js";
 import { resolveProviderName } from "./_lib/llmClient.js";
 import { captureGeminiFailure, withProcessingSpan, withSentryRoute } from "./_lib/sentry.js";
 import {
@@ -25,7 +29,6 @@ import {
   onboardingHintsContext,
   type OnboardingHints,
 } from "./coach-chat/_lib/gemini/coachPromptText.js";
-import type { GeminiReply } from "./coach-chat/_lib/gemini/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { onboardingChanges } from "./coach-chat/_lib/decide/onboardingWrites.js";
 import {
@@ -37,6 +40,7 @@ import {
   loadTurnState,
   parseTurnRequest,
   requestCoachReply,
+  setLastTurnUsage,
 } from "./coach-chat/_lib/coachTurn.js";
 import { handleActivitySync } from "./coach-chat/_lib/commit/activitySyncTurn.js";
 
@@ -118,7 +122,7 @@ async function handleGreet(
     today: todayDateString(timezone, new Date()),
   });
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
-  let reply: GeminiReply;
+  let reply: GeminiReplyWithUsage;
   try {
     reply = await askGemini(
       apiKey,
@@ -136,6 +140,10 @@ async function handleGreet(
       undefined,
       timezone,
     );
+    // #1053 gap 2: a greet turn calls askGemini() directly, outside requestCoachReply/commitTurn
+    // - record its usage the same way so a test harness scoring a scripted run (turns[0].greet)
+    // sees real cost on the greet turn too, not just ordinary ones.
+    setLastTurnUsage(reply.usage);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
