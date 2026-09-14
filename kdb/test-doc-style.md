@@ -28,24 +28,24 @@ day.
 ## Template
 
 ```markdown
-# Test results — <YYYY-MM-DD>
+# Test results - <YYYY-MM-DD>
 
-## Run <N> — <HH:MM>, <what this run verifies and why>
+## Run <N> - <HH:MM>, <what this run verifies and why>
 
 **Scope decided:** <cases selected> because <reason>. Skipped <cases> - <reason>.
 
 ### Unit suite
 <N passed, M failed, Ns>. Raw: `test-results/raw/<date>/unit/vitest-results-<time>.json`
 
-### Live eval — paid, model: <model>, <N> calls, $<cost>
+### Live eval - paid, model: <model>, <N> calls, $<cost>
 | Transcript | Result | Notes |
 |---|---|---|
 | <name> | PASS/FAIL | <root cause file:line if FAIL> |
 
-### Manual live-chat — athlete: <name>, repo: <repo>, branch: <branch>, model: <model>, <N> calls, $<cost>
+### Manual live-chat - athlete: <name>, repo: <repo>, branch: <branch>, model: <model>, <N> calls, $<cost>
 <turn-by-turn or summary, PASS/FAIL each>
 
-### Simulation suite — paid, model: <model>, <N> calls, $<cost>
+### Simulation suite - paid, model: <model>, <N> calls, $<cost>
 | Scenario | Result | Notes |
 |---|---|---|
 

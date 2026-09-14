@@ -212,4 +212,5 @@ sync bot pushes to `main` after every sync, and a non-rebased push there is reje
 `npm run dev`/`build`. Athlete repos populate it via the sync pipeline — do not hand-edit.
 
 **Coach commits:** Coach Phelps commits coaching memory in **athlete repos** only
-(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in `platform/SOUL.claude.md` §12.
+(`user_data/coach/profile.json`, etc. — see `platform/SOUL.claude.md` §2 for the full list) — not
+at HQ root. Procedure in `platform/SOUL.claude.md` §12.

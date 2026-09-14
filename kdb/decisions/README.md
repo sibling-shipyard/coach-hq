@@ -7,7 +7,6 @@
 |---|---|---|
 | 0001 | Each user's app can only touch their own repo | cross-cutting |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
-| 0006 | One canonical challenge_v2 schema (version 4) | cross-cutting |
 | 0007 | One golden dataset for all sample data | cross-cutting |
 | 0008 | Coach HQ iOS uses Sibling Shipyard Apple IDs | ios |
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
@@ -44,14 +43,16 @@
 | 0042 | `current_week.json` collapses to one write action, code owns reconciliation and rollover | cross-cutting (coach-chat backend, SOUL, web) |
 | 0043 | Shared web widget module | ui |
 | 0044 | A dedicated agent owns testing infrastructure and process | cross-cutting |
+| 0045 | Typed per-concern JSON files supersede challenge_v2.json | cross-cutting |
 
 <details>
-<summary>Superseded / historical (4) — kept for the citations, not for the boot read</summary>
+<summary>Superseded / historical (5) — kept for the citations, not for the boot read</summary>
 
 | # | Title | Replaced by |
 |---|---|---|
 | 0002 | Wait to decide where the coach's "brain" lives | → 0022 |
 | 0003 | Start new users from a clean template, archive the original | Historical |
+| 0006 | One canonical challenge_v2 schema (version 4) | → 0045 |
 | 0012 | Coach chat: atomic commits via Git Data API, count-based retention | → 0037 |
 | 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | → 0022 |
 
