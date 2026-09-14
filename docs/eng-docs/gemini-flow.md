@@ -265,8 +265,8 @@ test already covers.
 | `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
 | `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption` |
 | `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
-| `injury_flag` | `findMissedInjuryLanguage` (first-session only) | - |
-| `quest_event` | - | invalid-`quest_id` reprompt (D1, #736) |
+| `injury_flag` | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D) | - |
+| `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736) |
 | `template_edit`, `session_plan` | - | `findUnconfirmedAssumption` (schedule-change gate only) |
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
@@ -274,7 +274,7 @@ test already covers.
 | `memory_update` | prompt reinforcement | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | - |
-| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag only) | invalid-`flag_id` reprompt (D1, #736) |
+| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736) |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
@@ -320,6 +320,29 @@ The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, aft
 detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`
 (`ui/api/_lib/sentry.ts`). It runs alongside the existing `console.warn`, for every detector old
 and new - previously this failure mode was invisible outside a local log.
+
+**#1037 hardening round, PR D (2026-09-14): count-aware guards for `quest_event`,
+`injury_flag`, `injury_event`.** Every guard above this point, old and new, is boolean - it only
+asks "did anything fire at all," so a turn that captures 2 of 3 real facts looks the same as one
+that captured none. `findMissedQuestLanguage` closes `quest_event`'s total absence of coverage: it
+counts active-quest-name mentions co-occurring with completion/miss/excusal language against
+`reply.quest_event.length`, so "2 of 3 landed" still fires. It reuses `questNameReferencedIn`
+(now exported from `validateActions.ts`) rather than a second copy of the same word-matching
+logic. `findUncountedInjuryLanguage` closes two gaps at once - `injury_flag`'s zero coverage on
+returning-athlete turns, and `injury_event`'s zero coverage once 2+ active flags exist. The
+exactly-one-flag gate on `findMissedInjuryUpdateLanguage` stays; it's the only safe way to resolve
+*which* flag a bare mention means, and this round doesn't touch that. It counts distinct
+injury-keyword mentions in the message against `injury_flag.length + injury_event.length`
+combined. Raw per-keyword counting over-counts a single injury restated across nearby phrasing
+("my knee still hurts... it's sore..."), so hits within a 12-word window of the prior hit collapse
+into one mention before counting - verified against both a same-injury-restated case (must not
+fire) and a two-injuries-described-far-apart case (must still fire) in
+`coachTurn-reprompt.test.ts`. All three detectors are lower bounds, not exact counts, same risk
+class as every prompt-derived pattern in the table above - narrow on any real collision, never
+drop the check. The `quest_event` synthesis extension the HLD flagged as lower-priority
+(`synthesizeQuestEventFromUnrecordedFacts` rescuing 2+ dropped facts, not just one) was
+deliberately not built this round - see the PR body for the live-test finding on whether it's
+still needed.
 
 ## Retries, timeouts, rate limits
 

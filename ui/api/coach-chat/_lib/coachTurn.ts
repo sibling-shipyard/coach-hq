@@ -63,6 +63,7 @@ import {
   validateWeekUpdate,
   synthesizeQuestEventFromUnrecordedFacts,
   hasConfirmationCue,
+  questNameReferencedIn,
   type DroppedAction,
   type ExistingSessionForDiff,
 } from "./decide/turnWrites/validateActions.js";
@@ -606,6 +607,33 @@ function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
+// #1037 PR D: quest_event had no dedicated guard at all before this - its only backstop
+// (synthesizeQuestEventFromUnrecordedFacts) rescues at most one completion and bails entirely
+// once 2+ dropped facts each name-match a distinct quest, the exact multi-drop case that needs
+// rescuing. Unlike the boolean findMissed*Language checks above, this one counts: it compares the
+// number of active quests the athlete's own message names alongside completion/miss/excusal
+// language against reply.quest_event.length, so "2 of 3 landed" still fires instead of being
+// suppressed by the array being non-empty. Reuses questNameReferencedIn (validateActions.ts) for
+// the actual name-matching rather than duplicating that logic.
+// This is a LOWER BOUND, not an exact count - a quest name mentioned without status language
+// nearby, or two quests with overlapping name words, can both misfire. Same risk class
+// GOAL_LANGUAGE_PATTERN and sports_update's NEW_ACTIVITY_LANGUAGE_PATTERN already carry - run the
+// full api/coach-chat/ suite after wiring this in and narrow on any collision, never drop the check.
+const QUEST_STATUS_LANGUAGE_PATTERN =
+  /\b(complet(?:ed|ing)|done|finish(?:ed)?|hit|nailed|crushed|missed|skip(?:ped)?|excused)\b/i;
+
+function findMissedQuestLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  const activeQuests = (turn.context.quests?.quests ?? []).filter((q) => q.status === "active");
+  if (activeQuests.length === 0) return null;
+  if (!QUEST_STATUS_LANGUAGE_PATTERN.test(turn.geminiMessage)) return null;
+  const mentionedNames = activeQuests.filter((q) =>
+    questNameReferencedIn(q.name, turn.geminiMessage),
+  );
+  const capturedIds = new Set((reply.quest_event ?? []).map((e) => e.quest_id));
+  const uncaptured = mentionedNames.filter((q) => !capturedIds.has(q.id));
+  return uncaptured.length > 0 ? uncaptured.map((q) => q.name).join(", ") : null;
+}
+
 // #1009 (profile_update hardening): same scoping as the checks above - first-session
 // only, since that's the only turn type where a stated age/height/weight/timezone is reliably
 // new rather than a restatement of something already on file. Four independent field checks
@@ -691,6 +719,233 @@ function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): st
   if ((reply.injury_event ?? []).length > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+}
+
+// #1037 PR D: returning-athlete counterpart to findMissedInjuryLanguage, and also the fix for
+// findMissedInjuryUpdateLanguage's 2+-flag blind spot above - one function covers both gaps since
+// they share INJURY_LANGUAGE_PATTERN and the same "did fewer things land than were described"
+// question. Not scoped to "zero flags" (that disambiguator only makes sense pre-onboarding) and
+// not scoped to exactly one flag either - resolving WHICH flag a bare mention means is
+// findMissedInjuryUpdateLanguage's job (single-active-flag only); this only asks whether the
+// count of things captured (injury_flag + injury_event entries) is lower than the count of real,
+// distinct injury mentions in the message. A lower bound, not exact matching to a specific flag.
+//
+// INJURY_LANGUAGE_PATTERN matches keywords like "sore"/"hurt"/"pain" - a single injury described
+// across two sentences ("my knee still hurts, it's sore in the mornings") produces 2 keyword hits
+// for 1 real injury, which would over-count and false-positive a reprompt for an injury already
+// captured once. Raw per-keyword counting isn't safe to ship as-is.
+//
+// I originally tried collapsing keyword hits purely by word-distance (hits within N words of the
+// prior hit collapse together), on the theory that a real second injury needs its own
+// location/context words first and so sits farther from the prior keyword than a restated hit on
+// the same injury does. That doesn't hold up: "My ankle hurts, my knee hurts too, and my shoulder
+// is sore" has three genuinely distinct injuries whose keyword hits are only ~5 words apart
+// pairwise - well inside any window wide enough to also catch the restated-nearby case - so a
+// pure word-distance heuristic collapses all three into one and silently drops two real injuries.
+// Word distance alone can't tell "one injury restated nearby" from "several different injuries
+// listed close together," because both patterns produce similar gaps between keyword hits.
+//
+// The actual distinguishing signal is body location. A real second injury almost always names its
+// own body part ("my ankle... my knee... my shoulder"); a restated mention of the same injury
+// usually either drops the location entirely (a pronoun or ellipsis - "it's still sore," "still
+// hurts in the mornings") or repeats the same location word. So I match on the nearest named body
+// part around each hit first, and only fall back to word-distance from the last counted hit when a
+// hit has no location word nearby at all (a bare "it hurts" with nothing named) - which keeps the
+// old, simpler behavior for that edge case. Verified in the test suite against: three distinct
+// injuries close together (must all count, the case above), one injury restated nearby (must not
+// double-count), and the plain word-distance fallback with no location word present.
+const INJURY_MENTION_COLLAPSE_WINDOW_WORDS = 12;
+
+// Common body-part/location vocabulary - the signal that lets countDistinctInjuryMentions tell a
+// restated mention of the same injury apart from a second, genuinely different one. Not
+// exhaustive, just the common set an athlete would actually say out loud when talking about a
+// running/lifting injury. Deliberately leaves out "head"/"skull" - "head" gets used
+// non-anatomically constantly in ordinary chat ("in my head," "ahead of," "get ahead") and the
+// false-positive cost of that outweighs the rare real case of a head injury, which an athlete
+// would almost always also name explicitly (concussion, headache) rather than relying on this
+// detector.
+//
+// I considered replacing this fixed list with "match any noun phrase after 'my'" so new terms
+// never need a manual add. Not doing that here - "my training," "my coach," "my week" aren't body
+// parts, and that approach needs its own false-positive narrowing pass against the test corpus
+// before it's safe to ship. Left as a future option, not built.
+const BODY_LOCATION_WORDS = [
+  "ankle",
+  "ankles",
+  "knee",
+  "knees",
+  "shoulder",
+  "shoulders",
+  "back",
+  "hip",
+  "hips",
+  "wrist",
+  "wrists",
+  "elbow",
+  "elbows",
+  "foot",
+  "feet",
+  "calf",
+  "calves",
+  "hamstring",
+  "hamstrings",
+  "quad",
+  "quads",
+  "quadricep",
+  "quadriceps",
+  "groin",
+  "neck",
+  "shin",
+  "shins",
+  "achilles",
+  "hand",
+  "hands",
+  "thigh",
+  "thighs",
+  "toe",
+  "toes",
+  "heel",
+  "heels",
+  "rib",
+  "ribs",
+  "glute",
+  "glutes",
+  "IT band",
+  "iliotibial band",
+  "tendon",
+  "tendons",
+  "tendinitis",
+  "ligament",
+  "ligaments",
+  "cartilage",
+  "meniscus",
+  "rotator cuff",
+  "labrum",
+  "plantar fascia",
+  "plantar fasciitis",
+  "sciatic",
+  "sciatica",
+  "spine",
+  "spinal",
+  "chest",
+  "pec",
+  "pecs",
+  "forearm",
+  "forearms",
+  "bicep",
+  "biceps",
+  "tricep",
+  "triceps",
+  "jaw",
+  "abdomen",
+  "abs",
+  "core",
+  "lat",
+  "lats",
+];
+const LOCATION_PATTERN = new RegExp(`\\b(${BODY_LOCATION_WORDS.join("|")})\\b`, "i");
+
+// Trailing "s" on a matched word almost always means a simple plural ("ankles" -> "ankle"), so
+// stripping it collapses plural/singular phrasing of the same injury onto the same key. A few
+// medical terms end in "s" without being plural at all - stripping those would mangle the key
+// (e.g. "tendinitis" -> "tendiniti", "meniscus" -> "meniscu"). Those all end in "itis" or "us", so
+// checking for those suffixes first is enough to spare them without hand-listing every term.
+const LOCATION_FALSE_PLURAL_SUFFIXES = ["itis", "us"];
+
+function normalizeLocationWord(word: string): string {
+  const lower = word.toLowerCase();
+  if (LOCATION_FALSE_PLURAL_SUFFIXES.some((suffix) => lower.endsWith(suffix))) return lower;
+  return lower.replace(/s$/, "");
+}
+
+// Looks for a body-location word in a small window of words around a hit rather than across the
+// whole message, so a location word describing a different sentence/injury far away doesn't get
+// wrongly attributed to this hit. Scans word-by-word and keeps the CLOSEST match by distance from
+// the hit, not the first one the window happens to contain in reading order - two hits close
+// together can have overlapping windows, and taking "first match in the joined window text" would
+// attribute both to whichever location word appears earliest, even when a closer, different one
+// exists for the second hit.
+//
+// Checks a 2-word phrase starting at each index before falling back to the single word there, so
+// multi-word terms ("IT band," "rotator cuff," "plantar fasciitis") match - LOCATION_PATTERN can
+// only match against whatever string it's handed, and a single word from the `words` array never
+// contains a 2-word phrase on its own.
+//
+// Also checks for "left"/"right" immediately before the matched location word ("my left knee") and
+// folds it into the returned key, so two mentions of the same body part on opposite sides count as
+// distinct injuries instead of collapsing into one. Only checks directly-preceding words - rarer
+// phrasing like "knee on my left side" isn't worth the added complexity here. Laterality is always
+// optional: with no "left"/"right" nearby, the bare word comes back unchanged.
+function nearestLocationWord(words: string[], hitWordIndex: number): string | null {
+  const windowRadius = 5;
+  const start = Math.max(0, hitWordIndex - windowRadius);
+  const end = Math.min(words.length, hitWordIndex + windowRadius + 1);
+  let closest: { word: string; distance: number; index: number } | null = null;
+  for (let i = start; i < end; i++) {
+    // Try the 2-word phrase starting here first, but only trust it if the match actually spans
+    // both words (contains a space) - LOCATION_PATTERN also holds single-word alternatives, and
+    // `${words[i]} ${words[i + 1]}`.match(...) can match just one of those inside the joined
+    // string (e.g. "my glute" matching plain "glute"). Taking that as a hit here would credit the
+    // match to index i (the first word) instead of where the word actually is, throwing off the
+    // distance comparison against genuinely closer hits. Falling through to the single-word check
+    // on words[i] keeps that case anchored at its real index.
+    const twoWord = i + 1 < end ? `${words[i]} ${words[i + 1]}` : null;
+    const twoWordMatch = twoWord ? twoWord.match(LOCATION_PATTERN) : null;
+    const found =
+      twoWordMatch && twoWordMatch[0].includes(" ")
+        ? twoWordMatch
+        : words[i].match(LOCATION_PATTERN);
+    if (!found) continue;
+    const distance = Math.abs(i - hitWordIndex);
+    if (!closest || distance < closest.distance) {
+      closest = { word: normalizeLocationWord(found[0]), distance, index: i };
+    }
+  }
+  if (!closest) return null;
+  const precedingWords = words
+    .slice(Math.max(0, closest.index - 2), closest.index)
+    .join(" ")
+    .toLowerCase();
+  const laterality = /\b(left|right)\b/.exec(precedingWords)?.[1];
+  return laterality ? `${laterality} ${closest.word}` : closest.word;
+}
+
+function countDistinctInjuryMentions(text: string): string[] {
+  const pattern = new RegExp(INJURY_LANGUAGE_PATTERN, "gi");
+  const words = text.split(/\s+/).filter(Boolean);
+  const hits: { keyword: string; wordIndex: number; location: string | null }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const wordIndex = text.slice(0, match.index).split(/\s+/).filter(Boolean).length;
+    hits.push({ keyword: match[0], wordIndex, location: nearestLocationWord(words, wordIndex) });
+  }
+  const distinct: { keyword: string; wordIndex: number; location: string | null }[] = [];
+  for (const hit of hits) {
+    // Same named body part as an already-counted mention - same real injury, collapse it.
+    if (hit.location !== null && distinct.some((counted) => counted.location === hit.location)) {
+      continue;
+    }
+    // No location word nearby at all - fall back to word-distance from the last counted hit
+    // (comparing to the last DISTINCT hit here, not the last raw hit, unlike the old version).
+    const lastCounted = distinct[distinct.length - 1];
+    if (
+      hit.location === null &&
+      lastCounted &&
+      hit.wordIndex - lastCounted.wordIndex <= INJURY_MENTION_COLLAPSE_WINDOW_WORDS
+    ) {
+      continue;
+    }
+    distinct.push(hit);
+  }
+  return distinct.map((counted) => counted.keyword);
+}
+
+function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (turn.firstSession) return null; // covered by findMissedInjuryLanguage above
+  const mentions = countDistinctInjuryMentions(turn.geminiMessage);
+  if (mentions.length === 0) return null;
+  const captured = (reply.injury_flag ?? []).length + (reply.injury_event ?? []).length;
+  return mentions.length > captured ? mentions[captured] : null;
 }
 
 // Single source of truth for "which fields count as schedule-changing" - both this function and
@@ -840,6 +1095,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
     const missedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
+    const missedQuestLanguage = findMissedQuestLanguage(turn, reply);
+    const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -862,6 +1119,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedRemovalLanguage ||
       missedSportsLanguage ||
       missedInjuryUpdateLanguage ||
+      missedQuestLanguage ||
+      uncountedInjuryLanguage ||
       unconfirmedAssumption ||
       malformedExercise ||
       proseOnlyWeekPlan
@@ -877,6 +1136,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedRemovalLanguage,
         missedSportsLanguage,
         missedInjuryUpdateLanguage,
+        missedQuestLanguage,
+        uncountedInjuryLanguage,
         unconfirmedAssumption,
         malformedExercise,
         proseOnlyWeekPlan,
@@ -956,6 +1217,22 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " flag_id; if it genuinely doesn't describe an injury update, disregard this note",
         );
       }
+      if (missedQuestLanguage) {
+        notes.push(
+          `the athlete's message names these active quests with completion/miss/excusal` +
+            ` language, but they have no quest_event this turn: ${missedQuestLanguage} - add a` +
+            " quest_event now for each one that genuinely was completed, missed, or excused this" +
+            " turn, using its real quest_id",
+        );
+      }
+      if (uncountedInjuryLanguage) {
+        notes.push(
+          `the athlete's message contains "${uncountedInjuryLanguage}" but fewer injury_flag/` +
+            "injury_event entries were set this turn than the message appears to describe - if a" +
+            " real injury update or new injury was left out, add it now with the right field and" +
+            " real flag_id; if this is the same injury already captured, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
@@ -1011,6 +1288,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
       const stillMissedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
+      const stillMissedQuestLanguage = findMissedQuestLanguage(turn, reply);
+      const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -1033,6 +1312,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
         stillMissedInjuryUpdateLanguage ||
+        stillMissedQuestLanguage ||
+        stillUncountedInjuryLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercise ||
         stillProseOnlyWeekPlan
@@ -1050,6 +1331,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
             stillMissedInjuryUpdateLanguage,
+            stillMissedQuestLanguage,
+            stillUncountedInjuryLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
             stillProseOnlyWeekPlan,
@@ -1072,6 +1355,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
             stillMissedSportsLanguage ? "missedSportsLanguage" : null,
             stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
+            stillMissedQuestLanguage ? "missedQuestLanguage" : null,
+            stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercise ? "malformedExercise" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
