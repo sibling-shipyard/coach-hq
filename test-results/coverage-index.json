@@ -1,7 +1,7 @@
 {
   "manual:daily-basic": {
     "type": "manual",
-    "last_pass_sha": "aec2933b4fee2feafc801c3e5c846f5efe19d4de",
+    "last_pass_sha": "bf5f1c45468fd0f887542292c470ed6ab0f099ac",
     "last_run_date": "2026-09-14",
     "watched_paths": [
       "ui/api/coach-chat.ts",
