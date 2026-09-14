@@ -275,20 +275,20 @@ test already covers.
 | `injury_event`, `sports_update`, `workout_remove` | none | none |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
-treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round -
+treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
 `findMissedProfileLanguage` checks the athlete's own message for stated age, height/weight, or
-timezone language against what's already on file and what this turn's `profile_update` already
-covers, first-session only, same three-part scoping as its siblings. `coaching_style_update`,
-standalone `quest_create`, and `memory_update` get prompt reinforcement only - none has a phrasing
-narrow enough for a safe reprompt trigger without real false-positive risk against ordinary
-conversation (see `docs/plans/coach-chat-action-field-hardening.md`'s per-field table for why).
-`injury_event`, `sports_update`, and `workout_remove` are follow-up PRs on the same stack, not yet
-shipped.
+timezone language. It only fires when that's not already on file and not already covered by this
+turn's `profile_update` - first-session only, same three-part scoping as its siblings.
+`coaching_style_update`, standalone `quest_create`, and `memory_update` get prompt reinforcement
+only. None has a phrasing narrow enough for a safe reprompt trigger without real false-positive
+risk against ordinary conversation - see
+`docs/plans/coach-chat-action-field-hardening.md`'s per-field table for why. `injury_event`,
+`sports_update`, and `workout_remove` are follow-up PRs on the same stack, not yet shipped.
 
 The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, after every
 detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`
-(`ui/api/_lib/sentry.ts`) alongside its existing `console.warn`, for every detector old and new -
-previously this failure mode was invisible outside a local log.
+(`ui/api/_lib/sentry.ts`). It runs alongside the existing `console.warn`, for every detector old
+and new - previously this failure mode was invisible outside a local log.
 
 ## Retries, timeouts, rate limits
 
