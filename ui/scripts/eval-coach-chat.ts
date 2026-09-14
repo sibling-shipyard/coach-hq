@@ -173,7 +173,8 @@ function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
 // todayContextLine reads real wall-clock time (this script never threads a fixed date through
 // AskParams/askGemini, and askGemini's timezone parameter defaults to UTC when omitted, as it is
 // here). A hardcoded date in extraContext rots the moment the calendar moves past it - #807 hit
-// this once, and the exact same transcript (19-plan-edit-vs-template-edit-disambiguation) rotted
+// this once, and the exact same transcript (now 05-plan-edit-vs-template-edit-disambiguation, renumbered
+// in the 2026-09-14 eval-audit pass) rotted
 // again within five weeks of that fix landing, exactly as the original fix's own comment warned it
 // would. Rather than trust a human to keep re-editing a date by hand, any transcript that needs
 // "tomorrow" or "today" writes the literal token `{{TOMORROW}}`/`{{TODAY}}` in its extraContext

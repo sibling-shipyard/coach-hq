@@ -6,7 +6,7 @@
 
 ## Scope
 
-- **Own:** `ui/api/coach-chat/_tests/coach-chat-eval/` (eval harness + transcripts), `ui/scripts/eval-coach-chat.ts`, `ui/scripts/run-manual-coach-chat-test.ts`, `ui/scripts/run-simulation-suite.ts`, `ui/scripts/run-tests-logged.ts`, `ui/scripts/lib/llmPricing.ts`, `kdb/test-doc-style.md`, and the dated results folder `test-results/` (raw JSON under `test-results/raw/<date>/<kind>/`, day-docs at `test-results/<date>.md`).
+- **Own:** `ui/api/coach-chat/_tests/coach-chat-eval/` (eval harness + transcripts), `ui/scripts/eval-coach-chat.ts`, `ui/scripts/run-manual-coach-chat-test.ts`, `ui/scripts/run-simulation-suite.ts`, `ui/scripts/run-tests-logged.ts`, `ui/scripts/lib/llmPricing.ts`, `ui/scripts/examples/` (simulation-suite turns files), `kdb/test-doc-style.md`, and the dated results folder `test-results/` (raw JSON under `test-results/raw/<date>/<kind>/`, day-docs at `test-results/<date>.md`).
 - **Don't own:** colocated unit test files next to feature code (Bob's `layer2-fields/*.test.ts`, UI Expert's `*.test.tsx`) — those stay with whoever owns the feature. vade-the-tester's unit-suite job is running `npm test`/`test:logged` and reporting the result, not owning every test file in the repo. Never touches application/production code.
 - **Write access:** real commits/branches on real athlete repos for live verification (scratch-branch only, never `main`, never a PR — `docs/eng-docs/coach-chat-testing.md`'s existing discipline), plus commits to its own owned paths above.
 
@@ -34,6 +34,12 @@ Tech Lead reviews the evidence (named `file:line`, real `git diff`/commit sha, r
 - `docs/eng-docs/coach-chat-testing.md` — the four test kinds, mechanics, known gaps.
 - `docs/eng-docs/llm-provider-current.md` — per-token pricing for cost tracking.
 - `kdb/test-doc-style.md` — the day-doc format.
+
+## Docs you own
+
+Keep this current when a scenario is added, removed, or renumbered.
+
+- `docs/eng-docs/coach-chat-test-scenarios.md` — catalog of every eval transcript and simulation scenario.
 
 ## Learnings
 

@@ -87,12 +87,10 @@ interface Scenario {
 
 /**
  * Seeded from the FSP/daily example files already in examples/ (vade-the-tester plan's PR1 scope
- * - see kdb/decisions/0044-vade-the-tester-agent.md). The `-727-*` files (fsp-transition-a,
- * season-fsp) are single/double-turn probes
- * for one specific #727 migration question each, not a realistic full FSP or daily conversation
- * shape - I left them out of the library rather than force-fit an `expect` block onto a scenario
- * that was never meant to stand alone as regression coverage. They stay in examples/ for anyone
- * re-running that specific probe by hand.
+ * - see kdb/decisions/0044-vade-the-tester-agent.md). The 2026-09-14 eval-audit pass
+ * (docs/eng-docs/coach-chat-test-scenarios.md) deleted the old `-727-*` probe files -
+ * single/double-turn checks for one specific #727 migration question each, never wired into this
+ * library and not referenced anywhere else in the repo.
  *
  * fsp.json runs against coach-skanda-testing, not coach-skanda/coach-akash - a First Session
  * Protocol scenario needs an athlete who hasn't done FSP yet (coachTurn.ts's `firstSession` gate
@@ -142,6 +140,30 @@ const SCENARIOS: Scenario[] = [
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
     expect: [{ turnIndex: 1 }, { turnIndex: 2 }, { turnIndex: 3 }, { turnIndex: 4 }],
+  },
+  {
+    id: "ambiguous-contradiction",
+    file: "manual-coach-chat-turns-ambiguous-contradiction.json",
+    description:
+      "Athlete reports a planned session done, immediately contradicts it (wrong day), then confirms which one really happened - checks the coach reconciles rather than writing both versions.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    // The real bug this guards against: a contradiction landing as two conflicting current_week.json
+    // writes (the wrongly-claimed session left "done" alongside a synthetically-created new session
+    // for the real one) instead of one reconciled state - coachWeekFiles.ts's applyWeekPatch creates
+    // a brand-new session whenever a patch entry omits session_id (deliberate, for a genuinely new
+    // unplanned session - see that file's own comment), which is exactly the shape this scenario
+    // could trigger if the reconciling turn doesn't reference the real existing session_id.
+    // TurnExpect only checks which files changed, not their content (see this file's header comment
+    // on why - commitTurn() doesn't echo action fields), so this can only verify that turn 3 (the
+    // confirm/reconcile turn) actually produces a current_week.json write - it cannot verify from
+    // here that the write is a clean single reconciled state rather than a duplicate. That's a real
+    // gap in what this harness can check; a human should read the turn 3 log's real diff
+    // (docs/eng-docs/coach-chat-testing.md, "Verifying a result") the first time this runs live.
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/current_week.json"] },
+      { turnIndex: 3, filesChangedInclude: ["user_data/ledger/current_week.json"] },
+    ],
   },
 ];
 

@@ -1,0 +1,18 @@
+[
+  {
+    "greet": true,
+    "message": ""
+  },
+  {
+    "message": "Did today's Workout B, felt strong through the lower body work."
+  },
+  {
+    "message": "Actually wait, hold on - I didn't do Workout B today, I mixed up my days. I did yesterday's Workout A instead."
+  },
+  {
+    "message": "Yeah, Workout A is the one I actually finished today. Workout B never happened, leave that one alone."
+  },
+  {
+    "message": "That's it for today, wrap this up."
+  }
+]
