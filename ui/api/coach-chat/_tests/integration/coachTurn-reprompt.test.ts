@@ -694,6 +694,36 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
 
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
+
+  // Review finding: this detector only checked reply.quest_create?.quests before this fix, but its
+  // sibling findMissedHabitLanguage (the first-session version above) checks both
+  // season_start?.new_habits and quest_create?.quests, since a habit can land via either path. A
+  // returning athlete starting a new habit during a season relaunch has it captured under
+  // season_start.new_habits, not quest_create - without the season_start check this fires a
+  // spurious reprompt even though nothing was actually missed. Written to fail against the old
+  // code (which only checked quest_create) and pass against the fix.
+  it("does not reprompt when the new habit landed via season_start.new_habits instead of quest_create", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "New season locked in, added that habit.",
+      coach_note: "Started a new season with a daily stretching habit.",
+      season_start: {
+        name: "Fall Block",
+        start_date: "2026-09-14",
+        end_date: "2026-12-01",
+        main_quest: { name: "Race Ready", type: "count_target" as const, target: 1 },
+        new_habits: [{ name: "Daily Stretching", type: "daily_streak" as const }],
+      },
+    });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I want to start a new habit of stretching every morning this season.",
+        geminiMessage: "I want to start a new habit of stretching every morning this season.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
 });
 
 // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd

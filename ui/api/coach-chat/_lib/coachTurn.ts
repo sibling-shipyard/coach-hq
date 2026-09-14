@@ -609,6 +609,7 @@ const NEW_HABIT_LANGUAGE_PATTERN =
 
 function findMissedNewHabitLanguage(turn: TurnState, reply: GeminiReply): string | null {
   if (turn.firstSession) return null; // covered by findMissedHabitLanguage above
+  if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, NEW_HABIT_LANGUAGE_PATTERN);
 }
@@ -1403,7 +1404,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedQuestLanguage ? "missedQuestLanguage" : null,
             stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
-            stillMalformedExercises ? "malformedExercise" : null,
+            stillMalformedExercises ? "malformedExercises" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
           ].filter((detector): detector is string => detector !== null),
         });

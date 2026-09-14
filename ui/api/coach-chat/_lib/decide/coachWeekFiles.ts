@@ -389,7 +389,7 @@ function locateSession(
  * #1037 PR F: that all-or-nothing throw is now provably unreachable in the real pipeline.
  * `validateActions.ts`'s `validateWeekUpdate` runs first and already drops each bad day/session/
  * move_to_date reference individually (per-item filter, not all-or-nothing) before this function
- * ever sees the update, so by the time we get here every reference has already been checked once.
+ * ever sees the update, so by the time this function runs every reference has already been checked once.
  * This throw is defense-in-depth against a caller that skips that validation step, not the
  * primary guard - if you're relying on it to catch a bad reference, something upstream already
  * went wrong.
