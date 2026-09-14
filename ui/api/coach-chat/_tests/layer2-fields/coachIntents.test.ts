@@ -1133,7 +1133,9 @@ describe("applySportsUpdate", () => {
     // This is the actual bug PR E fixes: the model names only the new sport and forgets to
     // restate what's already on file. The old replace-only code would fail this - it set
     // sports to exactly ["climbing"], silently dropping running and cycling.
-    const result = JSON.parse(applySportsUpdate(EXISTING_WITH_SPORTS, ["climbing"], "2026-08-18", "t2"));
+    const result = JSON.parse(
+      applySportsUpdate(EXISTING_WITH_SPORTS, ["climbing"], "2026-08-18", "t2"),
+    );
     expect(result.sports).toEqual(["climbing", "running", "cycling"]);
   });
 
@@ -1152,9 +1154,9 @@ describe("applySportsUpdate", () => {
   });
 
   it("still throws on an all-blank list even with existing sports on file", () => {
-    expect(() =>
-      applySportsUpdate(EXISTING_WITH_SPORTS, ["", "   "], "2026-08-18", "t2"),
-    ).toThrow(/sports_update/);
+    expect(() => applySportsUpdate(EXISTING_WITH_SPORTS, ["", "   "], "2026-08-18", "t2")).toThrow(
+      /sports_update/,
+    );
   });
 });
 
