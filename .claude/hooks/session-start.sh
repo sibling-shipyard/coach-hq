@@ -17,7 +17,7 @@ CONTEXT="$(cat <<'EOF'
 ═══════════════════════════════════════════════════════════════
 ROUTING GATE — coach-phelps is a MULTI-AGENT repo. Resolve your role FIRST.
 ═══════════════════════════════════════════════════════════════
-Five agents share this repo and you are exactly ONE of them.
+Seven agents share this repo and you are exactly ONE of them.
 
 STOP. Before any tool call, git command, PR/issue triage or boot sequence:
 read AGENTS.md → "Agent Routing" and follow it. It holds the table, the HQ

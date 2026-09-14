@@ -108,12 +108,14 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 | **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 | **Cyclops** | Triage thread | Sentry event triage (read-only, no code changes) |
+| **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) — never application/production code |
 
 **Boundaries:**
 - Coach Phelps owns `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `sessions/`, `user_data/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
 - `platform/soul/*.md` and the composed `platform/SOUL.chat.md` / `platform/SOUL.claude.md` are **Tech Lead only** — never edit as Coach.
 - `platform/skeleton-templates/*.json` are base workout templates. Only you can authorize changes to these.
 - iOS Builder's scope is `ios/` only — never `user_data/`, `platform/skeleton-templates/`, `sessions/`, `ui/`, or pipeline scripts.
+- vade-the-tester's scope is testing infrastructure only (see `.github/agents/vade-the-tester.md` § Scope) — never application/production code.
 - Workers read their role doc from `.github/agents/` in this repo.
 
 ## Boot Sequence

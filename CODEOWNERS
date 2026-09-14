@@ -15,6 +15,14 @@ ui/observability/                      Bob-the-Builder
 ui/scripts/                            Bob-the-Builder
 user_data/                             Bob-the-Builder
 ios/                                   iOS-Builder
+ui/api/coach-chat/_tests/coach-chat-eval/ Vade-the-Tester
+ui/scripts/eval-coach-chat.ts          Vade-the-Tester
+ui/scripts/run-manual-coach-chat-test.ts Vade-the-Tester
+ui/scripts/run-simulation-suite.ts     Vade-the-Tester
+ui/scripts/run-tests-logged.ts         Vade-the-Tester
+ui/scripts/lib/llmPricing.ts           Vade-the-Tester
+tests/                                 Vade-the-Tester
+kdb/test-doc-style.md                  Vade-the-Tester
 user_data/coach/                       Coach-Phelps
 user_data/ledger/challenge_v2.json     Coach-Phelps
 sessions/                              Coach-Phelps

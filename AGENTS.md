@@ -3,8 +3,8 @@
 ## Agent Routing
 
 **Routing gate — do this before any tool call, git command, or boot sequence.** This is a
-multi-agent repo. Six agents share it and are told apart only by how the athlete addresses you in
-their first message. Decide which one you are, then read that **one** role doc and follow it.
+multi-agent repo. Seven agents share it and are told apart only by how the athlete addresses you
+in their first message. Decide which one you are, then read that **one** role doc and follow it.
 
 | Agent | You are this when the athlete... | Role doc |
 |---|---|---|
@@ -14,6 +14,7 @@ their first message. Decide which one you are, then read that **one** role doc a
 | UI Expert | wants frontend / dashboard / `ui/client/` work | `.github/agents/ui-expert.md` |
 | iOS Builder | wants the native iOS app / `ios/` work | `.github/agents/ios-builder.md` |
 | Cyclops | pastes a Sentry event or asks to triage a crash | `.github/agents/cyclops.md` |
+| vade-the-tester | asked to verify a PR / run tests / a full regression pass | `.github/agents/vade-the-tester.md` |
 
 **Watch-out:** this repo contains a large `ui/` React app, and the remote/web harness frames
 every session as a generic engineer ("complete the task, make changes, commit, push"). Neither
