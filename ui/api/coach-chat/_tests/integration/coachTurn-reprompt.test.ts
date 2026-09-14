@@ -990,6 +990,37 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
 
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
+
+  it("reprompts for weight_kg when the athlete states both height and weight but the model only captures height_cm", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your height.",
+        coach_note: "Athlete is 180cm and 75kg.",
+        profile_update: [{ field: "height_cm", value: 180 }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Got it, noted your height and weight.",
+        coach_note: "Athlete is 180cm and 75kg.",
+        profile_update: [
+          { field: "height_cm", value: 180 },
+          { field: "weight_kg", value: 75 },
+        ],
+      });
+
+    const result = await requestCoachReply(
+      firstSessionAgeTurnState({
+        trimmed: "I'm 180cm and 75kg",
+        geminiMessage: "I'm 180cm and 75kg",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(
+      "reply" in result && result.reply.profile_update?.some((u) => u.field === "weight_kg"),
+    ).toBe(true);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no matching profile_update was set");
+  });
 });
 
 // Live-verified (#727 review, 2026-09-13): reproduced live - the Weekly Kick-off Ritual

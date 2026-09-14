@@ -606,14 +606,17 @@ function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
 }
 
-// #1009 (profile_update hardening): same three-part scoping as the checks above - first-session
+// #1009 (profile_update hardening): same scoping as the checks above - first-session
 // only, since that's the only turn type where a stated age/height/weight/timezone is reliably
-// new rather than a restatement of something already on file. Three separate sub-patterns instead
-// of one, each gated on its own "is this actually missing" check (no value on file yet AND no
-// matching profile_update entry this turn) - a bare number or "based in" phrase means nothing on
-// its own without that gate, and would otherwise collide constantly with ordinary first-session
-// chat. Keys on the athlete's own message, never the model's reply/coach_note phrasing, for the
-// same reason findMissedInjuryLanguage/findMissedHabitLanguage/findMissedSeasonLanguage do.
+// new rather than a restatement of something already on file. Four independent field checks
+// (dob, height_cm, weight_kg, timezone), each gated on its own "is this actually missing" check
+// (no value on file yet AND no matching profile_update entry this turn for that specific field) -
+// a bare number or "based in" phrase means nothing on its own without that gate, and would
+// otherwise collide constantly with ordinary first-session chat. height_cm and weight_kg share
+// BODY_METRIC_PATTERN since one regex matches either unit, but they're checked separately so the
+// model capturing one doesn't suppress a reprompt for the other still being missing. Keys on the
+// athlete's own message, never the model's reply/coach_note phrasing, for the same reason
+// findMissedInjuryLanguage/findMissedHabitLanguage/findMissedSeasonLanguage do.
 const AGE_LANGUAGE_PATTERN = /\b\d{1,2}\s*(?:years?\s*old|yo)\b|\bborn\b/i;
 const BODY_METRIC_PATTERN = /\b\d{2,3}\s*(?:cm|kg|lbs?|ft|feet|inches)\b/i;
 const TIMEZONE_LANGUAGE_PATTERN = /\bbased in\b|\btime ?zone\b|\bIST\b|\bGMT\b|\bUTC\b/i;
@@ -626,11 +629,11 @@ function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): string 
     const hit = firstMatch(turn.geminiMessage, AGE_LANGUAGE_PATTERN);
     if (hit) return hit;
   }
-  if (
-    (!profile?.height_cm || !profile?.weight_kg) &&
-    !updatedFields.has("height_cm") &&
-    !updatedFields.has("weight_kg")
-  ) {
+  if (!profile?.height_cm && !updatedFields.has("height_cm")) {
+    const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
+    if (hit) return hit;
+  }
+  if (!profile?.weight_kg && !updatedFields.has("weight_kg")) {
     const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
     if (hit) return hit;
   }
