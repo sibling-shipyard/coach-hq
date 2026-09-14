@@ -144,41 +144,7 @@
       "sessions": []
     }
   ],
-  "coach_comments": [
-    {
-      "id": "preview-engine-comment",
-      "topic": "weekly_load",
-      "headline": "Load has room; intensity does not.",
-      "body": "Minutes can rise gently, but another hard dose would crowd the two court anchors.",
-      "tone": "steady",
-      "priority": 1,
-      "evidence_refs": ["weekly_load", "hr_zone_distribution_28d"],
-      "valid_from": "2026-07-20",
-      "valid_until": "2026-07-27"
-    },
-    {
-      "id": "preview-intensity-comment",
-      "topic": "training_intensity",
-      "headline": "Keep the hard work narrow.",
-      "body": "Let the court sessions own the top end; support work should remain quiet.",
-      "tone": "caution",
-      "priority": 2,
-      "evidence_refs": ["hr_zone_distribution_28d"],
-      "valid_from": "2026-07-20",
-      "valid_until": "2026-07-27"
-    },
-    {
-      "id": "preview-plan-comment",
-      "topic": "weekly_plan",
-      "headline": "Protect Monday and Thursday.",
-      "body": "Everything else should make those sessions better, not merely make the week fuller.",
-      "tone": "positive",
-      "priority": 3,
-      "evidence_refs": ["current_week_plan"],
-      "valid_from": "2026-07-20",
-      "valid_until": "2026-07-27"
-    }
-  ],
+  "coach_comments": [],
   "updated_at": "2026-07-19T12:00:00+01:00",
   "updated_by": "golden-dataset",
   "trace_id": "golden-dataset"

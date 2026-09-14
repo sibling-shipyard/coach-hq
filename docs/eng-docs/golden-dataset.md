@@ -1,6 +1,6 @@
 # Golden dataset
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · ADR: 0007
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14 · ADR: 0007
 
 Sample data for `/gallery`, `/welcome` and SwiftUI previews. Two layers, split by whether the
 consumer cares what "today" is. The decision and its rejected alternatives are ADR 0007; this
@@ -16,6 +16,16 @@ doc is the build detail behind it.
 Static files are hand-authored in the real `WidgetSnapshotsFile` / `CurrentWeekContract` schemas,
 so a schema change fails to typecheck rather than drifting quietly. Frozen dates are fine there —
 those consumers never ask what today is.
+
+**`CurrentWeekContract` is a stable widget contract, deliberately decoupled from the backend
+schema - the static file's job is to mirror what the adapter actually produces, not to match the
+backend one-to-one.** ADR 0042 dropped `planned_load` and root `coach_comments` from the real
+`current_week.json` on disk, but `currentWeekAdapter.ts` still hardcodes `planned_load: null` and
+`coach_comments: []` for every real athlete's data today rather than widening the widget
+contract - a deliberate choice, not an oversight. So the static sample file should carry the same
+values a real adapted week does. `planned_load: null` on every session is already correct in this
+file. `coach_comments: []` at the root is fixed here - an earlier version fabricated three
+realistic-looking comments, a shape no real athlete's data can produce anymore.
 
 The generated layer is rebuilt by `generate-repo-data.mjs` on every `npm run dev` and
 `npm run build`. Every date is relative to `Date.now()`, and the randomness is seeded from the

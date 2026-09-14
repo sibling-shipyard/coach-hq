@@ -37,7 +37,7 @@ Sports and Coach's labelled free-text notes. Written by
 |---|---|---|
 | `version` | `1` | |
 | `_meta` | `{updated_at, updated_by, trace_id}` | |
-| `sports` | `string[]` | |
+| `sports` | `string[]` | `sports_update` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `coaching_style` | `"accountability" \| "encouragement" \| "analysis" \| null` | Set by First Session; changeable via `coaching_style_update` |
 | `notes` | `Record<MemoryNoteLabel, MemoryNote>` | |
 
