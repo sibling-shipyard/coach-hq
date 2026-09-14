@@ -1213,6 +1213,119 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
   });
 });
 
+describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function oneActiveFlagTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      trimmed: "my knee's still a little sore but it's definitely improving",
+      geminiMessage: "my knee's still a little sore but it's definitely improving",
+      activeInjuryFlagIds: new Set<string>(["inj_1"]),
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when injury language is present, exactly one active flag exists, but neither injury_event nor injury_flag was set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Great to hear the knee is coming along.",
+        coach_note: "Knee improving.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Great to hear the knee is coming along.",
+        coach_note: "Knee improving.",
+        injury_event: [{ status: "resolved", flag_id: "inj_1" }],
+      });
+
+    const result = await requestCoachReply(oneActiveFlagTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_event?.[0]?.flag_id).toBe("inj_1");
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no injury_event or");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Great to hear the knee is coming along.",
+      coach_note: "Knee improving.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(oneActiveFlagTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedInjuryUpdateLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedInjuryUpdateLanguage"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt when injury_event was already captured this turn", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      injury_event: [{ status: "resolved", flag_id: "inj_1" }],
+    });
+
+    await requestCoachReply(oneActiveFlagTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when injury_flag was already captured this turn (a genuinely new injury)", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      injury_flag: [{ text: "new shoulder tweak" }],
+    });
+
+    await requestCoachReply(oneActiveFlagTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on adjacent-but-different phrasing (no injury language at all)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      oneActiveFlagTurnState({
+        trimmed: "had a great tempo run today, feeling strong",
+        geminiMessage: "had a great tempo run today, feeling strong",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  // Deliberate scope boundary, not an oversight to fix later (see the code comment above
+  // findMissedInjuryUpdateLanguage in coachTurn.ts): with 2+ active flags, "which injury" is
+  // ambiguous and this detector stays silent rather than risk a false-positive reprompt on an
+  // ordinary mention of one of several known issues.
+  it("does not reprompt with 2+ active flags, even with the same injury language (deliberate scope boundary)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      oneActiveFlagTurnState({
+        activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Live-verified (#727 review, 2026-09-13): reproduced live - the Weekly Kick-off Ritual
 // narrated a full 7-day plan in reply text (day-by-day bulleted breakdown) without ever setting
 // week_update. isProseOnlyWeekPlan's weekday-name-count detector catches this deterministically;
