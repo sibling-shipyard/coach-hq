@@ -1,6 +1,12 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-12
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+
+**Live status, 2026-09-14: `GEMINI_API_KEY` has no credit in this dev environment right now.**
+Any live/manual/eval/simulation-suite run must use `LLM_PROVIDER=openrouter` (real key present in
+`ui/.env.local`) until this is restored - a direct-Gemini call here fails or silently no-ops
+depending on the call path, not a clean error. This does not change the production default
+(`gemini-pro-latest` direct, per Options below) - only this dev account's testing credit.
 
 ## Context
 
