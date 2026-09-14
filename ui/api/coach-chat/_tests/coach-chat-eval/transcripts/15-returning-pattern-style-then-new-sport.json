@@ -1,0 +1,26 @@
+{
+  "name": "returning-pattern-style-then-new-sport",
+  "description": "Multi-turn merge of the old #37 (memory-update-learned-pattern), #38 (sports-update-new-sport), and #39 (returning-coaching-style-explicit-change) into one realistic conversation - the athlete's own complaint was that real check-ins drop multiple facts stated together, not one fact per transcript. Turn 1 states #37's durable training pattern and #39's explicit coaching-style request in the same message, the compound shape that actually needs testing. Turn 2 is #38's new-sport disclosure on its own turn later in the same check-in.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Strength Training\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** encouragement\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["How'd this week's training go overall?"] }
+  ],
+  "turns": [
+    {
+      "mode": "ordinary",
+      "userMessage": "Noticed something worth remembering - I always run noticeably better in the evening than the morning, my pace is consistently 20-30 seconds faster per km, worth keeping in mind for planning. Also, can you be more direct with me from now on? I don't need the pep talk, just tell me straight when I'm slipping.",
+      "expect": {
+        "actionFieldsPresent": ["memory_update", "coaching_style_update"]
+      }
+    },
+    {
+      "mode": "ordinary",
+      "userMessage": "Actually starting rock climbing this week too, joined a gym near me. Wanted to flag that as a new thing I'm doing regularly now.",
+      "expect": {
+        "actionFieldsPresent": ["sports_update"]
+      }
+    }
+  ]
+}

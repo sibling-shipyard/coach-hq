@@ -55,6 +55,7 @@ SCOPE_MAP: list[tuple[str, str]] = [
     ("ui/scripts/lib/llmPricing.ts",       "Vade-the-Tester"),
     ("test-results/",                      "Vade-the-Tester"),
     ("kdb/test-doc-style.md",              "Vade-the-Tester"),
+    ("ui/scripts/examples/",               "Vade-the-Tester"),
 
     # Coaching memory, sessions — Coach Phelps (overrides Bob's user_data/)
     ("user_data/coach/",                   "Coach-Phelps"),

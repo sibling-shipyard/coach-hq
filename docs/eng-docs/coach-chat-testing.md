@@ -120,8 +120,11 @@ transcript was diagnosed against a live run before being kept, not just rewritte
 correct. A stale expectation got fixed; a real gap got its own issue and stays red on purpose -
 grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the transcripts directory for the current list
 (none currently). #807 and #808 (both filed during G1's own pass) are resolved as of K1.
+`docs/eng-docs/coach-chat-test-scenarios.md` catalogs every transcript by its current number -
+read that instead of re-deriving the current set from this history.
 
-`#27`'s `injury_flag` drop on a dense multi-fact FSP turn has a real fix now too, in two stages.
+Transcript `#27`'s (now `08-fsp-quest-create` - see the catalog above) `injury_flag` drop on a
+dense multi-fact FSP turn has a real fix now too, in two stages.
 It was reframed and partly fixed on 2026-09-09: the actual shape was a hallucinated
 `template_edit.template_id` crash, not a plain drop - `validateTemplateEdit`/`validateSessionPlan`/
 `validateSessionReconcile`/`validatePlanEdit` added to `validateActions.ts`. It then resurfaced
@@ -184,7 +187,8 @@ Never treat a `derived` entry as evidence of a real bug - only `observed` entrie
 **The fourth test type - the simulation suite** (`ui/scripts/run-simulation-suite.ts`, paid, live
 model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
 above are no longer just run by hand. `run-simulation-suite.ts` drives a small tracked library of
-those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`) one at a time through
+those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`, `ambiguous-contradiction`) one at
+a time through
 `test:coach-chat-manual`'s real pipeline - a child-process invocation, same real
 SOUL/repo/Gemini/commit path above. It then scores each against its own `expect` block: which
 `turnIndex`es must land, which changed files each one must or must not include. That's matched
