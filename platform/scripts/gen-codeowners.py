@@ -46,6 +46,16 @@ SCOPE_MAP: list[tuple[str, str]] = [
     # Native iOS app — iOS Builder
     ("ios/",                               "iOS-Builder"),
 
+    # Testing infrastructure and process — vade-the-tester (overrides Bob's ui/api/, ui/scripts/)
+    ("ui/api/coach-chat/_tests/coach-chat-eval/", "Vade-the-Tester"),
+    ("ui/scripts/eval-coach-chat.ts",      "Vade-the-Tester"),
+    ("ui/scripts/run-manual-coach-chat-test.ts", "Vade-the-Tester"),
+    ("ui/scripts/run-simulation-suite.ts", "Vade-the-Tester"),
+    ("ui/scripts/run-tests-logged.ts",     "Vade-the-Tester"),
+    ("ui/scripts/lib/llmPricing.ts",       "Vade-the-Tester"),
+    ("tests/",                             "Vade-the-Tester"),
+    ("kdb/test-doc-style.md",              "Vade-the-Tester"),
+
     # Coaching memory, sessions — Coach Phelps (overrides Bob's user_data/)
     ("user_data/coach/",                   "Coach-Phelps"),
     ("user_data/ledger/challenge_v2.json", "Coach-Phelps"),
