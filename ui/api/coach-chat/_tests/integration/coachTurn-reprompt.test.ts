@@ -1787,4 +1787,97 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     // only count what has injury-keyword language, and this phrasing only gives it one hit.
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
+
+  // Code review finding on the #1037 PR D collapsing logic: the original word-distance-only
+  // design compared each hit to the last RAW hit instead of the last COUNTED hit, and even fixing
+  // that comparison-basis bug alone isn't enough, because three genuinely distinct injuries named
+  // close together have keyword gaps similar to one injury restated nearby - pure word-distance
+  // can't tell the two shapes apart. This is the review's own counterexample, verbatim: three real
+  // injuries roughly 5 words apart pairwise, which the old design collapsed into 1 mention and
+  // would have silently dropped 2 of them. The location-word-based rewrite must count all 3.
+  it("counts three distinct injuries named close together (review's own counterexample)", async () => {
+    const threeInjuryMessage = "My ankle hurts, my knee hurts too, and my shoulder is sore";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the ankle and knee.",
+        coach_note: "Ankle and knee soreness.",
+        injury_flag: [{ text: "ankle" }, { text: "knee" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted all three.",
+        coach_note: "Ankle, knee, and shoulder soreness.",
+        injury_flag: [{ text: "ankle" }, { text: "knee" }, { text: "shoulder" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: threeInjuryMessage, geminiMessage: threeInjuryMessage }),
+    );
+
+    // 2 captured against 3 real distinct mentions - only detectable if the detector counts all 3
+    // rather than collapsing them down to 1 the way the old word-distance-only design did.
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_flag?.length).toBe(3);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
+  });
+
+  // Adapted version of the athlete's original scenario above with a phrasing that actually gives
+  // the knee its own matching keyword ("still sore" instead of "feeling a lot better", which
+  // INJURY_LANGUAGE_PATTERN doesn't match at all - see the documented limitation on the test
+  // above). This variant has 2 real keyword hits with 2 different location words (knee, ankle),
+  // which is what actually exercises the location-based collapsing on this scenario's shape.
+  it("counts the knee and ankle as 2 distinct mentions when both carry matching keywords", async () => {
+    const message =
+      "my knee's still sore, but I think I tweaked my ankle earlier and my shoulder's" +
+      " still bugging me too";
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted the ankle.",
+        coach_note: "New ankle tweak.",
+        injury_flag: [{ text: "tweaked ankle" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted the ankle and knee.",
+        coach_note: "New ankle tweak, knee still sore.",
+        injury_flag: [{ text: "tweaked ankle" }],
+        injury_event: [{ status: "active", flag_id: "inj_1" }],
+      });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    const injuryFlagCount = ("reply" in result && result.reply.injury_flag?.length) || 0;
+    const injuryEventCount = ("reply" in result && result.reply.injury_event?.length) || 0;
+    expect(injuryFlagCount + injuryEventCount).toBe(2);
+  });
+
+  // Fallback path: neither hit has a location word anywhere nearby, so there's nothing for the
+  // location-based signal to go on and the detector falls back to word-distance from the last
+  // counted hit, same as the old design. Not claiming this fallback is perfect - just checking it
+  // isn't obviously broken: two bare "hurting" mentions separated by a long, unrelated stretch of
+  // text (well past the 12-word collapse window) should still count as 2 distinct mentions rather
+  // than collapsing to 1.
+  it("falls back to word-distance when no location word is present near either hit", async () => {
+    const message =
+      "it's really been hurting a lot today and I genuinely don't know why, it's been going" +
+      " on like this for weeks now and honestly it just started hurting again in a totally" +
+      " different way this afternoon";
+    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+      reply: "Noted.",
+      coach_note: "Ongoing discomfort, unclear cause.",
+      injury_event: [{ status: "active", flag_id: "inj_1" }],
+    });
+
+    const result = await requestCoachReply(
+      injuryTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    // 1 captured against 2 fallback-counted mentions - only fires if the word-distance fallback
+    // still recognizes these as 2 distinct hits rather than collapsing them to 1.
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    const injuryEventCount = ("reply" in result && result.reply.injury_event?.length) || 0;
+    expect(injuryEventCount).toBe(1);
+  });
 });

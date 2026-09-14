@@ -733,33 +733,125 @@ function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): st
 // INJURY_LANGUAGE_PATTERN matches keywords like "sore"/"hurt"/"pain" - a single injury described
 // across two sentences ("my knee still hurts, it's sore in the mornings") produces 2 keyword hits
 // for 1 real injury, which would over-count and false-positive a reprompt for an injury already
-// captured once. Raw per-keyword counting isn't safe to ship as-is, so this collapses keyword
-// hits that land close together in the message into a single mention before counting, on the
-// theory that a real second injury needs its own location/context words first and so reliably
-// sits farther from the prior keyword than a restated hit on the same injury does. Verified
-// against both shapes in the test suite: a same-injury-restated-nearby case (must not fire) and a
-// two-injuries-described-far-apart case (must still fire). 12 words is a starting point, not a
-// proven constant - narrow it if a live transcript shows it collapsing two real distinct
-// injuries, per the LLD's instruction to narrow on collision, never drop the check.
+// captured once. Raw per-keyword counting isn't safe to ship as-is.
+//
+// I originally tried collapsing keyword hits purely by word-distance (hits within N words of the
+// prior hit collapse together), on the theory that a real second injury needs its own
+// location/context words first and so sits farther from the prior keyword than a restated hit on
+// the same injury does. That doesn't hold up: "My ankle hurts, my knee hurts too, and my shoulder
+// is sore" has three genuinely distinct injuries whose keyword hits are only ~5 words apart
+// pairwise - well inside any window wide enough to also catch the restated-nearby case - so a
+// pure word-distance heuristic collapses all three into one and silently drops two real injuries.
+// Word distance alone can't tell "one injury restated nearby" from "several different injuries
+// listed close together," because both patterns produce similar gaps between keyword hits.
+//
+// The actual distinguishing signal is body location. A real second injury almost always names its
+// own body part ("my ankle... my knee... my shoulder"); a restated mention of the same injury
+// usually either drops the location entirely (a pronoun or ellipsis - "it's still sore," "still
+// hurts in the mornings") or repeats the same location word. So I match on the nearest named body
+// part around each hit first, and only fall back to word-distance from the last counted hit when a
+// hit has no location word nearby at all (a bare "it hurts" with nothing named) - which keeps the
+// old, simpler behavior for that edge case. Verified in the test suite against: three distinct
+// injuries close together (must all count, the case above), one injury restated nearby (must not
+// double-count), and the plain word-distance fallback with no location word present.
 const INJURY_MENTION_COLLAPSE_WINDOW_WORDS = 12;
+
+// Common body-part/location vocabulary - the signal that lets countDistinctInjuryMentions tell a
+// restated mention of the same injury apart from a second, genuinely different one. Not
+// exhaustive, just the common set an athlete would actually say out loud.
+const BODY_LOCATION_WORDS = [
+  "ankle",
+  "ankles",
+  "knee",
+  "knees",
+  "shoulder",
+  "shoulders",
+  "back",
+  "hip",
+  "hips",
+  "wrist",
+  "wrists",
+  "elbow",
+  "elbows",
+  "foot",
+  "feet",
+  "calf",
+  "calves",
+  "hamstring",
+  "hamstrings",
+  "quad",
+  "quads",
+  "quadricep",
+  "quadriceps",
+  "groin",
+  "neck",
+  "shin",
+  "shins",
+  "achilles",
+  "hand",
+  "hands",
+  "thigh",
+  "thighs",
+  "toe",
+  "toes",
+  "heel",
+  "heels",
+  "rib",
+  "ribs",
+];
+const LOCATION_PATTERN = new RegExp(`\\b(${BODY_LOCATION_WORDS.join("|")})\\b`, "i");
+
+// Looks for a body-location word in a small window of words around a hit rather than across the
+// whole message, so a location word describing a different sentence/injury far away doesn't get
+// wrongly attributed to this hit. Scans word-by-word and keeps the CLOSEST match by distance from
+// the hit, not the first one the window happens to contain in reading order - two hits close
+// together can have overlapping windows, and taking "first match in the joined window text" would
+// attribute both to whichever location word appears earliest, even when a closer, different one
+// exists for the second hit.
+function nearestLocationWord(words: string[], hitWordIndex: number): string | null {
+  const windowRadius = 5;
+  const start = Math.max(0, hitWordIndex - windowRadius);
+  const end = Math.min(words.length, hitWordIndex + windowRadius + 1);
+  let closest: { word: string; distance: number } | null = null;
+  for (let i = start; i < end; i++) {
+    const found = words[i].match(LOCATION_PATTERN);
+    if (!found) continue;
+    const distance = Math.abs(i - hitWordIndex);
+    if (!closest || distance < closest.distance) {
+      closest = { word: found[0].toLowerCase().replace(/s$/, ""), distance }; // normalize plural
+    }
+  }
+  return closest ? closest.word : null;
+}
 
 function countDistinctInjuryMentions(text: string): string[] {
   const pattern = new RegExp(INJURY_LANGUAGE_PATTERN, "gi");
-  const hits: { keyword: string; wordIndex: number }[] = [];
+  const words = text.split(/\s+/).filter(Boolean);
+  const hits: { keyword: string; wordIndex: number; location: string | null }[] = [];
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const wordIndex = text.slice(0, match.index).split(/\s+/).filter(Boolean).length;
-    hits.push({ keyword: match[0], wordIndex });
+    hits.push({ keyword: match[0], wordIndex, location: nearestLocationWord(words, wordIndex) });
   }
-  const distinct: string[] = [];
-  let lastCountedWordIndex = -Infinity;
+  const distinct: { keyword: string; wordIndex: number; location: string | null }[] = [];
   for (const hit of hits) {
-    if (hit.wordIndex - lastCountedWordIndex > INJURY_MENTION_COLLAPSE_WINDOW_WORDS) {
-      distinct.push(hit.keyword);
+    // Same named body part as an already-counted mention - same real injury, collapse it.
+    if (hit.location !== null && distinct.some((counted) => counted.location === hit.location)) {
+      continue;
     }
-    lastCountedWordIndex = hit.wordIndex;
+    // No location word nearby at all - fall back to word-distance from the last counted hit
+    // (comparing to the last DISTINCT hit here, not the last raw hit, unlike the old version).
+    const lastCounted = distinct[distinct.length - 1];
+    if (
+      hit.location === null &&
+      lastCounted &&
+      hit.wordIndex - lastCounted.wordIndex <= INJURY_MENTION_COLLAPSE_WINDOW_WORDS
+    ) {
+      continue;
+    }
+    distinct.push(hit);
   }
-  return distinct;
+  return distinct.map((counted) => counted.keyword);
 }
 
 function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
