@@ -2,7 +2,10 @@
 
 - **Status:** Accepted · 2026-08-02 · Tech Lead · **backfill clause is spent** — `provision-user.sh`
   is deleted, issue #199 completed the one backfill it existed for, and both live repos carry a
-  confirmed value. `injectCoachSinceIfNeeded` is now the sole writer.
+  confirmed value. `injectCoachSinceIfNeeded` is now the sole writer. **File path corrected
+  2026-09-14** — ADR 0045's split-ledger redesign moved the field's home from `challenge_v2.json`
+  to `profile.json`. The Decision and How-to-apply fields below reflect that; the actual decision
+  (write-once, never infra-derived) is unchanged.
 - **Area:** cross-cutting (coach-chat backend, terminal SOUL, web, iOS)
 - **Context:** Every "day-N" display was computed from `season.start_date` or
   `challenge.start_date`. Both reset when a new block begins, so an athlete a year into coaching
@@ -11,11 +14,11 @@
   instead. That is the same infra-timestamp anchor already rejected for `repo.created_at`. It
   records when a repo was made, not when a coaching relationship started, and it resets if the
   repo is ever recreated.
-- **Decision:** Add `coach_since` to `challenge_v2.json` as a top-level, write-once date. The
-  server sets it in `coach-chat.ts` the first time the athlete's `state.md` profile flips from
-  incomplete to complete — the turn that genuinely finishes the First Session Protocol. The
-  backend detects that transition itself and injects the field into the same turn's write, rather
-  than trusting the model to propose it. Every consumer resolves
+- **Decision:** Add `coach_since` to `profile.json` as a top-level, write-once date. The server
+  sets it in `coachSinceStamp.ts` (called from `coachTurn.ts`) the first time the athlete's
+  `profile.json` flips from incomplete to complete — the turn that genuinely finishes the First
+  Session Protocol. The backend detects that transition itself and injects the field into the same
+  turn's write, rather than trusting the model to propose it. Every consumer resolves
   `coach_since ?? season.start_date ?? challenge.start_date`.
 - **Why:** Completing the First Session is a real event in the athlete's own data, so the anchor
   survives what infra timestamps do not — the same repo, re-provisioned or migrated, keeps its
@@ -28,7 +31,8 @@
   infrastructure. Never write `coach_since` a second time.
 - **How to apply:** Any new day-number display reads `coach_since` first, then
   `season.start_date`, then `challenge.start_date` — never `repo.created_at`, never a fresh guess.
-  Four implementations run this same chain: `injectCoachSinceIfNeeded` and `coachDayNumber` in
-  `ui/api/coach-chat.ts`, `challengeDayNumber` in
+  Four implementations run this same chain: `injectCoachSinceIfNeeded`
+  (`ui/api/coach-chat/_lib/decide/coachSinceStamp.ts`) and `coachDayNumber`
+  (`ui/api/coach-chat/_lib/decide/coachDay.ts`), `challengeDayNumber` in
   `ui/client/src/components/coach-chat/coachChatModel.ts`, iOS's `readCoachDayAnchorDate()`, and
   `platform/soul/B_engine.md` §1 step 7.
