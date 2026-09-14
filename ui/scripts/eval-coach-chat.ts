@@ -48,7 +48,7 @@
  * LLM_PROVIDER=openrouter.
  *
  * Run log: every invocation writes a fresh
- * <repo-root>/tests/<YYYY-MM-DD>/eval/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not
+ * <repo-root>/test-results/raw/<YYYY-MM-DD>/eval/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not
  * every filesystem accepts them) with one entry per transcript that actually called Gemini this run (a
  * CACHED transcript has no fresh input/output, so it's skipped). Each entry carries exactly what
  * was sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of

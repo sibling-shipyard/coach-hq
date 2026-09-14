@@ -8,7 +8,7 @@
  *
  * I don't reimplement anything run-manual-coach-chat-test.ts already does - this drives it as a
  * child process (same way an athlete's own shell would run `npm run test:coach-chat-manual`) and
- * reads back the dated JSON log it already writes under tests/<date>/manual/. Scratch-branch
+ * reads back the dated JSON log it already writes under test-results/raw/<date>/manual/. Scratch-branch
  * discipline (never main, never the repo's default branch) is enforced there, not duplicated
  * here - --branch is left unset by default so each scenario gets its own auto-named scratch
  * branch, same as any other manual run.
@@ -253,7 +253,7 @@ async function main() {
     return;
   }
 
-  const coveragePath = path.join(repoRoot, "tests", "coverage-index.json");
+  const coveragePath = path.join(repoRoot, "test-results", "coverage-index.json");
   const coverageIndex = readCoverageIndex(coveragePath);
   const hqSha = currentHqSha();
   const today = new Date().toISOString().slice(0, 10);

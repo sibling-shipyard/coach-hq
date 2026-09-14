@@ -28,7 +28,7 @@
  *
  * Needs GEMINI_API_KEY in ui/.env.local or env, and a GitHub CLI session (`gh auth token`).
  *
- * Run log: writes <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-message-<repo-slug>-log-<HH-MM-SS>.json.
+ * Run log: writes <repo-root>/test-results/raw/<YYYY-MM-DD>/manual/manual-coach-message-<repo-slug>-log-<HH-MM-SS>.json.
  */
 import { execSync } from "node:child_process";
 import path from "node:path";

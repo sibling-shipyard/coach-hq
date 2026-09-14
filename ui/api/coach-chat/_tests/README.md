@@ -61,5 +61,6 @@ conflate a "layer 1" comment inside a test file with this directory's `layer1-ge
 
 `npm test` runs this whole suite (plus everything else under `ui/`) via Vitest - no live API calls
 required. `npm run test:logged` (added alongside the layer-1/3 work) additionally writes a dated,
-timestamped JSON run report to `tests/<date>/unit/`, matching the logging convention already used
-by `eval:coach-chat` (`tests/<date>/eval/`) and `test:coach-chat-manual` (`tests/<date>/manual/`).
+timestamped JSON run report to `test-results/raw/<date>/unit/`, matching the logging convention
+already used by `eval:coach-chat` (`test-results/raw/<date>/eval/`) and `test:coach-chat-manual`
+(`test-results/raw/<date>/manual/`).

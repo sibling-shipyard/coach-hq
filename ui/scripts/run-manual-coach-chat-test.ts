@@ -67,7 +67,7 @@
  * provider will actually run the call), and a GitHub CLI session (`gh auth token`).
  *
  * Run log: writes
- * <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-chat-<repo-slug>-log-<HH-MM-SS>.json (the
+ * <repo-root>/test-results/raw/<YYYY-MM-DD>/manual/manual-coach-chat-<repo-slug>-log-<HH-MM-SS>.json (the
  * repo slug is `owner/name` sanitized to a filename-safe string), same shape as
  * eval-coach-chat.ts's log but with `confidence: "observed"` filesChanged - a real git diff of
  * the local clone across each turn's before/after commit sha, not a guess.

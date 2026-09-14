@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// Runs the full vitest suite and writes a dated JSON run report, same tests/<YYYY-MM-DD>/<kind>/
+// Runs the full vitest suite and writes a dated JSON run report, same test-results/raw/<YYYY-MM-DD>/<kind>/
 // convention as ui/scripts/lib/testLog.ts uses for eval/manual runs - so `npm test` stays the
 // fast everyday loop, and `npm run test:logged` is the one an agent reaches for when asked to
 // "run the tests and leave a record."
