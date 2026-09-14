@@ -672,6 +672,27 @@ function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
 }
 
+// #1009 (injury_event hardening): the opposite scoping problem from findMissedInjuryLanguage
+// above. That check is safe because zero active flags means any injury language is necessarily
+// new. Here flags already exist, which is exactly what makes plain injury language ambiguous - is
+// the athlete updating a known flag, reporting a brand-new one (injury_flag), or just describing
+// ordinary training discomfort that isn't flag-worthy at all? The narrow, safe version: only fire
+// when EXACTLY ONE active flag exists, since "which injury" stops being ambiguous once there's
+// only one candidate. Deliberately not scoped to firstSession like its sibling - injury updates
+// are a returning-athlete-dominant flow, and the single-active-flag condition is what makes this
+// safe instead of the first-session/zero-flags disambiguator the sibling uses. Reuses the existing
+// INJURY_LANGUAGE_PATTERN rather than a new one - same phrasing, different gate.
+// Known scope boundary, not an oversight: with 2+ active flags this stays silent even when the
+// athlete clearly describes an injury changing, because there's no safe way to tell which flag
+// they mean without risking a reprompt on an ordinary 1-of-many mention. See the dedicated test
+// below confirming this is deliberate.
+function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if ((turn.activeInjuryFlagIds ?? new Set()).size !== 1) return null;
+  if ((reply.injury_event ?? []).length > 0) return null;
+  if ((reply.injury_flag ?? []).length > 0) return null;
+  return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+}
+
 // Single source of truth for "which fields count as schedule-changing" - both this function and
 // buildTurnWrites's blockedFields computation need the exact same list, and drift between two
 // separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
@@ -818,6 +839,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
+    const missedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercise = findMalformedWorkoutCreateExercise(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -839,6 +861,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedProfileLanguage ||
       missedRemovalLanguage ||
       missedSportsLanguage ||
+      missedInjuryUpdateLanguage ||
       unconfirmedAssumption ||
       malformedExercise ||
       proseOnlyWeekPlan
@@ -853,6 +876,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedProfileLanguage,
         missedRemovalLanguage,
         missedSportsLanguage,
+        missedInjuryUpdateLanguage,
         unconfirmedAssumption,
         malformedExercise,
         proseOnlyWeekPlan,
@@ -924,6 +948,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " sport, disregard this note",
         );
       }
+      if (missedInjuryUpdateLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedInjuryUpdateLanguage}" but no injury_event or` +
+            " injury_flag was set this turn, and exactly one active injury flag is on file - if" +
+            " this describes an update to that flag, add it now as injury_event with its real" +
+            " flag_id; if it genuinely doesn't describe an injury update, disregard this note",
+        );
+      }
       if (unconfirmedAssumption) {
         notes.push(
           `you left this open last turn and never got a real answer to it: "${unconfirmedAssumption}"` +
@@ -978,6 +1010,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
+      const stillMissedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
@@ -999,6 +1032,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedProfileLanguage ||
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
+        stillMissedInjuryUpdateLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercise ||
         stillProseOnlyWeekPlan
@@ -1015,6 +1049,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage,
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
+            stillMissedInjuryUpdateLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercise,
             stillProseOnlyWeekPlan,
@@ -1036,6 +1071,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage ? "missedProfileLanguage" : null,
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
             stillMissedSportsLanguage ? "missedSportsLanguage" : null,
+            stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercise ? "malformedExercise" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,

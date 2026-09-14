@@ -139,8 +139,8 @@ guard once deferred pending D1 is in now too (`#40`), D1 having landed.
   yet - see that doc's own tracked follow-up.
 - Because this tool calls `askGemini()` directly, it structurally cannot exercise `coachTurn.ts`'s
   reprompt mechanism - a false PASS here says nothing about whether the reprompt/guard layer
-  (`docs/plans/coach-chat-action-field-hardening.md`) is working. Only `test:coach-chat-manual`
-  and the layered `coachTurn-reprompt.test.ts` suite can.
+  (see `gemini-flow.md`'s "Narration-vs-action reliability guards" coverage table) is working.
+  Only `test:coach-chat-manual` and the layered `coachTurn-reprompt.test.ts` suite can.
 - No persona/voice judging, by design (see Purpose above) - a SOUL-wording regression that changes
   *tone* without breaking structure passes here silently. `docs/ref-docs/soul-calibration.md` is
   the closest thing to a fixture for that, and it isn't wired into any automated run.

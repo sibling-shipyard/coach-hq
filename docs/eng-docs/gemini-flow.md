@@ -274,7 +274,7 @@ test already covers.
 | `memory_update` | prompt reinforcement | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | - |
-| `injury_event` | none | none |
+| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag only) | invalid-`flag_id` reprompt (D1, #736) |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
@@ -283,9 +283,9 @@ timezone language. It only fires when that's not already on file and not already
 turn's `profile_update` - first-session only, same three-part scoping as its siblings.
 `coaching_style_update`, standalone `quest_create`, and `memory_update` get prompt reinforcement
 only. None has a phrasing narrow enough for a safe reprompt trigger without real false-positive
-risk against ordinary conversation - see
-`docs/plans/coach-chat-action-field-hardening.md`'s per-field table for why. `injury_event`,
-`sports_update`, and `workout_remove` are follow-up PRs on the same stack, not yet shipped.
+risk against ordinary conversation - see the coverage table above for the shipped state of each.
+`injury_event`, `sports_update`, and `workout_remove` shipped in the follow-up PRs on this same
+stack, described below.
 
 **#1009 hardening round, PR B (2026-09-14):** `workout_remove` and `sports_update` now have the
 same reprompt-guard treatment. `findMissedRemovalLanguage` checks the athlete's own message for
@@ -296,6 +296,25 @@ up"/"also play/do/doing"), deliberately the narrowest pattern in this round. A b
 risks colliding with an ordinary session report ("badminton was rough today"). The pattern never
 matches on a sport name alone. Both run through the same `captureStillUnresolvedGuard` Sentry path
 PR A added. `injury_event` remains the last field, follow-up PR C on the same stack.
+
+**#1009 hardening round, PR C (2026-09-14, last PR in this stack):** `injury_event` now has a
+reprompt guard too, but scoped differently from every sibling above. `findMissedInjuryLanguage`
+(the existing `injury_flag` guard) is safe only when zero active flags exist - no candidate means
+any injury language must be new. `injury_event` is the opposite case: flags already exist, which
+is exactly what makes plain injury language ambiguous - updating a known flag, reporting a genuinely
+new one, or just ordinary training soreness that isn't flag-worthy at all. `findMissedInjuryUpdateLanguage`
+reuses the same `INJURY_LANGUAGE_PATTERN` but only fires when EXACTLY ONE active flag exists -
+"which injury" stops being ambiguous once there's only one candidate. Deliberately not scoped to
+first-session, unlike its sibling - injury updates are a returning-athlete-dominant flow, and the
+single-active-flag condition is what makes this safe. With 2+ active flags the detector stays
+silent by design; that boundary is documented in the code comment above the detector and in the
+matching unit test, not an oversight. Also runs through the same `captureStillUnresolvedGuard`
+Sentry path.
+
+This closes out the #1009 hardening round. All seven fields it set out to cover -
+`profile_update`, `workout_remove`, `sports_update`, `injury_event`, `coaching_style_update`,
+standalone `quest_create`, and `memory_update` - are now accounted for, either with a real
+detector or a documented prompt-only decision. See the table above for the final state.
 
 The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, after every
 detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`
