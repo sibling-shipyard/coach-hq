@@ -495,9 +495,16 @@ function findUnrecordedFacts(reply: GeminiReply): string[] | null {
 // actually hit; the full invariant set (progression id, dose cap, injury ack) still gets its own
 // enforcement at the write path regardless; this only catches what a reprompt can plausibly fix
 // with a second, cheap generation.
-function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
+// #1037 PR F: used to return on the first bad exercise found (string | null), so a second bad
+// exercise surviving the reprompt tripped applyWorkoutCreate's all-or-nothing throw and dropped
+// the whole routine - the reprompt only ever named one of the two problems. Collects every
+// violation across every phase/exercise instead, same idea as workout_create.injury_ack's
+// existing all-violations check (applyWorkoutCreate above, "active injury flag(s) not
+// acknowledged" - already the one place in this codebase that reports every violation at once).
+function findMalformedWorkoutCreateExercises(reply: GeminiReply): string[] | null {
   const spec = reply.workout_create;
   if (!spec) return null;
+  const violations: string[] = [];
   for (const phase of spec.phases ?? []) {
     for (const ex of phase.exercises ?? []) {
       // Review finding (P2, #727 hardening): this used to hand-check reps/duration_secs presence
@@ -506,10 +513,10 @@ function findMalformedWorkoutCreateExercise(reply: GeminiReply): string | null {
       // exported exerciseTypeFieldViolation instead; only the wording changed slightly (this
       // note's caller prefixes it with the exercise name either way).
       const violation = exerciseTypeFieldViolation(ex);
-      if (violation) return `"${ex.name}" ${violation}`;
+      if (violation) violations.push(`"${ex.name}" ${violation}`);
     }
   }
-  return null;
+  return violations.length > 0 ? violations : null;
 }
 
 // Live-verified (#727 review, 2026-09-13): the Weekly Kick-off Ritual intermittently narrates a
@@ -583,6 +590,27 @@ function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | 
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
   return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+}
+
+// #1037 PR F: returning-athlete counterpart to findMissedHabitLanguage above. That check is safe
+// because a first-session athlete with zero existing quests has nothing yet to be "referencing,"
+// so the broad HABIT_LANGUAGE_PATTERN (every day/daily/habit/routine/track/log/streak) is safe to
+// key on directly. That disambiguator doesn't hold once quests exist - an established athlete says
+// "routine" and "track" constantly about existing training, not a new habit quest (#1009's own
+// LLD flagged this exact false-positive risk when this gap was first scoped). So this doesn't
+// reuse the broad pattern at all - it keys on explicit new-habit-starting phrasing only, language
+// that implies *beginning* something rather than describing something already underway.
+// Narrowed after a first draft ("going to start" plus any following word) was checked against
+// ordinary training chat - "I'm going to start my long run tomorrow" matched it, which is exactly
+// the false-positive class this needs to avoid. "going to start" now requires "new"/"habit" in the
+// same phrase, same discipline every other keyed-language pattern in this file already follows.
+const NEW_HABIT_LANGUAGE_PATTERN =
+  /\b(start(?:ing)? a new habit|want to start (?:tracking|doing)|going to start (?:a )?new (?:daily )?habit|new daily habit)\b/i;
+
+function findMissedNewHabitLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (turn.firstSession) return null; // covered by findMissedHabitLanguage above
+  if ((reply.quest_create?.quests ?? []).length > 0) return null;
+  return firstMatch(turn.geminiMessage, NEW_HABIT_LANGUAGE_PATTERN);
 }
 
 // Live-verified (#727 review, 2026-09-13): reproduced live twice - the athlete stated a goal
@@ -987,32 +1015,33 @@ function findUnconfirmedAssumption(turn: TurnState, reply: GeminiReply): string 
 // findOversizedTextField above: detect the specific bad reference, name the actual valid ids in
 // one corrective reprompt, use the corrected result. A stale/hallucinated id that survives even
 // this is layer 3's job (buildTurnWrites) - drop just that action, never the whole turn.
-function findInvalidReference(
+// #1037 PR F: used to `.find` and return on the first bad id across quest_event/injury_event -
+// a second bad id in the same reply got no mention in the reprompt at all, so the corrective call
+// could fix one and leave the other for layer 3 to silently drop. Not a correctness bug -
+// validateActions.ts's per-entry drop logic already handles multiple bad ids at commit time
+// regardless of what the reprompt says - this only makes the reprompt message Gemini sees more
+// complete, so its retry has full information instead of playing whack-a-mole one id at a time.
+function findInvalidReferences(
   reply: GeminiReply,
   validQuestIds: ReadonlySet<string>,
   validInjuryFlagIds: ReadonlySet<string>,
-): { field: string; badId: string; validIds: readonly string[] } | null {
-  const badQuestEvent = (reply.quest_event ?? []).find(
-    (event) => event.quest_id != null && !validQuestIds.has(event.quest_id),
-  );
-  if (badQuestEvent) {
-    return {
+): { field: string; badId: string; validIds: readonly string[] }[] | null {
+  const badQuestEvents = (reply.quest_event ?? [])
+    .filter((event) => event.quest_id != null && !validQuestIds.has(event.quest_id))
+    .map((event) => ({
       field: "quest_event",
-      badId: badQuestEvent.quest_id,
+      badId: event.quest_id,
       validIds: [...validQuestIds],
-    };
-  }
-  const badInjuryEvent = (reply.injury_event ?? []).find(
-    (event) => event.flag_id != null && !validInjuryFlagIds.has(event.flag_id),
-  );
-  if (badInjuryEvent) {
-    return {
+    }));
+  const badInjuryEvents = (reply.injury_event ?? [])
+    .filter((event) => event.flag_id != null && !validInjuryFlagIds.has(event.flag_id))
+    .map((event) => ({
       field: "injury_event",
-      badId: badInjuryEvent.flag_id,
+      badId: event.flag_id,
       validIds: [...validInjuryFlagIds],
-    };
-  }
-  return null;
+    }));
+  const all = [...badQuestEvents, ...badInjuryEvents];
+  return all.length > 0 ? all : null;
 }
 
 // D1 (#736): a Gemini-call failure ("Coach never got to reply") gets its own honest, consistent
@@ -1090,6 +1119,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const unrecordedFacts = findUnrecordedFacts(reply);
     const missedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
     const missedHabitLanguage = findMissedHabitLanguage(turn, reply);
+    const missedNewHabitLanguage = findMissedNewHabitLanguage(turn, reply);
     const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
@@ -1098,7 +1128,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedQuestLanguage = findMissedQuestLanguage(turn, reply);
     const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
-    const malformedExercise = findMalformedWorkoutCreateExercise(reply);
+    const malformedExercises = findMalformedWorkoutCreateExercises(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
     // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
@@ -1114,6 +1144,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       unrecordedFacts ||
       missedInjuryLanguage ||
       missedHabitLanguage ||
+      missedNewHabitLanguage ||
       missedSeasonLanguage ||
       missedProfileLanguage ||
       missedRemovalLanguage ||
@@ -1122,7 +1153,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedQuestLanguage ||
       uncountedInjuryLanguage ||
       unconfirmedAssumption ||
-      malformedExercise ||
+      malformedExercises ||
       proseOnlyWeekPlan
     ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
@@ -1131,6 +1162,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         unrecordedFacts,
         missedInjuryLanguage,
         missedHabitLanguage,
+        missedNewHabitLanguage,
         missedSeasonLanguage,
         missedProfileLanguage,
         missedRemovalLanguage,
@@ -1139,7 +1171,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedQuestLanguage,
         uncountedInjuryLanguage,
         unconfirmedAssumption,
-        malformedExercise,
+        malformedExercises,
         proseOnlyWeekPlan,
         traceId: turn.traceId,
       });
@@ -1176,6 +1208,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           `the athlete's message contains "${missedHabitLanguage}" but no habit was captured` +
             " this turn (via season_start.new_habits or quest_create) - if a real habit was" +
             " stated, add it now; if it genuinely doesn't describe a new habit, disregard this note",
+        );
+      }
+      if (missedNewHabitLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedNewHabitLanguage}" but no new habit quest was` +
+            " captured this turn (via quest_create) - if the athlete is genuinely starting a new" +
+            " habit, add it now as quest_create; if it genuinely just describes their existing" +
+            " routine, disregard this note",
         );
       }
       if (missedSeasonLanguage) {
@@ -1241,11 +1281,12 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " ask again instead, or proceed only if the athlete's message genuinely does answer it",
         );
       }
-      if (malformedExercise) {
+      if (malformedExercises) {
         notes.push(
-          `your workout_create has a structural problem: ${malformedExercise} - a "reps" exercise` +
-            ' needs a real reps number, a "timed" exercise needs a real duration_secs number;' +
-            " fix that one field, keep everything else the same",
+          `your workout_create has ${malformedExercises.length} structural problem(s): ` +
+            `${malformedExercises.join("; ")} - a "reps" exercise needs a real reps number, a` +
+            ' "timed" exercise needs a real duration_secs number; fix every one of those fields,' +
+            " keep everything else the same",
         );
       }
       if (proseOnlyWeekPlan) {
@@ -1283,6 +1324,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillUnrecordedFacts = findUnrecordedFacts(reply);
       const stillMissedInjuryLanguage = findMissedInjuryLanguage(turn, reply);
       const stillMissedHabitLanguage = findMissedHabitLanguage(turn, reply);
+      const stillMissedNewHabitLanguage = findMissedNewHabitLanguage(turn, reply);
       const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
@@ -1291,7 +1333,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedQuestLanguage = findMissedQuestLanguage(turn, reply);
       const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
-      const stillMalformedExercise = findMalformedWorkoutCreateExercise(reply);
+      const stillMalformedExercises = findMalformedWorkoutCreateExercises(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
       // - the model stops self-flagging the miss on retry (it now believes its confabulated
@@ -1307,6 +1349,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUnrecordedFacts ||
         stillMissedInjuryLanguage ||
         stillMissedHabitLanguage ||
+        stillMissedNewHabitLanguage ||
         stillMissedSeasonLanguage ||
         stillMissedProfileLanguage ||
         stillMissedRemovalLanguage ||
@@ -1315,7 +1358,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedQuestLanguage ||
         stillUncountedInjuryLanguage ||
         stillUnconfirmedAssumption ||
-        stillMalformedExercise ||
+        stillMalformedExercises ||
         stillProseOnlyWeekPlan
       ) {
         console.warn(
@@ -1326,6 +1369,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnrecordedFacts,
             stillMissedInjuryLanguage,
             stillMissedHabitLanguage,
+            stillMissedNewHabitLanguage,
             stillMissedSeasonLanguage,
             stillMissedProfileLanguage,
             stillMissedRemovalLanguage,
@@ -1334,7 +1378,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedQuestLanguage,
             stillUncountedInjuryLanguage,
             stillUnconfirmedAssumption,
-            stillMalformedExercise,
+            stillMalformedExercises,
             stillProseOnlyWeekPlan,
           },
           { traceId: turn.traceId },
@@ -1350,6 +1394,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnrecordedFacts ? "unrecordedFacts" : null,
             stillMissedInjuryLanguage ? "missedInjuryLanguage" : null,
             stillMissedHabitLanguage ? "missedHabitLanguage" : null,
+            stillMissedNewHabitLanguage ? "missedNewHabitLanguage" : null,
             stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
             stillMissedProfileLanguage ? "missedProfileLanguage" : null,
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
@@ -1358,7 +1403,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedQuestLanguage ? "missedQuestLanguage" : null,
             stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
-            stillMalformedExercise ? "malformedExercise" : null,
+            stillMalformedExercises ? "malformedExercise" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
           ].filter((detector): detector is string => detector !== null),
         });
@@ -1372,21 +1417,28 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     // exactly one corrective call, named to this specific bad reference. Runs after the text-cap
     // reprompt (independent concerns, each capped at one retry, both stay inside the shared
     // 45s-per-call / 300s-function budget). Layer 3 drops it if this also comes back bad.
-    const badReference = findInvalidReference(
+    const badReferences = findInvalidReferences(
       reply,
       turn.validQuestIds ?? new Set(),
       turn.validInjuryFlagIds ?? new Set(),
     );
-    if (badReference) {
-      console.warn("[coach-chat] reply referenced an invalid id, reprompting once:", badReference, {
-        traceId: turn.traceId,
-      });
+    if (badReferences) {
+      console.warn(
+        "[coach-chat] reply referenced invalid id(s), reprompting once:",
+        badReferences,
+        { traceId: turn.traceId },
+      );
+      const badReferenceNotes = badReferences
+        .map(
+          (bad) =>
+            `your ${bad.field} referenced id "${bad.badId}", which does not exist - the only` +
+            ` valid ids are: ${bad.validIds.join(", ") || "(none)"}`,
+        )
+        .join("; also, ");
       const repromptMessage = [
         turn.geminiMessage,
-        `\n[System note: your ${badReference.field} referenced id "${badReference.badId}", which`,
-        `does not exist. The only valid ids are: ${badReference.validIds.join(", ") || "(none)"}.`,
-        "Redo that field using only a valid id, or omit it if none apply; keep everything else",
-        "the same.]",
+        `\n[System note: ${badReferenceNotes}. Redo each field using only a valid id, or omit it`,
+        "if none apply; keep everything else the same.]",
       ].join(" ");
       reply = await askGemini(
         turn.apiKey,
@@ -1402,14 +1454,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         turn.timezone,
         referenceIds,
       );
-      const stillBad = findInvalidReference(
+      const stillBad = findInvalidReferences(
         reply,
         turn.validQuestIds ?? new Set(),
         turn.validInjuryFlagIds ?? new Set(),
       );
       if (stillBad) {
         console.warn(
-          "[coach-chat] reply still referenced an invalid id after reprompt, layer 3 will drop it:",
+          "[coach-chat] reply still referenced invalid id(s) after reprompt, layer 3 will drop it:",
           stillBad,
           { traceId: turn.traceId },
         );

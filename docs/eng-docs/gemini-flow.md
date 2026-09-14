@@ -261,20 +261,20 @@ test already covers.
 
 | Field | Missed-language / narration guard | Other reprompt or write-time guard |
 |---|---|---|
-| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercise` (structural), injury/dose invariants at write time |
+| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), injury/dose invariants at write time |
 | `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
-| `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption` |
+| `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment). |
 | `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
 | `injury_flag` | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D) | - |
-| `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736) |
+| `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
 | `template_edit`, `session_plan` | - | `findUnconfirmedAssumption` (schedule-change gate only) |
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
-| standalone `quest_create` | prompt reinforcement | - |
+| `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
 | `memory_update` | prompt reinforcement | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
-| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736) |
+| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
@@ -357,6 +357,44 @@ in practice. But the before/after diff confirms all three existing sports plus t
 landed - the partial-list case itself is covered by unit tests in `coachIntents.test.ts`. Explicit
 removal ("I stopped doing X") is still out of scope - there's no signal today that distinguishes
 an intentional drop from an accidental one, flagged as a follow-up design question in the PR.
+
+**#1037 hardening round, PR F (2026-09-14, last PR in this stack): four remaining P2s.**
+Closes out the round with four smaller fixes, each either a coverage gap the same shape as PR D's
+or a "report everything, not just the first" completeness fix:
+
+- **`season_start.new_habits` / `quest_create` returning-athlete coverage.** Same gap shape as
+  `injury_flag`'s pre-PR-D state - `findMissedHabitLanguage` was first-session only. The broad
+  `HABIT_LANGUAGE_PATTERN` isn't safe to extend to returning athletes: an established athlete says
+  "routine"/"track" constantly about existing training, exactly the false-positive #1009's own LLD
+  warned about. `findMissedNewHabitLanguage` keys on a narrower, explicit new-habit-starting
+  phrase set instead ("start(ing) a new habit," "want to start tracking/doing," "going to start a
+  new (daily) habit," "new daily habit"). A first draft of the "going to start" branch matched any
+  "going to start <word>" phrase. That false-positived on ordinary session talk ("going to start my
+  long run tomorrow"), so it was narrowed to require "new"/"habit" in the same phrase before
+  shipping, per the standing narrow-on-collision discipline.
+- **`workout_create` reports every malformed exercise, not just the first.**
+  `findMalformedWorkoutCreateExercises` now collects every exercise-type violation across every
+  phase instead of returning on the first one. Same idea as `applyWorkoutCreate`'s existing
+  injury-ack all-violations check (`coachWorkoutFiles.ts`) - already the one place in the codebase
+  that reported every violation at once.
+- **`findInvalidReference` reports every bad id, not just the first.** Renamed
+  `findInvalidReferences`, now `.filter`s both `quest_event` and `injury_event` instead of
+  `.find`-ing the first bad id across both. Not a correctness fix: `validateActions.ts`'s
+  per-entry drop logic already handles multiple bad ids at commit time regardless. It just makes
+  the one corrective reprompt name every bad reference, so Gemini's retry has full information
+  instead of fixing one and leaving another for layer 3 to silently drop.
+- **`week_update` applier/validator seam documented, not changed.** `coachWeekFiles.ts`'s
+  `applyWeekPatch` throws all-or-nothing on a bad reference; `validateActions.ts`'s
+  `validateWeekUpdate` drops bad references per-item. Since the validator always runs first in the
+  real pipeline, the applier's throw was already unreachable - a real inconsistency, but not a live
+  bug. Left as a documentation fix: `applyWeekPatch`'s own comment now states plainly that its
+  throw is defense-in-depth against a caller that skips validation, not the primary guard. It no
+  longer claims parity with `applyQuestEvent`'s id guards, since it doesn't have that parity today.
+
+This closes out the #1037 round. All four HLD findings scoped as P2 (habit/quest_create
+returning-athlete coverage, `workout_create` full-violation reporting, `findInvalidReference`
+full-id reporting, `week_update` seam alignment) are now shipped or explicitly documented as a
+deliberate no-behavior-change decision.
 
 ## Retries, timeouts, rate limits
 
