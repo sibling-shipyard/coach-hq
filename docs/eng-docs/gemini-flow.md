@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-13
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
 
 ## Context
 
@@ -268,13 +268,27 @@ test already covers.
 | `injury_flag` | `findMissedInjuryLanguage` (first-session only) | - |
 | `quest_event` | - | invalid-`quest_id` reprompt (D1, #736) |
 | `template_edit`, `session_plan` | - | `findUnconfirmedAssumption` (schedule-change gate only) |
-| `injury_event`, `coaching_style_update`, `sports_update`, `profile_update`, `workout_remove`, `quest_create` (standalone) | none | none |
+| `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
+| `coaching_style_update` | prompt reinforcement | - |
+| standalone `quest_create` | prompt reinforcement | - |
+| `memory_update` | prompt reinforcement | - |
+| `injury_event`, `sports_update`, `workout_remove` | none | none |
 
-**Not yet audited with the same rigor as `workout_create`/`week_update`/`season_start` got this
-round:** the bottom row. `profile_update` is the highest-priority gap - it fires on the same dense
-first-session turns already shown (Finding D) to silently drop other fields under load, and has
-zero narration-skip protection of any kind today. Scoping and live-testing the rest of this table
-is follow-up work, not done in this round - flagging the gap rather than leaving it undocumented.
+**#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
+treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round -
+`findMissedProfileLanguage` checks the athlete's own message for stated age, height/weight, or
+timezone language against what's already on file and what this turn's `profile_update` already
+covers, first-session only, same three-part scoping as its siblings. `coaching_style_update`,
+standalone `quest_create`, and `memory_update` get prompt reinforcement only - none has a phrasing
+narrow enough for a safe reprompt trigger without real false-positive risk against ordinary
+conversation (see `docs/plans/coach-chat-action-field-hardening.md`'s per-field table for why).
+`injury_event`, `sports_update`, and `workout_remove` are follow-up PRs on the same stack, not yet
+shipped.
+
+The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, after every
+detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`
+(`ui/api/_lib/sentry.ts`) alongside its existing `console.warn`, for every detector old and new -
+previously this failure mode was invisible outside a local log.
 
 ## Retries, timeouts, rate limits
 
