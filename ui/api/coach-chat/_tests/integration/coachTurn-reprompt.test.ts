@@ -251,11 +251,40 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
     expect(askGemini).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event).toEqual([stillBad]);
     expect(warnSpy).toHaveBeenCalledWith(
-      "[coach-chat] reply still referenced an invalid id after reprompt, layer 3 will drop it:",
-      expect.objectContaining({ field: "quest_event", badId: "q99" }),
+      "[coach-chat] reply still referenced invalid id(s) after reprompt, layer 3 will drop it:",
+      [expect.objectContaining({ field: "quest_event", badId: "q99" })],
       expect.objectContaining({ traceId: "trace-1" }),
     );
     warnSpy.mockRestore();
+  });
+
+  // #1037 PR F: used to `.find` and name only the first bad id, so a second bad reference in the
+  // same reply had no chance of being fixed in the one corrective round.
+  it("reprompts once naming BOTH bad quest_ids when 2 quest_event entries are invalid", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Logged both.",
+        coach_note: "Marked two quests.",
+        quest_event: [
+          { quest_id: "q98", status: "completed" },
+          { quest_id: "q99", status: "missed" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        reply: "Logged both.",
+        coach_note: "Marked two quests.",
+        quest_event: [
+          { quest_id: "q1", status: "completed" },
+          { quest_id: "q1", status: "missed" },
+        ],
+      });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("q98");
+    expect(repromptMessage).toContain("q99");
   });
 
   it("does not reprompt when every referenced id is valid", async () => {
@@ -532,6 +561,171 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
   });
 });
 
+// #1037 PR F: returning-athlete counterpart to the habit-language block above. HABIT_LANGUAGE_PATTERN
+// is deliberately not reused here - it's broad ("routine"/"track"/"daily") and an established
+// athlete uses that vocabulary constantly about existing training, not a new habit quest (#1009's
+// own LLD flagged this exact false-positive risk). This block keys on the narrower
+// NEW_HABIT_LANGUAGE_PATTERN instead, scoped to explicit new-habit-starting phrasing only.
+describe("requestCoachReply missed-new-habit-language reprompt, returning athlete (#1037)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  function returningAthleteTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: false,
+      validQuestIds: new Set<string>(["q1"]),
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when explicit new-habit language is present but no quest_create was set", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Love it, let's get that going.",
+        coach_note: "Athlete wants a new stretching habit.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Love it, let's get that going, saved as a new quest.",
+        coach_note: "Athlete wants a new stretching habit.",
+        quest_create: { quests: [{ name: "Morning Stretching", type: "daily_streak" as const }] },
+      });
+
+    const result = await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I want to start a new habit of stretching every morning.",
+        geminiMessage: "I want to start a new habit of stretching every morning.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.quest_create?.quests).toHaveLength(1);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no new habit quest was");
+  });
+
+  it("does not reprompt a second time if new-habit language is still uncaptured, but logs it", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Love it, let's get that going.",
+      coach_note: "Athlete wants a new stretching habit.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I want to start a new habit of stretching every morning.",
+        geminiMessage: "I want to start a new habit of stretching every morning.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedNewHabitLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt when quest_create already captured the new habit", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      quest_create: { quests: [{ name: "Morning Stretching", type: "daily_streak" as const }] },
+    });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I want to start a new habit of stretching every morning.",
+        geminiMessage: "I want to start a new habit of stretching every morning.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire the returning-athlete detector on a first-session turn (findMissedHabitLanguage's job instead)", async () => {
+    askGemini
+      .mockResolvedValueOnce({ reply: "ok" })
+      .mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        firstSession: true,
+        validQuestIds: new Set<string>(),
+        trimmed: "I want to start a new habit of stretching every morning.",
+        geminiMessage: "I want to start a new habit of stretching every morning.",
+      }),
+    );
+
+    // The pre-existing findMissedHabitLanguage still fires on first-session turns (its own,
+    // separately-tested behavior) - what this test isolates is that the reprompt note names
+    // findMissedHabitLanguage's message, not this new detector's, confirming the two don't
+    // double-fire on the same turn.
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no habit was captured this turn");
+    expect(repromptMessage).not.toContain("no new habit quest was");
+  });
+
+  // The exact false-positive #1009's own LLD was worried about: an established athlete describing
+  // an existing routine, not starting something new. Must NOT fire.
+  it("does not reprompt on ordinary existing-routine language (the #1009 false-positive case)", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I've been doing my usual strength routine, tracking it daily.",
+        geminiMessage: "I've been doing my usual strength routine, tracking it daily.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when the message contains no new-habit language at all", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "Just checking in, nothing new to report today.",
+        geminiMessage: "Just checking in, nothing new to report today.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  // Review finding: this detector only checked reply.quest_create?.quests before this fix, but its
+  // sibling findMissedHabitLanguage (the first-session version above) checks both
+  // season_start?.new_habits and quest_create?.quests, since a habit can land via either path. A
+  // returning athlete starting a new habit during a season relaunch has it captured under
+  // season_start.new_habits, not quest_create - without the season_start check this fires a
+  // spurious reprompt even though nothing was actually missed. Written to fail against the old
+  // code (which only checked quest_create) and pass against the fix.
+  it("does not reprompt when the new habit landed via season_start.new_habits instead of quest_create", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "New season locked in, added that habit.",
+      coach_note: "Started a new season with a daily stretching habit.",
+      season_start: {
+        name: "Fall Block",
+        start_date: "2026-09-14",
+        end_date: "2026-12-01",
+        main_quest: { name: "Race Ready", type: "count_target" as const, target: 1 },
+        new_habits: [{ name: "Daily Stretching", type: "daily_streak" as const }],
+      },
+    });
+
+    await requestCoachReply(
+      returningAthleteTurnState({
+        trimmed: "I want to start a new habit of stretching every morning this season.",
+        geminiMessage: "I want to start a new habit of stretching every morning this season.",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Finding A (OpenRouter K1 retest): plan_edit/session_reconcile/template_edit silently no-op'd
 // while the reply still claimed success, because this prompt never told the model any real
 // template_id/session_id to work from on an ordinary turn - activeTemplatesContext/
@@ -751,6 +945,86 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
         }
       ).reply.workout_create?.phases[0]?.exercises[0]?.reps,
     ).toBe(10);
+  });
+
+  // #1037 PR F: used to only name the first bad exercise in the reprompt note, so a second
+  // surviving violation had no chance of being fixed in the one corrective round.
+  it("reprompts once naming BOTH violations when 2 exercises are malformed", async () => {
+    const twoBadSpec = {
+      title: "Full Body",
+      workout_type: "strength",
+      phases: [
+        {
+          name: "Main",
+          exercises: [
+            {
+              name: "Dumbbell row",
+              type: "reps",
+              sets: 3,
+              form_cue: "Squeeze the shoulder blade.",
+              why: "Back strength.",
+              // reps intentionally omitted.
+            },
+            {
+              name: "Plank hold",
+              type: "timed",
+              sets: 3,
+              form_cue: "Keep hips level.",
+              why: "Core stability.",
+              // duration_secs intentionally omitted.
+            },
+          ],
+        },
+      ],
+    };
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Here's a full body session.",
+        coach_note: "Built a routine.",
+        workout_create: twoBadSpec,
+      })
+      .mockResolvedValueOnce({
+        reply: "Here's a full body session, saved to your page.",
+        coach_note: "Built a routine.",
+        workout_create: {
+          ...twoBadSpec,
+          phases: [
+            {
+              name: "Main",
+              exercises: [
+                { ...twoBadSpec.phases[0].exercises[0], reps: 10 },
+                { ...twoBadSpec.phases[0].exercises[1], duration_secs: 30 },
+              ],
+            },
+          ],
+        },
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me a full body workout",
+        geminiMessage: "Build me a full body workout",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("Dumbbell row");
+    expect(repromptMessage).toContain("Plank hold");
+    expect(
+      (
+        result as {
+          reply: {
+            workout_create?: {
+              phases: { exercises: { reps?: number; duration_secs?: number }[] }[];
+            };
+          };
+        }
+      ).reply.workout_create?.phases[0]?.exercises,
+    ).toEqual([
+      expect.objectContaining({ reps: 10 }),
+      expect.objectContaining({ duration_secs: 30 }),
+    ]);
   });
 
   it("does not reprompt when workout_create is well-formed", async () => {

@@ -384,7 +384,15 @@ function locateSession(
  * session_id creates a new planned session on that day, same shape week_plan's per-day sessions
  * used to require. Every session_id and move_to_date target is checked to exist BEFORE any patch
  * is applied, so a batch with one bad reference fails the whole call rather than silently applying
- * a partial patch - same discipline applyQuestEvent's id guards use.
+ * a partial patch.
+ *
+ * #1037 PR F: that all-or-nothing throw is now provably unreachable in the real pipeline.
+ * `validateActions.ts`'s `validateWeekUpdate` runs first and already drops each bad day/session/
+ * move_to_date reference individually (per-item filter, not all-or-nothing) before this function
+ * ever sees the update, so by the time this function runs every reference has already been checked once.
+ * This throw is defense-in-depth against a caller that skips that validation step, not the
+ * primary guard - if you're relying on it to catch a bad reference, something upstream already
+ * went wrong.
  *
  * A status change and a content change can land on the SAME entry (mark today's session done AND
  * record what actually happened, in one patch) - this is the collapse ADR 0042 asks for: the old
