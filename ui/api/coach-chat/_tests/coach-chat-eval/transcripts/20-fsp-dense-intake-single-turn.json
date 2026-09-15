@@ -1,0 +1,22 @@
+{
+  "name": "fsp-dense-intake-single-turn",
+  "description": "Settles the open reliability question in docs/plans/coach-chat-redesign-followups.md: does profile + goal + habits stated together in one single turn (not spread across turns the way fixture 12 does it) still fire correctly? Under the current schema (B3, #808) a stated goal and a new daily habit in the same message always move through season_start/season_start.new_habits together, never through standalone quest_create - quest_create is only for a habit stated with no season change at all. So the real question this fixture settles isn't 'quest_create vs nothing', it's whether piling profile facts into the same dense message as the goal/habit still lets season_start fire reliably, rather than the model judging (per B_engine.md's FSP step 4, 'quests get set up near the end') that intake isn't done yet and deferring. Coverage-audit phase 1, 2026-09-15.",
+  "mode": "ordinary",
+  "firstSession": true,
+  "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Running\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n(none yet)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": [
+        "Great, let's get you set up - tell me about yourself and what you're chasing."
+      ]
+    }
+  ],
+  "userMessage": "I'm 29, I weigh 68kg and I'm 170cm tall, based in Bangalore, UTC timezone. My goal is to run a sub-50 10K by the end of the year. I also want to build a daily habit of stretching for 10 minutes.",
+  "expect": {
+    "actionFieldsPresent": ["profile_update", "season_start", "season_start.new_habits"],
+    "actionFieldsAbsent": ["quest_create"]
+  }
+}

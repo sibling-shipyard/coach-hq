@@ -165,6 +165,124 @@ const SCENARIOS: Scenario[] = [
       { turnIndex: 3, filesChangedInclude: ["user_data/ledger/current_week.json"] },
     ],
   },
+  // Coverage-audit phase 1 (2026-09-15) additions below - see
+  // docs/eng-docs/coach-chat-test-scenarios.md's coverage matrix for what each one closes.
+  {
+    id: "workout-lifecycle",
+    file: "manual-coach-chat-turns-workout-lifecycle.json",
+    description:
+      "workout_create then workout_remove in the same conversation, real-write coverage - both actions had zero simulation coverage before this (eval-only narration guards existed, no real commit had ever been checked).",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      { turnIndex: 3 },
+    ],
+  },
+  {
+    id: "session-plan",
+    file: "manual-coach-chat-turns-session-plan.json",
+    description:
+      "session_plan real-write coverage - had zero live-tested coverage of any kind (docs/plans/coach-chat-redesign-followups.md's open item, no longer deferred now that the workouts redesign it was waiting on has shipped). Creates its own template first so the session_plan turn has a real template_id to reference.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      { turnIndex: 2, filesChangedInclude: ["workout_plans/sessions/"] },
+      { turnIndex: 3 },
+    ],
+  },
+  {
+    id: "week-kickoff-flash",
+    file: "manual-coach-chat-turns-week-kickoff.json",
+    description:
+      "Weekly Kick-off Ritual malformation retest (docs/plans/coach-chat-redesign-followups.md: 3/5 JSON-parse failures found on Flash via OpenRouter, never reproduced on direct Pro). Run this one repeatedly (--only week-kickoff-flash, 5 times) under LLM_PROVIDER=openrouter to sample the real pass rate - a single run here only proves the happy path, it cannot establish a rate on its own. --force is needed on repeat runs since a passing entry would otherwise be skipped by the selective-re-run check.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [{ turnIndex: 1, filesChangedInclude: ["user_data/ledger/current_week.json"] }],
+  },
+  {
+    id: "injury-resolve-by-bodypart",
+    file: "manual-coach-chat-turns-injury-resolve-by-bodypart.json",
+    description:
+      "Real-write companion to eval transcript 14 - that transcript proves the model picks the right flag_id when disambiguating by body part, but nothing had ever checked the real injuries.json write. Self-contained: the first two turns mint the two flags this conversation later disambiguates between, rather than depending on whatever happens to already be on the target repo.",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/coach/injuries.json"] },
+      { turnIndex: 2, filesChangedInclude: ["user_data/coach/injuries.json"] },
+      { turnIndex: 3, filesChangedInclude: ["user_data/coach/injuries.json"] },
+      { turnIndex: 4 },
+    ],
+  },
+  {
+    id: "pattern-style-sport",
+    file: "manual-coach-chat-turns-pattern-style-sport.json",
+    description:
+      "Real-write companion to eval transcript 15 - memory_update (learned pattern), coaching_style_update, and sports_update all land in memory.json and had no simulation coverage at all before this.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/coach/memory.json"] },
+      { turnIndex: 2, filesChangedInclude: ["user_data/coach/memory.json"] },
+      { turnIndex: 3 },
+    ],
+  },
+  {
+    id: "season-transition",
+    file: "manual-coach-chat-turns-season-transition.json",
+    description:
+      "Real-write companion to eval transcript 10 - a returning athlete's season_start (with its bundled main_quest and new_habits) had no simulation coverage: nothing had ever checked that a real season/quest transition actually commits both seasons.json and quests.json.",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    expect: [
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/ledger/seasons.json", "user_data/ledger/quests.json"],
+      },
+      { turnIndex: 2 },
+    ],
+  },
+  {
+    id: "quest-event",
+    file: "manual-coach-chat-turns-quest-event.json",
+    description:
+      "quest_event real-write coverage - progress.json had no simulation coverage at all: eval transcript 16 proves the model reports a completion, nothing had ever checked the real append-only write. Message deliberately references 'the daily habit' generically rather than a specific quest name, since the target repo's real active quest names aren't known ahead of a live run - see this repo's real quests.json before running for real, per coach-chat-testing.md's 'pick real content first' discipline.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/progress.json"] },
+      { turnIndex: 2 },
+    ],
+  },
+  // Coverage-audit phase 1 follow-up (issue #1066) - closing the 2 gaps left open in the first
+  // pass, real-write companions to eval transcripts 11 and 21.
+  {
+    id: "quest-create-standalone",
+    file: "manual-coach-chat-turns-quest-create-standalone.json",
+    description:
+      "quest_create (standalone) real-write coverage - eval transcript 11 already proves the model fires this reliably with no season change in the same message; this is the missing real-write check on the actual quests.json commit. Every real athlete repo already has an active season on file, which is exactly the right precondition here (not an obstacle) - the disambiguating signal is the message itself carrying zero season/goal language, not the repo's existing state.",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/quests.json"] },
+      { turnIndex: 2 },
+    ],
+  },
+  {
+    id: "template-edit-permanent",
+    file: "manual-coach-chat-turns-template-edit.json",
+    description:
+      "template_edit real-write coverage - had never been asserted present anywhere (transcript 05 only proves the negative, that a one-day swap is week_update not template_edit). Creates its own template first, then asks for a permanent change to it, framed as 'going forward' / 'every time' to disambiguate against session_plan's 'just today' framing (covered separately by the session-plan scenario).",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/"] },
+      { turnIndex: 3 },
+    ],
+  },
 ];
 
 /** coach-hq paths that, if changed, could invalidate a scenario's last pass - coverage-index.json's watched_paths. */

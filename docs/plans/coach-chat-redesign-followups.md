@@ -58,6 +58,15 @@ done yet. Fixture #30 doesn't cover this case either - it spreads the same facts
 turns, a structurally different shape. Needs its own eval fixture and a real live run to settle
 which, rather than guessing either way.
 
+**Fixture authored (coverage-audit phase 1, 2026-09-15):** eval transcript
+`20-fsp-dense-intake-single-turn.json` (see `docs/eng-docs/coach-chat-test-scenarios.md`) covers
+profile + goal + habit stated together in one message. Under the current schema (B3, #808) a
+goal and a new habit always move through `season_start`/`season_start.new_habits` together, never
+standalone `quest_create`. So the real open question this fixture settles is whether density
+(profile facts piled into the same message) still lets `season_start` fire reliably, not whether
+`quest_create` fires on its own. Still needs the real live run against a live model to actually
+settle it - this PR only authors the fixture, per its no-live-spend scope.
+
 ## Two items deliberately deferred to the (separate) workouts/`current_week` redesign
 
 Found during K1's final pass, explicitly not pursued now since a separate redesign is already
@@ -68,8 +77,16 @@ planned for this area:
   failures. When it does commit, content is correct — the 7-day, per-day-sessions-array schema is
   large and flash appears prone to truncating/malforming output at that size. Provider-specific to
   flash, not reproduced on direct pro in this investigation.
+  **Fixture authored (coverage-audit phase 1, 2026-09-15):** simulation-suite scenario
+  `week-kickoff-flash` (see `docs/eng-docs/coach-chat-test-scenarios.md`) exists to retest this.
+  It needs to actually run 5 times under `LLM_PROVIDER=openrouter` to sample the real pass rate -
+  that's phase 2, live-run work, not this PR's scope.
 - **`session_plan` has zero dedicated live-tested coverage.** Not tested in K1's pass
-  (time-boxed); its shape will likely change with the workouts redesign anyway.
+  (time-boxed); its shape will likely change with the workouts redesign anyway - that redesign
+  (A2/A3, #727) has since shipped, so this is no longer deferred.
+  **Fixture authored (coverage-audit phase 1, 2026-09-15):** eval transcript `19-session-plan.json`
+  and simulation-suite scenario `session-plan` (see `docs/eng-docs/coach-chat-test-scenarios.md`)
+  close this - still needs a live run to actually verify, not just author.
 
 ## Related
 
