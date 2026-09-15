@@ -22,7 +22,12 @@ import {
   type GeminiReplyWithUsage,
 } from "./coach-chat/_lib/gemini/geminiClient.js";
 import { resolveProviderName } from "./_lib/llmClient.js";
-import { captureGeminiFailure, withProcessingSpan, withSentryRoute } from "./_lib/sentry.js";
+import {
+  captureGeminiFailure,
+  captureServerException,
+  withProcessingSpan,
+  withSentryRoute,
+} from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -66,7 +71,10 @@ async function handleGreet(
     progressions,
     athleteInsights,
   } = context;
-  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
+  if (!soul) {
+    await captureServerException(new Error("Coach SOUL bundle is unavailable"));
+    return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
+  }
   const timezone = profile?.timezone?.trim() || "UTC";
 
   const { name: hintedName, sports: hintedSports } = onboardingChanges(
@@ -191,7 +199,10 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
     resolveProviderName(process.env) === "openrouter"
       ? process.env.OPENROUTER_API_KEY
       : process.env.GEMINI_API_KEY;
-  if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
+  if (!apiKey) {
+    await captureServerException(new Error("Coach chat isn't configured yet"));
+    return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
+  }
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;
   if (isGreetRequest(parsed)) return handleGreet(repo, token, apiKey, parsed.onboardingHints);
