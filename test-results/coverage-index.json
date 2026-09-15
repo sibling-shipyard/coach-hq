@@ -188,7 +188,7 @@
   },
   "manual:week-kickoff-flash": {
     "type": "manual",
-    "last_pass_sha": "489a98e60cfcf9e71e8a14ffb4b94ab8126c151b",
+    "last_pass_sha": "f9e68c8c0401886586da8f92cc1ba9030fe037fc",
     "last_run_date": "2026-09-15",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -201,6 +201,6 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.016809975
+    "last_cost_usd": 0.038197499999999995
   }
 }
