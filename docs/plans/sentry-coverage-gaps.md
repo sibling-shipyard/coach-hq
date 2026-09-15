@@ -6,7 +6,7 @@
 
 `docs/eng-docs/sentry-runbook.md` § Coverage boundary already documents several known,
 intentional gaps. A four-way audit (`ui/api/`, `engine/`+`scripts/`, `ios/`, `ui/client/`) found
-real, undocumented ones on top — worst two: a billed Gemini call's result can be lost with zero
+real, undocumented ones on top. Worst two: a billed Gemini call's result can be lost with zero
 Sentry record, and an iOS HealthKit background-sync error isn't even printed. Full inventory,
 every claim checked against the actual code, is in the linked LLD.
 

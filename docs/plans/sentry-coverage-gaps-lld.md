@@ -7,9 +7,9 @@ user impact), P1 = fix before calling this done (visible in logs/UI, not Sentry)
 only, athlete's call.
 
 A second (Cursor) review was cross-checked against this repo's actual code before folding
-anything in — kept findings are marked **verified**; its references to an "audit § Definition
-of done items 1-7" and a companion `sentry-coverage-audit.md` don't correspond to anything in
-this repo, so that framing was dropped rather than trusted blind.
+anything in. Kept findings are marked **verified**. Its references to an "audit § Definition of
+done items 1-7" and a companion `sentry-coverage-audit.md` don't correspond to anything in this
+repo, so that framing was dropped rather than trusted blind.
 
 ## Backend — `ui/api/` (owner: Bob the Builder)
 
