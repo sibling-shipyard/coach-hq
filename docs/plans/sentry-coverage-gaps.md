@@ -56,9 +56,13 @@ Sentry's free Developer plan caps at **5,000 error events/month**, one user, 30-
   exhausted (I3), never once per attempt.
 - **`level:warning` still counts against the same quota as errors** — the soft-fallback contract
   above fires once per failure, not per retry, for the same reason.
-- **Pull the actual current-month event count before M3 (iOS) and M5 (frontend)** specifically —
-  those two add the most new capture sites (`sentry-runbook.md` § Query from a terminal has the
-  command). M1/M2 are small enough not to need this check first.
+
+**Checked 2026-09-15 (trailing 30d, via Cyclops):** 511 accepted error events against the
+5,000/month cap — ~10% used, `rate_limited`/`filtered` both 0 (not dropping anything today).
+Per project: `coach-hq-api` 401, `coach-hq-ios` 88, `coach-hq-web` 22 — API is already the
+busiest surface *and* gets the most new capture sites (M1/M1b, 11 findings), so re-check after
+M1 lands, not only after M3 (iOS) and M5 (frontend). Plenty of headroom for all 13 PRs at this
+baseline; this is a sanity check on the trend, not a blocker.
 
 ## Milestones — PR stack
 
