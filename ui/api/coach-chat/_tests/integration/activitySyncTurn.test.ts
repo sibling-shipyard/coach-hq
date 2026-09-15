@@ -72,6 +72,7 @@ vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
     listDirectory,
     loadCoachContext,
     getHeadSha: vi.fn(async () => "head-sha"),
+    getHeadShaOrNull: vi.fn(async () => "head-sha"),
     invalidateCoachContext: vi.fn(),
   };
 });

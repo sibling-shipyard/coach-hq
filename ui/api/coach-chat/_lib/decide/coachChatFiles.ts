@@ -1,7 +1,7 @@
 /** Shared bundled-SOUL and athlete-context reads for chat and preload routes. */
 import { SOUL } from "../../../_generated/soul.js";
 import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
-import { withGithubSpan } from "../../../_lib/sentry.js";
+import { captureServerException, withGithubSpan } from "../../../_lib/sentry.js";
 import {
   PROFILE_PATH,
   MEMORY_PATH,
@@ -222,6 +222,26 @@ export async function getHeadSha(
     const body = (await res.json()) as { object: { sha: string } };
     return body.object.sha;
   });
+}
+
+/**
+ * Soft HEAD read for callers that treat "unknown SHA" as null (staleness / response metadata).
+ * 404 stays quiet — brand-new branch / missing ref is expected. Any other fault (5xx, network,
+ * 401/403) is terminal for this attempt: capture once, then return null so the turn can continue.
+ */
+export async function getHeadShaOrNull(
+  repo: string,
+  token: string,
+  branch = resolveCoachChatBranch(),
+): Promise<string | null> {
+  try {
+    return await getHeadSha(repo, token, branch);
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status;
+    if (status === 404) return null;
+    await captureServerException(err);
+    return null;
+  }
 }
 
 // Server-side short-lived cache (A3): a client that just warmed context via coach-chat-

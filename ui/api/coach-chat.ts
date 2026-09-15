@@ -4,7 +4,7 @@ import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 import {
   getFileRaw,
-  getHeadSha,
+  getHeadShaOrNull,
   invalidateCoachContext,
   isAthleteProfileComplete,
   isFirstSessionRitualDone,
@@ -166,7 +166,7 @@ async function handleGreet(
   }
 
   const now = Date.now();
-  const repoSha = await getHeadSha(repo, token).catch(() => null);
+  const repoSha = await getHeadShaOrNull(repo, token);
   const freshContext =
     onboardingWrites.length > 0 ? await loadCoachContext(repo, token, { fresh: true }) : context;
   return Response.json(

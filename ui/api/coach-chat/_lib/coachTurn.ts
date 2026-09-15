@@ -6,7 +6,7 @@ import {
 import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
 import {
   getFileRaw,
-  getHeadSha,
+  getHeadShaOrNull,
   invalidateCoachContext,
   isFirstSessionRitualDone,
   loadCoachContext,
@@ -330,7 +330,7 @@ export async function loadTurnState(
   token: string,
   apiKey: string,
 ): Promise<Response | TurnState> {
-  const currentSha = await getHeadSha(repo, token).catch(() => null);
+  const currentSha = await getHeadShaOrNull(repo, token);
   const stale = request.knownSha != null && currentSha != null && request.knownSha !== currentSha;
   const context = await loadCoachContext(repo, token, { fresh: stale });
   const {
