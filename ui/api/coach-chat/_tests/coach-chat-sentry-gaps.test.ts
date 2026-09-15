@@ -31,7 +31,12 @@ vi.mock("../../_lib/sentry.js", async (importOriginal) => {
 
 vi.mock("../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../_lib/decide/coachChatFiles.js")>();
-  return { ...original, loadCoachContext, getHeadSha: vi.fn(async () => "sha") };
+  return {
+    ...original,
+    loadCoachContext,
+    getHeadSha: vi.fn(async () => "sha"),
+    getHeadShaOrNull: vi.fn(async () => "sha"),
+  };
 });
 
 vi.mock("../_lib/chatThreads.js", async (importOriginal) => {

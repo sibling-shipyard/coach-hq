@@ -4,7 +4,7 @@ import { selectLlmAdapter } from "../../../_lib/llmClient.js";
 import { captureServerException } from "../../../_lib/sentry.js";
 import {
   getFileRaw,
-  getHeadSha,
+  getHeadShaOrNull,
   isAthleteProfileComplete,
   loadCoachContext,
   resolveCoachChatBranch,
@@ -51,7 +51,7 @@ export async function handleActivitySync(
   const [history, context, currentSha] = await Promise.all([
     loadChatHistory(repo, token),
     loadCoachContext(repo, token, { fresh: true }),
-    getHeadSha(repo, token).catch(() => null),
+    getHeadShaOrNull(repo, token),
   ]);
   const timezone = context.profile?.timezone?.trim() || "UTC";
   const profileComplete = isAthleteProfileComplete(
