@@ -118,7 +118,7 @@ dedicated assertion.
 | `quest_create` (standalone) | `quests.json` | `11` | `quest-create-standalone` (#1066) | Gap → closed |
 | `template_edit` | template file | `21` (#1066; `05` covers the absence case) | `template-edit-permanent` (#1066) | Gap → closed |
 | `session_plan` | session-snapshot file | `19` | `session-plan` | Gap → closed (was the redesign-followups doc's zero-coverage item) |
-| `week_update` (kickoff) | `current_week.json` | `06` | `ambiguous-contradiction`, `week-kickoff-flash` | Gap → closed (Flash malformation retest) |
+| `week_update` (kickoff) | `current_week.json` | `06` | `week-kickoff-flash` | Gap → closed (Flash malformation retest) |
 | `week_update` (patch) | `current_week.json` | `05`, `07` | `ambiguous-contradiction` | Covered |
 | `workout_create` | template file + manifest | `17` | `workout-lifecycle` | Gap → closed |
 | `workout_remove` | manifest | `18` | `workout-lifecycle` | Gap → closed |
