@@ -512,6 +512,20 @@ class GitHubAuthManager: ObservableObject {
         return result
     }
 
+    /// `/api/auth/refresh` returns 502 for transient GitHub blips (#1069); 401 only for a dead grant.
+    /// Extra attempts after the first failure — matches the server's own exchange retry budget.
+    static let refreshTransientExtraAttempts = 2
+
+    static func isTransientRefreshStatus(_ statusCode: Int) -> Bool {
+        statusCode == 502
+    }
+
+    /// Test seam for the refresh HTTP call. Production leaves this nil and uses URLSession.
+    var refreshRequestHandler: ((URLRequest) async throws -> (Data, URLResponse))?
+
+    /// Base backoff between 502 retries. Tests set this to 0 so they don't sleep.
+    var refreshBackoffNanoseconds: UInt64 = 1_500_000_000
+
     private func performRefreshAccessToken() async -> String? {
         guard let refreshToken = loadRefreshToken() else { return nil }
         guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/refresh") else { return nil }
@@ -520,29 +534,32 @@ class GitHubAuthManager: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
 
+        let maxAttempts = 1 + Self.refreshTransientExtraAttempts
         do {
-            let (data, response) = try await performRefreshRequest(request)
-            guard let http = response as? HTTPURLResponse else { return nil }
-            guard http.statusCode == 200 else {
-                if http.statusCode == 502 {
-                    // network_error from ui/api/auth/[...action].ts - transient upstream
-                    // failure, not a dead credential. Retry once before giving up, same
-                    // style as WidgetSnapshotStore's retry-once-on-notAuthenticated.
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    let (retryData, retryResponse) = try await performRefreshRequest(request)
-                    guard let retryHttp = retryResponse as? HTTPURLResponse, retryHttp.statusCode == 200 else {
-                        return nil
-                    }
-                    let result = try JSONDecoder().decode(RefreshResponse.self, from: retryData)
-                    saveTokens(accessToken: result.accessToken, refreshToken: result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
+            for attempt in 0..<maxAttempts {
+                let (data, response) = try await performRefreshRequest(request)
+                guard let http = response as? HTTPURLResponse else { return nil }
+                if http.statusCode == 200 {
+                    let result = try JSONDecoder().decode(RefreshResponse.self, from: data)
+                    saveTokens(
+                        accessToken: result.accessToken,
+                        refreshToken: result.refreshToken,
+                        expiresAt: Date().addingTimeInterval(result.expiresIn)
+                    )
                     return result.accessToken
+                }
+                // 502 (network_error) from handleRefresh — transient, not a dead credential.
+                if Self.isTransientRefreshStatus(http.statusCode), attempt < maxAttempts - 1 {
+                    let delayNs = refreshBackoffNanoseconds * UInt64(1 << attempt)
+                    if delayNs > 0 {
+                        try? await Task.sleep(nanoseconds: delayNs)
+                    }
+                    continue
                 }
                 // 401 (refresh_failed) or anything else non-200: terminal, fail immediately.
                 return nil
             }
-            let result = try JSONDecoder().decode(RefreshResponse.self, from: data)
-            saveTokens(accessToken: result.accessToken, refreshToken: result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
-            return result.accessToken
+            return nil
         } catch {
             print("Token refresh failed: \(error)")
             return nil
@@ -550,7 +567,10 @@ class GitHubAuthManager: ObservableObject {
     }
 
     private func performRefreshRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
-        try await URLSession.shared.data(for: request)
+        if let refreshRequestHandler {
+            return try await refreshRequestHandler(request)
+        }
+        return try await URLSession.shared.data(for: request)
     }
 
     func signOut() {

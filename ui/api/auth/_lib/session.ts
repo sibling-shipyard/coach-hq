@@ -141,26 +141,54 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
 
-  // A thrown network error isn't a genuine rejection - fall back below rather than force a
-  // re-login over a transient blip.
-  let refreshRes: Response;
-  try {
-    refreshRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: session.refresh_token,
-      }),
-    });
-  } catch {
-    return { session };
+  // One cheap retry on a transient blip (#1069) before soft-falling back to the still-valid
+  // access token. A thrown network error isn't a genuine rejection either.
+  const exchangePayload = JSON.stringify({
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: session.refresh_token,
+  });
+
+  type RefreshBody = {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
+
+  async function attemptExchange(): Promise<RefreshBody | null> {
+    let refreshRes: Response;
+    try {
+      refreshRes = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: exchangePayload,
+      });
+    } catch {
+      return null;
+    }
+    const parsed = (await refreshRes.json().catch(() => null)) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+    } | null;
+    if (!refreshRes.ok || !parsed?.access_token || !parsed?.refresh_token || !parsed?.expires_in) {
+      return null;
+    }
+    return {
+      access_token: parsed.access_token,
+      refresh_token: parsed.refresh_token,
+      expires_in: parsed.expires_in,
+    };
   }
 
-  const body = await refreshRes.json().catch(() => null);
-  if (!refreshRes.ok || !body?.access_token || !body?.refresh_token || !body?.expires_in) {
+  let body = await attemptExchange();
+  if (!body) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    body = await attemptExchange();
+  }
+
+  if (!body) {
     // Not necessarily a dead session (issue #117): GitHub rotates refresh_token on each use,
     // so two concurrent requests racing near the 8h boundary means the loser's exchange gets
     // rejected even though the session is fine. We refresh 5min early (REFRESH_BUFFER_MS), so

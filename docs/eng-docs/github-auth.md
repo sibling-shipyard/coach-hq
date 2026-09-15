@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-30
+> Status: Current · Owner: UI Expert · Verified: 2026-09-15
 
 ## Context
 
@@ -127,8 +127,11 @@ new access token 5 minutes before expiry, on every request, re-issuing a sliding
 session cookie. iOS has no server session. It calls `/api/auth/refresh` itself and stores the
 rotated pair in Keychain. Access token, refresh token, and expiry form one item written with a
 single call, so a process kill cannot create a mismatched pair. `GitHubAuthManager.swift` falls
-back to reading the old 3-key layout for athletes signed in before this shipped. A transient 502 from `/api/auth/refresh` retries once;
-a 401 fails immediately. Full reasoning: `kdb/decisions/0009-refresh-token-sliding-session.md`.
+back to reading the old 3-key layout for athletes signed in before this shipped. `handleRefresh`
+retries GitHub's token endpoint a few times, then returns **502** for a transient blip (5xx/429,
+empty 200 with no `error`) and **401** only when GitHub names a dead grant. iOS backs off on 502
+(two extra attempts); a 401 fails immediately. Full reasoning:
+`kdb/decisions/0009-refresh-token-sliding-session.md` · fix: #1069.
 
 ## Done when
 

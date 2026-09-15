@@ -420,7 +420,38 @@ export async function handleMe(req: Request, sentry: SentryRouteContext): Promis
 // needs this server-side helper for the confidential part of the exchange.
 // No cookie/bearer auth here - possession of a valid refresh_token is the auth; GitHub's own
 // token endpoint validates it, same trust model as handleCallback's initial exchange.
+//
+// Status split (#1069): GitHub 200 + `error` = dead grant → 401 (iOS signs out). A 5xx/429,
+// network throw, or 200 with neither tokens nor `error` = transient → retry, then 502 (iOS
+// backs off). Never map a blip to 401 — that signed athletes out fleet-wide.
 // ============================================================================
+const REFRESH_EXCHANGE_ATTEMPTS = 3;
+const REFRESH_EXCHANGE_BACKOFF_MS = 150;
+
+type GitHubTokenBody = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: unknown;
+};
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isUsableGitHubTokenBody(body: GitHubTokenBody | null): body is GitHubTokenBody & {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+} {
+  return Boolean(body?.access_token && body?.refresh_token && body?.expires_in);
+}
+
+/** GitHub answers this endpoint 200 with an `error` field when the grant is dead. */
+function isDeadRefreshGrant(body: GitHubTokenBody | null): boolean {
+  return typeof body?.error === "string" && !isUsableGitHubTokenBody(body);
+}
+
 export async function handleRefresh(req: Request, sentry: SentryRouteContext): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -435,51 +466,63 @@ export async function handleRefresh(req: Request, sentry: SentryRouteContext): P
     return Response.json({ error: "refresh_token required" }, { status: 400 });
   }
 
-  // A thrown network error isn't the same as GitHub rejecting the refresh outright - iOS's
-  // validToken() treats these differently (retry vs. give up).
-  let tokenRes: Response;
-  try {
-    tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: body.refresh_token,
-      }),
-    });
-  } catch (err) {
-    console.error("[auth/refresh]", err);
-    await sentry.captureException(err);
-    return Response.json({ error: "network_error" }, { status: 502 });
-  }
+  const exchangeBody = JSON.stringify({
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: body.refresh_token,
+  });
 
-  const tokenBody = await tokenRes.json().catch(() => null);
-  if (
-    !tokenRes.ok ||
-    !tokenBody?.access_token ||
-    !tokenBody?.refresh_token ||
-    !tokenBody?.expires_in
-  ) {
-    // One 401 covers two different events. GitHub answers this endpoint 200 with an `error`
-    // field even when it rejects a grant, so a 200 naming an error is the expected end of a
-    // session - the refresh token aged out after 6mo idle, or was revoked - and the athlete
-    // signs in again. Anything else is GitHub failing, and it signs the athlete out just the
-    // same with no other record: a 5xx or 429, or a 200 carrying neither tokens nor an error.
-    if (!tokenRes.ok || typeof tokenBody?.error !== "string") {
-      const err = new Error(`GitHub refresh returned ${tokenRes.status} with no usable token`);
+  let lastStatus = 0;
+  let lastNetworkErr: unknown = null;
+
+  for (let attempt = 0; attempt < REFRESH_EXCHANGE_ATTEMPTS; attempt++) {
+    let tokenRes: Response;
+    try {
+      tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: exchangeBody,
+      });
+    } catch (err) {
+      lastNetworkErr = err;
+      if (attempt < REFRESH_EXCHANGE_ATTEMPTS - 1) {
+        await sleepMs(REFRESH_EXCHANGE_BACKOFF_MS * 2 ** attempt);
+        continue;
+      }
       console.error("[auth/refresh]", err);
       await sentry.captureException(err);
+      return Response.json({ error: "network_error" }, { status: 502 });
     }
-    return Response.json({ error: "refresh_failed" }, { status: 401 });
+
+    const tokenBody = (await tokenRes.json().catch(() => null)) as GitHubTokenBody | null;
+    lastStatus = tokenRes.status;
+
+    if (isUsableGitHubTokenBody(tokenBody)) {
+      return Response.json({
+        access_token: tokenBody.access_token,
+        refresh_token: tokenBody.refresh_token,
+        expires_in: tokenBody.expires_in,
+      });
+    }
+
+    // Dead grant: do not retry — the refresh token will not heal.
+    if (isDeadRefreshGrant(tokenBody)) {
+      return Response.json({ error: "refresh_failed" }, { status: 401 });
+    }
+
+    // Transient: 5xx/429, or 200 with neither tokens nor an error field (#1069 empty-200).
+    if (attempt < REFRESH_EXCHANGE_ATTEMPTS - 1) {
+      await sleepMs(REFRESH_EXCHANGE_BACKOFF_MS * 2 ** attempt);
+      continue;
+    }
   }
 
-  return Response.json({
-    access_token: tokenBody.access_token,
-    refresh_token: tokenBody.refresh_token,
-    expires_in: tokenBody.expires_in,
-  });
+  const err =
+    lastNetworkErr ?? new Error(`GitHub refresh returned ${lastStatus} with no usable token`);
+  console.error("[auth/refresh]", err);
+  await sentry.captureException(err);
+  return Response.json({ error: "network_error" }, { status: 502 });
 }
 
 // ============================================================================
