@@ -108,7 +108,7 @@ import {
   buildWorkoutCreateAndRemoveWrites,
 } from "./decide/turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
-import { exerciseTypeFieldViolation } from "./decide/workoutSchema.js";
+import { exerciseTypeFieldViolation, computeUnackedInjuryFlags } from "./decide/workoutSchema.js";
 
 import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
 
@@ -550,8 +550,7 @@ function findMissingWorkoutCreateInjuryAck(turn: TurnState, reply: GeminiReply):
   const activeFlags = turn.activeInjuryFlagIds ?? new Set();
   if (activeFlags.size === 0) return null;
   if (!reply.workout_create) return null;
-  const acked = new Set((reply.workout_create.injury_ack ?? []).map((ack) => ack.flag));
-  const unacked = [...activeFlags].filter((flag) => !acked.has(flag));
+  const unacked = computeUnackedInjuryFlags(reply.workout_create.injury_ack, activeFlags);
   return unacked.length > 0 ? unacked.join(", ") : null;
 }
 

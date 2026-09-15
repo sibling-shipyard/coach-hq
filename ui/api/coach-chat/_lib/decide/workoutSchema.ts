@@ -46,6 +46,20 @@ function assertNumber(value: unknown, field: string): void {
 // spec (P2, #727 review). Returns a short reason string on a violation, or null when the
 // type/reps/duration_secs combination is internally consistent - deliberately not throwing, since
 // the reprompt caller wants a message to hand back to the model, not an exception.
+// #1071 review: coachTurn.ts's pre-write reprompt check (findMissingWorkoutCreateInjuryAck) and
+// coachWorkoutFiles.ts's applyWorkoutCreate invariant 7 need the exact same acked/unacked set
+// diff - if the matching rule ever changes in one and not the other, the reprompt trigger and the
+// write-time guard silently diverge, which is exactly the #1071 bug shape re-opening itself.
+// Shared here for the same reason exerciseTypeFieldViolation is: one real check, not two
+// hand-duplicated ones.
+export function computeUnackedInjuryFlags(
+  injuryAck: { flag: string }[] | undefined,
+  activeInjuryFlagIds: ReadonlySet<string>,
+): string[] {
+  const acked = new Set((injuryAck ?? []).map((ack) => ack.flag));
+  return [...activeInjuryFlagIds].filter((flagId) => !acked.has(flagId));
+}
+
 export function exerciseTypeFieldViolation(ex: {
   type?: unknown;
   reps?: unknown;
