@@ -8,7 +8,7 @@
  */
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import type { ProgressionsJson } from "./coachQuestFiles.js";
-import { validateWorkout } from "./workoutSchema.js";
+import { validateWorkout, computeUnackedInjuryFlags } from "./workoutSchema.js";
 import type { Workout } from "../../../../client/src/lib/workouts.js";
 import { compileWorkout, type WorkoutSpec } from "../compile-workout.bundle.js";
 
@@ -388,8 +388,7 @@ export function applyWorkoutCreate(
   progressions: ProgressionsJson | null,
   traceId: string,
 ): { id: string; content: string } {
-  const ackedFlags = new Set((spec.injury_ack ?? []).map((ack) => ack.flag));
-  const unacked = [...activeInjuryFlagIds].filter((flagId) => !ackedFlags.has(flagId));
+  const unacked = computeUnackedInjuryFlags(spec.injury_ack, activeInjuryFlagIds);
   if (unacked.length > 0) {
     throw new Error(
       `workout_create: active injury flag(s) not acknowledged: ${unacked.join(", ")}`,

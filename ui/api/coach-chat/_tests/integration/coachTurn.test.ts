@@ -223,6 +223,45 @@ describe("coach turn stages", () => {
     expect(coachNoteWrite).toBeDefined();
   });
 
+  // #1070: isProseOnlyWeekPlan's own one-shot reprompt (requestCoachReply) already worked - what
+  // was missing was a same-turn correction for the athlete when the reprompt still doesn't fix
+  // it. Before this fix, requestCoachReply only console.warn'd/captured to Sentry, so the athlete
+  // read a full week plan that was never actually saved with no indication anything went wrong
+  // (live-reproduced on coach-akash-suresh, traceId tkxjxkzd). RepliedTurn.stillProseOnlyWeekPlan
+  // carries the signal into buildTurnWrites, same shape as stillUnconfirmedAssumption.
+  it("appends a same-turn correction to the reply when the prose-only week plan is still unresolved after reprompt (#1070)", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        stillProseOnlyWeekPlan: true,
+        reply: {
+          reply:
+            "Here's your roadmap: Monday easy run, Tuesday intervals, Wednesday badminton," +
+            " Thursday recovery, Friday badminton, Saturday long run, Sunday rest.",
+          coach_note: "Laid out the week ahead.",
+        },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe(
+      "Here's your roadmap: Monday easy run, Tuesday intervals, Wednesday badminton," +
+        " Thursday recovery, Friday badminton, Saturday long run, Sunday rest.\n\n" +
+        "(Note: the week plan above wasn't saved - ask again and I'll lock it in.)",
+    );
+  });
+
+  it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        reply: {
+          reply: "Here's your roadmap for the week ahead.",
+          coach_note: "Laid out the week ahead.",
+        },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe("Here's your roadmap for the week ahead.");
+  });
+
   // C1: template_edit/session_plan/week_plan/session_reconcile/plan_edit are available on any
   // returning-athlete turn now, not gated to a closing turn any more - this turn has no close
   // signal at all (there's no such concept left to signal). Also exercises the lazy
