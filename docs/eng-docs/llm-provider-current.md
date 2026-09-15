@@ -1,27 +1,46 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
 
-**Live status, 2026-09-14: `GEMINI_API_KEY` has no credit in this dev environment right now.**
-Any live/manual/eval/simulation-suite run must use `LLM_PROVIDER=openrouter` (real key present in
-`ui/.env.local`) until this is restored - a direct-Gemini call here fails or silently no-ops
-depending on the call path, not a clean error. This does not change the production default
-(`gemini-pro-latest` direct, per Options below) - only this dev account's testing credit.
+**Live status, 2026-09-15: production itself now runs on OpenRouter, `google/gemini-3.8-flash`.**
+The athlete set `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` directly in Vercel's Production
+environment on 2026-09-05, and removed `GEMINI_API_KEY` from Vercel entirely. Confirmed in the
+Vercel dashboard, then cross-checked against real runtime data (`get_runtime_errors`/
+`get_runtime_logs`): one isolated rate-limit 429 cluster 2026-09-05 through 2026-09-10. Nothing
+since, clean in the last 24h. This was a real switch, not a dev-account credit workaround - the
+paragraph below describing `gemini-pro-latest` as the production default is stale and describes
+the state before this switch. No ADR exists for this change yet. It's a locked/architectural
+decision (provider + model, not just a dev testing workaround) and should get one - see
+`kdb/decisions/README.md`.
+
+This dev environment's own `GEMINI_API_KEY` (in `ui/.env.local`, separate from Vercel's) also has
+no credit right now. Local live/manual/eval/simulation-suite runs need `LLM_PROVIDER=openrouter`
+too - a direct-Gemini call here fails or silently no-ops depending on the call path, not a clean
+error. That part of this doc's original "live status" note still holds; only the production-default
+claim below it was overtaken by the Vercel switch.
 
 ## Context
 
 `coach-chat.ts` reaches Gemini through the shared seam (`ui/api/_lib/llmClient.ts`'s
 `selectLlmAdapter`, #713 M2) rather than opening its own socket - every direct-Gemini caller in
 the codebase (chat, coach-message, template adjustment) does now. `LLM_PROVIDER` unset/`gemini`
-(the production default throughout M2) resolves to the direct adapter
-(`_lib/llmAdapters/geminiAdapter.ts`), header-authenticated, no change to the wire request chat
-itself sends. **The model actually running in production is `gemini-pro-latest`** (pinned in
-`ui/api/_lib/geminiModel.ts`), not `gemini-flash-latest` - flash was the intended model, moved off
-after capacity failures (#668), pin still temporary. **This means the Options table below, priced
-against Flash's per-token rate, understates what pro is actually costing** - it was written before
-the flash-to-pro pin and never re-priced. Re-verify pro's own rate limits/pricing before using this
-table to make the provider call; see `GEMINI-PRO-BASELINE-2026-09-10.md` for the reliability
-findings from testing directly against pro, which are a separate question from what's costed here.
+resolves to the direct adapter (`_lib/llmAdapters/geminiAdapter.ts`); `LLM_PROVIDER=openrouter`
+resolves to `_lib/llmAdapters/openRouterAdapter.ts`, pinned to `google/gemini-3.8-flash`. **As of
+2026-09-15, production's real `LLM_PROVIDER` is `openrouter`** (see Live status above) - the
+`gemini-pro-latest` pin in `ui/api/_lib/geminiModel.ts` is real code, but it's now dead in
+production specifically because `LLM_PROVIDER` routes past it, not because the pin itself changed.
+Flash was the originally intended model back when direct Gemini was the default. It moved off
+after capacity failures (#668) at the time - that finding was about direct-Gemini Flash
+specifically, not Flash-via-OpenRouter. OpenRouter is a different rate-limit/routing path
+(this project's OpenRouter key is pinned to Vertex, per `chat-provider-bench.md`) and hasn't shown
+the same failure pattern in real production traffic so far. **This means the Options table below
+does not describe today's real production cost path.** It's priced against Flash's per-token rate
+through direct Gemini, written before both the flash-to-pro pin and the later pro-to-OpenRouter-
+flash switch, and never re-priced for either. Re-verify OpenRouter's own rate
+limits/pricing at real production volume before treating this table as current. See
+`GEMINI-PRO-BASELINE-2026-09-10.md` for the reliability findings from testing directly against
+pro, and the 2026-09-15 live coverage pass (issue #1067) for the most recent real findings against
+exactly what's in production now.
 **Unblocked:**
 Cloud Billing is live on the project, confirmed 2026-08-06 — the AI Studio Billing page shows
 "Paid 1 · $250 Billing Account Tier Cap" against ₹2,500 prepaid credit. The Rate Limit dashboard

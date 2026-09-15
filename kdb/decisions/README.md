@@ -44,6 +44,7 @@
 | 0043 | Shared web widget module | ui |
 | 0044 | A dedicated agent owns testing infrastructure and process | cross-cutting |
 | 0045 | Typed per-concern JSON files supersede challenge_v2.json | cross-cutting |
+| 0046 | Coach chat production runs on OpenRouter, not direct Gemini | cross-cutting (coach-chat backend, provider seam) |
 
 <details>
 <summary>Superseded / historical (5) — kept for the citations, not for the boot read</summary>
