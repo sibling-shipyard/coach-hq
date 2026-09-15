@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
 
 ## Context
 
@@ -261,13 +261,13 @@ test already covers.
 
 | Field | Missed-language / narration guard | Other reprompt or write-time guard |
 |---|---|---|
-| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), injury/dose invariants at write time |
+| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), `findMissingWorkoutCreateInjuryAck` (structural, active-flag-vs-injury_ack mismatch - #1071), injury/dose invariants at write time |
 | `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
 | `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment). |
 | `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
 | `injury_flag` | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D) | - |
 | `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
-| `template_edit`, `session_plan` | - | `findUnconfirmedAssumption` (schedule-change gate only) |
+| `template_edit`, `session_plan` | prompt reinforcement only (#1072) | `findUnconfirmedAssumption` (schedule-change gate only) |
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
 | `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
@@ -395,6 +395,40 @@ This closes out the #1037 round. All four HLD findings scoped as P2 (habit/quest
 returning-athlete coverage, `workout_create` full-violation reporting, `findInvalidReference`
 full-id reporting, `week_update` seam alignment) are now shipped or explicitly documented as a
 deliberate no-behavior-change decision.
+
+**#1070/#1071/#1072 live-pass findings round (2026-09-15).** Tech Lead's live testing pass
+against all 5 real athlete repos (#1067) found three real gaps in this guard system, all rooted
+in the same thing: Gemini Flash occasionally does the wrong thing, and these are gaps in the
+existing mitigation pattern, not new failure modes needing a new approach.
+
+- **#1070: `isProseOnlyWeekPlan`'s still-unresolved case never reached the athlete.** The
+  detector and its one-shot reprompt already worked; what was missing was the same-turn
+  correction `formatDroppedActionsCorrection` already does for a dropped write action. When
+  `stillProseOnlyWeekPlan` stays true after the reprompt, the reply the athlete actually reads now
+  gets an honest addendum (`formatProseOnlyWeekPlanCorrection`, `coachTurn.ts`) saying the week
+  plan above wasn't saved, instead of only a `console.warn`/`captureStillUnresolvedGuard` call the
+  athlete never sees. `RepliedTurn.stillProseOnlyWeekPlan` carries the signal from
+  `requestCoachReply` into `buildTurnWrites`, same shape as `stillUnconfirmedAssumption`.
+- **#1071: `workout_create` narrates success before its own injury_ack invariant drops the
+  write.** Invariant 7 already makes a dropped write recoverable (the existing correction note
+  fires), but the model's prose claims the routine is built and locked in first, so the athlete
+  reads a self-contradicting reply. `findMissingWorkoutCreateInjuryAck` (`coachTurn.ts`) is a new
+  structural reprompt trigger, same family as `findMalformedWorkoutCreateExercises` - when the
+  turn has active injury flags, the reply sets `workout_create`, and `injury_ack` doesn't cover
+  every active flag, it reprompts once before the applier ever sees the write.
+- **#1072: `template_edit`/`session_plan` had zero narration-vs-action guard, and pain-justified
+  edit language got misclassified as a new injury.** Live-reproduced: "my lower back doesn't
+  handle it well, every time, not just today," said to justify a permanent routine edit, got
+  recorded as `injury_flag`/`injury_event` instead of the requested `template_edit`. I looked for
+  a safe deterministic reprompt trigger (the same "athlete message names an edit request AND the
+  reply set injury fields but not template_edit/session_plan" shape every other detector in this
+  table uses) and couldn't find one narrow enough to ship: a returning athlete asking to change a
+  session *because* of ongoing pain is common and often legitimate on its own, including turns
+  where the coach correctly asks a clarifying question before committing any edit at all. Firing
+  on that shape would collide with ordinary conversation the same way the rejected gap-2a generic
+  keyword match did. This one shipped as prompt reinforcement only
+  (`coachPromptText.ts`, next to the `template_edit`/`session_plan` instructions) - a documented
+  partial fix, not an oversight. See the coverage table above for the current state.
 
 ## Retries, timeouts, rate limits
 
