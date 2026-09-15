@@ -1,0 +1,34 @@
+name: Span health
+
+# Daily absence check: production traffic with no http.server spans. Offset from
+# sentry-digest (30 2 * * * / Monday 0 3) so the two Sentry API jobs do not pile up.
+on:
+  schedule:
+    - cron: "0 4 * * *" # 09:30 IST, daily — after digest (08:00 IST)
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: span-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Check span health
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::error::SENTRY_AUTH_TOKEN is not configured; span health cannot read Sentry."
+            exit 1
+          fi
+          node ui/scripts/check-span-health.mjs
