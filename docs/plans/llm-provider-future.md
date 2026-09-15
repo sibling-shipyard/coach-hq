@@ -1,6 +1,6 @@
 # Coach chat LLM provider — research
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
 
 ## Context
 
@@ -19,7 +19,7 @@ It's billed and managed completely separately from the Gemini API. Per Google's 
 
 An API key minted under a Gemini Pro account lands in the exact same free tier as the one I'm
 using now. The only thing that actually raises `coach-chat.ts`'s limits is turning on **Cloud
-Billing** (pay-as-you-go) on the Google Cloud project the key belongs to — that's a metered
+Billing** (pay-as-you-go) on the Google Cloud project the key belongs to. That's a metered
 switch, not a plan purchase, and it moves the key off the free-tier RPD ceiling entirely.
 
 ## Free-tier landscape (dev/testing, not production)
@@ -46,7 +46,7 @@ plan for the live coach.
 session close all go through the same `askGemini()` (`coach-chat.ts:335-532`), a plain REST POST
 to `generateContent` with the API key as a query param, no SDK. There's no second, cheaper call
 for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
-`coach-chat.ts:216-217`), not a model call — it only sets the prompt's `mode`, and the model's own
+`coach-chat.ts:216-217`), not a model call. It only sets the prompt's `mode` - the model's own
 `session_closed` field (returned in that same one response) is what actually gates a commit.
 
 **What's in every request:**
@@ -68,8 +68,8 @@ for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
   repeat calls, but it's a plain in-memory `Map` — only helps within one warm Vercel instance, not
   a cross-instance or provider-level cache.
 - **Shipped:** SOUL.md is no longer fetched from the athlete's own repo at all. It's verified
-  100% generic (no per-athlete substitution anywhere in the carve process), so the backend now
-  bundles `platform/SOUL.chat.md` at build time (`ui/scripts/build-soul.mjs`) instead — one fewer
+  100% generic (no per-athlete substitution anywhere in the carve process). The backend now
+  bundles `platform/SOUL.chat.md` at build time (`ui/scripts/build-soul.mjs`) instead - one fewer
   GitHub API call every turn, and a coach-behavior change now reaches every athlete's chat
   immediately instead of waiting on their next carve. See the ADR amending 0011.
 
@@ -116,28 +116,41 @@ client shape either way.
 
 ## Cost minimization — techniques beyond "turn on caching"
 
-**Shipped:** Gemini already has free, automatic prompt caching — confirmed via
-`developers.googleblog.com` and `ai.google.dev/gemini-api/docs/caching`, implicit caching has
+**Update 2026-09-15 — the "Shipped" claim below was wrong for real traffic.** The
+`todayContextLine()` prefix-ordering fix did land, and it works for *repeated identical* prompts.
+But `docs/eng-docs/chat-provider-bench.md` (2026-09-06) measured production's actual traffic —
+a different athlete block on every call — and found Gemini's implicit caching still doesn't
+discount it: 0% cached on every varying-tail call, full stop. Fixing the prefix order was
+necessary but not sufficient. The fix that does work is OpenRouter's explicit `cache_control`
+marker, planned in `docs/plans/openrouter-caching.md`, not implicit caching alone. Left the
+original paragraph below for the history of what was tried; don't trust its "Fixed" line as
+current status.
+
+**Original (2026-08-05):** Gemini already has free, automatic prompt caching — confirmed via
+`developers.googleblog.com` and `ai.google.dev/gemini-api/docs/caching`. Implicit caching has
 been on by default for every Gemini 2.5+ model since 2025 (no opt-in, no code, 90% discount on
 cached tokens, minimum cacheable prefix 1,024 tokens). The only reason it wasn't paying off was
 the `todayContextLine()` bug: the per-minute-changing "Today is ..." line sat between `soul` and
-`state.md`/`rendered quest context` in the prefix, breaking the cache on every single call. **Fixed** —
+`state.md`/`rendered quest context` in the prefix, breaking the cache on every single call.
 `todayContextLine()` is now the last element in the `systemInstruction` array instead of the 3rd,
-so the persona/instructions/few-shot/state block stays a stable, cacheable prefix. Also added: 3
-worked few-shot examples inside that same cached prefix (persona consistency + fewer
-structured-output errors, per Anthropic's multishot-prompting guidance — one-time cost, not
-per-turn since it's cached), and a hidden `reasoning` field ahead of the final JSON answer (per
-OpenAI's structured-outputs guidance on reasoning-before-answer for non-reasoning models),
+so the persona/instructions/few-shot/state block stays a stable, cacheable prefix.
+
+Also added: 3 worked few-shot examples inside that same cached prefix (persona consistency +
+fewer structured-output errors, per Anthropic's multishot-prompting guidance - one-time cost,
+not per-turn since it's cached). Also a hidden `reasoning` field ahead of the final JSON answer
+(per OpenAI's structured-outputs guidance on reasoning-before-answer for non-reasoning models),
 stripped before the reply ever reaches the athlete.
 
 **Caching mechanics differ by provider** — worth knowing before assuming "caching" means the same
 thing everywhere:
-- **Gemini:** automatic implicit caching, no code change, 90% discount on cache hits.
+- **Gemini:** advertised as automatic implicit caching, no code change, 90% discount on cache
+  hits. Measured 0% on this app's real varying-tail traffic (see update above) - needs
+  OpenRouter's explicit marker to actually fire.
 - **Claude:** explicit `cache_control` breakpoints — a real code change, but cached tokens are
   also excluded from the ITPM rate limit (not just billed cheaper), which raises effective
   throughput on top of cost savings.
 - **OpenAI (GPT-5 family):** automatic for prompts over 1,024 tokens, no code change — same
-  "free" caching as Gemini.
+  "free" caching as Gemini, unverified against this app's own traffic.
 
 **Other techniques researched:**
 - **Context/history windowing** — **shipped.** `MAX_HISTORY_MESSAGES = 40` now caps in-thread
