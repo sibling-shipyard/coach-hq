@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
 
 ## Context
 
@@ -136,11 +136,11 @@ guard once deferred pending D1 is in now too (`#40`), D1 having landed.
 
 **Known gaps:**
 
-- The workouts/`current_week` redesign this section once anticipated (#727) has since shipped -
-  `session_plan` and the new `workout_create`/`workout_remove` actions still have no dedicated
-  live-transcript coverage here, a real gap rather than a deferred one. `workout_create` has a
-  narration-vs-action reprompt guard (`gemini-flow.md`'s coverage table); `workout_remove` has none
-  yet - see that doc's own tracked follow-up.
+- **Closed (coverage-audit phase 1, 2026-09-15):** `session_plan` and the new
+  `workout_create`/`workout_remove` actions each now have a dedicated eval transcript (`19`, `17`,
+  `18` in `docs/eng-docs/coach-chat-test-scenarios.md`) plus a simulation-suite scenario for
+  real-write coverage. This closes the gap this bullet used to name - see that doc's coverage
+  matrix for the full cross-reference.
 - Because this tool calls `askGemini()` directly, it structurally cannot exercise `coachTurn.ts`'s
   reprompt mechanism - a false PASS here says nothing about whether the reprompt/guard layer
   (see `gemini-flow.md`'s "Narration-vs-action reliability guards" coverage table) is working.
