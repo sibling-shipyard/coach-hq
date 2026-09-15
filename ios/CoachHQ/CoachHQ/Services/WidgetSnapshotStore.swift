@@ -84,7 +84,19 @@ class WidgetSnapshotStore: ObservableObject {
     /// extension, then nudges WidgetKit to redraw the S-size home screen widgets against
     /// the fresh data instead of waiting out their own timeline policy.
     func persist(_ file: WidgetSnapshotsFile) {
-        guard let data = try? JSONEncoder().encode(file) else { return }
+        let operationID = UUID()
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(file)
+        } catch {
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "widget.snapshot.persist",
+                operationID: operationID,
+                metadata: ["stage": "encode"]
+            )
+            return
+        }
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
         let now = Date()
         UserDefaults.standard.set(now, forKey: Self.cacheFetchedAtKey)
@@ -93,7 +105,18 @@ class WidgetSnapshotStore: ObservableObject {
         }
         lastFetchedAt = now
 
-        AppGroupSnapshotBridge.write(file)
+        do {
+            try AppGroupSnapshotBridge.write(data)
+        } catch {
+            // Local cache is fine; widgets keep the previous mirror until the next good write.
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "widget.snapshot.persist",
+                operationID: operationID,
+                metadata: ["stage": "app_group_write"]
+            )
+            return
+        }
         WidgetCenter.shared.reloadAllTimelines()
     }
 

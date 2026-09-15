@@ -26,11 +26,11 @@ struct TrainingActivityProvider: TimelineProvider {
             completion(TrainingActivityEntry(date: Date(), activity: Self.previewActivity, isPlaceholder: false))
             return
         }
-        completion(TrainingActivityEntry(date: Date(), activity: AppGroupSnapshotBridge.read()?.home.trainingActivity, isPlaceholder: false))
+        completion(TrainingActivityEntry(date: Date(), activity: WidgetSentry.loadSnapshots()?.home.trainingActivity, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TrainingActivityEntry>) -> Void) {
-        let entry = TrainingActivityEntry(date: Date(), activity: AppGroupSnapshotBridge.read()?.home.trainingActivity, isPlaceholder: false)
+        let entry = TrainingActivityEntry(date: Date(), activity: WidgetSentry.loadSnapshots()?.home.trainingActivity, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }

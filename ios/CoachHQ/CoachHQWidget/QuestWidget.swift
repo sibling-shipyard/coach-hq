@@ -19,11 +19,11 @@ struct QuestProvider: TimelineProvider {
             completion(QuestEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
-        completion(QuestEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.quest, isPlaceholder: false))
+        completion(QuestEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.quest, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<QuestEntry>) -> Void) {
-        let entry = QuestEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.quest, isPlaceholder: false)
+        let entry = QuestEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.quest, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }

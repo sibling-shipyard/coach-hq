@@ -21,11 +21,11 @@ struct Vo2Provider: TimelineProvider {
             completion(Vo2Entry(date: Date(), vo2: Self.previewVo2, isPlaceholder: false))
             return
         }
-        completion(Vo2Entry(date: Date(), vo2: AppGroupSnapshotBridge.read()?.home.vo2, isPlaceholder: false))
+        completion(Vo2Entry(date: Date(), vo2: WidgetSentry.loadSnapshots()?.home.vo2, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Vo2Entry>) -> Void) {
-        let entry = Vo2Entry(date: Date(), vo2: AppGroupSnapshotBridge.read()?.home.vo2, isPlaceholder: false)
+        let entry = Vo2Entry(date: Date(), vo2: WidgetSentry.loadSnapshots()?.home.vo2, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }

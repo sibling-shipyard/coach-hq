@@ -19,11 +19,11 @@ struct CommitmentProvider: TimelineProvider {
             completion(CommitmentEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
-        completion(CommitmentEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.commitments, isPlaceholder: false))
+        completion(CommitmentEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.commitments, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CommitmentEntry>) -> Void) {
-        let entry = CommitmentEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.commitments, isPlaceholder: false)
+        let entry = CommitmentEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.commitments, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
