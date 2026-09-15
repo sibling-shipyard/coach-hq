@@ -1,0 +1,805 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-15T11-00-57-787Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Look, great work taking Rank 1 last night on court - sounds like that calm, loose state is really sticking. We have your travel window coming up Thursday, so where are we landing that strength session before you head out?",
+      "threadId": "t-1789470066031",
+      "threads": [
+        {
+          "id": "t-1789419127800",
+          "createdAt": 1789419127800,
+          "title": "Badminton #58",
+          "preview": "I can't see the specific match numbers on this screen, but Rank 1 speaks for its",
+          "messages": [
+            {
+              "label": "TODAY · 9:52 PM",
+              "role": "divider",
+              "id": "d-1789419127800"
+            },
+            {
+              "role": "coach",
+              "id": "c-1789419127800",
+              "paragraphs": [
+                "Look, that was another big court shift tonight with some real spikes up in the top zones. No scores on my screen, so I just see the honest effort logged. How did it feel out there?"
+              ],
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "EDFC2909-D17C-4FEF-9F2D-F9726CA4686B",
+                      "duration_s": 10020,
+                      "load": 360,
+                      "title": "Badminton #58",
+                      "sport": "Badminton",
+                      "start": "2026-09-14T19:01:33"
+                    }
+                  ],
+                  "batch_id": "119899e2329db2f0",
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "text": "Added scores now. Felt good coach. I was great today. Shots were in control. Played a calm game and enjoyed the session",
+              "role": "user",
+              "id": "u-1789421472846"
+            },
+            {
+              "id": "c-1789421472846",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that calm control under game speed is exactly what we're after. When your shots are dialed and you're actually enjoying the fight out there, that free state isn't an accident anymore, it's becoming who you are on court. Get your food in, hydrate, and let the body recover tonight."
+              ]
+            },
+            {
+              "id": "u-1789421505702",
+              "role": "user",
+              "text": "Thanks coach. Did you see the scores? I was rank 1 today"
+            },
+            {
+              "id": "c-1789421505702",
+              "role": "coach",
+              "paragraphs": [
+                "I can't see the specific match numbers on this screen, but Rank 1 speaks for itself. Walking into Hit and Run, staying calm when it gets chaotic, and coming out on top without forcing it - that's huge. That's what happens when you trust your game. Bank the confidence, get your protein in, and get some sleep."
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "t-1789388953764",
+          "createdAt": 1789388953764,
+          "title": "WeightTraining #161",
+          "preview": "Look, that 18-minute session was short and quiet. The clock logged the time, but",
+          "messages": [
+            {
+              "id": "d-1789388953764",
+              "role": "divider",
+              "label": "TODAY · 1:29 PM"
+            },
+            {
+              "id": "c-1789388953764",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that 18-minute session was short and quiet. The clock logged the time, but only you know if you got what you needed out of it. How's the body feeling?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "e4f5f39b63cde66b",
+                  "activities": [
+                    {
+                      "id": "ABC42A33-CB38-4269-B9C8-B4FC5B5A12EC",
+                      "title": "WeightTraining #161",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T10:10:39",
+                      "duration_s": 1096,
+                      "load": 20
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "t-1789260626962",
+          "createdAt": 1789260626962,
+          "title": "Ride #111",
+          "preview": "Look, that was a smooth, easy ride. Just steady movement and nothing forced, whi",
+          "messages": [
+            {
+              "id": "d-1789260626962",
+              "role": "divider",
+              "label": "TODAY · 1:50 AM"
+            },
+            {
+              "id": "c-1789260626962",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a smooth, easy ride. Just steady movement and nothing forced, which is solid."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "dfa6dc16a554ab8b",
+                  "activities": [
+                    {
+                      "id": "E64FA52B-8E20-420D-8DBF-16005F02078E",
+                      "title": "Ride #111",
+                      "sport": "Ride",
+                      "start": "2026-09-12T17:27:55",
+                      "duration_s": 2576,
+                      "load": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "t-1789209488510",
+          "createdAt": 1789209488510,
+          "title": "WeightTraining #159",
+          "preview": "Got it. Good to prime with foundation. Lock it in, warm up that right glute with",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY · 11:38 AM",
+              "id": "d-1789209488510"
+            },
+            {
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "9F158139-C60C-40CD-B140-E79FEB973297",
+                      "title": "WeightTraining #159",
+                      "load": 20,
+                      "duration_s": 1271,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-12T10:00:21"
+                    }
+                  ],
+                  "batch_id": "da134d67ef976896",
+                  "version": 1
+                }
+              ],
+              "id": "c-1789209488510",
+              "role": "coach",
+              "paragraphs": [
+                "Look, another short piece of work logged. Did you end up getting into the full Workout A, or did today turn into something lighter?"
+              ]
+            },
+            {
+              "id": "u-1789209605593",
+              "role": "user",
+              "text": "That was foundation. I'll do actual workout in 1 hour"
+            },
+            {
+              "id": "c-1789209605593",
+              "role": "coach",
+              "paragraphs": [
+                "Got it. Good to prime with foundation. Lock it in, warm up that right glute with the single-leg bridge, and make Workout A count. Talk to you right after."
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "t-1789198339118",
+          "createdAt": 1789198339118,
+          "title": "WeightTraining #158",
+          "preview": "That is what I want to hear. Lock it in.\n\nQuick checklist before you touch a bar",
+          "messages": [
+            {
+              "id": "d-1789198339118",
+              "role": "divider",
+              "label": "TODAY · 8:32 AM"
+            },
+            {
+              "id": "c-1789198339118",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "DD8CBB0E-F24A-4A8E-A9DE-F83DF9537D74",
+                      "duration_s": 1403,
+                      "title": "WeightTraining #158",
+                      "load": 19,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-11T10:53:53"
+                    }
+                  ],
+                  "batch_id": "1407cc7e812b8b78",
+                  "version": 1
+                }
+              ],
+              "paragraphs": [
+                "Look, you said you were going to get back on the board with a lift, and you got 23 minutes in yesterday morning. It breaks the dry spell. Let me know what you actually hit in that session, what the RPE was, and if we're still locking in another lift this weekend."
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "id": "u-1789198471130",
+              "text": "That was just morning foundation coach"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "Got it. So that was foundation, not the lift. Which means the dry spell is still live, Sky. You committed to getting one real lift in this weekend before the travel window hits next week. Are we locking in Workout A today or tomorrow?"
+              ],
+              "id": "c-1789198471130"
+            },
+            {
+              "id": "u-1789201905139",
+              "role": "user",
+              "text": "I will do it today coach!"
+            },
+            {
+              "id": "c-1789201905139",
+              "role": "coach",
+              "paragraphs": [
+                "That is what I want to hear. Lock it in.\n\nQuick checklist before you touch a bar:\n1. Single-leg glute bridge on the right in the warm-up. Squeeze before extending.\n2. Front lever protocol: SL FL benchmark tested LEFT first, then straddle negatives (25kg band, 5x3 controlled), then SL holds (15kg band, 3x10s).\n3. Dips stay at bodyweight with that 3-second eccentric.\n\nKeep it clean, get your numbers down, and tell me how it felt when you're done."
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "t-1788470163649",
+          "createdAt": 1788470163649,
+          "title": "4 sessions synced",
+          "preview": "Look, I see the logs rolling in. Almost four hours on the court tonight is a mas",
+          "messages": [
+            {
+              "id": "d-1788470163649",
+              "role": "divider",
+              "label": "TODAY · 10:16 PM"
+            },
+            {
+              "id": "c-1788470163649",
+              "role": "coach",
+              "paragraphs": [
+                "Look, I see the logs rolling in. Almost four hours on the court tonight is a massive shift. I'm also seeing a couple of short lifts from yesterday and today—22 minutes and 19 minutes. Since our rule for this block is that those quick logs don't count toward the main strength spine, I just need to know what they were. Were those just morning movement, or did Workout A get cut in half? Let me know what you actually ran. Also, how is the body feeling after that badminton marathon? Give me the real answer, especially on that right glute."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "941aef0ce3b01786",
+                  "activities": [
+                    {
+                      "id": "079608A5-6A9E-4064-B439-AC151596A751",
+                      "title": "Ride #107",
+                      "sport": "Ride",
+                      "start": "2026-09-01T17:42:48",
+                      "duration_s": 918,
+                      "load": 14
+                    },
+                    {
+                      "id": "3F0470B0-88F9-49AF-B60D-1D5076A8A440",
+                      "title": "WeightTraining #150",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-02T09:50:24",
+                      "duration_s": 1350,
+                      "load": 23
+                    },
+                    {
+                      "id": "939CF358-F72E-4421-B313-2CD35BFC47B8",
+                      "title": "WeightTraining #151",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-03T08:50:34",
+                      "duration_s": 1183,
+                      "load": 19
+                    },
+                    {
+                      "id": "9EC34B89-8EDC-4E71-AB73-2FC2B10C14D2",
+                      "title": "Badminton #56",
+                      "sport": "Badminton",
+                      "start": "2026-09-03T18:01:31",
+                      "duration_s": 13455,
+                      "load": 477
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 12,
+          "ageLabel": "D-12",
+          "status": "active"
+        },
+        {
+          "id": "t-1788252906933",
+          "createdAt": 1788252906933,
+          "title": "2 sessions synced",
+          "preview": "I see the lift and the ride came through. 52 minutes on the clock for Workout B ",
+          "messages": [
+            {
+              "id": "d-1788252906933",
+              "role": "divider",
+              "label": "TODAY · 9:55 AM"
+            },
+            {
+              "id": "c-1788252906933",
+              "role": "coach",
+              "paragraphs": [
+                "I see the lift and the ride came through. 52 minutes on the clock for Workout B — that's tighter than last week's 61.\n\nWhenever you've got a second, let me know how the SL RDLs felt at 12.5kg and if the single-leg glute bridge hit right in the warm-up."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "490460bcbdc78f67",
+                  "activities": [
+                    {
+                      "id": "B12F417D-C1DB-4055-9D4F-EC9C5D419531",
+                      "title": "WeightTraining #149",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-01T07:57:50",
+                      "duration_s": 3159,
+                      "load": 53
+                    },
+                    {
+                      "id": "2D3A3E82-C153-426C-8CAE-62E9F1D58F14",
+                      "title": "Ride #106",
+                      "sport": "Ride",
+                      "start": "2026-09-01T09:26:33",
+                      "duration_s": 961,
+                      "load": 16
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 14,
+          "ageLabel": "D-14",
+          "status": "active"
+        }
+      ],
+      "repoSha": "1a3bcf3a6e31463a321516a1d02d4b978f95042d",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "1a3bcf3a6e31463a321516a1d02d4b978f95042d",
+    "shaAfter": "1a3bcf3a6e31463a321516a1d02d4b978f95042d",
+    "usage": {
+      "promptTokens": 10599,
+      "completionTokens": 50,
+      "totalTokens": 10649,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00813675
+    },
+    "costUsd": 0.00813675
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-15T11-00-57-787Z",
+    "input": {
+      "threadId": "t-1789470066031",
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "reply": "Look, here is the layout for the week. Monday court night is already in the bank. Wednesday Workout A is your non-negotiable anchor before you head out, with the right glute activation bridge locked in first. Thursday you travel, so keep it light. Friday you hit the bodyweight travel routine to keep momentum, and the weekend is about active recovery and resetting. It is locked in.",
+      "threadId": "t-1789470066031",
+      "threads": [
+        {
+          "id": "t-1789470066031",
+          "createdAt": 1789470067593,
+          "title": "I don't have a plan for this…",
+          "preview": "Look, here is the layout for the week. Monday court night is already in the bank",
+          "messages": [
+            {
+              "id": "d-1789470067593",
+              "role": "divider",
+              "label": "TODAY · 12:01 PM"
+            },
+            {
+              "id": "u-1789470067593",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789470067593",
+              "role": "coach",
+              "paragraphs": [
+                "Look, here is the layout for the week. Monday court night is already in the bank. Wednesday Workout A is your non-negotiable anchor before you head out, with the right glute activation bridge locked in first. Thursday you travel, so keep it light. Friday you hit the bodyweight travel routine to keep momentum, and the weekend is about active recovery and resetting. It is locked in."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        },
+        {
+          "id": "t-1789419127800",
+          "createdAt": 1789419127800,
+          "title": "Badminton #58",
+          "preview": "I can't see the specific match numbers on this screen, but Rank 1 speaks for its",
+          "messages": [
+            {
+              "label": "TODAY · 9:52 PM",
+              "role": "divider",
+              "id": "d-1789419127800"
+            },
+            {
+              "role": "coach",
+              "id": "c-1789419127800",
+              "paragraphs": [
+                "Look, that was another big court shift tonight with some real spikes up in the top zones. No scores on my screen, so I just see the honest effort logged. How did it feel out there?"
+              ],
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "EDFC2909-D17C-4FEF-9F2D-F9726CA4686B",
+                      "duration_s": 10020,
+                      "load": 360,
+                      "title": "Badminton #58",
+                      "sport": "Badminton",
+                      "start": "2026-09-14T19:01:33"
+                    }
+                  ],
+                  "batch_id": "119899e2329db2f0",
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "text": "Added scores now. Felt good coach. I was great today. Shots were in control. Played a calm game and enjoyed the session",
+              "role": "user",
+              "id": "u-1789421472846"
+            },
+            {
+              "id": "c-1789421472846",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that calm control under game speed is exactly what we're after. When your shots are dialed and you're actually enjoying the fight out there, that free state isn't an accident anymore, it's becoming who you are on court. Get your food in, hydrate, and let the body recover tonight."
+              ]
+            },
+            {
+              "id": "u-1789421505702",
+              "role": "user",
+              "text": "Thanks coach. Did you see the scores? I was rank 1 today"
+            },
+            {
+              "id": "c-1789421505702",
+              "role": "coach",
+              "paragraphs": [
+                "I can't see the specific match numbers on this screen, but Rank 1 speaks for itself. Walking into Hit and Run, staying calm when it gets chaotic, and coming out on top without forcing it - that's huge. That's what happens when you trust your game. Bank the confidence, get your protein in, and get some sleep."
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "t-1789388953764",
+          "createdAt": 1789388953764,
+          "title": "WeightTraining #161",
+          "preview": "Look, that 18-minute session was short and quiet. The clock logged the time, but",
+          "messages": [
+            {
+              "id": "d-1789388953764",
+              "role": "divider",
+              "label": "TODAY · 1:29 PM"
+            },
+            {
+              "id": "c-1789388953764",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that 18-minute session was short and quiet. The clock logged the time, but only you know if you got what you needed out of it. How's the body feeling?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "e4f5f39b63cde66b",
+                  "activities": [
+                    {
+                      "id": "ABC42A33-CB38-4269-B9C8-B4FC5B5A12EC",
+                      "title": "WeightTraining #161",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T10:10:39",
+                      "duration_s": 1096,
+                      "load": 20
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "t-1789260626962",
+          "createdAt": 1789260626962,
+          "title": "Ride #111",
+          "preview": "Look, that was a smooth, easy ride. Just steady movement and nothing forced, whi",
+          "messages": [
+            {
+              "id": "d-1789260626962",
+              "role": "divider",
+              "label": "TODAY · 1:50 AM"
+            },
+            {
+              "id": "c-1789260626962",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a smooth, easy ride. Just steady movement and nothing forced, which is solid."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "dfa6dc16a554ab8b",
+                  "activities": [
+                    {
+                      "id": "E64FA52B-8E20-420D-8DBF-16005F02078E",
+                      "title": "Ride #111",
+                      "sport": "Ride",
+                      "start": "2026-09-12T17:27:55",
+                      "duration_s": 2576,
+                      "load": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "t-1789209488510",
+          "createdAt": 1789209488510,
+          "title": "WeightTraining #159",
+          "preview": "Got it. Good to prime with foundation. Lock it in, warm up that right glute with",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY · 11:38 AM",
+              "id": "d-1789209488510"
+            },
+            {
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "9F158139-C60C-40CD-B140-E79FEB973297",
+                      "title": "WeightTraining #159",
+                      "load": 20,
+                      "duration_s": 1271,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-12T10:00:21"
+                    }
+                  ],
+                  "batch_id": "da134d67ef976896",
+                  "version": 1
+                }
+              ],
+              "id": "c-1789209488510",
+              "role": "coach",
+              "paragraphs": [
+                "Look, another short piece of work logged. Did you end up getting into the full Workout A, or did today turn into something lighter?"
+              ]
+            },
+            {
+              "id": "u-1789209605593",
+              "role": "user",
+              "text": "That was foundation. I'll do actual workout in 1 hour"
+            },
+            {
+              "id": "c-1789209605593",
+              "role": "coach",
+              "paragraphs": [
+                "Got it. Good to prime with foundation. Lock it in, warm up that right glute with the single-leg bridge, and make Workout A count. Talk to you right after."
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "t-1789198339118",
+          "createdAt": 1789198339118,
+          "title": "WeightTraining #158",
+          "preview": "That is what I want to hear. Lock it in.\n\nQuick checklist before you touch a bar",
+          "messages": [
+            {
+              "id": "d-1789198339118",
+              "role": "divider",
+              "label": "TODAY · 8:32 AM"
+            },
+            {
+              "id": "c-1789198339118",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "DD8CBB0E-F24A-4A8E-A9DE-F83DF9537D74",
+                      "duration_s": 1403,
+                      "title": "WeightTraining #158",
+                      "load": 19,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-11T10:53:53"
+                    }
+                  ],
+                  "batch_id": "1407cc7e812b8b78",
+                  "version": 1
+                }
+              ],
+              "paragraphs": [
+                "Look, you said you were going to get back on the board with a lift, and you got 23 minutes in yesterday morning. It breaks the dry spell. Let me know what you actually hit in that session, what the RPE was, and if we're still locking in another lift this weekend."
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "id": "u-1789198471130",
+              "text": "That was just morning foundation coach"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "Got it. So that was foundation, not the lift. Which means the dry spell is still live, Sky. You committed to getting one real lift in this weekend before the travel window hits next week. Are we locking in Workout A today or tomorrow?"
+              ],
+              "id": "c-1789198471130"
+            },
+            {
+              "id": "u-1789201905139",
+              "role": "user",
+              "text": "I will do it today coach!"
+            },
+            {
+              "id": "c-1789201905139",
+              "role": "coach",
+              "paragraphs": [
+                "That is what I want to hear. Lock it in.\n\nQuick checklist before you touch a bar:\n1. Single-leg glute bridge on the right in the warm-up. Squeeze before extending.\n2. Front lever protocol: SL FL benchmark tested LEFT first, then straddle negatives (25kg band, 5x3 controlled), then SL holds (15kg band, 3x10s).\n3. Dips stay at bodyweight with that 3-second eccentric.\n\nKeep it clean, get your numbers down, and tell me how it felt when you're done."
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "t-1788470163649",
+          "createdAt": 1788470163649,
+          "title": "4 sessions synced",
+          "preview": "Look, I see the logs rolling in. Almost four hours on the court tonight is a mas",
+          "messages": [
+            {
+              "id": "d-1788470163649",
+              "role": "divider",
+              "label": "TODAY · 10:16 PM"
+            },
+            {
+              "id": "c-1788470163649",
+              "role": "coach",
+              "paragraphs": [
+                "Look, I see the logs rolling in. Almost four hours on the court tonight is a massive shift. I'm also seeing a couple of short lifts from yesterday and today—22 minutes and 19 minutes. Since our rule for this block is that those quick logs don't count toward the main strength spine, I just need to know what they were. Were those just morning movement, or did Workout A get cut in half? Let me know what you actually ran. Also, how is the body feeling after that badminton marathon? Give me the real answer, especially on that right glute."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "941aef0ce3b01786",
+                  "activities": [
+                    {
+                      "id": "079608A5-6A9E-4064-B439-AC151596A751",
+                      "title": "Ride #107",
+                      "sport": "Ride",
+                      "start": "2026-09-01T17:42:48",
+                      "duration_s": 918,
+                      "load": 14
+                    },
+                    {
+                      "id": "3F0470B0-88F9-49AF-B60D-1D5076A8A440",
+                      "title": "WeightTraining #150",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-02T09:50:24",
+                      "duration_s": 1350,
+                      "load": 23
+                    },
+                    {
+                      "id": "939CF358-F72E-4421-B313-2CD35BFC47B8",
+                      "title": "WeightTraining #151",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-03T08:50:34",
+                      "duration_s": 1183,
+                      "load": 19
+                    },
+                    {
+                      "id": "9EC34B89-8EDC-4E71-AB73-2FC2B10C14D2",
+                      "title": "Badminton #56",
+                      "sport": "Badminton",
+                      "start": "2026-09-03T18:01:31",
+                      "duration_s": 13455,
+                      "load": 477
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 12,
+          "ageLabel": "D-12",
+          "status": "active"
+        }
+      ],
+      "repoSha": "42a37b03166ec285ddb0c7540a67e482c93a158e",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "atis8hr6",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex df0ddbc..38e71f1 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,10 +1,35 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-14T21:31:51.284Z\",\n+    \"updated_at\": \"2026-09-15T11:01:32.011Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"xkninx1s\"\n+    \"trace_id\": \"atis8hr6\"\n   },\n   \"threads\": [\n+    {\n+      \"id\": \"t-1789470066031\",\n+      \"createdAt\": 1789470067593,\n+      \"title\": \"I don't have a plan for this…\",\n+      \"preview\": \"Look, here is the layout for the week. Monday court night is already in the bank\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789470067593\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 12:01 PM\"\n+        },\n+        {\n+          \"id\": \"u-1789470067593\",\n+          \"role\": \"user\",\n+          \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n+        },\n+        {\n+          \"id\": \"c-1789470067593\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, here is the layout for the week. Monday court night is already in the bank. Wednesday Workout A is your non-negotiable anchor before you head out, with the right glute activation bridge locked in first. Thursday you travel, so keep it light. Friday you hit the bodyweight travel routine to keep momentum, and the weekend is about active recovery and resetting. It is locked in.\"\n+          ]\n+        }\n+      ]\n+    },\n     {\n       \"id\": \"t-1789419127800\",\n       \"createdAt\": 1789419127800,\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex bb5f276..7767978 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -776,6 +776,14 @@\n       \"type\": \"chat\",\n       \"text\": \"Monday court night (Hit & Run): Sky reported feeling great, shots under control, played calm, and genuinely enjoyed the session. Added match scores in iOS and finished Rank 1 on the night. Continues the pattern of finding the loose, free state and staying disciplined under game pressure.\",\n       \"trace_id\": \"xkninx1s\"\n+    },\n+    {\n+      \"id\": \"sess_2026-09-15_rjtm\",\n+      \"date\": \"2026-09-15\",\n+      \"ts\": \"2026-09-15T11:01:27.786Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Laid out the full week plan for W38 (Sep 14 - Sep 20). Monday court session already logged in the books. Locked in Wednesday Workout A, Thursday travel departure with light recovery, Friday bodyweight travel session, and weekend mobility/rest around travel. Focus remains holding the strength spine before the trip.\",\n+      \"trace_id\": \"atis8hr6\"\n     }\n   ]\n }\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex f457901..b4e6a4c 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,180 @@\n {\n   \"schema_version\": 1,\n-  \"data_status\": \"placeholder\",\n+  \"data_status\": \"live\",\n   \"timezone\": \"Europe/London\",\n   \"week\": {\n     \"id\": \"2026-W38\",\n     \"start_date\": \"2026-09-14\",\n     \"end_date\": \"2026-09-20\",\n-    \"focus\": null,\n-    \"guardrails\": []\n+    \"focus\": \"Protect the strength spine and navigate the Thu-Sun travel window cleanly.\",\n+    \"guardrails\": [\n+      \"Glute bridge warm-up non-negotiable before Workout A\",\n+      \"Do not skip the travel bodyweight work on the road\"\n+    ]\n+  },\n+  \"coach_read\": {\n+    \"headline\": \"Lock in strength before departure.\",\n+    \"body\": \"Monday is banked. Wednesday Workout A anchors the upper body and core. The back half of the week shifts to travel maintenance.\",\n+    \"valid_from\": \"2026-09-15\",\n+    \"valid_until\": \"2026-09-20\"\n   },\n-  \"coach_read\": null,\n   \"days\": [\n     {\n       \"date\": \"2026-09-14\",\n-      \"intent\": null,\n+      \"intent\": \"High-intensity court night.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260914_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"badminton\",\n+          \"kind\": \"court\",\n+          \"title\": \"Hit & Run Badminton\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 120,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-15\",\n-      \"intent\": null,\n+      \"intent\": \"Full recovery and mobility.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260915_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Rest & Mobility\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 30,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-16\",\n-      \"intent\": null,\n+      \"intent\": \"Upper body strength and front lever progression.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260916_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"strength\",\n+          \"kind\": \"gym\",\n+          \"title\": \"Workout A\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": \"workout_a\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-17\",\n-      \"intent\": null,\n+      \"intent\": \"Travel day - stay loose.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260917_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Travel Movement & Stretch\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 20,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-18\",\n-      \"intent\": null,\n+      \"intent\": \"Hotel room bodyweight strength maintenance.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260918_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"calisthenics\",\n+          \"kind\": \"bodyweight\",\n+          \"title\": \"Travel Bodyweight Maintenance\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 35,\n+          \"template_id\": \"workout_travel\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-19\",\n-      \"intent\": null,\n+      \"intent\": \"Active rest during travel.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260919_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Light Mobility\",\n+          \"priority\": \"optional\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 20,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-20\",\n-      \"intent\": null,\n+      \"intent\": \"Travel home and reset for next week.\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260920_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"rest\",\n+          \"title\": \"Rest & Travel Reset\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 20,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     }\n   ],\n-  \"updated_at\": \"2026-09-14T12:28:43.362Z\",\n-  \"updated_by\": \"rollover\",\n-  \"trace_id\": \"rollover\"\n-}\n+  \"updated_at\": \"2026-09-15T11:01:24.829Z\",\n+  \"updated_by\": \"model\",\n+  \"trace_id\": \"atis8hr6\"\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "1a3bcf3a6e31463a321516a1d02d4b978f95042d",
+    "shaAfter": "42a37b03166ec285ddb0c7540a67e482c93a158e",
+    "usage": {
+      "promptTokens": 32938,
+      "completionTokens": 1922,
+      "totalTokens": 34860,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.031911
+    },
+    "costUsd": 0.031911
+  }
+]
