@@ -1061,6 +1061,180 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
   });
 });
 
+// #1071: applyWorkoutCreate (coachWorkoutFiles.ts) already throws when an active injury flag has
+// no matching injury_ack entry, and buildTurnWrites turns that throw into a dropped action with
+// its own same-turn correction note - so nothing is silently lost. But the model's prose already
+// claims the routine is built and locked in before that correction note contradicts it, which
+// reads as a mid-reply self-contradiction. This reprompt trigger gives the model one chance to
+// add the missing injury_ack before the applier ever sees (and has to drop) the write. Live-
+// reproduced on coach-akash-suresh and coach-skanda-2003, both with active injury flags.
+function workoutSpecWithAck(injuryAck: { flag: string; accommodation: string }[] = []) {
+  return {
+    title: "Upper Body",
+    workout_type: "strength",
+    injury_ack: injuryAck,
+    phases: [
+      {
+        name: "Main",
+        exercises: [
+          {
+            name: "Row",
+            type: "reps",
+            sets: 3,
+            reps: 10,
+            form_cue: "Squeeze the shoulder blade.",
+            why: "Back strength.",
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once when an active injury flag has no matching injury_ack entry", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Built you an upper body session, saved to your page.",
+        coach_note: "Built a routine.",
+        workout_create: workoutSpecWithAck([]),
+      })
+      .mockResolvedValueOnce({
+        reply: "Built you an upper body session, saved to your page.",
+        coach_note: "Built a routine, worked around the shoulder.",
+        workout_create: workoutSpecWithAck([
+          { flag: "inj_1", accommodation: "reduced load on pressing" },
+        ]),
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+        activeInjuryFlagIds: new Set<string>(["inj_1"]),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("injury_ack");
+    expect(repromptMessage).toContain("inj_1");
+    expect(
+      (result as { reply: { workout_create?: { injury_ack?: { flag: string }[] } } }).reply
+        .workout_create?.injury_ack,
+    ).toEqual([{ flag: "inj_1", accommodation: "reduced load on pressing" }]);
+  });
+
+  it("names every unacked flag when 2+ active flags are missing from injury_ack", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Built you a session.",
+      coach_note: "Built a routine.",
+      workout_create: workoutSpecWithAck([]),
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+        activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
+      }),
+    );
+
+    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("inj_1");
+    expect(repromptMessage).toContain("inj_2");
+  });
+
+  it("does not reprompt when injury_ack already covers every active flag", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Built you a session.",
+      coach_note: "Built a routine.",
+      workout_create: workoutSpecWithAck([
+        { flag: "inj_1", accommodation: "reduced load on pressing" },
+      ]),
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+        activeInjuryFlagIds: new Set<string>(["inj_1"]),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when there are no active injury flags", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Built you a session.",
+      coach_note: "Built a routine.",
+      workout_create: workoutSpecWithAck([]),
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+        activeInjuryFlagIds: new Set<string>(),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when workout_create was never set at all, even with active flags", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Let's talk more about what you want first.",
+      coach_note: "Discussing options.",
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        activeInjuryFlagIds: new Set<string>(["inj_1"]),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and captures to Sentry, but does not reprompt twice, when injury_ack is still missing after the reprompt", async () => {
+    askGemini.mockResolvedValue({
+      reply: "Built you a session.",
+      coach_note: "Built a routine.",
+      workout_create: workoutSpecWithAck([]),
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Build me an upper body workout",
+        geminiMessage: "Build me an upper body workout",
+        activeInjuryFlagIds: new Set<string>(["inj_1"]),
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissingWorkoutCreateInjuryAck: "inj_1" }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missingWorkoutCreateInjuryAck"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+});
+
 // Live-verified (#727 review, 2026-09-13): reproduced live twice - a first-session athlete
 // stated a goal (and often habits in the same message), coach_note/reply narrated the season as
 // launched, but season_start was never set. Same shape as the habit-language check above, but

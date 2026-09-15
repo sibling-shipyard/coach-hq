@@ -189,6 +189,14 @@ interface RepliedTurn extends TurnState {
   // week_update/template_edit/session_plan entirely this turn when this is set - silence
   // defaults to "don't overwrite," not "assume."
   stillUnconfirmedAssumption?: string | null;
+  // #1070: true when isProseOnlyWeekPlan still fires after the one-shot reprompt - the reply
+  // narrates a full week's plan but week_update never got set, even on the second try.
+  // buildTurnWrites appends an honest correction to the athlete-facing reply when this is set,
+  // same same-turn-visibility reasoning as formatDroppedActionsCorrection below. Before this
+  // fix, a still-unresolved case only reached console.warn/captureStillUnresolvedGuard - telemetry
+  // the athlete never sees - so they'd read a full week plan that was never actually saved with no
+  // indication anything went wrong (live-reproduced on coach-akash-suresh, traceId tkxjxkzd).
+  stillProseOnlyWeekPlan?: boolean;
   // #1053 gap 2: real token usage summed across every askGemini() call this turn made (the first
   // call plus up to two reprompts - content-violation and bad-reference). Additive-only field, so
   // every caller still typed against a plain RepliedTurn/TurnWrites keeps working; nothing that
@@ -525,6 +533,26 @@ function findMalformedWorkoutCreateExercises(reply: GeminiReply): string[] | nul
     }
   }
   return violations.length > 0 ? violations : null;
+}
+
+// #1071: invariant 7 (coachReplySchema.ts, workoutCreate.injury_ack) already makes injury_ack
+// structurally required whenever the athlete has an active injury flag, and applyWorkoutCreate
+// (coachWorkoutFiles.ts) throws on any unacked flag, which buildTurnWrites turns into a dropped
+// action with a same-turn correction note - so nothing is silently lost. But the model's own
+// prose already claims the routine was built and locked in before that correction note
+// contradicts it in the same reply, which reads as a mid-reply self-contradiction rather than a
+// clean "didn't save" (reproduced live on coach-akash-suresh and coach-skanda-2003, both with
+// active injury flags). Same reprompt-before-finalizing pattern as every findMissed*Language
+// check above - give the model one chance to add the missing injury_ack before the applier ever
+// sees (and has to drop) the write, instead of narrating success and getting silently corrected
+// after the fact.
+function findMissingWorkoutCreateInjuryAck(turn: TurnState, reply: GeminiReply): string | null {
+  const activeFlags = turn.activeInjuryFlagIds ?? new Set();
+  if (activeFlags.size === 0) return null;
+  if (!reply.workout_create) return null;
+  const acked = new Set((reply.workout_create.injury_ack ?? []).map((ack) => ack.flag));
+  const unacked = [...activeFlags].filter((flag) => !acked.has(flag));
+  return unacked.length > 0 ? unacked.join(", ") : null;
 }
 
 // Live-verified (#727 review, 2026-09-13): the Weekly Kick-off Ritual intermittently narrates a
@@ -1176,6 +1204,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercises = findMalformedWorkoutCreateExercises(reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
+    const missingWorkoutCreateInjuryAck = findMissingWorkoutCreateInjuryAck(turn, reply);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
     // present afterward - the last-resort synthesis signal buildTurnWrites uses (see
     // RepliedTurn.stillUnrecordedFacts).
@@ -1184,6 +1213,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     // buildTurnWrites drops any schedule-changing action this turn when this is set (see
     // RepliedTurn.stillUnconfirmedAssumption).
     let stillUnconfirmedAssumptionForDrop: string | null = null;
+    // #1070: set when the reprompt fires and isProseOnlyWeekPlan is still true afterward -
+    // buildTurnWrites appends an athlete-facing correction when this is set (see
+    // RepliedTurn.stillProseOnlyWeekPlan).
+    let stillProseOnlyWeekPlanForCorrection = false;
     if (
       violation ||
       missingNote ||
@@ -1200,7 +1233,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       uncountedInjuryLanguage ||
       unconfirmedAssumption ||
       malformedExercises ||
-      proseOnlyWeekPlan
+      proseOnlyWeekPlan ||
+      missingWorkoutCreateInjuryAck
     ) {
       console.warn("[coach-chat] reply content violation, reprompting once:", {
         violation,
@@ -1219,6 +1253,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         unconfirmedAssumption,
         malformedExercises,
         proseOnlyWeekPlan,
+        missingWorkoutCreateInjuryAck,
         traceId: turn.traceId,
       });
       const notes: string[] = [];
@@ -1343,6 +1378,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " wrote in the reply text",
         );
       }
+      if (missingWorkoutCreateInjuryAck) {
+        notes.push(
+          `you set workout_create but left injury_ack missing or incomplete for these active` +
+            ` injury flag(s): ${missingWorkoutCreateInjuryAck} - add an injury_ack entry (flag` +
+            " and accommodation) for each one now, or the routine cannot be saved",
+        );
+      }
       const repromptMessage = [
         turn.geminiMessage,
         `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
@@ -1382,6 +1424,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercises = findMalformedWorkoutCreateExercises(reply);
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
+      const stillMissingWorkoutCreateInjuryAck = findMissingWorkoutCreateInjuryAck(turn, reply);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
       // - the model stops self-flagging the miss on retry (it now believes its confabulated
       // excuse resolved it), even though the field still isn't captured. Carry forward the
@@ -1390,6 +1433,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       // if the reprompt's second pass did, in fact, add a real quest_event.
       stillUnrecordedFactsForSynthesis = unrecordedFacts;
       stillUnconfirmedAssumptionForDrop = stillUnconfirmedAssumption;
+      stillProseOnlyWeekPlanForCorrection = stillProseOnlyWeekPlan;
       if (
         stillOversized ||
         stillMissingNote ||
@@ -1406,7 +1450,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUncountedInjuryLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercises ||
-        stillProseOnlyWeekPlan
+        stillProseOnlyWeekPlan ||
+        stillMissingWorkoutCreateInjuryAck
       ) {
         console.warn(
           "[coach-chat] reply still has a content violation after reprompt:",
@@ -1427,6 +1472,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnconfirmedAssumption,
             stillMalformedExercises,
             stillProseOnlyWeekPlan,
+            stillMissingWorkoutCreateInjuryAck,
           },
           { traceId: turn.traceId },
         );
@@ -1452,6 +1498,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercises ? "malformedExercises" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
+            stillMissingWorkoutCreateInjuryAck ? "missingWorkoutCreateInjuryAck" : null,
           ].filter((detector): detector is string => detector !== null),
         });
       }
@@ -1522,6 +1569,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       prefetchedCurrentWeekContent: currentWeekContent,
       stillUnrecordedFacts: stillUnrecordedFactsForSynthesis,
       stillUnconfirmedAssumption: stillUnconfirmedAssumptionForDrop,
+      stillProseOnlyWeekPlan: stillProseOnlyWeekPlanForCorrection,
       usage: usageAccum,
     };
   } catch (err: unknown) {
@@ -1570,6 +1618,17 @@ function formatDroppedActionsCorrection(droppedActions: DroppedAction[]): string
   if (droppedActions.length === 0) return undefined;
   const fields = droppedActions.map((dropped) => dropped.field).join(", ");
   return `(Note: couldn't save ${fields} this turn - something about that request didn't go through. If it's still relevant, ask again.)`;
+}
+
+// #1070: same same-turn-visibility fix as formatDroppedActionsCorrection above, for a different
+// failure shape - isProseOnlyWeekPlan caught the reply narrating a full week without ever setting
+// week_update, and the one-shot reprompt in requestCoachReply still didn't fix it. Before this,
+// a still-unresolved case only reached console.warn/captureStillUnresolvedGuard - telemetry, not
+// the athlete - so they'd read a full week plan that was never actually saved with no indication
+// anything went wrong. This appends an honest correction to the reply they actually see.
+function formatProseOnlyWeekPlanCorrection(stillProseOnlyWeekPlan: boolean): string | undefined {
+  if (!stillProseOnlyWeekPlan) return undefined;
+  return "(Note: the week plan above wasn't saved - ask again and I'll lock it in.)";
 }
 
 // Finding E: the athlete-facing counterpart to synthesizeQuestEventFromUnrecordedFacts - same
@@ -1918,7 +1977,14 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // of at the top of this function using the model's raw, pre-validation reply.reply. Finding E's
   // synthesis note rides the same same-turn-visibility logic.
   const droppedActionsCorrection = formatDroppedActionsCorrection(droppedActions);
-  const correctionSuffix = [droppedActionsCorrection, synthesizedQuestEventNote]
+  const proseOnlyWeekPlanCorrection = formatProseOnlyWeekPlanCorrection(
+    turn.stillProseOnlyWeekPlan ?? false,
+  );
+  const correctionSuffix = [
+    droppedActionsCorrection,
+    proseOnlyWeekPlanCorrection,
+    synthesizedQuestEventNote,
+  ]
     .filter(Boolean)
     .join("\n");
   const finalReplyText = correctionSuffix ? `${reply.reply}\n\n${correctionSuffix}` : reply.reply;
