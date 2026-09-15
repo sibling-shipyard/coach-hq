@@ -795,6 +795,55 @@ function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): string |
   return firstMatch(turn.geminiMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
 }
 
+// #1085 follow-up: the reply-text signal I tried first (reply implies "noted"/"logged,"
+// memory_update absent, another action field present) was rejected - "noted" is filler this
+// codebase's replies use constantly for unrelated acknowledgments, verified against real
+// coachTurn-reprompt.test.ts fixtures that pair a bare "Noted." with an unrelated injury_event/
+// quest_event write. This keys on the ATHLETE's own message instead, same discipline as every
+// findMissed*Language check above, on a narrow, bounded phrase list the athlete uses specifically
+// to flag something as durable - not generic memory-adjacent words like "remember" or "note"
+// alone. I checked every athlete-facing fixture and example transcript in the repo
+// (coachTurn-reprompt.test.ts, ui/scripts/examples/, coach-chat-eval/transcripts/) for these exact
+// phrases: they appear only in the real #1085 bug reproduction and its transcripts, nowhere as
+// ordinary filler. Unlike findMissedInjuryLanguage's first-session/zero-flags boundary, there's
+// no equivalent "nothing to reference yet" boundary here - a returning athlete can state a first
+// durable pattern on any turn, so this can't scope itself to first-session-only. The real risk
+// this list still carries: an athlete could use one of these phrases about something one-off, not
+// durable ("keep in mind I have a race Saturday") - that's a wasted extra call, not a wrong
+// outcome, since the reprompt note (below) explicitly tells the model to disregard if nothing
+// durable was meant, same bounded-downside contract every other findMissed*Language check relies
+// on. Gated on "another action field present" too, same shape as the rejected reply-text signal,
+// but the phrase list itself carries the real weight - a bare "another action fired" alone was
+// never the problem, "noted"/"logged" firing on almost every non-filler turn was.
+const MEMORY_LANGUAGE_PATTERN =
+  /\b(worth remembering|worth (?:keeping in mind|noting)|keep(?:ing)? (?:this |that )?in mind|for future reference)\b/i;
+
+const OTHER_ACTION_FIELDS = [
+  "coaching_style_update",
+  "sports_update",
+  "injury_flag",
+  "injury_event",
+  "quest_event",
+  "profile_update",
+  "template_edit",
+  "session_plan",
+  "workout_create",
+  "workout_remove",
+  "week_update",
+  "season_start",
+  "quest_create",
+] as const satisfies readonly (keyof GeminiReply)[];
+
+function findMissedMemoryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+  if (reply.memory_update) return null;
+  const hasOtherAction = OTHER_ACTION_FIELDS.some((field) => {
+    const value = reply[field];
+    return Array.isArray(value) ? value.length > 0 : value != null;
+  });
+  if (!hasOtherAction) return null;
+  return firstMatch(turn.geminiMessage, MEMORY_LANGUAGE_PATTERN);
+}
+
 // #1009 (injury_event hardening): the opposite scoping problem from findMissedInjuryLanguage
 // above. That check is safe because zero active flags means any injury language is necessarily
 // new. Here flags already exist, which is exactly what makes plain injury language ambiguous - is
@@ -1228,6 +1277,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
+    const missedMemoryLanguage = findMissedMemoryLanguage(turn, reply);
     const missedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
     const missedQuestLanguage = findMissedQuestLanguage(turn, reply);
     const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
@@ -1258,6 +1308,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedProfileLanguage ||
       missedRemovalLanguage ||
       missedSportsLanguage ||
+      missedMemoryLanguage ||
       missedInjuryUpdateLanguage ||
       missedQuestLanguage ||
       uncountedInjuryLanguage ||
@@ -1277,6 +1328,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedProfileLanguage,
         missedRemovalLanguage,
         missedSportsLanguage,
+        missedMemoryLanguage,
         missedInjuryUpdateLanguage,
         missedQuestLanguage,
         uncountedInjuryLanguage,
@@ -1358,6 +1410,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " this turn - if a new or changed sport was genuinely stated, add it now as" +
             " sports_update with the full list; if it genuinely doesn't describe a new or changed" +
             " sport, disregard this note",
+        );
+      }
+      if (missedMemoryLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedMemoryLanguage}" and another action field` +
+            " fired this turn, but no memory_update was set - if a real durable pattern was" +
+            " stated, add it now as memory_update; if it genuinely doesn't describe something" +
+            " durable, disregard this note",
         );
       }
       if (missedInjuryUpdateLanguage) {
@@ -1448,6 +1508,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
+      const stillMissedMemoryLanguage = findMissedMemoryLanguage(turn, reply);
       const stillMissedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
       const stillMissedQuestLanguage = findMissedQuestLanguage(turn, reply);
       const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
@@ -1475,6 +1536,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedProfileLanguage ||
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
+        stillMissedMemoryLanguage ||
         stillMissedInjuryUpdateLanguage ||
         stillMissedQuestLanguage ||
         stillUncountedInjuryLanguage ||
@@ -1496,6 +1558,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage,
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
+            stillMissedMemoryLanguage,
             stillMissedInjuryUpdateLanguage,
             stillMissedQuestLanguage,
             stillUncountedInjuryLanguage,
@@ -1522,6 +1585,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage ? "missedProfileLanguage" : null,
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
             stillMissedSportsLanguage ? "missedSportsLanguage" : null,
+            stillMissedMemoryLanguage ? "missedMemoryLanguage" : null,
             stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
             stillMissedQuestLanguage ? "missedQuestLanguage" : null,
             stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,

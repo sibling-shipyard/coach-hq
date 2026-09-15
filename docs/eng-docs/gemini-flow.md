@@ -271,7 +271,7 @@ test already covers.
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
 | `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
-| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) | - |
+| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) + `findMissedMemoryLanguage` (bounded remember-this phrase list on the athlete's own message, any turn, another action field present) | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
@@ -450,11 +450,33 @@ reprompt on a large share of ordinary compound turns, not just the real drop - t
 positive class the gap-2a generic keyword match and #1072's narration guard were already rejected
 for.
 
-Shipped as prompt reinforcement only, same as #1072. `coachPromptText.ts` now says explicitly,
+Shipped first as prompt reinforcement only, same as #1072. `coachPromptText.ts` says explicitly,
 in both the first-session and returning-athlete branches, that a durable pattern earns its own
 `memory_update` "even when the same message also asks for something else," regardless of whether
-another action field is also firing that turn. A documented partial fix, not a full behavioral
-guard - see the coverage table above for the current state.
+another action field is also firing that turn. Verified live to make zero measurable difference in a later test pass - a prompt-only fix wasn't
+enough on its own.
+
+**Follow-up fix (2026-09-15): `findMissedMemoryLanguage`.** The rejected signal above keyed on the
+model's own reply text. This one keys on the ATHLETE's own message instead, on a narrow, bounded
+phrase list the athlete uses specifically to flag something as durable - "worth remembering,"
+"worth keeping in mind," "worth noting," "keep(ing) in mind," "for future reference" - not generic
+memory-adjacent words like "remember" or "note" alone. Checked against every athlete-facing
+fixture and example transcript in the repo (`coachTurn-reprompt.test.ts`,
+`ui/scripts/examples/`, `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`): this phrase list
+appears nowhere as ordinary filler, only in the real #1085 reproduction and its own transcripts.
+
+Unlike `findMissedInjuryLanguage`'s first-session/zero-flags boundary, there's no equivalent
+"nothing to reference yet" boundary for memory - a returning athlete can state a first durable
+pattern on any turn - so this can't scope itself to first-session-only. It fires on any turn,
+gated on `memory_update` absent plus another action field present, same shape as the rejected
+reply-text signal, but the phrase list itself carries the real weight - "another action fired"
+alone was never what made the reply-text signal unsafe.
+
+Real remaining risk: an athlete could use one of these phrases about something one-off, not
+durable ("keep in mind I have a race Saturday"). That reprompts once and costs an extra call, not
+a wrong outcome - the reprompt note explicitly tells the model to disregard if nothing durable was
+meant, the same bounded-downside contract every other `findMissed*Language` check relies on. A
+full behavioral guard now backs the prompt reinforcement - see the coverage table above.
 
 ## Retries, timeouts, rate limits
 

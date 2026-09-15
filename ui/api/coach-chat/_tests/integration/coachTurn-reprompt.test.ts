@@ -2521,30 +2521,47 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 // #1085: live-verified compound-turn drop - the athlete states a durable training pattern
 // alongside another request in the same message, the model captures the other action field
 // (coaching_style_update here) but never includes memory_update in its output at all, and its own
-// unrecorded_facts self-audit comes back empty too, so the existing reprompt never fires. I looked
-// for a safe structural reprompt trigger shaped like findMissingWorkoutCreateInjuryAck (reply
-// implies "noted"/"logged," memory_update absent, another action field present) and rejected it -
-// see the "counts distinct mentions" tests just above and the injury-update tests earlier in this
-// file, several of which use a bare reply: "Noted." alongside a real injury_flag/injury_event/
-// quest_event write with no durable pattern anywhere in sight. That's exactly the filler language
-// this detector would have to key on, so gating a reprompt on "noted" + "another action fired"
-// would misfire across a large share of ordinary compound turns, not just this real drop - the
-// same false-positive class the gap-2a generic keyword match and #1072's narration guard were
-// already rejected for (see gemini-flow.md). Shipped as prompt reinforcement only instead.
+// unrecorded_facts self-audit comes back empty too, so the existing reprompt never fires. The
+// first structural signal tried (reply implies "noted"/"logged," memory_update absent, another
+// action field present) was rejected - see the "counts distinct mentions" tests just above and
+// the injury-update tests earlier in this file, several of which use a bare reply: "Noted."
+// alongside a real injury_flag/injury_event/quest_event write with no durable pattern anywhere in
+// sight. That's exactly the filler language that detector would have keyed on, so gating a
+// reprompt on "noted" + "another action fired" would misfire across a large share of ordinary
+// compound turns, not just this real drop - the same false-positive class the gap-2a generic
+// keyword match and #1072's narration guard were already rejected for (see gemini-flow.md).
+//
+// findMissedMemoryLanguage (coachTurn.ts) is the follow-up fix: it keys on the ATHLETE's own
+// message instead of the reply, on a narrow bounded phrase list ("worth remembering," "worth
+// keeping in mind," "for future reference," etc.) that's checked against every athlete-facing
+// fixture and example transcript in the repo and found nowhere as ordinary filler - only in this
+// bug's own real reproduction. Same "disregard this note" bounded-downside contract as every
+// other findMissed*Language check.
 describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
   beforeEach(() => {
     askGemini.mockReset();
   });
 
-  it("does not reprompt when memory_update is dropped alongside another action field and the model's own unrecorded_facts self-audit stays empty (documented prompt-only mitigation, no safe reprompt signal found)", async () => {
-    askGemini.mockResolvedValueOnce({
-      reply:
-        "Got it, I'll be more direct from now on. Noted on the evening runs too - that pace gap is real data worth tracking.",
-      coach_note:
-        "Athlete asked for a more direct coaching style; also mentioned running better in the evening.",
-      coaching_style_update: "accountability",
-      unrecorded_facts: [],
-    });
+  it("reprompts when the athlete's own message uses explicit remember-this framing, memory_update is dropped, and another action field fired", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply:
+          "Got it, I'll be more direct from now on. Noted on the evening runs too - that pace gap is real data worth tracking.",
+        coach_note:
+          "Athlete asked for a more direct coaching style; also mentioned running better in the evening.",
+        coaching_style_update: "accountability",
+        unrecorded_facts: [],
+      })
+      .mockResolvedValueOnce({
+        reply: "Got it, I'll be more direct from now on. Logged the evening-run pattern too.",
+        coach_note:
+          "Athlete asked for a more direct coaching style; recorded the evening-running pattern.",
+        coaching_style_update: "accountability",
+        memory_update: {
+          label: "learned_patterns.training",
+          text: "Runs noticeably better in the evening.",
+        },
+      });
 
     const message =
       "Also be more direct with me from now on. I always run better in the evening, worth keeping in mind.";
@@ -2552,7 +2569,32 @@ describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
       baseTurnState({ trimmed: message, geminiMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.memory_update?.text).toBe(
+      "Runs noticeably better in the evening.",
+    );
+  });
+
+  it("reprompts, but disregards cleanly, on remember-this framing about a one-off, non-durable note (bounded downside: one extra call, not a wrong outcome)", async () => {
+    const reply = {
+      reply: "Got it, I'll be more direct. Noted on the race day too.",
+      coach_note: "Athlete asked for a more direct coaching style; has a race Saturday.",
+      coaching_style_update: "accountability" as const,
+    };
+    // The phrase match + missing memory_update + another action field fires the reprompt exactly
+    // once, same one-retry-cap discipline as every other findMissed*Language check - the model
+    // gets one chance to add memory_update or disregard. Here it disregards on both passes (a
+    // race date isn't a durable pattern), so the turn finalizes with memory_update still absent -
+    // an extra call was spent, but the athlete never sees a wrong outcome from it.
+    askGemini.mockResolvedValueOnce(reply).mockResolvedValueOnce(reply);
+
+    const message =
+      "Be more direct with me from now on. Also keep in mind I have a race Saturday.";
+    const result = await requestCoachReply(
+      baseTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.memory_update).toBeUndefined();
   });
 
