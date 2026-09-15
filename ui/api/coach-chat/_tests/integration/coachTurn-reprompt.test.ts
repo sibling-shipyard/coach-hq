@@ -32,6 +32,7 @@ vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
 
 import { requestCoachReply } from "../../_lib/coachTurn.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
+import { buildDynamicText } from "../../_lib/gemini/coachPromptText.js";
 
 function baseTurnState(overrides: Record<string, unknown> = {}) {
   return {
@@ -2514,5 +2515,56 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 
     expect(askGemini).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
+  });
+});
+
+// #1085: live-verified compound-turn drop - the athlete states a durable training pattern
+// alongside another request in the same message, the model captures the other action field
+// (coaching_style_update here) but never includes memory_update in its output at all, and its own
+// unrecorded_facts self-audit comes back empty too, so the existing reprompt never fires. I looked
+// for a safe structural reprompt trigger shaped like findMissingWorkoutCreateInjuryAck (reply
+// implies "noted"/"logged," memory_update absent, another action field present) and rejected it -
+// see the "counts distinct mentions" tests just above and the injury-update tests earlier in this
+// file, several of which use a bare reply: "Noted." alongside a real injury_flag/injury_event/
+// quest_event write with no durable pattern anywhere in sight. That's exactly the filler language
+// this detector would have to key on, so gating a reprompt on "noted" + "another action fired"
+// would misfire across a large share of ordinary compound turns, not just this real drop - the
+// same false-positive class the gap-2a generic keyword match and #1072's narration guard were
+// already rejected for (see gemini-flow.md). Shipped as prompt reinforcement only instead.
+describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("does not reprompt when memory_update is dropped alongside another action field and the model's own unrecorded_facts self-audit stays empty (documented prompt-only mitigation, no safe reprompt signal found)", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply:
+        "Got it, I'll be more direct from now on. Noted on the evening runs too - that pace gap is real data worth tracking.",
+      coach_note:
+        "Athlete asked for a more direct coaching style; also mentioned running better in the evening.",
+      coaching_style_update: "accountability",
+      unrecorded_facts: [],
+    });
+
+    const message =
+      "Also be more direct with me from now on. I always run better in the evening, worth keeping in mind.";
+    const result = await requestCoachReply(
+      baseTurnState({ trimmed: message, geminiMessage: message }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect("reply" in result && result.reply.memory_update).toBeUndefined();
+  });
+
+  it("reinforces recording a durable pattern even when another action field fires the same turn, in both the first-session and returning-athlete prompt branches", () => {
+    const firstSessionText = buildDynamicText("", "", "ordinary", true, undefined);
+    const returningAthleteText = buildDynamicText("", "", "ordinary", false, undefined);
+
+    for (const text of [firstSessionText, returningAthleteText]) {
+      // buildDynamicText joins its lines with "\n", which can land mid-sentence - normalize to a
+      // single space before matching so this test isn't coupled to exactly where a line wraps.
+      const normalized = text.replace(/\s+/g, " ");
+      expect(normalized).toContain("even when the same message also asks for something else");
+    }
   });
 });

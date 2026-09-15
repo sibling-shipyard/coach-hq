@@ -271,7 +271,7 @@ test already covers.
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
 | `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
-| `memory_update` | prompt reinforcement | - |
+| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
@@ -430,6 +430,31 @@ the existing mitigation pattern, not new failure modes needing a new approach.
   keyword match did. This one shipped as prompt reinforcement only
   (`coachPromptText.ts`, next to the `template_edit`/`session_plan` instructions) - a documented
   partial fix, not an oversight. See the coverage table above for the current state.
+
+**#1085: `memory_update` dropped on a compound turn (2026-09-15).** Live-verified: an athlete
+stated a durable training pattern ("I always run better in the evening") together with another
+request in the same message ("also be more direct with me"). The other action field
+(`coaching_style_update`) fired, but `memory_update` was silently never in the model's JSON - 3 of
+4 real attempts on `coach-date2022`. `unrecorded_facts` came back empty too, so the existing
+reprompt never fired, and the reply's own prose still claimed the pattern was noted.
+
+I looked for a safe reprompt trigger shaped like `findMissingWorkoutCreateInjuryAck` (a structural
+signal on the model's own output: reply implies "noted"/"logged"/"remembered," `memory_update`
+absent, another action field present this turn). It doesn't clear the false-positive bar. "Noted"
+and "logged" are generic filler this codebase's own reply text uses constantly for unrelated
+acknowledgments that have nothing to do with a memory-worthy fact. Several existing fixtures in
+`coachTurn-reprompt.test.ts` use a bare `reply: "Noted."` alongside an `injury_event` or
+`quest_event` write, with no durable pattern in sight. Gating on "another action field also fired"
+doesn't rescue it: a non-filler turn almost always has some other action field set. That would
+reprompt on a large share of ordinary compound turns, not just the real drop - the same false-
+positive class the gap-2a generic keyword match and #1072's narration guard were already rejected
+for.
+
+Shipped as prompt reinforcement only, same as #1072. `coachPromptText.ts` now says explicitly,
+in both the first-session and returning-athlete branches, that a durable pattern earns its own
+`memory_update` "even when the same message also asks for something else," regardless of whether
+another action field is also firing that turn. A documented partial fix, not a full behavioral
+guard - see the coverage table above for the current state.
 
 ## Retries, timeouts, rate limits
 
