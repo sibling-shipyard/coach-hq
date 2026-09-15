@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
@@ -136,8 +139,70 @@ class TestCarve(unittest.TestCase):
 
     def test_the_carve_stamps_the_dsn_into_the_workflow(self):
         self.assertIn("SYNC_DSN_PLACEHOLDER", CARVE)
-        self.assertIn("stampSyncDsn(sync)", CARVE)
+        self.assertIn("stampSyncDsn(sync, opts)", CARVE)
         self.assertIn("const SYNC_DSN_PLACEHOLDER = '          SENTRY_DSN: \"\"';", CARVE)
+
+    def test_carve_fails_closed_without_sentry_dsn(self):
+        """PY6: unset DSN without --no-sentry must throw, not warn-and-continue."""
+        self.assertIn("noSentry: false", CARVE)
+        self.assertIn('else if (arg === "--no-sentry") opts.noSentry = true;', CARVE)
+        self.assertIn(
+            "SENTRY_DSN is not set — refusing to carve a repo that cannot report failed syncs.",
+            CARVE,
+        )
+        self.assertNotIn(
+            "warning: SENTRY_DSN is not set — the carved repo will not report failed syncs.",
+            CARVE,
+        )
+
+    def test_carve_no_sentry_flag_opts_out(self):
+        """PY6: --no-sentry leaves the empty DSN placeholder and lets the carve succeed."""
+        self.assertIn("--no-sentry", CARVE)
+        self.assertIn(
+            "note: --no-sentry — Sync alerts intentionally off (SENTRY_DSN unset).",
+            CARVE,
+        )
+        self.assertIn("if (noSentry)", CARVE)
+
+
+    def test_carve_cli_fails_closed_without_dsn(self):
+        """Executable: dry-run without SENTRY_DSN and without --no-sentry exits non-zero."""
+        env = {k: v for k, v in os.environ.items() if k != "SENTRY_DSN"}
+        with tempfile.TemporaryDirectory(prefix="carve-fail-closed-") as out:
+            result = subprocess.run(
+                ["node", "platform/scripts/carve-skeleton.mjs", "--dry-run", "--out-dir", out],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SENTRY_DSN is not set — refusing to carve", result.stderr)
+
+    def test_carve_cli_no_sentry_allows_unset_dsn(self):
+        """Executable: --no-sentry dry-run succeeds with empty DSN left in sync.yml."""
+        env = {k: v for k, v in os.environ.items() if k != "SENTRY_DSN"}
+        with tempfile.TemporaryDirectory(prefix="carve-no-sentry-") as out:
+            result = subprocess.run(
+                [
+                    "node",
+                    "platform/scripts/carve-skeleton.mjs",
+                    "--dry-run",
+                    "--out-dir",
+                    out,
+                    "--no-sentry",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            sync = Path(out) / ".github/workflows/sync.yml"
+            self.assertTrue(sync.is_file())
+            self.assertIn('SENTRY_DSN: ""', sync.read_text())
+        self.assertIn("Sync alerts intentionally off", result.stdout)
+
 
 
 if __name__ == "__main__":

@@ -416,17 +416,19 @@ leaves the app showing your previous numbers. Two minutes, once:
 `;
 
 function parseArgs(argv) {
-  const opts = { dryRun: false, push: false, sha: null, outDir: null };
+  const opts = { dryRun: false, push: false, sha: null, outDir: null, noSentry: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--dry-run") opts.dryRun = true;
     else if (arg === "--push") opts.push = true;
     else if (arg === "--sha") opts.sha = argv[++i];
     else if (arg === "--out-dir") opts.outDir = argv[++i];
+    else if (arg === "--no-sentry") opts.noSentry = true;
     else if (arg === "--help" || arg === "-h") {
       console.log(`Usage:
-  node platform/scripts/carve-skeleton.mjs --dry-run [--out-dir DIR] [--sha SHA]
-  node platform/scripts/carve-skeleton.mjs --push [--sha SHA]`);
+  node platform/scripts/carve-skeleton.mjs --dry-run [--out-dir DIR] [--sha SHA] [--no-sentry]
+  node platform/scripts/carve-skeleton.mjs --push [--sha SHA] [--no-sentry]
+  --no-sentry  allow carve without SENTRY_DSN (local/test; Sync alerts stay off)`);
       process.exit(0);
     }
   }
@@ -496,10 +498,10 @@ const SYNC_DSN_PLACEHOLDER = '          SENTRY_DSN: ""';
  *
  * A DSN is write-only — it can send events, not read them — and ours already ships in the
  * public web bundle, so it needs no athlete secret and no GitHub secret. It is not committed
- * at HQ either: the operator exports `SENTRY_DSN` when they carve. Unset, the carve still
- * succeeds and the athlete's failed syncs simply reach nobody, so it says so loudly.
+ * at HQ either: the operator exports `SENTRY_DSN` when they carve. Unset fails the carve
+ * closed unless `--no-sentry` was passed (local/test carves that intentionally skip alerts).
  */
-function stampSyncDsn(yaml) {
+function stampSyncDsn(yaml, { noSentry = false } = {}) {
   const dsn = (process.env.SENTRY_DSN || "").trim();
   if (!yaml.includes(SYNC_DSN_PLACEHOLDER)) {
     throw new Error(
@@ -508,11 +510,16 @@ function stampSyncDsn(yaml) {
     );
   }
   if (!dsn) {
-    console.warn(
-      "warning: SENTRY_DSN is not set — the carved repo will not report failed syncs.\n" +
-        "  Export the coach-hq-api project DSN and carve again to turn alerts on.",
+    if (noSentry) {
+      console.log(
+        "note: --no-sentry — Sync alerts intentionally off (SENTRY_DSN unset).",
+      );
+      return yaml;
+    }
+    throw new Error(
+      "SENTRY_DSN is not set — refusing to carve a repo that cannot report failed syncs.\n" +
+        "  Export the coach-hq-api project DSN, or pass --no-sentry for local/test carves.",
     );
-    return yaml;
   }
   // Function form: a `$` in the DSN would otherwise be read as a replacement pattern.
   return yaml.replace(SYNC_DSN_PLACEHOLDER, () => `          SENTRY_DSN: "${dsn}"`);
@@ -532,7 +539,7 @@ function copyEngineTemplate(outDir, filename) {
   fs.copyFileSync(src, dest);
 }
 
-function copyWorkflows(outDir) {
+function copyWorkflows(outDir, opts = {}) {
   const wfDir = path.join(outDir, ".github/workflows");
   fs.mkdirSync(wfDir, { recursive: true });
 
@@ -545,7 +552,7 @@ function copyWorkflows(outDir) {
     path.join(ENGINE_DIR, ".github/workflows/sync.user.yml"),
     "utf8",
   );
-  fs.writeFileSync(path.join(wfDir, "sync.yml"), stampSyncDsn(sync));
+  fs.writeFileSync(path.join(wfDir, "sync.yml"), stampSyncDsn(sync, opts));
 
   for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));
@@ -582,7 +589,7 @@ function copyByobBoot(outDir) {
   }
 }
 
-function carve(outDir, sha) {
+function carve(outDir, sha, opts = {}) {
   console.log(`Carving skeleton → ${outDir}`);
   console.log(`Pinned HQ SHA: ${sha}`);
 
@@ -600,7 +607,7 @@ function carve(outDir, sha) {
   for (const rel of SKELETON_SHARED_DIRS) {
     copyFromShared(outDir, rel);
   }
-  copyWorkflows(outDir);
+  copyWorkflows(outDir, opts);
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);
@@ -720,7 +727,7 @@ function main() {
       ? path.join(REPO_ROOT, "skeleton-out")
       : path.join(REPO_ROOT, ".skeleton-push");
 
-  carve(outDir, sha);
+  carve(outDir, sha, opts);
 
   if (opts.push) {
     pushSkeleton(outDir, sha);

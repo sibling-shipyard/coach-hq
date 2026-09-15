@@ -15,7 +15,7 @@
  *   5. xrefs         — section cross-references resolve (§10, "situation 10 in §6", "§1 step 7")
  *
  * Ground truth, not a hand-maintained list: checks 1/3/4 carve a real skeleton into a temp dir
- * (`carve-skeleton.mjs --dry-run --out-dir`) and inventory it. A hardcoded path list would rot
+ * (`carve-skeleton.mjs --dry-run --out-dir --no-sentry`) and inventory it. A hardcoded path list would rot
  * exactly the way the things this linter exists to catch rotted.
  *
  * Findings are compared against platform/validate-soul-baseline.json — today's known failures.
@@ -115,7 +115,7 @@ const NEGATION_RE = /\b(not|never|no|n't|nor|without|avoid)\b/i;
 
 function carveSkeleton(keep) {
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "validate-soul-skeleton-"));
-  execFileSync("node", [CARVE_SCRIPT, "--dry-run", "--out-dir", outDir], {
+  execFileSync("node", [CARVE_SCRIPT, "--dry-run", "--out-dir", outDir, "--no-sentry"], {
     cwd: REPO_ROOT,
     stdio: "pipe",
   });

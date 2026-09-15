@@ -34,6 +34,7 @@ a cause; only *new* findings fail. Non-blocking in CI until the baseline reaches
 ```bash
 node platform/scripts/carve-skeleton.mjs --dry-run
 node platform/scripts/carve-skeleton.mjs --push
+# local/test without Sync alerts: add --no-sentry (required when SENTRY_DSN is unset)
 ```
 
 ## Also here (R4)
