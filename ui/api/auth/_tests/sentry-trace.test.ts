@@ -197,13 +197,16 @@ describe("auth catch-all error capture", () => {
 
   it("captures a throw that refresh would otherwise swallow into a 502", async () => {
     // The busiest swallowing path in the file - every session refresh runs it.
+    // After retries exhaust (#1069), the last network error is what Sentry sees once.
     const boom = new Error("token endpoint unreachable");
     fetchMock.mockRejectedValue(boom);
 
     const res = await handler.fetch(refreshRequest());
 
+    expect(captureServerException).toHaveBeenCalledOnce();
     expect(captureServerException).toHaveBeenCalledWith(boom);
     expect(res.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("captures the /user failure that callback turns into a redirect, not a throw", async () => {
@@ -239,10 +242,45 @@ describe("auth catch-all error capture", () => {
 
     const res = await handler.fetch(refreshRequest());
 
-    // The athlete's answer is unchanged - they are signed out either way.
-    expect(res.status).toBe(401);
+    // Transient upstream failure is 502 so iOS can back off — never 401 (#1069).
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "network_error" });
     expect(captureServerException).toHaveBeenCalledOnce();
     expect((captureServerException.mock.calls[0][0] as Error).message).toContain("503");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries a transient GitHub refresh blip then returns tokens", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 })).mockResolvedValueOnce(
+      Response.json({
+        access_token: "gho_new",
+        refresh_token: "ghr_new",
+        expires_in: 28800,
+      }),
+    );
+
+    const res = await handler.fetch(refreshRequest());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      access_token: "gho_new",
+      refresh_token: "ghr_new",
+      expires_in: 28800,
+    });
+    expect(captureServerException).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats an empty 200 refresh body as transient 502, not logout", async () => {
+    // GitHub sometimes answers 200 with neither tokens nor an error field (#1069).
+    fetchMock.mockResolvedValue(Response.json({}));
+
+    const res = await handler.fetch(refreshRequest());
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "network_error" });
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("does not capture a refresh token that simply expired or was revoked", async () => {
@@ -253,7 +291,10 @@ describe("auth catch-all error capture", () => {
     const res = await handler.fetch(refreshRequest());
 
     expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "refresh_failed" });
     expect(captureServerException).not.toHaveBeenCalled();
+    // Dead grant must not burn retries — the token will not heal.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("queues a session cookie that will not decrypt, without flushing", async () => {
