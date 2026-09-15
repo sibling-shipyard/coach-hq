@@ -35,11 +35,37 @@ documented, deliberate exception in the runbook's Coverage boundary. Nothing in 
 - An ADR settles the Python pipeline's Sentry scope (see Open Decisions) — today ADR 0032
   scopes Sentry to "web, backend API, and native iOS" only, so any Python fix needs one.
 
+## Quota
+
+Sentry's free Developer plan caps at **5,000 error events/month**, one user, 30-day retention
+(confirmed against current Sentry pricing, not memory). Past quota it doesn't bill or queue —
+it 429s the SDK and **permanently drops events** for the rest of the window, no replay. That's
+the opposite of this plan's goal, so it's a real constraint, not a side worry.
+
+At 4 athletes today (10 at scale), 5,000/month is generous *if* new captures fire once per
+genuine failure. Two rules for every PR below:
+- **Capture on terminal state, not every attempt.** A retry loop reports once when retries are
+  exhausted, never once per attempt — this matters most for I3 (retries forever) and any
+  soft-fallback path below.
+- **Soft-fallback stays soft, not silent.** Several findings (the `ensureFreshSession`/
+  `GitHubAuthManager` refresh fallback, I4) intentionally keep serving the athlete on a
+  transient blip rather than forcing a logout — correct behavior, keep it. But "soft" should
+  mean `level:warning` capture, not zero signal. Warnings count against the same error quota as
+  errors, so don't multiply them per retry either.
+
+Before rollout: pull current month's actual event count (`sentry-runbook.md` § Query from a
+terminal already has the command) so we know the real headroom, not an assumption.
+
 ## Findings inventory
 
 Severity is the same P0/P1/P2 scale as `AGENTS.md` § Priorities: P0 = fix now (fully silent,
 real user impact), P1 = fix before calling this done (visible in logs/UI, not Sentry), P2 =
 flag only, athlete's call.
+
+**A second review (external, unverified tooling) was folded in below — everything kept was
+independently checked against this repo's actual code; its references to an "audit §
+Definition of done items 1-7" and a companion `sentry-coverage-audit.md` don't correspond to
+anything in this repo, so those specific claims were dropped rather than trusted blind.
 
 ### Backend — `ui/api/` (owner: Bob the Builder)
 
@@ -55,6 +81,8 @@ flag only, athlete's call.
 | B8 | `coachTurn.ts:2285-2325` | First-session benchmark/first-week generation swallows every failure — silently blocks a new athlete's onboarding. | P1 |
 | B9 | `coach-chat/_lib/decide/coachSinceStamp.ts:42-44,51-54` | Unparsable profile / failed merge-patch silently skips the `coach_since` stamp that triggers B8. | P1 |
 | B10 | `coachChatFiles.ts:191-196`, `coachMessage.ts:401-408` | `parseJsonOrNull` used across 9 athlete data files — documented in-code as best-effort, but zero visibility, not in the runbook. | P2 |
+| B16 | `coachChatFiles.ts:202-224` (`getHeadSha`) callers — `coach-chat.ts:161`, `activitySyncTurn.ts:53`, `coachTurn.ts:323` | `getHeadSha` throws with `.status` on any non-ok (verified). Every caller blanket `.catch(() => null)`, so a GitHub 5xx/network fault is indistinguishable from "branch doesn't exist yet" and never captured — unlike `getFileRaw`'s already-correct 404-vs-fault split. **New, from second review — verified real.** | P1 |
+| B17 | `auth/_lib/session.ts:144-160` (`ensureFreshSession`) | Thrown network error during token-refresh falls back to the still-valid old session — correct behavior (issue #117), but zero logging/capture means a systemic GitHub outage is invisible until it surfaces as an unrelated 401 downstream. Should be `level:warning`, not silent — see § Quota. | P1 |
 | B11-B15 | merge-patch fallbacks, Gemini explicit-cache `.catch(()=>null)`, `corrupt_oauth_session` redirect | console.warn-only or fully silent, low blast radius / arguably intentional | P2 |
 
 Confirmed **not** findings: `repo-file.ts`, `widget-snapshots.ts` fault paths, `decryptSession`,
@@ -76,10 +104,13 @@ Python entry point (`regenerate_derived.py`, `generate_quest_history.py`, `engin
 | PY3 | `engine/scripts/generate_quest_history.py:154-196` | Missing ledger → exits 0 writing `{"quests":{}}`, indistinguishable from "no quests." | P1 |
 | PY4 | `engine/scripts/regenerate_derived.py:80-92` | `sync_status.json` counters hardcoded to 0 every run — the status file lies. | P1 |
 | PY5 | `engine/.github/workflows/validate-data.yml` | Only `gen/widget_snapshots.json` has a shape-validation gate; `dashboard_snapshot`, `athlete_insights`, `quest_history`, `sync_status` have none. | P1 |
+| PY6 | `platform/scripts/carve-skeleton.mjs:502-519` (`stampSyncDsn`, Node not Python) | Verified: already `console.warn`s when `SENTRY_DSN` is unset at carve time, but the carve **still succeeds** — easy to stand up an athlete repo whose Sync alert silently never fires. **New, from second review — verified real, good catch.** Fail-closed (refuse to carve without a DSN, or require an explicit `--no-sentry` flag) is the right fix. | P1 |
+| PY7 | (operational, no single file) | Since carve historically only warned, some already-carved athlete repos may be missing the DSN today with no way to notice short of checking. One-time audit of existing athlete `sync.user.yml`s once PY6 ships. | P1 |
 
 **Important nuance:** PY1-PY5 are correctness bugs, not Sentry gaps — nothing here throws, so
 no amount of Sentry wiring catches them. They need to start raising/asserting on bad state
-*before* Sentry coverage does anything for them.
+*before* Sentry coverage does anything for them. PY6/PY7 are different — they're why the one
+signal the pipeline *does* have can go missing without anyone knowing.
 
 ### iOS — `ios/CoachHQ/` (owner: iOS Builder)
 
@@ -120,17 +151,22 @@ down the whole tree instead of degrading locally. Architecture item, not part of
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | 1 | M1 backend P0 | B1, B2, B8, B9 captured | main | `coachTurn.ts`, `activitySyncTurn.ts`, `coachSinceStamp.ts` | Bob | PR2, PR3 | Result: commit failures + onboarding stall now alert |
-| 2 | M1 backend P1 | B3, B4, B7 captured | main | `auth/[...action].ts`, `auth/_lib/session.ts` | Bob | PR1, PR3 | Result: auth/config faults now alert |
+| 2 | M1 backend P1 | B3, B4, B7, B17 captured (B17 as `level:warning`, per § Quota) | main | `auth/[...action].ts`, `auth/_lib/session.ts` | Bob | PR1, PR3 | Result: auth/config faults + soft-fallback blips now alert |
 | 3 | M1 backend P1 | B5, B6 captured | main | `coach-chat.ts` | Bob | PR1, PR2 | Result: config faults on the chat route now alert |
-| 4 | M2 iOS P0 | I1, I2, I3 captured | main | `HealthKitSyncManager.swift` | iOS Builder | PR5, PR6 | Result: background sync failures now alert |
-| 5 | M2 iOS P0 | I4, I5 + I9 captured | main | `GitHubAuthManager.swift` | iOS Builder | PR4, PR6 | Result: refresh-chain + Keychain-write failures now alert |
-| 6 | M2 iOS P0 | I6, I7 captured | main | `AppGroupSnapshotBridge.swift`, `WidgetSnapshotStore.swift`, `CoachHQWidget/*.swift` | iOS Builder | PR4, PR5 | Result: widget pipeline + extension now report |
-| 7 | M3 iOS P1 | I8, I10-I15 captured | main | `CoachChatAPIClient.swift`, `CoachMessageAPIClient.swift`, `WorkoutService.swift` | iOS Builder | — | Result: remaining print-only catches now alert |
-| 8 | M4 frontend | F1, F2, F3 captured | main | `coachChatModel.ts`, `pages/CoachChat.tsx` | UI Expert | PR9 | Result: Coach Chat fetch surface now alerts, incl. the two fully-silent paths |
-| 9 | M4 frontend | F4, F5, F6 captured | main | `useWidgetSnapshots.ts`, `AuthContext.tsx`, `WelcomeInviteCta.tsx` | UI Expert | PR8 | Result: remaining client fetches now alert |
-| 10 | M5 docs | runbook rewritten | after PR1-9 merge | `docs/eng-docs/sentry-runbook.md` | Tech Lead | — | Result: Coverage boundary matches reality |
+| 4 | M1 backend P1 | B16 captured (once terminal, not per-retry) | PR1+PR3 tip (touches files both already changed) | `coachChatFiles.ts`, `coach-chat.ts`, `activitySyncTurn.ts`, `coachTurn.ts` | Bob | — | Result: swallowed `getHeadSha` faults now alert, 404 stays quiet |
+| 5 | M2 ops | PY6 captured (carve fails closed without `SENTRY_DSN`) | main | `platform/scripts/carve-skeleton.mjs` | Bob | PR6 | Result: can't carve a repo whose Sync alert is silently dead |
+| 6 | M2 ops | span-health scheduled (runbook already names the script, just unscheduled) | main | `.github/workflows/*.yml` (new schedule), `ui/scripts/check-span-health.mjs` (if needed), runbook | Bob | PR5 | Result: traffic-with-no-spans now alerts on a schedule, not by hand |
+| 7 | M2 ops | PY7: existing athlete repos audited for missing DSN | after PR5 | operational — no repo diff, a checklist against athlete repos | Bob | — | Result: known-good list of which athlete repos actually alert on Sync failure |
+| 8 | M3 iOS P0 | I1, I2, I3 captured | main | `HealthKitSyncManager.swift` | iOS Builder | PR9, PR10 | Result: background sync failures now alert |
+| 9 | M3 iOS P0 | I4, I5 + I9 captured (I4's soft-fallback branch as `level:warning`) | main | `GitHubAuthManager.swift` | iOS Builder | PR8, PR10 | Result: refresh-chain + Keychain-write failures now alert |
+| 10 | M3 iOS P0 | I6, I7 captured | main | `AppGroupSnapshotBridge.swift`, `WidgetSnapshotStore.swift`, `CoachHQWidget/*.swift` | iOS Builder | PR8, PR9 | Result: widget pipeline + extension now report |
+| 11 | M4 iOS P1 | I8, I10-I15 captured | main | `CoachChatAPIClient.swift`, `CoachMessageAPIClient.swift`, `WorkoutService.swift` | iOS Builder | — | Result: remaining print-only catches now alert |
+| 12 | M5 frontend | F1, F2, F3 captured | main | `coachChatModel.ts`, `pages/CoachChat.tsx` | UI Expert | PR13 | Result: Coach Chat fetch surface now alerts, incl. the two fully-silent paths |
+| 13 | M5 frontend | F4, F5, F6 captured | main | `useWidgetSnapshots.ts`, `AuthContext.tsx`, `WelcomeInviteCta.tsx` | UI Expert | PR12 | Result: remaining client fetches now alert |
+| 14 | M6 docs | runbook rewritten | after PR1-13 merge | `docs/eng-docs/sentry-runbook.md` | Tech Lead | — | Result: Coverage boundary matches reality |
 
-Python pipeline (PY1-PY5) has no PR yet — blocked on the ADR below.
+Python pipeline correctness bugs (PY1-PY5) have no PR yet — blocked on the ADR below, and are
+validation fixes rather than Sentry-capture fixes regardless (see the nuance under that table).
 
 ## Open Decisions
 
@@ -144,6 +180,10 @@ Python pipeline (PY1-PY5) has no PR yet — blocked on the ADR below.
    raising/asserting has to exist before a report layer catches anything.
 3. **`parseJsonOrNull` (B10)** — capture on corrupted athlete data files, or leave as
    documented best-effort? Athlete's call, low urgency.
+4. **PY6 (carve fail-closed) needs a call on strictness** — hard-fail every carve without a
+   DSN, or allow an explicit opt-out flag for local/test carves that don't need alerting?
+   Leaning hard-fail with no flag (simpler, matches "loudly" in the existing comment), but
+   worth a decision since it changes a script other tooling may already invoke unattended.
 
 ## Deferred (P2, not in this plan)
 
