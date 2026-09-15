@@ -60,12 +60,17 @@ class WorkoutService: ObservableObject {
             entries = try await apiClient.listFiles(path: "user_data/activities/workout_plans/templates")
         } catch let e as GitHubAPIError {
             guard case .notFound = e else {
+                // GitHubAPIClient.withRetry owns Sentry for this fault; only surface UX here.
                 fetchError = "Couldn't load workout templates"
                 return
             }
             templates = []
             return
         } catch {
+            WorkoutFetchDiagnostics.reportUnexpected(
+                error,
+                operation: WorkoutFetchDiagnostics.templatesOperation
+            )
             fetchError = "Couldn't load workout templates"
             return
         }
@@ -78,6 +83,11 @@ class WorkoutService: ObservableObject {
                 loaded.append(try decoder.decode(Workout.self, from: data))
             } catch {
                 print("fetchTemplates: skipping \(entry.name): \(error)")
+                WorkoutFetchDiagnostics.reportSkip(
+                    fileName: entry.name,
+                    error: error,
+                    operation: WorkoutFetchDiagnostics.templatesOperation
+                )
                 if fetchError == nil {
                     fetchError = "Some workout templates failed to load"
                 }
@@ -109,12 +119,17 @@ class WorkoutService: ObservableObject {
         } catch GitHubAPIError.notFound {
             todaySessions = [:]
             return
-        } catch GitHubAPIError.notAuthenticated {
+        } catch let e as GitHubAPIError {
+            // GitHubAPIClient.withRetry owns Sentry for this fault; keep athlete-facing string.
             if fetchError == nil {
-                fetchError = GitHubAPIError.notAuthenticated.errorDescription
+                fetchError = e.errorDescription ?? "Couldn't load today's coach sessions"
             }
             return
         } catch {
+            WorkoutFetchDiagnostics.reportUnexpected(
+                error,
+                operation: WorkoutFetchDiagnostics.sessionsOperation
+            )
             if fetchError == nil {
                 fetchError = "Couldn't load today's coach sessions"
             }
@@ -130,6 +145,11 @@ class WorkoutService: ObservableObject {
                 sessions[sessionId] = try JSONDecoder().decode(Workout.self, from: data)
             } catch {
                 print("fetchTodaySessions: skipping \(entry.name): \(error)")
+                WorkoutFetchDiagnostics.reportSkip(
+                    fileName: entry.name,
+                    error: error,
+                    operation: WorkoutFetchDiagnostics.sessionsOperation
+                )
                 if fetchError == nil {
                     fetchError = "Couldn't load today's coach sessions"
                 }
@@ -149,23 +169,33 @@ class WorkoutService: ObservableObject {
         do {
             data = try await apiClient.readFile(path: "user_data/ledger/current_week.json")
         } catch {
+            // notFound is quiet by design; other GitHubAPIErrors are owned by withRetry.
+            // Non-GitHub surprises still need a signal at this layer.
+            WorkoutFetchDiagnostics.reportIfNotCoveredByGitHubClient(
+                error,
+                operation: WorkoutFetchDiagnostics.currentWeekOperation
+            )
             currentWeek = nil
             currentWeekAvailability = nil
             return
         }
 
-        guard let week = try? JSONDecoder().decode(CurrentWeek.self, from: data) else {
+        do {
+            let week = try JSONDecoder().decode(CurrentWeek.self, from: data)
+            // Availability itself always reads the plan's own timezone (matches
+            // engine/lib/current-week.mts's getAvailability) — the athlete's timezone only
+            // comes into play later, for "today" when the plan turns out not to be live.
+            let todayInPlanTimezone = dateString(for: now, inTimeZoneIdentifier: week.timezone)
+            currentWeek = week
+            currentWeekAvailability = computeCurrentWeekAvailability(for: week, today: todayInPlanTimezone)
+        } catch {
+            WorkoutFetchDiagnostics.reportDecodeFailure(
+                error,
+                operation: WorkoutFetchDiagnostics.currentWeekOperation
+            )
             currentWeek = nil
             currentWeekAvailability = nil
-            return
         }
-
-        // Availability itself always reads the plan's own timezone (matches
-        // engine/lib/current-week.mts's getAvailability) — the athlete's timezone only
-        // comes into play later, for "today" when the plan turns out not to be live.
-        let todayInPlanTimezone = dateString(for: now, inTimeZoneIdentifier: week.timezone)
-        currentWeek = week
-        currentWeekAvailability = computeCurrentWeekAvailability(for: week, today: todayInPlanTimezone)
     }
 
     /// Fetches the athlete's known timezone from `user_data/coach/profile.json`, used by the
@@ -178,6 +208,10 @@ class WorkoutService: ObservableObject {
             let profile = try JSONDecoder().decode(CoachProfileSummary.self, from: data)
             athleteTimezone = profile.timezone
         } catch {
+            WorkoutFetchDiagnostics.reportIfNotCoveredByGitHubClient(
+                error,
+                operation: WorkoutFetchDiagnostics.athleteTimezoneOperation
+            )
             athleteTimezone = nil
         }
     }
@@ -192,4 +226,80 @@ class WorkoutService: ObservableObject {
         return formatter.string(from: date)
     }
 
+}
+
+/// #1078 I10–I13 — WorkoutService soft-continue paths. List/read faults are owned by
+/// `GitHubAPIClient.withRetry`; this layer reports skips, local decode failures, and
+/// unexpected non-GitHub errors only (one event per terminal failure).
+enum WorkoutFetchDiagnostics {
+    static let templatesOperation = "workout.fetch_templates"
+    static let sessionsOperation = "workout.fetch_sessions"
+    static let currentWeekOperation = "workout.fetch_current_week"
+    static let athleteTimezoneOperation = "workout.fetch_athlete_timezone"
+
+    static func reportSkip(
+        fileName: String,
+        error: Error,
+        operation: String,
+        operationID: UUID = UUID()
+    ) {
+        // readFile faults are owned by GitHubAPIClient.withRetry; only local decode
+        // (and other non-GitHub) surprises are new signal here.
+        guard shouldReportIfNotCoveredByGitHubClient(error) else { return }
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: ["file": fileName, "phase": "skip"]
+        )
+    }
+
+    static func reportDecodeFailure(
+        _ error: Error,
+        operation: String,
+        operationID: UUID = UUID()
+    ) {
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: ["phase": "decode"]
+        )
+    }
+
+    static func reportUnexpected(
+        _ error: Error,
+        operation: String,
+        operationID: UUID = UUID()
+    ) {
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: ["phase": "unexpected"]
+        )
+    }
+
+    /// GitHubAPIError paths are either quiet by design (`notFound`/`sessionNotReady`) or
+    /// owned by `withRetry`. Only non-GitHub surprises need a report at this layer.
+    static func shouldReportIfNotCoveredByGitHubClient(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if error is GitHubAPIError { return false }
+        let nsError = error as NSError
+        return !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+    }
+
+    static func reportIfNotCoveredByGitHubClient(
+        _ error: Error,
+        operation: String,
+        operationID: UUID = UUID()
+    ) {
+        guard shouldReportIfNotCoveredByGitHubClient(error) else { return }
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: ["phase": "local"]
+        )
+    }
 }

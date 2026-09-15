@@ -76,28 +76,59 @@ final class CoachChatAPIClient {
     }
 
     /// Runs `operation` up to `attempts` times with exponential backoff (0.5s, 1s, 2s…),
-    /// mirroring GitHubAPIClient.withRetry. `retryNetworkFailures` should stay false for
-    /// sendMessage(): a 5xx/429 response is safe to retry (the server confirmed nothing
-    /// committed), but a raw network failure isn't - the commit could have landed before the
-    /// response was lost, and retrying would re-run Gemini + the commit a second time.
+    /// mirroring GitHubAPIClient.withRetry — including one terminal Sentry capture when retries
+    /// are exhausted (I8). `retryNetworkFailures` should stay false for sendMessage(): a
+    /// 5xx/429 response is safe to retry (the server confirmed nothing committed), but a raw
+    /// network failure isn't - the commit could have landed before the response was lost, and
+    /// retrying would re-run Gemini + the commit a second time.
     private func withRetry<T>(
+        _ label: String,
         attempts: Int = 3,
         retryNetworkFailures: Bool = true,
+        metadata: [String: String] = [:],
         operation: () async throws -> T,
     ) async throws -> T {
-        var lastError: Error = GitHubAPIError.requestFailed(operation: "Coach chat", status: nil, detail: nil)
+        let operationID = UUID()
+        DiagnosticsManager.record(
+            category: CoachChatAPIRetrySignal.operation,
+            message: label,
+            operationID: operationID,
+            metadata: metadata.merging(["outcome": "started"]) { current, _ in current }
+        )
+        var lastError: Error = GitHubAPIError.requestFailed(operation: label, status: nil, detail: nil)
         for attempt in 0..<attempts {
             do {
-                return try await operation()
+                let value = try await operation()
+                DiagnosticsManager.record(
+                    category: CoachChatAPIRetrySignal.operation,
+                    message: label,
+                    operationID: operationID,
+                    metadata: metadata.merging(["outcome": "success", "attempts": String(attempt + 1)]) { current, _ in current }
+                )
+                return value
             } catch {
+                lastError = error
                 guard Self.isTransient(error, retryNetworkFailures: retryNetworkFailures), attempt < attempts - 1 else {
+                    CoachChatAPIRetrySignal.reportTerminalFailure(
+                        error: error,
+                        label: label,
+                        attempts: attempt + 1,
+                        operationID: operationID,
+                        metadata: metadata
+                    )
                     throw error
                 }
-                lastError = error
                 let delay = 0.5 * pow(2, Double(attempt))
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
         }
+        CoachChatAPIRetrySignal.reportTerminalFailure(
+            error: lastError,
+            label: label,
+            attempts: attempts,
+            operationID: operationID,
+            metadata: metadata
+        )
         throw lastError
     }
 
@@ -134,7 +165,7 @@ final class CoachChatAPIClient {
         retryNetworkFailures: Bool = true,
         failureMapper: ((Data, Int) -> Error?)? = nil,
     ) async throws -> Data {
-        try await withRetry(retryNetworkFailures: retryNetworkFailures) {
+        try await withRetry(operation, retryNetworkFailures: retryNetworkFailures) {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else {
                 throw GitHubAPIError.decodingFailed(operation: operation)
@@ -272,4 +303,40 @@ final class CoachChatAPIClient {
         return decoded
     }
 
+}
+
+/// #1078 I8 — Coach Chat retry layer reports once on terminal failure, matching
+/// `GitHubAPIClient.withRetry`. Pure seam so XCTest can assert without URLSession.
+enum CoachChatAPIRetrySignal {
+    static let operation = "coach.chat.request"
+
+    static func shouldCapture(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if let apiError = error as? GitHubAPIError {
+            switch apiError {
+            case .sessionNotReady, .notFound:
+                return false
+            default:
+                return true
+            }
+        }
+        let nsError = error as NSError
+        return !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+    }
+
+    static func reportTerminalFailure(
+        error: Error,
+        label: String,
+        attempts: Int,
+        operationID: UUID = UUID(),
+        metadata: [String: String] = [:]
+    ) {
+        guard shouldCapture(error) else { return }
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: metadata.merging(["label": label, "attempts": String(attempts)]) { current, _ in current }
+        )
+    }
 }

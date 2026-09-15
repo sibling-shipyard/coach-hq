@@ -60,52 +60,63 @@ final class CoachMessageAPIClient: CoachMessageGenerating {
         for activityIds: [String],
         repoFullName: String
     ) async throws -> CoachMessageAPIResponse {
-        let canonicalIds = try Self.canonicalActivityIds(activityIds)
-        guard authManager.repoFullName == repoFullName else {
-            throw GitHubAPIError.sessionNotReady
-        }
-        guard let token = await authManager.validToken() else {
-            throw GitHubAPIError.notAuthenticated
-        }
-        guard authManager.repoFullName == repoFullName else {
-            throw GitHubAPIError.sessionNotReady
-        }
-        guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/coach-message") else {
-            throw GitHubAPIError.decodingFailed(operation: "Coach message URL")
-        }
+        let operationID = UUID()
+        do {
+            let canonicalIds = try Self.canonicalActivityIds(activityIds)
+            guard authManager.repoFullName == repoFullName else {
+                throw GitHubAPIError.sessionNotReady
+            }
+            guard let token = await authManager.validToken() else {
+                throw GitHubAPIError.notAuthenticated
+            }
+            guard authManager.repoFullName == repoFullName else {
+                throw GitHubAPIError.sessionNotReady
+            }
+            guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/coach-message") else {
+                throw GitHubAPIError.decodingFailed(operation: "Coach message URL")
+            }
 
-        let body = try JSONEncoder().encode(ActivityIdsRequest(activityIds: canonicalIds))
-        guard body.count <= Self.maximumPayloadBytes else {
-            throw GitHubAPIError.decodingFailed(operation: "Coach message request is too large")
-        }
+            let body = try JSONEncoder().encode(ActivityIdsRequest(activityIds: canonicalIds))
+            guard body.count <= Self.maximumPayloadBytes else {
+                throw GitHubAPIError.decodingFailed(operation: "Coach message request is too large")
+            }
 
-        var request = URLRequest(url: url, timeoutInterval: 60)
-        request.httpMethod = "POST"
-        request.httpBody = body
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue(repoFullName, forHTTPHeaderField: "X-Coach-Repo")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            var request = URLRequest(url: url, timeoutInterval: 60)
+            request.httpMethod = "POST"
+            request.httpBody = body
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue(repoFullName, forHTTPHeaderField: "X-Coach-Repo")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (data, response) = try await session.data(for: request)
-        guard data.count <= Self.maximumPayloadBytes else {
-            throw GitHubAPIError.decodingFailed(operation: "Coach message response is too large")
-        }
-        guard let http = response as? HTTPURLResponse else {
-            throw GitHubAPIError.decodingFailed(operation: "Coach message response")
-        }
-        if http.statusCode == 401 { throw GitHubAPIError.notAuthenticated }
-        guard (200...299).contains(http.statusCode) else {
-            let detail = (try? JSONDecoder().decode(CoachMessageErrorBody.self, from: data))?.error
-                ?? String(data: data, encoding: .utf8)
-            throw GitHubAPIError.requestFailed(
-                operation: "Generating Coach message",
-                status: http.statusCode,
-                detail: detail
+            let (data, response) = try await session.data(for: request)
+            guard data.count <= Self.maximumPayloadBytes else {
+                throw GitHubAPIError.decodingFailed(operation: "Coach message response is too large")
+            }
+            guard let http = response as? HTTPURLResponse else {
+                throw GitHubAPIError.decodingFailed(operation: "Coach message response")
+            }
+            if http.statusCode == 401 { throw GitHubAPIError.notAuthenticated }
+            guard (200...299).contains(http.statusCode) else {
+                let detail = (try? JSONDecoder().decode(CoachMessageErrorBody.self, from: data))?.error
+                    ?? String(data: data, encoding: .utf8)
+                throw GitHubAPIError.requestFailed(
+                    operation: "Generating Coach message",
+                    status: http.statusCode,
+                    detail: detail
+                )
+            }
+
+            return try Self.decodeResponse(data, expectedActivityIds: canonicalIds)
+        } catch {
+            // I14: terminal failure once — no retry loop on this client.
+            CoachMessageGenerateDiagnostics.report(
+                error: error,
+                operationID: operationID,
+                metadata: ["activity_count": String(activityIds.count)]
             )
+            throw error
         }
-
-        return try Self.decodeResponse(data, expectedActivityIds: canonicalIds)
     }
 
     static func canonicalActivityIds(_ activityIds: [String]) throws -> [String] {
@@ -211,12 +222,51 @@ enum CoachMessagePostSyncDelivery {
         refreshSnapshots: () async -> Void,
         notify: (CoachMessageRecord) async -> Void
     ) async {
-        guard let response = try? await client.generate(
-            for: activityIds,
-            repoFullName: repoFullName
-        ) else { return }
-        await refreshSnapshots()
-        guard response.shouldNotify else { return }
-        await notify(response.message)
+        do {
+            let response = try await client.generate(
+                for: activityIds,
+                repoFullName: repoFullName
+            )
+            await refreshSnapshots()
+            guard response.shouldNotify else { return }
+            await notify(response.message)
+        } catch {
+            // Quota: terminal-once. Real client reports inside generate; do not capture again.
+            return
+        }
+    }
+}
+
+/// #1078 I14/I15 — Coach message HTTP/decode terminal failure. Capture lives in generate only;
+/// PostSyncDelivery must not report a second event for the same throw.
+enum CoachMessageGenerateDiagnostics {
+    static let operation = "coach.message.generate"
+
+    static func shouldCapture(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if let apiError = error as? GitHubAPIError {
+            switch apiError {
+            case .sessionNotReady, .notFound:
+                return false
+            default:
+                return true
+            }
+        }
+        let nsError = error as NSError
+        return !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+    }
+
+    static func report(
+        error: Error,
+        operationID: UUID = UUID(),
+        metadata: [String: String] = [:]
+    ) {
+        guard shouldCapture(error) else { return }
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: metadata
+        )
     }
 }
