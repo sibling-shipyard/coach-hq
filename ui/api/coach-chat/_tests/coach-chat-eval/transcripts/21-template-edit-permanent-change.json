@@ -1,0 +1,14 @@
+{
+  "name": "template-edit-permanent-change",
+  "description": "Real gap closed (coverage-audit phase 1 follow-up, issue #1066): template_edit had never been asserted present anywhere - transcript 05 only proves the model correctly withholds it in favor of week_update for a one-day swap. This is the positive case: an explicit, permanent change to an existing routine going forward, not 'just today' (that's session_plan, covered by 19). The 'going forward' framing is the disambiguating signal against session_plan the same way 05's 'just this once' framing disambiguates against week_update.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** general strength\n- **Timeline / Upcoming events:** none\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: General strength\n",
+  "extraContext": "Current templates/routines (use these exact ids for template_edit, workout_remove, or session_plan):\n- template_id: tpl-full-body-strength",
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
+  "userMessage": "I want to permanently swap the core phase out of my full body strength routine going forward - my lower back just doesn't handle it well, every time, not just today.",
+  "expect": {
+    "actionFieldsPresent": ["template_edit"],
+    "actionFieldsAbsent": ["session_plan"]
+  }
+}

@@ -256,6 +256,33 @@ const SCENARIOS: Scenario[] = [
       { turnIndex: 2 },
     ],
   },
+  // Coverage-audit phase 1 follow-up (issue #1066) - closing the 2 gaps left open in the first
+  // pass, real-write companions to eval transcripts 11 and 21.
+  {
+    id: "quest-create-standalone",
+    file: "manual-coach-chat-turns-quest-create-standalone.json",
+    description:
+      "quest_create (standalone) real-write coverage - eval transcript 11 already proves the model fires this reliably with no season change in the same message; this is the missing real-write check on the actual quests.json commit. Every real athlete repo already has an active season on file, which is exactly the right precondition here (not an obstacle) - the disambiguating signal is the message itself carrying zero season/goal language, not the repo's existing state.",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/quests.json"] },
+      { turnIndex: 2 },
+    ],
+  },
+  {
+    id: "template-edit-permanent",
+    file: "manual-coach-chat-turns-template-edit.json",
+    description:
+      "template_edit real-write coverage - had never been asserted present anywhere (transcript 05 only proves the negative, that a one-day swap is week_update not template_edit). Creates its own template first, then asks for a permanent change to it, framed as 'going forward' / 'every time' to disambiguate against session_plan's 'just today' framing (covered separately by the session-plan scenario).",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/"] },
+      { turnIndex: 3 },
+    ],
+  },
 ];
 
 /** coach-hq paths that, if changed, could invalidate a scenario's last pass - coverage-index.json's watched_paths. */

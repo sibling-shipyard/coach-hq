@@ -1,6 +1,6 @@
 # Coach chat - test scenario catalog
 
-> Status: Current · Owner: vade-the-tester · Verified: 2026-09-15
+> Status: Current · Owner: vade-the-tester · Verified: 2026-09-15 (coverage-audit phase 1 follow-up)
 
 ## Context
 
@@ -12,9 +12,10 @@ rather than the multi-fact conversations real check-ins actually are. 11 example
 test libraries going forward - update it whenever a scenario is added, removed, or renumbered.
 
 The 2026-09-15 coverage-audit pass (phase 1) cross-referenced every action field the code can
-actually emit against this catalog. It closed every real gap it found - see the Coverage matrix
-section below for the full cross-reference and `docs/plans/coach-chat-redesign-followups.md`'s
-two items it settles/retests.
+actually emit against this catalog. It closed every real gap it found except two, then a same-day
+follow-up (issue #1066) closed those last two - see the Coverage matrix section below, which now
+has zero open rows, and `docs/plans/coach-chat-redesign-followups.md`'s two items this pass
+settles/retests.
 
 ## Eval transcripts
 
@@ -43,6 +44,7 @@ two items it settles/retests.
 | 18 | `18-workout-remove.json` | 1 | new (coverage-audit phase 1); asking to delete a named existing routine fires `workout_remove` | `actionFieldsPresent: ["workout_remove"]` |
 | 19 | `19-session-plan.json` | 1 | new (coverage-audit phase 1); a one-day-only adjustment to an existing routine fires `session_plan`, never a permanent `template_edit` | `actionFieldsPresent: ["session_plan"]`, `actionFieldsAbsent: ["template_edit"]` |
 | 20 | `20-fsp-dense-intake-single-turn.json` | 1 | new (coverage-audit phase 1); settles the redesign-followups reliability question - profile, goal, and habit stated together in one dense FSP message still fires `season_start`/`season_start.new_habits` reliably | `actionFieldsPresent: ["profile_update", "season_start", "season_start.new_habits"]`, `actionFieldsAbsent: ["quest_create"]` |
+| 21 | `21-template-edit-permanent-change.json` | 1 | new (coverage-audit phase 1 follow-up, #1066); a "permanent, going forward" ask fires `template_edit`, not the "just today" `session_plan` | `actionFieldsPresent: ["template_edit"]`, `actionFieldsAbsent: ["session_plan"]` |
 
 **Cut (redundant/subset), not merged:**
 - `28-fsp-new-injuries.json` - strict content subset of what's now `08` (same `injury_flag` assertion, `08` also covers the goal/habit case).
@@ -75,48 +77,51 @@ the fourth test type for mechanics.
 | `pattern-style-sport` | `manual-coach-chat-turns-pattern-style-sport.json` | 4 (incl. greet) | new (coverage-audit phase 1); real-write companion to eval `15` - `memory_update`, `coaching_style_update`, `sports_update` | turns 1-2: `memory.json` changed; turn 3: PASS |
 | `season-transition` | `manual-coach-chat-turns-season-transition.json` | 3 (incl. greet) | new (coverage-audit phase 1); real-write companion to eval `10` - a returning athlete's `season_start` commits both `seasons.json` and `quests.json` | turn 1: `seasons.json` and `quests.json` changed; turn 2: PASS |
 | `quest-event` | `manual-coach-chat-turns-quest-event.json` | 3 (incl. greet) | new (coverage-audit phase 1); real-write companion to eval `16` - a habit completion commits `progress.json`, previously never checked live | turn 1: `progress.json` changed; turn 2: PASS |
+| `quest-create-standalone` | `manual-coach-chat-turns-quest-create-standalone.json` | 3 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `11` - a standalone new habit with zero season/goal language commits `quests.json` | turn 1: `quests.json` changed; turn 2: PASS |
+| `template-edit-permanent` | `manual-coach-chat-turns-template-edit.json` | 4 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `21` - creates a routine, then permanently edits it ("going forward", not "just today") | turn 1: `templates/_manifest.json` changed; turn 2: `workout_plans/templates/` file changed; turn 3: PASS |
 
 ## What replaced what
 
 23 eval transcripts → 16 (3 cut as redundant subsets, 7 merged into 3 realistic multi-turn
 conversations, 3 new files added) as of the 2026-09-14 eval-audit pass. The 2026-09-15
-coverage-audit pass added 4 more (`17`-`20`), for 20 total today. See "Cut" and "Merged" notes
-above for the eval-audit's reasoning per file, and the coverage matrix below for what each new
-one closes.
+coverage-audit pass added 5 more (`17`-`21`, the last one from the same-day #1066 follow-up), for
+21 total today. See "Cut" and "Merged" notes above for the eval-audit's reasoning per file, and
+the coverage matrix below for what each new one closes.
 
 `ui/scripts/examples/` dropped 11 unused `-727-*` probe files from the #727 migration in the
 eval-audit pass. The original estimate was 2 named plus roughly 8 more; the real count, confirmed
 unreferenced anywhere by grep before deletion, was 11. That same pass gained one new file
-(`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass added 7 more
-turns files and 7 more `SCENARIOS` entries, for 11 total today.
+(`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass and its #1066
+follow-up together added 9 more turns files and 9 more `SCENARIOS` entries, for 13 total today.
 
-## Coverage matrix (coverage-audit phase 1, 2026-09-15)
+## Coverage matrix (coverage-audit phase 1, 2026-09-15; closed out by #1066 same day)
 
 Cross-references every action field `GeminiReply` (`ui/api/coach-chat/_lib/gemini/coachReplySchema.ts`)
 can actually emit today against the schema file(s) it writes (`docs/eng-docs/coach-data-schema.md`)
-and against this catalog's own eval/simulation tables above. "Gap → closed" means this pass added
-the row that closes it; "Gap → left open" means I found it but chose not to build a fixture this
-round, with the reason. `pending_clarification`/`unrecorded_facts` aren't in this table - they're
-self-audit fields, not writes (see the schema doc).
+and against this catalog's own eval/simulation tables above. "Gap → closed" means a fixture now
+exists that exercises it. `pending_clarification`/`unrecorded_facts` aren't in this table - they're
+self-audit fields, not writes (see the schema doc). Zero rows are left open as of #1066 - see the
+note on `coach_note` below for the one row whose coverage is real but implicit rather than a
+dedicated assertion.
 
 | Action field | Writes to | Eval coverage | Simulation coverage | Status |
 |---|---|---|---|---|
-| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | fires on nearly every turn across all scenarios, but no scenario asserts `coach_log.json` itself changed | Covered (eval); simulation checks are implicit only - left open, see note below |
-| `memory_update` | `memory.json` | `15` | `pattern-style-sport` (new) | Gap → closed |
-| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport` (new) | Gap → closed |
-| `sports_update` | `memory.json` | `15` | `pattern-style-sport` (new) | Gap → closed |
-| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-basic`, `daily-basic`, `injury-resolve-by-bodypart` (new) | Gap → closed |
-| `injury_event` | `injuries.json` | `14` | `injury-resolve-by-bodypart` (new) | Gap → closed |
-| `quest_event` | `progress.json` | `16` | `quest-event` (new) | Gap → closed |
-| `profile_update` | `profile.json` | `04`, `12`, `20` (new) | `fsp-basic`, `daily-basic` | Covered |
-| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` (new) | `season-transition` (new) | Gap → closed |
-| `quest_create` (standalone) | `quests.json` | `11` | none | Gap → left open (see note) |
-| `template_edit` | template file | `05` (absence only - never asserted present) | none | Gap → left open (see note) |
-| `session_plan` | session-snapshot file | `19` (new) | `session-plan` (new) | Gap → closed (was the redesign-followups doc's zero-coverage item) |
-| `week_update` (kickoff) | `current_week.json` | `06` | `ambiguous-contradiction`, `week-kickoff-flash` (new) | Gap → closed (Flash malformation retest) |
+| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | fires on nearly every turn across all scenarios, but no scenario asserts `coach_log.json` itself changed | Covered (eval); simulation coverage is real but implicit - see note below |
+| `memory_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
+| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport` | Gap → closed |
+| `sports_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
+| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-basic`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
+| `injury_event` | `injuries.json` | `14` | `injury-resolve-by-bodypart` | Gap → closed |
+| `quest_event` | `progress.json` | `16` | `quest-event` | Gap → closed |
+| `profile_update` | `profile.json` | `04`, `12`, `20` | `fsp-basic`, `daily-basic` | Covered |
+| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` | `season-transition` | Gap → closed |
+| `quest_create` (standalone) | `quests.json` | `11` | `quest-create-standalone` (#1066) | Gap → closed |
+| `template_edit` | template file | `21` (#1066; `05` covers the absence case) | `template-edit-permanent` (#1066) | Gap → closed |
+| `session_plan` | session-snapshot file | `19` | `session-plan` | Gap → closed (was the redesign-followups doc's zero-coverage item) |
+| `week_update` (kickoff) | `current_week.json` | `06` | `ambiguous-contradiction`, `week-kickoff-flash` | Gap → closed (Flash malformation retest) |
 | `week_update` (patch) | `current_week.json` | `05`, `07` | `ambiguous-contradiction` | Covered |
-| `workout_create` | template file + manifest | `17` (new) | `workout-lifecycle` (new) | Gap → closed |
-| `workout_remove` | manifest | `18` (new) | `workout-lifecycle` (new) | Gap → closed |
+| `workout_create` | template file + manifest | `17` | `workout-lifecycle` | Gap → closed |
+| `workout_remove` | manifest | `18` | `workout-lifecycle` | Gap → closed |
 
 **Files with no Gemini-facing write action at all** - checked against every `turnWrites/*.ts` file
 before assuming a gap, per this pass's own "not guessing" rule. `progressions.json` is read-only
@@ -125,25 +130,26 @@ written through an action field, so there is no write path here for a fixture to
 `athlete_insights.json`, `latest_message.json`, and `chat_history.json`'s `synced_activity_list`
 rows are all pipeline-generated, not chat-written, same reasoning.
 
-**Left open, with reasons:**
+**`quest_create` (standalone) - how the #1066 fixture resolved the concern raised in the first
+pass.** The first pass worried that every real athlete repo already has an active season on file,
+making the "no season change" branch hard to hit unambiguously. That precondition turned out to
+be fine, not an obstacle. An active season on file is the normal, expected state for a returning
+athlete. The disambiguating signal for `quest_create` vs `season_start` is the message itself
+carrying zero season/goal language, not anything about the repo's existing state. Eval transcript
+`11` already proved this live; `quest-create-standalone` adds the missing real-write check.
 
-- **`quest_create` (standalone) has no simulation coverage.** Every existing simulation-suite
-  scenario runs against an athlete who already has an active season/main_quest on file. A
-  standalone `quest_create` needs the opposite - a habit with no season change at all - to be the
-  unambiguous read. That's awkward to set up reliably against a real athlete repo's actual state
-  without either resetting it or guessing at what's already there. Flagging as a P2 follow-up
-  rather than building a fixture that might not exercise the right branch.
-- **`template_edit` (permanent edit) has never been asserted as *present* anywhere**, only as
-  *absent* (transcript `05`'s disambiguation). Its write-time logic
-  (`buildTemplateEditWrite`/`applyTemplateEdit`) is structurally the same shape this pass already
-  covers for `session_plan` and `workout_create` (same file, same validation pattern), so the
-  residual risk is lower than the other closed gaps. Flagging as a P2 follow-up, not building a
-  fixture this round given the marginal coverage it would add.
-- **`coach_note`'s own file write has no dedicated simulation assertion.** It fires on nearly every
-  turn in every scenario in this library, so it's exercised constantly in practice - the gap is
-  narrower than the others (no scenario's `expect` block happens to check `coach_log.json`
-  specifically). Not worth a dedicated fixture; any future scenario touching an ordinary turn
-  already exercises this path.
+**`template_edit` - what actually distinguishes it from `session_plan`.** Both write similar
+shapes through the same file (`coachWorkoutFiles.ts`). The fixture had to isolate the one real
+signal that tells them apart: "permanent, going forward, every time" (`template_edit`) versus
+"just for today" (`session_plan`, already covered). Transcript `21` and the `template-edit-
+permanent` scenario both use that framing explicitly, the same way transcript `05` already
+disambiguates `template_edit` from `week_update` on the time-scope axis.
+
+**`coach_note`'s own file write has no dedicated simulation assertion**, and this is not being
+closed as a gap. It fires on nearly every turn in every scenario in this library, so it's
+exercised constantly in practice. No scenario's `expect` block happens to check `coach_log.json`
+specifically, but that's a narrower gap than the others were, not an unproven write path. Any
+future scenario touching an ordinary turn already exercises this.
 
 This doc is the catalog of record going forward, replacing the ad hoc numbering that grew up
 around individual issue fixes - update it on the next add/remove/renumber, don't let it drift
