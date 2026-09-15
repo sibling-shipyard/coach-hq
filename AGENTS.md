@@ -151,7 +151,11 @@ then tab `a.`). Athlete may reference `1a` — match that item exactly.
 place only when the past still binds the present — *"optional because history files written before
 #292 have no `vs_usual`"*. Otherwise git, `kdb/decisions/` and `SOUL_HISTORY.md` are the archive.
 Test: **would this change what a reader does?** `legacy`, `no longer`, `used to`, `now uses`,
-`existing`, `for backward compatibility` are the tells — grep them in review.
+`existing`, `for backward compatibility` are the tells — grep them in review. This applies to
+role-doc prose too, not only code comments: a Scope line or Learnings entry states the rule,
+never the audit trail that produced it. No dates, no `#N` issue/PR references, no "formalized
+on", "already touched via", "previously undeclared" — once a gap is closed, the fact that it was
+once a gap is git's job to remember, not the doc's. Write what's true now, not what changed.
 
 **Big output:** Never pipe a build or install straight into your context — it costs five figures of
 tokens for no information. Redirect, then grep the log:

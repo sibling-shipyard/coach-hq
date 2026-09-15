@@ -103,15 +103,19 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 
 | Role | Agent | Repo scope |
 |---|---|---|
-| **Tech Lead** (you) | This thread | Full monorepo |
+| **Tech Lead** (you) | This thread | Full monorepo, and explicitly: `platform/` (all of it), `.github/workflows/`, `kdb/scripts/`, `shared/golden-dataset/`, `shared/workout-library/` |
 | **Coach Phelps** | `platform/SOUL.claude.md` thread | athlete repos only — no HQ scope |
-| **UI Expert** | Worker thread | `ui/client/` only — the React dashboard |
-| **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
+| **UI Expert** | Worker thread | `ui/client/` and `shared/warm-instrument/` (design tokens) — the React dashboard |
+| **Bob the Builder** | Worker thread | `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 | **Cyclops** | Triage thread | Sentry event triage (read-only, no code changes) |
 | **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) - never application/production code |
 
 **Boundaries:**
+- `platform/` in full — `soul/`, `scripts/`, `agent-kit/`, `skills/`, `plugins/`, `tests/`, `horcruxes/`, `skeleton-templates/` — is **Tech Lead only**. Previously only `platform/soul/*` and `platform/skeleton-templates/*.json` were named; the rest fell to the CODEOWNERS `*` fallback with no declared owner (`kdb/decisions/0046-close-agent-scope-gaps.md`).
+- `.github/workflows/` (CI/CD pipeline YAML) and `kdb/scripts/*.py` (`validate_kdb.py`, `adr_readability.py`, `gen_adr_index.py`, etc.) are **Tech Lead only**.
+- `shared/golden-dataset/` and `shared/workout-library/` are **Tech Lead only**; `shared/warm-instrument/` (design tokens) is UI Expert's — it feeds `ui/client/` directly.
+- `engine/lib/` and `engine/scripts/` (the sync pipeline) are Bob the Builder's — same shape as `engine/core/`.
 - Coach Phelps owns `user_data/coach/profile.json`, `memory.json`, `injuries.json`, `coach_log.json`, `user_data/ledger/seasons.json`, `quests.json`, `progress.json`, `progressions.json`, `current_week.json`, `user_data/coach/archive/week_plans.md`, and `user_data/activities/workout_plans/sessions/**` - the exact commit list `platform/SOUL.claude.md` §2 gives Coach, cross-checked against `docs/eng-docs/coach-data-schema.md`. (`chat_history.json`/`latest_message.json` exist in the same schema but are server/pipeline-committed, not Coach's own push.) `state.md`/`coach_notes.md`/`challenge_v2.json`/bare `sessions/`/`roadmap.md` are retired names from before the coach-chat/SOUL redesign - don't use them. Do not edit Coach's files unless the athlete explicitly asks.
 - `platform/soul/*.md` and the composed `platform/SOUL.chat.md` / `platform/SOUL.claude.md` are **Tech Lead only** — never edit as Coach.
 - `platform/skeleton-templates/*.json` are base workout templates. Only you can authorize changes to these.
@@ -146,7 +150,7 @@ nothing and hides the few lines that matter.
 
 ## Learnings
 
-- `gh issue list --label` returns nothing though matches exist — `gh api "repos/:owner/:repo/issues?labels=X"` reads issues directly. Check for existing issues before filing findings.
+- `gh issue list --label` returns nothing though matches exist — `gh api "repos/:owner/:repo/issues?labels=X"` reads issues directly.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
@@ -154,5 +158,5 @@ nothing and hides the few lines that matter.
   not just the one you just did — rebasing onto an `origin/<branch>` ref whose own upstream rebase
   hasn't landed (push blocked/delayed) silently drops the parent's fix. GitHub's `mergeable` can
   show stale `CONFLICTING` after a force-push; `git merge --no-commit --no-ff` locally is proof.
-- Never quote a provider number from memory — pinning, cache measurement, where cost comes from and free-tier quota are all in `docs/eng-docs/chat-provider-bench.md`, measured.
 - A deployment proves nothing until you know its commit. `llm.adapter` absent from a `gen_ai` span means pre-adapter code, not a bad flag; a Vercel redeploy rebuilds the same commit.
+- `area:core`/cross-cutting work in `engine/core/`, `ui/api/` routes to Bob first — do not hand-fix it directly just because it's faster than a spawn.
