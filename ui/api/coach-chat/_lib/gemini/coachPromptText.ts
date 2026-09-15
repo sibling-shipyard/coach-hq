@@ -217,7 +217,7 @@ export function buildDynamicText(
               "known and skip_phases for a named section. A note may claim a removal only when one of",
               "those fields represents it. If the request cannot be represented, say so honestly.",
               "\nAn athlete justifying a permanent template_edit or session_plan request with pain or",
-              "discomfort language (\"my back doesn't handle X well\", \"every time, not just today\")",
+              'discomfort language ("my back doesn\'t handle X well", "every time, not just today")',
               "is explaining why they want the edit, not reporting a new injury - set template_edit",
               "or session_plan for the edit itself, and only ALSO set injury_flag/injury_event if",
               "they are actually reporting something new, not merely justifying a change to an",

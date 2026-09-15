@@ -397,32 +397,33 @@ full-id reporting, `week_update` seam alignment) are now shipped or explicitly d
 deliberate no-behavior-change decision.
 
 **#1070/#1071/#1072 live-pass findings round (2026-09-15).** Tech Lead's live testing pass
-against all 5 real athlete repos (#1067) found three real gaps in this guard system, all rooted
-in the same thing: Gemini Flash occasionally does the wrong thing, and these are gaps in the
-existing mitigation pattern, not new failure modes needing a new approach.
+against all 5 real athlete repos (#1067) found three real gaps in this guard system. All three
+root back to the same thing: Gemini Flash occasionally does the wrong thing. These are gaps in
+the existing mitigation pattern, not new failure modes needing a new approach.
 
 - **#1070: `isProseOnlyWeekPlan`'s still-unresolved case never reached the athlete.** The
   detector and its one-shot reprompt already worked; what was missing was the same-turn
   correction `formatDroppedActionsCorrection` already does for a dropped write action. When
-  `stillProseOnlyWeekPlan` stays true after the reprompt, the reply the athlete actually reads now
-  gets an honest addendum (`formatProseOnlyWeekPlanCorrection`, `coachTurn.ts`) saying the week
-  plan above wasn't saved, instead of only a `console.warn`/`captureStillUnresolvedGuard` call the
-  athlete never sees. `RepliedTurn.stillProseOnlyWeekPlan` carries the signal from
-  `requestCoachReply` into `buildTurnWrites`, same shape as `stillUnconfirmedAssumption`.
+  `stillProseOnlyWeekPlan` stays true after the reprompt, the reply the athlete actually reads
+  now gets an honest addendum (`formatProseOnlyWeekPlanCorrection`, `coachTurn.ts`) saying the
+  week plan above wasn't saved. Before this fix it only reached a `console.warn`/
+  `captureStillUnresolvedGuard` call the athlete never sees. `RepliedTurn.stillProseOnlyWeekPlan`
+  carries the signal from `requestCoachReply` into `buildTurnWrites`, same shape as
+  `stillUnconfirmedAssumption`.
 - **#1071: `workout_create` narrates success before its own injury_ack invariant drops the
   write.** Invariant 7 already makes a dropped write recoverable (the existing correction note
   fires), but the model's prose claims the routine is built and locked in first, so the athlete
   reads a self-contradicting reply. `findMissingWorkoutCreateInjuryAck` (`coachTurn.ts`) is a new
-  structural reprompt trigger, same family as `findMalformedWorkoutCreateExercises` - when the
+  structural reprompt trigger, same family as `findMalformedWorkoutCreateExercises`. When the
   turn has active injury flags, the reply sets `workout_create`, and `injury_ack` doesn't cover
   every active flag, it reprompts once before the applier ever sees the write.
 - **#1072: `template_edit`/`session_plan` had zero narration-vs-action guard, and pain-justified
   edit language got misclassified as a new injury.** Live-reproduced: "my lower back doesn't
   handle it well, every time, not just today," said to justify a permanent routine edit, got
   recorded as `injury_flag`/`injury_event` instead of the requested `template_edit`. I looked for
-  a safe deterministic reprompt trigger (the same "athlete message names an edit request AND the
+  a safe deterministic reprompt trigger - the same "athlete message names an edit request AND the
   reply set injury fields but not template_edit/session_plan" shape every other detector in this
-  table uses) and couldn't find one narrow enough to ship: a returning athlete asking to change a
+  table uses. I couldn't find one narrow enough to ship. A returning athlete asking to change a
   session *because* of ongoing pain is common and often legitimate on its own, including turns
   where the coach correctly asks a clarifying question before committing any edit at all. Firing
   on that shape would collide with ordinary conversation the same way the rejected gap-2a generic
