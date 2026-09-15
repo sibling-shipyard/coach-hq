@@ -38,6 +38,9 @@ class HealthKitSyncManager: ObservableObject {
 
     private var coachChatClient: CoachChatAPIClient?
     private var activitySyncEpoch = 0
+    /// Epoch already reported for an activity-sync POST failure. Retries never exhaust
+    /// (athlete taps Retry forever), so the first failure per epoch is the Sentry signal.
+    private var reportedActivitySyncPostFailureEpoch: Int?
 
     /// SHA of the last commit this app pushed to the athlete repo. `reportStaleSync` needs it
     /// to ask GitHub about the exact Actions run that push triggered; `Retry` in Chat re-polls
@@ -147,9 +150,9 @@ class HealthKitSyncManager: ObservableObject {
     nonisolated func enableBackgroundDelivery() {
         let workoutType = HKObjectType.workoutType()
 
-        healthStore.enableBackgroundDelivery(for: workoutType, frequency: .immediate) { success, error in
-            if let error = error {
-                print("Background delivery registration failed: \(error)")
+        healthStore.enableBackgroundDelivery(for: workoutType, frequency: .immediate) { _, error in
+            if let error {
+                HealthKitBackgroundDeliveryDiagnostics.reportFailure(error)
             }
         }
     }
@@ -177,7 +180,11 @@ class HealthKitSyncManager: ObservableObject {
         isHKObserverActive = true
         let workoutType = HKObjectType.workoutType()
         let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completionHandler, error in
-            guard error == nil else { completionHandler(); return }
+            if let error {
+                HealthKitObserverDiagnostics.reportFailure(error)
+                completionHandler()
+                return
+            }
             Task { @MainActor [weak self] in
                 guard let self else { completionHandler(); return }
                 await self.syncNewWorkouts()
@@ -424,12 +431,33 @@ class HealthKitSyncManager: ObservableObject {
                 failed.phase = .retryPost
             }
             activitySyncTurn = failed
+            reportActivitySyncPostFailureOnce(epoch: epoch, error: apiError, phase: failed.phase)
         } catch {
             guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             var failed = turn
             failed.phase = .retryPost
             activitySyncTurn = failed
+            reportActivitySyncPostFailureOnce(epoch: epoch, error: error, phase: failed.phase)
         }
+    }
+
+    /// Soft-continue: leave the turn in `.retryPost` / `.retryWait` for Chat Retry, but
+    /// signal Sentry once per sync epoch so a forever-stuck post is not silent.
+    private func reportActivitySyncPostFailureOnce(
+        epoch: Int,
+        error: Error,
+        phase: ActivitySyncTurn.Phase
+    ) {
+        guard ActivitySyncPostFailureSignal.shouldCapture(
+            epoch: epoch,
+            alreadyReportedEpoch: reportedActivitySyncPostFailureEpoch
+        ) else { return }
+        reportedActivitySyncPostFailureEpoch = epoch
+        ActivitySyncPostFailureSignal.report(
+            error: error,
+            epoch: epoch,
+            phase: phase
+        )
     }
 
     private func announceCoachReplyIfNeeded(
@@ -1652,6 +1680,64 @@ enum StaleSyncVerdict: String, Equatable {
         case .pipelineStatusUnknown:
             return "Sync did not refresh and the pipeline status could not be read"
         }
+    }
+}
+
+// MARK: - HealthKit observer / background-delivery diagnostics
+
+/// HKObserverQuery error path (#1078 I1). Extracted so tests can fire the capture without
+/// standing up HealthKit callbacks.
+enum HealthKitObserverDiagnostics {
+    static let operation = "healthkit.observer"
+
+    static func reportFailure(_ error: Error, operationID: UUID = UUID()) {
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID
+        )
+    }
+}
+
+/// `enableBackgroundDelivery` failure (#1078 I2). Same seam idea as the observer helper.
+enum HealthKitBackgroundDeliveryDiagnostics {
+    static let operation = "healthkit.background_delivery"
+
+    static func reportFailure(_ error: Error, operationID: UUID = UUID()) {
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID
+        )
+    }
+}
+
+// MARK: - Activity-sync POST failure signal
+
+/// Quota gate for `postActivitySync` failures (#1078 I3). There is no retry budget today —
+/// Chat Retry re-enters forever — so the first failure in a sync epoch is the terminal signal.
+enum ActivitySyncPostFailureSignal {
+    static let operation = "healthkit.activity_sync.post"
+
+    static func shouldCapture(epoch: Int, alreadyReportedEpoch: Int?) -> Bool {
+        alreadyReportedEpoch != epoch
+    }
+
+    static func report(
+        error: Error,
+        epoch: Int,
+        phase: ActivitySyncTurn.Phase,
+        operationID: UUID = UUID()
+    ) {
+        DiagnosticsManager.capture(
+            error: error,
+            operation: operation,
+            operationID: operationID,
+            metadata: [
+                "epoch": String(epoch),
+                "retry_phase": String(describing: phase),
+            ]
+        )
     }
 }
 
