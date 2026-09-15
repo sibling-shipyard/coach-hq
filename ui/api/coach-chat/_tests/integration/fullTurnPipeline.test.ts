@@ -12,13 +12,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * injects a prebuilt TurnWrites and mocks commitFilesAtomic directly) - that file checks each
  * stage's own logic; this file checks the layers are wired together correctly end to end.
  */
-const { fetchWithTimeout } = vi.hoisted(() => ({
+const { fetchWithTimeout, captureServerException } = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
+  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
 }));
 vi.mock("../../../_lib/httpTimeout.js", () => ({
   fetchWithTimeout,
   UPSTREAM_TIMEOUT_MS: 25_000,
 }));
+vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
+  return { ...original, captureServerException };
+});
 
 import {
   loadTurnState,
@@ -175,6 +180,7 @@ async function runTurn(
 describe("full turn pipeline (layers 1-3 wired together, network mocked only)", () => {
   beforeEach(() => {
     fetchWithTimeout.mockReset();
+    captureServerException.mockClear();
   });
 
   it("an ordinary First Session turn with a profile_update lands in profile.json and returns the fresh repoSha", async () => {
@@ -433,6 +439,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(body.reply).toBe("Got it, noted.");
     expect(body.error).toContain("saving failed");
     expect(body.traceId).toBeTruthy();
+    expect(captureServerException).toHaveBeenCalledTimes(1);
   });
 
   it("review finding: a forced chat-commit failure still carries the usage header - Gemini was already billed", async () => {
