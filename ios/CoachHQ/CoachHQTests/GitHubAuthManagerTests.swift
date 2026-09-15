@@ -176,6 +176,171 @@ final class GitHubAuthManagerTests: XCTestCase {
         XCTAssertEqual(calls, 1)
     }
 
+    // #1078 I4/I5/I9 capture coverage — TimelineBuffer asserts (Sentry itself is gated off in tests).
+    @MainActor
+    func testValidTokenSoftFallbackCapturesOneWarningPerAttemptCycle() async throws {
+        let manager = try prepareKeychainManager()
+        manager.refreshBackoffNanoseconds = 0
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_old",
+            refreshToken: "ghr_old",
+            expiresAt: Date().addingTimeInterval(-60)
+        ))
+
+        var calls = 0
+        manager.refreshRequestHandler = { _ in
+            calls += 1
+            let response = HTTPURLResponse(
+                url: URL(string: "https://example.com/api/auth/refresh")!,
+                statusCode: 502,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (Data(), response)
+        }
+
+        let token = await manager.validToken()
+
+        XCTAssertEqual(token, "gho_old")
+        // 1 initial + refreshTransientExtraAttempts retries = one attempt-cycle.
+        XCTAssertEqual(calls, 1 + GitHubAuthManager.refreshTransientExtraAttempts)
+        let softFallbackEvents = TimelineBuffer.shared.getEvents().filter {
+            $0.message == GitHubAuthManager.refreshSoftFallbackMessage
+        }
+        XCTAssertEqual(softFallbackEvents.count, 1, "I4: one warning per failed refresh attempt-cycle")
+        XCTAssertEqual(softFallbackEvents.first?.category, "github.auth.refresh")
+        XCTAssertEqual(softFallbackEvents.first?.metadata["outcome"], "soft_fallback")
+    }
+
+    @MainActor
+    func testValidTokenSoftFallbackCapturesOnceOnTerminal401() async throws {
+        let manager = try prepareKeychainManager()
+        manager.refreshBackoffNanoseconds = 0
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_old",
+            refreshToken: "ghr_old",
+            expiresAt: Date().addingTimeInterval(-60)
+        ))
+
+        manager.refreshRequestHandler = { _ in
+            let response = HTTPURLResponse(
+                url: URL(string: "https://example.com/api/auth/refresh")!,
+                statusCode: 401,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (Data(), response)
+        }
+
+        _ = await manager.validToken()
+
+        let softFallbackEvents = TimelineBuffer.shared.getEvents().filter {
+            $0.message == GitHubAuthManager.refreshSoftFallbackMessage
+        }
+        XCTAssertEqual(softFallbackEvents.count, 1)
+        XCTAssertEqual(softFallbackEvents.first?.metadata["reason"], "http_401")
+    }
+
+    func testKeychainStatusHelpersDistinguishExpectedFailures() {
+        XCTAssertFalse(GitHubAuthManager.isKeychainDeleteFailure(errSecSuccess))
+        XCTAssertFalse(GitHubAuthManager.isKeychainDeleteFailure(errSecItemNotFound))
+        XCTAssertTrue(GitHubAuthManager.isKeychainDeleteFailure(errSecMissingEntitlement))
+        XCTAssertFalse(GitHubAuthManager.isKeychainAddFailure(errSecSuccess))
+        XCTAssertTrue(GitHubAuthManager.isKeychainAddFailure(errSecMissingEntitlement))
+        XCTAssertTrue(GitHubAuthManager.isKeychainAddFailure(errSecDuplicateItem))
+    }
+
+    @MainActor
+    func testSaveStoredTokensCapturesKeychainWriteFailureWhenAddFails() throws {
+        // Inverse of prepareKeychainManager: only runnable where Keychain writes are
+        // structurally unavailable (CI). On a signed device/simulator, SecItemAdd succeeds
+        // and there is nothing failed to assert.
+        let canaryKey = "com.siblingshipyard.coachhq.github.tests.keychain_canary_fail"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: canaryKey,
+            kSecValueData as String: Data([1]),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        SecItemDelete(query as CFDictionary)
+        let canaryStatus = SecItemAdd(query as CFDictionary, nil)
+        SecItemDelete(query as CFDictionary)
+        guard canaryStatus != errSecSuccess else {
+            throw XCTSkip("Keychain writes succeed here — cannot force SecItemAdd failure for I5 capture assertion.")
+        }
+
+        let manager = GitHubAuthManager()
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_unwritable",
+            refreshToken: "ghr_unwritable",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        let keychainEvents = TimelineBuffer.shared.getEvents().filter {
+            $0.message == GitHubAuthManager.keychainWriteFailedMessage
+                && $0.category == "github.auth.keychain"
+        }
+        XCTAssertFalse(keychainEvents.isEmpty, "I5: failed Keychain write must capture")
+        XCTAssertTrue(keychainEvents.contains { $0.metadata["step"] == "add" })
+    }
+
+    @MainActor
+    func testFetchUserCapturesOnRequestFailure() async throws {
+        let manager = try prepareKeychainManager()
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_ok",
+            refreshToken: "ghr_ok",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        manager.dataRequestHandler = { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+
+        await manager.fetchUser()
+
+        let events = TimelineBuffer.shared.getEvents().filter {
+            $0.category == "github.auth.fetch_user" && $0.message == "failed"
+        }
+        XCTAssertEqual(events.count, 1, "I9: fetchUser failure must capture")
+        XCTAssertNotNil(manager.lastNetworkError)
+    }
+
+    @MainActor
+    func testCoachAppInstalledCapturesOnInstallationsHTTPFailure() async throws {
+        let manager = try prepareKeychainManager()
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_ok",
+            refreshToken: "ghr_ok",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        manager.dataRequestHandler = { _ in
+            let response = HTTPURLResponse(
+                url: URL(string: "https://api.github.com/user/installations")!,
+                statusCode: 503,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (Data(), response)
+        }
+
+        let installed = await manager.coachAppInstalled(for: "alice")
+
+        XCTAssertNil(installed)
+        let events = TimelineBuffer.shared.getEvents().filter {
+            $0.category == "github.auth.coach_app_installed"
+                && $0.message == "coachAppInstalled: installations API failed"
+        }
+        XCTAssertEqual(events.count, 1, "I9: coachAppInstalled HTTP failure must capture")
+        XCTAssertEqual(events.first?.metadata["http_status"], "503")
+    }
+
     // MARK: - Raw Keychain helpers (test-only; mirrors GitHubAuthManager's own private
     // saveKeychainString/loadKeychainString so the legacy-format test can seed data without
     // going through the new combined-item write path it's meant to be independent of).
