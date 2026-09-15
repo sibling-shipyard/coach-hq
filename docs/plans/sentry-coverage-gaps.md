@@ -1,24 +1,23 @@
 # Sentry Coverage Audit — Closing the Silent-Failure Gaps
 
-> Status: Plan · Owner: Tech Lead · Created: 2026-09-15
+> Status: Plan · Owner: Tech Lead · Created: 2026-09-15 · Findings: [sentry-coverage-gaps-lld.md](./sentry-coverage-gaps-lld.md)
 
 ## Context
 
 `docs/eng-docs/sentry-runbook.md` § Coverage boundary already documents several known,
-intentional gaps (no source maps/dSYMs, GitHub outbound spans, chat text on success). A
-four-way audit across `ui/api/`, `engine/`+`scripts/`, `ios/`, and `ui/client/` (this doc's
-own findings) turned up real, undocumented silent-failure paths on top of those — including
-two spots where a billed Gemini call's result gets lost with zero Sentry record, and an iOS
-HealthKit background-sync error that isn't even printed.
+intentional gaps. A four-way audit (`ui/api/`, `engine/`+`scripts/`, `ios/`, `ui/client/`) found
+real, undocumented ones on top — worst two: a billed Gemini call's result can be lost with zero
+Sentry record, and an iOS HealthKit background-sync error isn't even printed. Full inventory,
+every claim checked against the actual code, is in the linked LLD.
 
 ## Goal
 
 ```mermaid
 flowchart LR
-  BE["ui/api\n9 findings"] --> S[Sentry]
-  PY["engine/ + scripts/\nno sentry_sdk"] -.->|1 webhook only| S
-  IOS["ios/\n8+ findings"] --> S
-  FE["ui/client\n~14 findings"] --> S
+  BE["ui/api"] --> S[Sentry]
+  PY["engine/ + scripts/"] -.->|1 webhook only| S
+  IOS["ios/"] --> S
+  FE["ui/client"] --> S
   S --> Op[Operator sees it]
 ```
 
@@ -27,166 +26,83 @@ documented, deliberate exception in the runbook's Coverage boundary. Nothing in 
 
 ## Done when
 
-- Every **P0** finding below is captured (list closes to zero).
-- Every **P1** finding is either captured or explicitly added to the runbook as a documented,
-  deliberate exception (not just left alone).
-- `sentry-runbook.md` § Coverage boundary is rewritten to match reality — the "two client
-  fetches" claim is currently wrong (it's two of eleven).
-- An ADR settles the Python pipeline's Sentry scope (see Open Decisions) — today ADR 0032
-  scopes Sentry to "web, backend API, and native iOS" only, so any Python fix needs one.
+- Every **P0** finding in the LLD is captured, with a test asserting the capture call fires
+  (matches the pattern already in `ui/api/coach-chat/_tests` and `GitHubAuthManagerTests.swift`).
+- Every **P1** finding is either captured the same way, or added to the runbook as a documented,
+  deliberate exception — not just left alone.
+- `sentry-runbook.md` § Coverage boundary is rewritten to match reality (today it claims two
+  covered client fetches; it's two of eleven).
+- An ADR settles the Python pipeline's Sentry scope — ADR 0032 currently names web/API/iOS only.
+
+## Locked decisions
+
+Decided now so no PR has to coordinate one against another mid-stack:
+
+1. **Soft-fallback contract (B17, I4).** Both keep serving the athlete on a transient blip
+   instead of forcing a re-auth — correct, keep it. But "soft" means one `level:warning` capture
+   when the fallback triggers, not zero signal. Fire once per failed refresh attempt-cycle, never
+   per retry inside it.
+2. **Carve fail-closed (PY6).** `carve-skeleton.mjs` fails closed by default when `SENTRY_DSN`
+   is unset at carve time (today it only warns and still succeeds). Add an explicit `--no-sentry`
+   flag for local/test carves that don't need alerting — no silent unflagged path.
 
 ## Quota
 
 Sentry's free Developer plan caps at **5,000 error events/month**, one user, 30-day retention
-(confirmed against current Sentry pricing, not memory). Past quota it doesn't bill or queue —
-it 429s the SDK and **permanently drops events** for the rest of the window, no replay. That's
-the opposite of this plan's goal, so it's a real constraint, not a side worry.
+(confirmed against current Sentry pricing, not memory). Past quota it doesn't bill or queue — it
+429s the SDK and **permanently drops events**, no replay. The opposite of this plan's goal, so:
 
-At 4 athletes today (10 at scale), 5,000/month is generous *if* new captures fire once per
-genuine failure. Two rules for every PR below:
-- **Capture on terminal state, not every attempt.** A retry loop reports once when retries are
-  exhausted, never once per attempt — this matters most for I3 (retries forever) and any
-  soft-fallback path below.
-- **Soft-fallback stays soft, not silent.** Several findings (the `ensureFreshSession`/
-  `GitHubAuthManager` refresh fallback, I4) intentionally keep serving the athlete on a
-  transient blip rather than forcing a logout — correct behavior, keep it. But "soft" should
-  mean `level:warning` capture, not zero signal. Warnings count against the same error quota as
-  errors, so don't multiply them per retry either.
-
-Before rollout: pull current month's actual event count (`sentry-runbook.md` § Query from a
-terminal already has the command) so we know the real headroom, not an assumption.
-
-## Findings inventory
-
-Severity is the same P0/P1/P2 scale as `AGENTS.md` § Priorities: P0 = fix now (fully silent,
-real user impact), P1 = fix before calling this done (visible in logs/UI, not Sentry), P2 =
-flag only, athlete's call.
-
-**A second review (external, unverified tooling) was folded in below — everything kept was
-independently checked against this repo's actual code; its references to an "audit §
-Definition of done items 1-7" and a companion `sentry-coverage-audit.md` don't correspond to
-anything in this repo, so those specific claims were dropped rather than trusted blind.
-
-### Backend — `ui/api/` (owner: Bob the Builder)
-
-| # | file:line | issue | sev |
-|---|---|---|---|
-| B1 | `coach-chat/_lib/coachTurn.ts:2398` | `commitTurn` write failure after a billed Gemini call → 502, `console.error` only. Sibling facts-commit catch 40 lines up *does* capture — inconsistency. | P0 |
-| B2 | `coach-chat/_lib/commit/activitySyncTurn.ts:198-202` | Same pattern: commit fails after billed generation, no capture. Confirmed by own test asserting only status/body. | P0 |
-| B3 | `auth/[...action].ts:285-293` | GitHub OAuth token-exchange failure → redirect, zero logging/capture (the `/user` failure 20 lines below does capture). | P1 |
-| B4 | `auth/[...action].ts:661-663` | Installations-repo re-fetch failure silently falls back to `{repositories: []}` — athlete told "no owned repos" on a swallowed GitHub fault. | P1 |
-| B5 | `coachTurn.ts:338`, `coach-chat.ts:69`, `activitySyncTurn.ts:80` | 3× "SOUL bundle unavailable" → 500, uncaptured. | P1 |
-| B6 | `coach-chat.ts:194` | Missing Gemini/OpenRouter API key → 500, uncaptured. | P1 |
-| B7 | `session.ts:140-142`, `auth/[...action].ts:429-431,251-252,121-131` | 4× "site misconfigured" 500s across the auth surface, uncaptured. | P1 |
-| B8 | `coachTurn.ts:2285-2325` | First-session benchmark/first-week generation swallows every failure — silently blocks a new athlete's onboarding. | P1 |
-| B9 | `coach-chat/_lib/decide/coachSinceStamp.ts:42-44,51-54` | Unparsable profile / failed merge-patch silently skips the `coach_since` stamp that triggers B8. | P1 |
-| B10 | `coachChatFiles.ts:191-196`, `coachMessage.ts:401-408` | `parseJsonOrNull` used across 9 athlete data files — documented in-code as best-effort, but zero visibility, not in the runbook. | P2 |
-| B16 | `coachChatFiles.ts:202-224` (`getHeadSha`) callers — `coach-chat.ts:161`, `activitySyncTurn.ts:53`, `coachTurn.ts:323` | `getHeadSha` throws with `.status` on any non-ok (verified). Every caller blanket `.catch(() => null)`, so a GitHub 5xx/network fault is indistinguishable from "branch doesn't exist yet" and never captured — unlike `getFileRaw`'s already-correct 404-vs-fault split. **New, from second review — verified real.** | P1 |
-| B17 | `auth/_lib/session.ts:144-160` (`ensureFreshSession`) | Thrown network error during token-refresh falls back to the still-valid old session — correct behavior (issue #117), but zero logging/capture means a systemic GitHub outage is invisible until it surfaces as an unrelated 401 downstream. Should be `level:warning`, not silent — see § Quota. | P1 |
-| B11-B15 | merge-patch fallbacks, Gemini explicit-cache `.catch(()=>null)`, `corrupt_oauth_session` redirect | console.warn-only or fully silent, low blast radius / arguably intentional | P2 |
-
-Confirmed **not** findings: `repo-file.ts`, `widget-snapshots.ts` fault paths, `decryptSession`,
-`droppedActions` funnel, `githubGitData.ts` retries — all correctly captured already.
-
-### Python pipeline — `engine/`, `scripts/` (owner: Bob the Builder)
-
-No `sentry_sdk` anywhere; no Python dependency manifest exists in the repo at all. The only
-signal today is `engine/scripts/notify_sync_failure.py`, a hand-rolled envelope POST that fires
-once per **whole Sync workflow** failure (any step nonzero) — it knows "something died," never
-which exception. Silently no-ops if `SENTRY_DSN` wasn't exported before carving. Every other
-Python entry point (`regenerate_derived.py`, `generate_quest_history.py`, `engine/lib/`,
-`engine/core/`, `platform/scripts/*.py`) has zero error reporting. No ADR addresses this scope.
-
-| # | file:line | issue | sev |
-|---|---|---|---|
-| PY1 | `engine/core/query_history.py:58` | Corrupt activity file silently dropped, no log, no count. | P1 |
-| PY2 | `engine/core/vs_usual.py:87-90` | Same pattern for `vs_usual` enrichment. | P1 |
-| PY3 | `engine/scripts/generate_quest_history.py:154-196` | Missing ledger → exits 0 writing `{"quests":{}}`, indistinguishable from "no quests." | P1 |
-| PY4 | `engine/scripts/regenerate_derived.py:80-92` | `sync_status.json` counters hardcoded to 0 every run — the status file lies. | P1 |
-| PY5 | `engine/.github/workflows/validate-data.yml` | Only `gen/widget_snapshots.json` has a shape-validation gate; `dashboard_snapshot`, `athlete_insights`, `quest_history`, `sync_status` have none. | P1 |
-| PY6 | `platform/scripts/carve-skeleton.mjs:502-519` (`stampSyncDsn`, Node not Python) | Verified: already `console.warn`s when `SENTRY_DSN` is unset at carve time, but the carve **still succeeds** — easy to stand up an athlete repo whose Sync alert silently never fires. **New, from second review — verified real, good catch.** Fail-closed (refuse to carve without a DSN, or require an explicit `--no-sentry` flag) is the right fix. | P1 |
-| PY7 | (operational, no single file) | Since carve historically only warned, some already-carved athlete repos may be missing the DSN today with no way to notice short of checking. One-time audit of existing athlete `sync.user.yml`s once PY6 ships. | P1 |
-
-**Important nuance:** PY1-PY5 are correctness bugs, not Sentry gaps — nothing here throws, so
-no amount of Sentry wiring catches them. They need to start raising/asserting on bad state
-*before* Sentry coverage does anything for them. PY6/PY7 are different — they're why the one
-signal the pipeline *does* have can go missing without anyone knowing.
-
-### iOS — `ios/CoachHQ/` (owner: iOS Builder)
-
-| # | file:line | issue | sev |
-|---|---|---|---|
-| I1 | `HealthKitSyncManager.swift:179-186` | `HKObserverQuery` error discarded — not even printed. Background sync can silently die. | P0 |
-| I2 | `HealthKitSyncManager.swift:150-153` | Background-delivery registration failure, print-only. | P0 |
-| I3 | `HealthKitSyncManager.swift:418-431` | `postActivitySync` retries forever on failure, never reported. | P0 |
-| I4 | `GitHubAuthManager.swift:515-550` | Token-refresh chain (401/502/exception) from #1073 — print-only or fully silent. Athlete lands on "sign in again" with no Sentry trail of why. | P0 |
-| I5 | `GitHubAuthManager.swift:396-415` | Keychain `SecItemAdd`/`SecItemDelete` status discarded on every token save — a failed write looks like a successful refresh until next launch. | P0 |
-| I6 | `AppGroupSnapshotBridge.swift:26-35`, `WidgetSnapshotStore.swift:87` | Widget-data pipeline is entirely `try?`-guarded — any failure means stale/empty widgets forever, no signal. | P0 |
-| I7 | `ios/CoachHQ/CoachHQWidget/*.swift` | Zero Sentry integration in the widget extension target — no `import Sentry` anywhere. | P0 |
-| I8 | `CoachChatAPIClient.swift` (whole file) | Retry layer never reports to Sentry, unlike `GitHubAPIClient`'s equivalent — every Coach Chat network failure is blind at this layer. | P0 |
-| I9-I15 | `GitHubAuthManager.swift` (coachAppInstalled, resolveRepoIfNeeded, fetchUser), `WorkoutService.swift` (4 methods), `CoachMessageAPIClient.swift` | print-only or fully silent catches | P1 |
-
-### Frontend — `ui/client/` (owner: UI Expert)
-
-Runbook claims two covered client fetches (`/api/auth/me`, `/api/repo-file`) — accurate, but
-**nine more** `ui/api/` calls report nothing on failure, and it's Coach Chat's entire surface:
-
-| # | file:line | issue | sev |
-|---|---|---|---|
-| F1 | `pages/CoachChat.tsx:188-201` | Activity-sync-to-chat failure: no toast, no console, no Sentry — pending thread just sits there. | P0 |
-| F2 | `pages/CoachChat.tsx:414-416` | `fetchProfileStatus` failure: completely silent, `coachSince` quietly stays null. | P0 |
-| F3 | `coachChatModel.ts` send/greet/threads (3 verbs) + `CoachChat.tsx` consumers | Toast/error-card shown to athlete, zero Sentry record. | P1 |
-| F4 | `hooks/useWidgetSnapshots.ts:21-23`, `coachChatModel.ts:158-159` | Both `/api/widget-snapshots` call sites `.catch(()=>...)` silently. | P1 |
-| F5 | `contexts/AuthContext.tsx:96-98` | `/api/auth/list-my-repos` failure → error page shown, cause never in Sentry. | P1 |
-| F6 | `components/welcome/WelcomeInviteCta.tsx:38-40` | `/api/waitlist` failure → inline error copy, no Sentry. | P1 |
-| F7 | localStorage cache read/write/scan (`coachChatModel.ts` ×4 sites) | Self-healing, low severity | P2 |
-
-Not a Sentry gap but worth flagging: one global `ErrorBoundary` wraps the entire app (both
-instances do report to Sentry) — no per-page/per-widget isolation, so any render crash takes
-down the whole tree instead of degrading locally. Architecture item, not part of this plan's
-"Done when."
+- **Capture on terminal state, not every attempt** — a retry loop reports once when retries are
+  exhausted (I3), never once per attempt.
+- **`level:warning` still counts against the same quota as errors** — the soft-fallback contract
+  above fires once per failure, not per retry, for the same reason.
+- **Pull the actual current-month event count before M3 (iOS) and M5 (frontend)** specifically —
+  those two add the most new capture sites (`sentry-runbook.md` § Query from a terminal has the
+  command). M1/M2 are small enough not to need this check first.
 
 ## Milestones — PR stack
 
-| PR | milestone | outcome | final base | files | owner | parallel with | result |
-|---|---|---|---|---|---|---|---|
-| 1 | M1 backend P0 | B1, B2, B8, B9 captured | main | `coachTurn.ts`, `activitySyncTurn.ts`, `coachSinceStamp.ts` | Bob | PR2, PR3 | Result: commit failures + onboarding stall now alert |
-| 2 | M1 backend P1 | B3, B4, B7, B17 captured (B17 as `level:warning`, per § Quota) | main | `auth/[...action].ts`, `auth/_lib/session.ts` | Bob | PR1, PR3 | Result: auth/config faults + soft-fallback blips now alert |
-| 3 | M1 backend P1 | B5, B6 captured | main | `coach-chat.ts` | Bob | PR1, PR2 | Result: config faults on the chat route now alert |
-| 4 | M1 backend P1 | B16 captured (once terminal, not per-retry) | PR1+PR3 tip (touches files both already changed) | `coachChatFiles.ts`, `coach-chat.ts`, `activitySyncTurn.ts`, `coachTurn.ts` | Bob | — | Result: swallowed `getHeadSha` faults now alert, 404 stays quiet |
-| 5 | M2 ops | PY6 captured (carve fails closed without `SENTRY_DSN`) | main | `platform/scripts/carve-skeleton.mjs` | Bob | PR6 | Result: can't carve a repo whose Sync alert is silently dead |
-| 6 | M2 ops | span-health scheduled (runbook already names the script, just unscheduled) | main | `.github/workflows/*.yml` (new schedule), `ui/scripts/check-span-health.mjs` (if needed), runbook | Bob | PR5 | Result: traffic-with-no-spans now alerts on a schedule, not by hand |
-| 7 | M2 ops | PY7: existing athlete repos audited for missing DSN | after PR5 | operational — no repo diff, a checklist against athlete repos | Bob | — | Result: known-good list of which athlete repos actually alert on Sync failure |
-| 8 | M3 iOS P0 | I1, I2, I3 captured | main | `HealthKitSyncManager.swift` | iOS Builder | PR9, PR10 | Result: background sync failures now alert |
-| 9 | M3 iOS P0 | I4, I5 + I9 captured (I4's soft-fallback branch as `level:warning`) | main | `GitHubAuthManager.swift` | iOS Builder | PR8, PR10 | Result: refresh-chain + Keychain-write failures now alert |
-| 10 | M3 iOS P0 | I6, I7 captured | main | `AppGroupSnapshotBridge.swift`, `WidgetSnapshotStore.swift`, `CoachHQWidget/*.swift` | iOS Builder | PR8, PR9 | Result: widget pipeline + extension now report |
-| 11 | M4 iOS P1 | I8, I10-I15 captured | main | `CoachChatAPIClient.swift`, `CoachMessageAPIClient.swift`, `WorkoutService.swift` | iOS Builder | — | Result: remaining print-only catches now alert |
-| 12 | M5 frontend | F1, F2, F3 captured | main | `coachChatModel.ts`, `pages/CoachChat.tsx` | UI Expert | PR13 | Result: Coach Chat fetch surface now alerts, incl. the two fully-silent paths |
-| 13 | M5 frontend | F4, F5, F6 captured | main | `useWidgetSnapshots.ts`, `AuthContext.tsx`, `WelcomeInviteCta.tsx` | UI Expert | PR12 | Result: remaining client fetches now alert |
-| 14 | M6 docs | runbook rewritten | after PR1-13 merge | `docs/eng-docs/sentry-runbook.md` | Tech Lead | — | Result: Coverage boundary matches reality |
+Cut PR1 first — self-contained, no cross-team dependency, the sharpest P0.
 
-Python pipeline correctness bugs (PY1-PY5) have no PR yet — blocked on the ADR below, and are
-validation fixes rather than Sentry-capture fixes regardless (see the nuance under that table).
+| PR | milestone | outcome | final base | files | owner | parallel with |
+|---|---|---|---|---|---|---|
+| 1 | M1 | B1, B2, B8, B9 captured | main | `coachTurn.ts`, `activitySyncTurn.ts`, `coachSinceStamp.ts` | Bob | PR2, PR3 |
+| 2 | M1 | B3, B4, B7 captured; B17 per § Locked decisions | main | `auth/[...action].ts`, `auth/_lib/session.ts` | Bob | PR1, PR3 |
+| 3 | M1 | B5, B6 captured | main | `coach-chat.ts` | Bob | PR1, PR2 |
+| 4 | M1b | B16 captured (terminal only, 404 stays quiet) | PR1+PR3 tip (files both already changed) | `coachChatFiles.ts`, `coach-chat.ts`, `activitySyncTurn.ts`, `coachTurn.ts` | Bob | — |
+| 5 | M2 | PY6 per § Locked decisions | main | `platform/scripts/carve-skeleton.mjs` | Bob | PR6 |
+| 6 | M2 | span-health scheduled (script exists, runbook already flags it unscheduled) | main | `.github/workflows/*.yml`, runbook | Bob | PR5 |
+| 7 | M3 | I1, I2, I3 captured | main | `HealthKitSyncManager.swift` | iOS Builder | PR8, PR9 |
+| 8 | M3 | I4 per § Locked decisions; I5, I9 captured | main | `GitHubAuthManager.swift` | iOS Builder | PR7, PR9 |
+| 9 | M3 | I6 captured; I7 captured | main | `AppGroupSnapshotBridge.swift`, `WidgetSnapshotStore.swift`, `CoachHQWidget/*.swift` | iOS Builder | PR7, PR8 |
+| 10 | M4 | I8, I10-I15 captured | main | `CoachChatAPIClient.swift`, `CoachMessageAPIClient.swift`, `WorkoutService.swift` | iOS Builder | — |
+| 11 | M5 | F1, F2, F3 captured | main | `coachChatModel.ts`, `pages/CoachChat.tsx` | UI Expert | PR12 |
+| 12 | M5 | F4, F5, F6 captured | main | `useWidgetSnapshots.ts`, `AuthContext.tsx`, `WelcomeInviteCta.tsx` | UI Expert | PR11 |
+| 13 | M6 | runbook rewritten | after PR1-12 merge | `docs/eng-docs/sentry-runbook.md` | Tech Lead | — |
+
+13 PRs, 7 milestones, none over 3 PRs — M1b is its own milestone specifically because it's
+sequenced behind M1, not parallel to it.
+
+**Operational follow-ups (not PRs):** PY7 — once PR5 ships, audit already-carved athlete repos
+for a missing `SENTRY_DSN` (carve historically only warned). A checklist, no repo diff.
+
+Python pipeline correctness bugs (PY1-PY5) have no PR yet — blocked on Open Decision 1, and are
+validation fixes rather than Sentry-capture fixes regardless.
 
 ## Open Decisions
 
-1. **Python pipeline Sentry scope.** ADR 0032 scopes Sentry to web/API/iOS only; no Python
-   dependency manifest exists today. Three options: (a) add `sentry_sdk` as a real dependency
-   (first Python manifest in the repo), (b) extend `notify_sync_failure.py`'s hand-rolled
-   envelope POST to more entry points, (c) leave it workflow-level-only. Needs an ADR before
-   any PR — this is an architectural call, not a code fix. **REC: (b)** — no new dependency
-   surface, reuses a pattern already proven in production.
-2. **PY1-PY5 are validation bugs, not Sentry gaps** — separate follow-up once (1) is settled;
-   raising/asserting has to exist before a report layer catches anything.
-3. **`parseJsonOrNull` (B10)** — capture on corrupted athlete data files, or leave as
-   documented best-effort? Athlete's call, low urgency.
-4. **PY6 (carve fail-closed) needs a call on strictness** — hard-fail every carve without a
-   DSN, or allow an explicit opt-out flag for local/test carves that don't need alerting?
-   Leaning hard-fail with no flag (simpler, matches "loudly" in the existing comment), but
-   worth a decision since it changes a script other tooling may already invoke unattended.
+1. **Python pipeline Sentry scope.** No Python dependency manifest exists today. (a) add
+   `sentry_sdk` as a real dependency (first Python manifest in the repo), (b) extend
+   `notify_sync_failure.py`'s hand-rolled envelope POST to more entry points, (c) leave it
+   workflow-level-only. Needs an ADR before any PR. **REC: (b)** — no new dependency surface,
+   reuses a pattern already proven in production.
+2. **`parseJsonOrNull` (B10)** — capture on corrupted athlete data files, or leave as documented
+   best-effort? Athlete's call, low urgency.
 
 ## Deferred (P2, not in this plan)
 
 - Per-widget React error boundaries (frontend architecture, not a Sentry gap).
-- Source-map/dSYM upload — already tracked in the runbook as parked.
-- Explicit `enableCrashHandler`/`enableAutoSessionTracking = true` in iOS `SentrySDK.start` (currently correct via SDK defaults, just implicit).
+- Source-map/dSYM upload — already tracked in the runbook as parked, blocked on a real iOS
+  release workflow that doesn't exist yet.
+- Explicit `enableCrashHandler`/`enableAutoSessionTracking = true` in iOS `SentrySDK.start`
+  (currently correct via SDK defaults, just implicit).
