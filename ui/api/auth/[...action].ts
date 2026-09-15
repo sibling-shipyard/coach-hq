@@ -65,7 +65,7 @@ if (!process.env.SESSION_SECRET) {
 // ?platform=ios rides through the state cookie so handleCallback knows to hand back a
 // coachhq://callback redirect instead of a Set-Cookie session - see GitHubAuthManager.swift.
 // ============================================================================
-export async function handleStart(req: Request): Promise<Response> {
+export async function handleStart(req: Request, sentry: SentryRouteContext): Promise<Response> {
   const url = new URL(req.url);
   const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
   // ?popup=1 - opened via GitHubAuthButton's window.open() instead of a full-page nav;
@@ -74,6 +74,9 @@ export async function handleStart(req: Request): Promise<Response> {
 
   if (!CLIENT_ID) {
     // Redirect rather than bare JSON - reached by direct navigation, not fetch().
+    const err = new Error("Site misconfigured: GITHUB_APP_CLIENT_ID unset");
+    console.error("[auth/start]", err);
+    await sentry.captureException(err);
     const headers = new Headers();
     headers.set(
       "Location",
@@ -112,7 +115,10 @@ export async function handleStart(req: Request): Promise<Response> {
 // from the template. /apps/<slug>/installations/new shows GitHub's repo picker so they can
 // attach the App to it.
 // ============================================================================
-export async function handleInstallRedirect(req: Request): Promise<Response> {
+export async function handleInstallRedirect(
+  req: Request,
+  sentry: SentryRouteContext,
+): Promise<Response> {
   const url = new URL(req.url);
   const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
   // See handleStart - Setup.tsx's popup step 2 opens this in a popup instead of a full nav.
@@ -120,6 +126,9 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
 
   if (!CLIENT_ID) {
     // See handleStart's identical check for why this redirects instead of returning JSON.
+    const err = new Error("Site misconfigured: GITHUB_APP_CLIENT_ID unset");
+    console.error("[auth/install-redirect]", err);
+    await sentry.captureException(err);
     const headers = new Headers();
     headers.set(
       "Location",
@@ -249,6 +258,9 @@ async function callbackImpl(url: URL, sentry: SentryRouteContext): Promise<Respo
   const unverifiedPlatform = extractPlatformFromState(url.searchParams.get("state"));
 
   if (!CLIENT_ID || !CLIENT_SECRET) {
+    const err = new Error("Site misconfigured: GITHUB_APP_CLIENT_ID/SECRET unset");
+    console.error("[auth/callback]", err);
+    await sentry.captureException(err);
     return callbackErrorRedirect(url.origin, "config_error", unverifiedPlatform, false);
   }
 
@@ -284,11 +296,24 @@ async function callbackImpl(url: URL, sentry: SentryRouteContext): Promise<Respo
 
   const tokenBody = await tokenRes.json();
   if (!tokenRes.ok || tokenBody.error || !tokenBody.access_token) {
+    // Mirror /user below: athlete lands on auth_error with no other record of why the exchange
+    // failed (bad code, GitHub 5xx, missing token field). Capture before redirect.
+    const detail = tokenBody.error
+      ? String(tokenBody.error)
+      : `HTTP ${tokenRes.status}, access_token missing`;
+    const err = new Error(`GitHub token exchange failed during auth callback: ${detail}`);
+    console.error("[auth/callback]", err);
+    await sentry.captureException(err);
     return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
   }
   // refresh_token/expires_in are always present - "expire user authorization tokens" is
   // opted in on the GitHub App. ensureFreshSession / iOS's refresh logic need both to rotate.
   if (!tokenBody.refresh_token || !tokenBody.expires_in) {
+    const err = new Error(
+      "GitHub token exchange missing refresh_token or expires_in during auth callback",
+    );
+    console.error("[auth/callback]", err);
+    await sentry.captureException(err);
     return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
   }
 
@@ -458,6 +483,9 @@ export async function handleRefresh(req: Request, sentry: SentryRouteContext): P
   }
 
   if (!CLIENT_ID || !CLIENT_SECRET) {
+    const err = new Error("Site misconfigured: GITHUB_APP_CLIENT_ID/SECRET unset");
+    console.error("[auth/refresh]", err);
+    await sentry.captureException(err);
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
 
@@ -701,6 +729,15 @@ async function listMyReposImpl(
         },
       },
     );
+    if (!reposRes.ok) {
+      // Soft-fallback to empty still drives Setup messaging, but "no owned repos" on a GitHub
+      // fault must not be silent in Sentry.
+      const err = new Error(
+        `GitHub installations repositories returned ${reposRes.status} during list-my-repos`,
+      );
+      console.error("[list-my-repos]", err);
+      await sentry.captureException(err);
+    }
     const { repositories } = reposRes.ok
       ? ((await reposRes.json()) as { repositories: Array<{ owner: { login: string } }> })
       : { repositories: [] };
@@ -730,9 +767,9 @@ export default {
       const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
       switch (action) {
         case "start":
-          return handleStart(req);
+          return handleStart(req, sentry);
         case "install-redirect":
-          return handleInstallRedirect(req);
+          return handleInstallRedirect(req, sentry);
         case "callback":
           return handleCallback(req, sentry);
         case "logout":

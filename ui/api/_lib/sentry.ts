@@ -662,4 +662,28 @@ export async function captureStillUnresolvedGuard(
   return { eventId, sent };
 }
 
+/**
+ * Capture a non-throwing terminal signal (soft-fallback, misconfiguration warning) as a Sentry
+ * message. Same flush contract as `captureServerException` — callers that return a response after
+ * the signal need delivery proof. `level:warning` counts against the same free-plan quota as
+ * errors; fire once per failure cycle, never per retry inside it.
+ */
+export async function captureServerMessage(
+  message: string,
+  options: {
+    level?: "fatal" | "error" | "warning" | "log" | "info" | "debug";
+    tags?: Record<string, string | number | boolean>;
+    contexts?: Record<string, Record<string, unknown>>;
+  } = {},
+): Promise<CaptureResult> {
+  if (!initServerMonitoring()) return { sent: false };
+  const eventId = Sentry.captureMessage(message, {
+    level: options.level ?? "warning",
+    ...(options.tags ? { tags: options.tags } : {}),
+    ...(options.contexts ? { contexts: options.contexts } : {}),
+  });
+  const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
+  return { eventId, sent };
+}
+
 export { Sentry };
