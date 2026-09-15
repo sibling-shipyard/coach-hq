@@ -5,9 +5,7 @@
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
   "extraContext": "Current templates/routines (use these exact ids for template_edit, workout_remove, or session_plan):\n- template_id: tpl-badminton-drills",
-  "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
-  ],
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
   "userMessage": "I don't want that badminton drills routine anymore - I stopped playing badminton, please just remove it.",
   "expect": {
     "actionFieldsPresent": ["workout_remove"]

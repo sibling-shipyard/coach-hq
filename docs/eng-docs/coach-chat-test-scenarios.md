@@ -12,7 +12,7 @@ rather than the multi-fact conversations real check-ins actually are. 11 example
 test libraries going forward - update it whenever a scenario is added, removed, or renumbered.
 
 The 2026-09-15 coverage-audit pass (phase 1) cross-referenced every action field the code can
-actually emit against this catalog and closed every real gap it found - see the Coverage matrix
+actually emit against this catalog. It closed every real gap it found - see the Coverage matrix
 section below for the full cross-reference and `docs/plans/coach-chat-redesign-followups.md`'s
 two items it settles/retests.
 
@@ -79,14 +79,16 @@ the fourth test type for mechanics.
 ## What replaced what
 
 23 eval transcripts → 16 (3 cut as redundant subsets, 7 merged into 3 realistic multi-turn
-conversations, 3 new files added) as of the 2026-09-14 eval-audit pass; the 2026-09-15
+conversations, 3 new files added) as of the 2026-09-14 eval-audit pass. The 2026-09-15
 coverage-audit pass added 4 more (`17`-`20`), for 20 total today. See "Cut" and "Merged" notes
 above for the eval-audit's reasoning per file, and the coverage matrix below for what each new
-one closes. `ui/scripts/examples/` dropped 11 unused `-727-*` probe files from the #727 migration
-in the eval-audit pass (the original estimate was 2 named plus roughly 8 more; the real count,
-confirmed unreferenced anywhere by grep before deletion, was 11) and gained one new file that same
-pass (`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass added 7
-more turns files and 7 more `SCENARIOS` entries, for 11 total today.
+one closes.
+
+`ui/scripts/examples/` dropped 11 unused `-727-*` probe files from the #727 migration in the
+eval-audit pass. The original estimate was 2 named plus roughly 8 more; the real count, confirmed
+unreferenced anywhere by grep before deletion, was 11. That same pass gained one new file
+(`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass added 7 more
+turns files and 7 more `SCENARIOS` entries, for 11 total today.
 
 ## Coverage matrix (coverage-audit phase 1, 2026-09-15)
 
@@ -116,8 +118,8 @@ self-audit fields, not writes (see the schema doc).
 | `workout_create` | template file + manifest | `17` (new) | `workout-lifecycle` (new) | Gap → closed |
 | `workout_remove` | manifest | `18` (new) | `workout-lifecycle` (new) | Gap → closed |
 
-**Files with no Gemini-facing write action at all** (verified against every `turnWrites/*.ts` file
-before assuming a gap, per this pass's own "not guessing" rule): `progressions.json` is read-only
+**Files with no Gemini-facing write action at all** - checked against every `turnWrites/*.ts` file
+before assuming a gap, per this pass's own "not guessing" rule. `progressions.json` is read-only
 from chat's side - it's dosed into a workout at compile time (`coachWorkoutFiles.ts`), never
 written through an action field, so there is no write path here for a fixture to exercise.
 `athlete_insights.json`, `latest_message.json`, and `chat_history.json`'s `synced_activity_list`
@@ -126,11 +128,11 @@ rows are all pipeline-generated, not chat-written, same reasoning.
 **Left open, with reasons:**
 
 - **`quest_create` (standalone) has no simulation coverage.** Every existing simulation-suite
-  scenario runs against an athlete who already has an active season/main_quest on file, and a
-  standalone `quest_create` needs the opposite (a habit with no season change at all) to be the
-  unambiguous read - awkward to set up reliably against a real athlete repo's actual state without
-  either resetting it or guessing at what's already there. Flagging as a P2 follow-up rather than
-  building a fixture that might not exercise the right branch.
+  scenario runs against an athlete who already has an active season/main_quest on file. A
+  standalone `quest_create` needs the opposite - a habit with no season change at all - to be the
+  unambiguous read. That's awkward to set up reliably against a real athlete repo's actual state
+  without either resetting it or guessing at what's already there. Flagging as a P2 follow-up
+  rather than building a fixture that might not exercise the right branch.
 - **`template_edit` (permanent edit) has never been asserted as *present* anywhere**, only as
   *absent* (transcript `05`'s disambiguation). Its write-time logic
   (`buildTemplateEditWrite`/`applyTemplateEdit`) is structurally the same shape this pass already

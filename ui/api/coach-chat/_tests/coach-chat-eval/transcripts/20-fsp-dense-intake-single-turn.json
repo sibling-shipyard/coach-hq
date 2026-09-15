@@ -6,7 +6,13 @@
   "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Running\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n(none yet)\n",
   "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["Great, let's get you set up - tell me about yourself and what you're chasing."] }
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": [
+        "Great, let's get you set up - tell me about yourself and what you're chasing."
+      ]
+    }
   ],
   "userMessage": "I'm 29, I weigh 68kg and I'm 170cm tall, based in Bangalore, UTC timezone. My goal is to run a sub-50 10K by the end of the year. I also want to build a daily habit of stretching for 10 minutes.",
   "expect": {

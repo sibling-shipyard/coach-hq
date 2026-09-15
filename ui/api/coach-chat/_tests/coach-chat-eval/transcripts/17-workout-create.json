@@ -5,9 +5,7 @@
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** general strength\n- **Timeline / Upcoming events:** none\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: General strength\n",
   "extraContext": "Current templates/routines (use these exact ids for template_edit, workout_remove, or session_plan):\n(none yet)",
-  "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
-  ],
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
   "userMessage": "I'd like a new bodyweight strength routine I can do at home, no equipment, about 3 times a week. Can you put one together for me?",
   "expect": {
     "actionFieldsPresent": ["workout_create"]
