@@ -46,6 +46,7 @@
 | 0045 | Typed per-concern JSON files supersede challenge_v2.json | cross-cutting |
 | 0046 | Coach chat production runs on OpenRouter, not direct Gemini | cross-cutting (coach-chat backend, provider seam) |
 | 0047 | `eval-coach-chat.yml` runs on manual dispatch only | core |
+| 0048 | Close agent-scope gaps, correct Tech Lead's own delegation | cross-cutting |
 
 <details>
 <summary>Superseded / historical (5) — kept for the citations, not for the boot read</summary>
