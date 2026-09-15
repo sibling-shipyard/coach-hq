@@ -1,6 +1,7 @@
 /** Persist-on-sync Coach turn: one committed thread per verified activity batch. */
 import { commitFilesAtomic, type ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import { selectLlmAdapter } from "../../../_lib/llmClient.js";
+import { captureServerException } from "../../../_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -77,6 +78,7 @@ export async function handleActivitySync(
     return Response.json({ error: "One or more activities were not found" }, { status: 422 });
   }
   if (!context.soul) {
+    await captureServerException(new Error("Coach SOUL bundle is unavailable"));
     return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
   }
 
@@ -198,6 +200,8 @@ export async function handleActivitySync(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] activity_sync commitFilesAtomic failed:", err);
+    // Response-built 502 — withSentryRoute only captures throws, so capture here (B2).
+    await captureServerException(err);
     return Response.json({ error: `Coach replied but saving failed: ${message}` }, { status: 502 });
   }
 }
