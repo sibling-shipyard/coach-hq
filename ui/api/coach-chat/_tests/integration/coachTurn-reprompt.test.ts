@@ -2588,8 +2588,7 @@ describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
     // an extra call was spent, but the athlete never sees a wrong outcome from it.
     askGemini.mockResolvedValueOnce(reply).mockResolvedValueOnce(reply);
 
-    const message =
-      "Be more direct with me from now on. Also keep in mind I have a race Saturday.";
+    const message = "Be more direct with me from now on. Also keep in mind I have a race Saturday.";
     const result = await requestCoachReply(
       baseTurnState({ trimmed: message, geminiMessage: message }),
     );

@@ -457,20 +457,21 @@ another action field is also firing that turn. Verified live to make zero measur
 enough on its own.
 
 **Follow-up fix (2026-09-15): `findMissedMemoryLanguage`.** The rejected signal above keyed on the
-model's own reply text. This one keys on the ATHLETE's own message instead, on a narrow, bounded
-phrase list the athlete uses specifically to flag something as durable - "worth remembering,"
-"worth keeping in mind," "worth noting," "keep(ing) in mind," "for future reference" - not generic
-memory-adjacent words like "remember" or "note" alone. Checked against every athlete-facing
-fixture and example transcript in the repo (`coachTurn-reprompt.test.ts`,
-`ui/scripts/examples/`, `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`): this phrase list
-appears nowhere as ordinary filler, only in the real #1085 reproduction and its own transcripts.
+model's own reply text. This one keys on the ATHLETE's own message instead. The trigger is a
+narrow, bounded phrase list the athlete uses specifically to flag something as durable: "worth
+remembering," "worth keeping in mind," "worth noting," "keep(ing) in mind," "for future
+reference." Not generic memory-adjacent words like "remember" or "note" alone. I checked it
+against every athlete-facing fixture and example transcript in the repo
+(`coachTurn-reprompt.test.ts`, `ui/scripts/examples/`,
+`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`). This phrase list appears nowhere as
+ordinary filler - only in the real #1085 reproduction and its own transcripts.
 
 Unlike `findMissedInjuryLanguage`'s first-session/zero-flags boundary, there's no equivalent
 "nothing to reference yet" boundary for memory - a returning athlete can state a first durable
 pattern on any turn - so this can't scope itself to first-session-only. It fires on any turn,
-gated on `memory_update` absent plus another action field present, same shape as the rejected
-reply-text signal, but the phrase list itself carries the real weight - "another action fired"
-alone was never what made the reply-text signal unsafe.
+gated on `memory_update` absent plus another action field present. That's the same shape as the
+rejected reply-text signal, but the phrase list carries the real weight here - "another action
+fired" alone was never what made the reply-text signal unsafe.
 
 Real remaining risk: an athlete could use one of these phrases about something one-off, not
 durable ("keep in mind I have a race Saturday"). That reprompts once and costs an extra call, not
