@@ -1,0 +1,335 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-2026-09-15T15-56-06-248Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Look, great job bouncing back and getting that upper body work and ride in over the last couple of days. With Colorado coming up in about ten days, how are your legs and energy feeling today?",
+      "threadId": "t-1789487773622",
+      "threads": [
+        {
+          "id": "local-activity-sync",
+          "createdAt": 1788167086177,
+          "title": "",
+          "preview": "Look, missing a week happens. What matters is you didn't let one off week turn i",
+          "messages": [
+            {
+              "label": "TODAY",
+              "id": "d-sync-1789334799902",
+              "role": "divider"
+            },
+            {
+              "id": "c-sync-1789334799902",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "D7E9C140-A1FD-4FBC-A956-CD2F39AB8235",
+                      "load": 27,
+                      "duration_s": 3240,
+                      "title": "WeightTraining #6",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-12T13:22:10"
+                    },
+                    {
+                      "id": "DF542CCB-BA5E-4585-8061-1906C1279A49",
+                      "load": 39,
+                      "duration_s": 2144,
+                      "title": "Ride #2",
+                      "sport": "Ride",
+                      "start": "2026-09-12T17:28:37"
+                    },
+                    {
+                      "id": "569F5BAD-B0E0-4382-AE24-4C6542A9A114",
+                      "load": 49,
+                      "duration_s": 2329,
+                      "title": "Ride #3",
+                      "sport": "Ride",
+                      "start": "2026-09-13T01:07:20"
+                    }
+                  ],
+                  "batch_id": "local",
+                  "version": 1
+                }
+              ],
+              "paragraphs": [],
+              "role": "coach"
+            },
+            {
+              "id": "u-1789334850895",
+              "role": "user",
+              "text": "I didnt work out last week. This week i did upper body and cycling for lower body"
+            },
+            {
+              "id": "c-1789334850895",
+              "role": "coach",
+              "paragraphs": [
+                "Look, missing a week happens. What matters is you didn't let one off week turn into two, and you got right back to work with upper body and time on the bike. That's huge momentum right there. How are the arms and legs feeling after getting back into it?"
+              ]
+            }
+          ],
+          "dayOffset": 15,
+          "ageLabel": "D-15",
+          "status": "active"
+        },
+        {
+          "id": "t-1788288847868",
+          "createdAt": 1788288847868,
+          "title": "WeightTraining #5",
+          "preview": "Got it all logged. Awesome work emptying the tank today. Enjoy your rest day tom",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY · 7:54 PM",
+              "id": "d-1788288847868"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "I see that hour of strength work just hit the board. Good stuff showing up and getting it done today. I know we shifted focus to upper body to let those legs recover. How are the legs feeling today? Give me a quick read on how the pull-ups and push-ups felt, and an RPE out of 10 for the session."
+              ],
+              "id": "c-1788288847868",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "21B3C29F-19AD-40CA-826E-816034E7039D",
+                      "title": "WeightTraining #5",
+                      "load": 32,
+                      "duration_s": 3804,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-01T18:47:33"
+                    }
+                  ],
+                  "batch_id": "608cdf41aefd1aa2",
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "text": "Legs are feeling mich better",
+              "id": "u-1788288872967.577",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "That is good to hear. It takes a minute to bounce back from a heavy new load like that. I remember trying a new butterfly drill and my lats were completely locked up for three days. The body adapts, but that first shock is very real. Now that you are moving better, how did the upper body stuff actually feel today? Give me a quick read on those pull-ups and push-ups, and an RPE out of 10."
+              ],
+              "role": "coach",
+              "id": "c-1788288872967.577"
+            },
+            {
+              "role": "user",
+              "text": "Rpe?",
+              "id": "u-1788289004410.486"
+            },
+            {
+              "id": "c-1788289004410.486",
+              "role": "coach",
+              "paragraphs": [
+                "My bad. RPE is Rate of Perceived Exertion. Basically, out of 10, how hard did that workout feel to you? 1 is sitting on the couch, 10 is an all out, nothing left in the tank, Olympic final effort. Where did today's session land on that scale?"
+              ]
+            },
+            {
+              "text": "It was 8/10. The banded chin ups last set i got only 1 above the bar. Second set i fot 2 proper",
+              "role": "user",
+              "id": "u-1788289043864.735"
+            },
+            {
+              "id": "c-1788289043864.735",
+              "paragraphs": [
+                "Look, an 8 out of 10 is a serious effort. Getting two proper chin-ups on the second set, and then grinding out just one on the last set means you completely emptied the tank. I love that. I remember days where my arms just stopped working on the last set. It feels frustrating in the moment, but hitting that wall is exactly where the strength gets built. You did exactly what you needed to do today. Let me know if you want to cover anything else, or if you are ready to wrap this one up."
+              ],
+              "role": "coach"
+            },
+            {
+              "text": "What's olanned for today",
+              "role": "user",
+              "id": "u-1788458692025.8699"
+            },
+            {
+              "id": "c-1788458692025.8699",
+              "paragraphs": [
+                "You already crushed it today. We swapped out the leg session for that upper body work you just told me about, the one where you hit the 8/10 and pushed to failure on the chin-ups. Tomorrow is a recovery day. Next up is another Pull-Up and Push-Up session on Saturday, and then we hit the hills on Sunday for your Colorado prep. You earned some rest tonight."
+              ],
+              "role": "coach"
+            },
+            {
+              "id": "c-1788458734390",
+              "role": "coach",
+              "paragraphs": [
+                "Got it all logged. Awesome work emptying the tank today. Enjoy your rest day tomorrow, you earned it. See you Saturday."
+              ]
+            }
+          ],
+          "dayOffset": 14,
+          "ageLabel": "D-14",
+          "status": "active"
+        },
+        {
+          "id": "local-1788105624958",
+          "createdAt": 1788126729136,
+          "title": "Legs are sore. Difficilt to …",
+          "preview": "Rest up today, Natasha. That plan is locked and loaded for the week. See you tom",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY",
+              "id": "d-1788105624958"
+            },
+            {
+              "paragraphs": [
+                "Hey Natasha. Great work getting that lift in yesterday. It's Sunday, and since you're heading into a prime phase of your cycle for pushing strength this week, let's get our game plan locked in. How's the body feeling today?"
+              ],
+              "id": "c-1788105624958",
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "id": "u-1788126682507.155",
+              "text": "Legs are sore. Difficilt to sit ."
+            },
+            {
+              "id": "c-1788126682507.155",
+              "role": "coach",
+              "paragraphs": [
+                "I know that exact feeling. The 'falling onto the couch because your quads gave out' level of sore. It means you put in real work yesterday. \n\nToday is all about recovery. Drink a ton of water and try to get a 10-minute light walk in, just to flush the legs out. No heavy stretching, just move the blood.\n\nSince you are heading into the prime strength window of your cycle this week, we want to capitalize on it once those legs bounce back. What days are you looking at to hit your upper body and pull-up work this week?"
+              ]
+            },
+            {
+              "id": "c-1788126729136",
+              "paragraphs": [
+                "Got it, we will wrap up here. Focus on recovery today and let those legs bounce back. Hit me up when you are ready to map out this week's plan. Rest up."
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "text": "You tell me",
+              "id": "u-1788126752797.884"
+            },
+            {
+              "id": "c-1788126752797.884",
+              "role": "coach",
+              "paragraphs": [
+                "Fair enough. You focus on the work, I will hold the clipboard. \n\nSince your legs are completely cooked, we leave them alone tomorrow. Monday is upper body, focusing on those pull-ups and push-ups. Tuesday we do light active recovery. Wednesday we bring the legs back online. Thursday is upper body round two. And this weekend we get some steady hiking or walking in to prep the lungs for Colorado.\n\nHow does that rhythm fit your actual schedule this week?"
+              ]
+            },
+            {
+              "id": "u-1788126793850.809",
+              "text": "Spunds good",
+              "role": "user"
+            },
+            {
+              "id": "c-1788126793850.809",
+              "role": "coach",
+              "paragraphs": [
+                "Locked in. I will get that set for the week. For today, just survive sitting down and drink plenty of water. Tomorrow we go after those pull-ups. Need anything else from me before you get back to resting?"
+              ]
+            },
+            {
+              "id": "c-1788126814605",
+              "role": "coach",
+              "paragraphs": [
+                "Rest up today, Natasha. That plan is locked and loaded for the week. See you tomorrow to go after those pull-ups."
+              ]
+            }
+          ],
+          "dayOffset": 16,
+          "ageLabel": "D-16",
+          "status": "active"
+        },
+        {
+          "id": "t-1787646373081",
+          "createdAt": 1787646373081,
+          "title": "WeightTraining #2",
+          "preview": "Look, good to see that strength session logged. Solid hour of work put in. How d",
+          "messages": [
+            {
+              "id": "d-1787646373081",
+              "role": "divider",
+              "label": "TODAY · 8:26 AM"
+            },
+            {
+              "id": "c-1787646373081",
+              "role": "coach",
+              "paragraphs": [
+                "Look, good to see that strength session logged. Solid hour of work put in. How did the body hold up during the lifts, and any soreness or tight spots after?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "7dd19804e6158cfc",
+                  "activities": [
+                    {
+                      "id": "F09915C1-3EA9-41CE-8441-C79E2D72CE8C",
+                      "title": "WeightTraining #2",
+                      "sport": "WeightTraining",
+                      "start": "2026-08-19T18:17:16",
+                      "duration_s": 3683,
+                      "load": 31
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 21,
+          "ageLabel": "D-21",
+          "status": "active"
+        }
+      ],
+      "repoSha": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "usage": {
+      "promptTokens": 7563,
+      "completionTokens": 44,
+      "totalTokens": 7607,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00583725
+    },
+    "costUsd": 0.00583725
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-2026-09-15T15-56-06-248Z",
+    "input": {
+      "threadId": "t-1789487773622",
+      "messages": [],
+      "message": "Noticed something worth remembering - I always run noticeably better in the evening than the morning, my pace is consistently 20-30 seconds faster per km, worth keeping in mind for planning. Also, can you be more direct with me from now on? I don't need the pep talk, just tell me straight when I'm slipping."
+    },
+    "output": {
+      "error": "Coach couldn't respond in time - try again in a moment.",
+      "traceId": "tl8dip9j"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  }
+]
