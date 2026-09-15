@@ -122,12 +122,20 @@ class GitHubAuthManager: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 
+        let operationID = UUID()
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await performDataRequest(request)
             guard let http = response as? HTTPURLResponse else { return nil }
             // Non-200 means the token was rejected or the API is unavailable — not "not installed".
             guard http.statusCode == 200 else {
                 print("coachAppInstalled: installations API returned HTTP \(http.statusCode)")
+                DiagnosticsManager.capture(
+                    message: "coachAppInstalled: installations API failed",
+                    severity: .fault,
+                    operation: "github.auth.coach_app_installed",
+                    operationID: operationID,
+                    metadata: ["http_status": String(http.statusCode), "step": "installations"]
+                )
                 return nil
             }
             let result = try JSONDecoder().decode(AppInstallationsResponse.self, from: data)
@@ -145,15 +153,28 @@ class GitHubAuthManager: ObservableObject {
             var reposRequest = URLRequest(url: reposURL)
             reposRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             reposRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            let (reposData, reposResponse) = try await URLSession.shared.data(for: reposRequest)
+            let (reposData, reposResponse) = try await performDataRequest(reposRequest)
             guard let reposHttp = reposResponse as? HTTPURLResponse, reposHttp.statusCode == 200 else {
+                let status = (reposResponse as? HTTPURLResponse).map { String($0.statusCode) } ?? "non_http"
                 print("coachAppInstalled: repos API returned non-200")
+                DiagnosticsManager.capture(
+                    message: "coachAppInstalled: installation repos API failed",
+                    severity: .fault,
+                    operation: "github.auth.coach_app_installed",
+                    operationID: operationID,
+                    metadata: ["http_status": status, "step": "repositories"]
+                )
                 return nil
             }
             let repos = try JSONDecoder().decode(AppInstallationReposResponse.self, from: reposData)
             return repos.repositories.contains { $0.name.lowercased() == "coach-\(login)".lowercased() }
         } catch {
             print("coachAppInstalled check failed: \(error)")
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "github.auth.coach_app_installed",
+                operationID: operationID
+            )
             return nil  // network/decode failure — unknown state, not confirmed absence
         }
     }
@@ -319,8 +340,9 @@ class GitHubAuthManager: ObservableObject {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        let operationID = UUID()
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await performDataRequest(request)
             guard let http = response as? HTTPURLResponse else { return }
             if http.statusCode == 409,
                let result = try? JSONDecoder().decode(RepoResolution.self, from: data),
@@ -334,6 +356,13 @@ class GitHubAuthManager: ObservableObject {
             // to pendingSetupLogin or zombie-token cleanup as appropriate.
             guard (200..<300).contains(http.statusCode) else {
                 print("list-my-repos HTTP \(http.statusCode) — treating as unresolved")
+                DiagnosticsManager.capture(
+                    message: "list-my-repos failed while resolving repo",
+                    severity: .fault,
+                    operation: "github.auth.resolve_repo",
+                    operationID: operationID,
+                    metadata: ["http_status": String(http.statusCode)]
+                )
                 return
             }
             if let result = try? JSONDecoder().decode(RepoResolution.self, from: data) {
@@ -343,6 +372,11 @@ class GitHubAuthManager: ObservableObject {
         } catch {
             lastNetworkError = "Couldn't look up your repo just now - check your connection and try again."
             print("Failed to resolve repo: \(error)")
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "github.auth.resolve_repo",
+                operationID: operationID
+            )
         }
     }
 
@@ -362,12 +396,18 @@ class GitHubAuthManager: ObservableObject {
         var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        let operationID = UUID()
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, _) = try await performDataRequest(request)
             user = try JSONDecoder().decode(GitHubUser.self, from: data)
         } catch {
             lastNetworkError = "Couldn't load your GitHub profile just now - check your connection and try again."
             print("Failed to fetch user: \(error)")
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "github.auth.fetch_user",
+                operationID: operationID
+            )
         }
     }
 
@@ -393,6 +433,9 @@ class GitHubAuthManager: ObservableObject {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Fixed Sentry title for I5 Keychain write failures (status goes in metadata).
+    static let keychainWriteFailedMessage = "Keychain token write failed"
+
     private func saveKeychainString(_ value: String, for key: String) {
         let data = value.data(using: .utf8)!
         let query: [String: Any] = [
@@ -410,8 +453,33 @@ class GitHubAuthManager: ObservableObject {
             // background-refreshable session tokens, while staying device-only/non-syncing.
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        SecItemDelete(query as CFDictionary) // Remove existing
-        SecItemAdd(query as CFDictionary, nil)
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        // errSecItemNotFound is the common "nothing to replace" case — not a write failure.
+        if Self.isKeychainDeleteFailure(deleteStatus) {
+            captureKeychainWriteFailure(status: deleteStatus, step: "delete")
+        }
+        let addStatus = SecItemAdd(query as CFDictionary, nil)
+        if Self.isKeychainAddFailure(addStatus) {
+            captureKeychainWriteFailure(status: addStatus, step: "add")
+        }
+    }
+
+    static func isKeychainDeleteFailure(_ status: OSStatus) -> Bool {
+        status != errSecSuccess && status != errSecItemNotFound
+    }
+
+    static func isKeychainAddFailure(_ status: OSStatus) -> Bool {
+        status != errSecSuccess
+    }
+
+    private func captureKeychainWriteFailure(status: OSStatus, step: String) {
+        DiagnosticsManager.capture(
+            message: Self.keychainWriteFailedMessage,
+            severity: .fault,
+            operation: "github.auth.keychain",
+            operationID: UUID(),
+            metadata: ["os_status": String(status), "step": step]
+        )
     }
 
     private func deleteKeychainString(for key: String) {
@@ -523,8 +591,16 @@ class GitHubAuthManager: ObservableObject {
     /// Test seam for the refresh HTTP call. Production leaves this nil and uses URLSession.
     var refreshRequestHandler: ((URLRequest) async throws -> (Data, URLResponse))?
 
+    /// Test seam for GitHub/API data requests used by coachAppInstalled, resolveRepoIfNeeded,
+    /// and fetchUser (I9). Production leaves this nil and uses URLSession.
+    var dataRequestHandler: ((URLRequest) async throws -> (Data, URLResponse))?
+
     /// Base backoff between 502 retries. Tests set this to 0 so they don't sleep.
     var refreshBackoffNanoseconds: UInt64 = 1_500_000_000
+
+    /// Fixed Sentry title for I4 soft-fallback — one warning per failed refresh attempt-cycle.
+    static let refreshSoftFallbackMessage =
+        "GitHub token refresh soft-fallback: refresh failed, serving still-valid token"
 
     private func performRefreshAccessToken() async -> String? {
         guard let refreshToken = loadRefreshToken() else { return nil }
@@ -535,10 +611,28 @@ class GitHubAuthManager: ObservableObject {
         request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
 
         let maxAttempts = 1 + Self.refreshTransientExtraAttempts
+        let operationID = UUID()
+        // Soft-fallback contract (I4): capture once when the attempt-cycle fails, never per
+        // retry inside it. validToken() still returns the stale-but-valid access token.
+        var softFallbackReason: String?
+        defer {
+            if let softFallbackReason {
+                DiagnosticsManager.capture(
+                    message: Self.refreshSoftFallbackMessage,
+                    severity: .warning,
+                    operation: "github.auth.refresh",
+                    operationID: operationID,
+                    metadata: ["outcome": "soft_fallback", "reason": softFallbackReason]
+                )
+            }
+        }
         do {
             for attempt in 0..<maxAttempts {
                 let (data, response) = try await performRefreshRequest(request)
-                guard let http = response as? HTTPURLResponse else { return nil }
+                guard let http = response as? HTTPURLResponse else {
+                    softFallbackReason = "non_http_response"
+                    return nil
+                }
                 if http.statusCode == 200 {
                     let result = try JSONDecoder().decode(RefreshResponse.self, from: data)
                     saveTokens(
@@ -557,11 +651,14 @@ class GitHubAuthManager: ObservableObject {
                     continue
                 }
                 // 401 (refresh_failed) or anything else non-200: terminal, fail immediately.
+                softFallbackReason = "http_\(http.statusCode)"
                 return nil
             }
+            softFallbackReason = "exhausted"
             return nil
         } catch {
             print("Token refresh failed: \(error)")
+            softFallbackReason = "exception"
             return nil
         }
     }
@@ -569,6 +666,13 @@ class GitHubAuthManager: ObservableObject {
     private func performRefreshRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         if let refreshRequestHandler {
             return try await refreshRequestHandler(request)
+        }
+        return try await URLSession.shared.data(for: request)
+    }
+
+    private func performDataRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        if let dataRequestHandler {
+            return try await dataRequestHandler(request)
         }
         return try await URLSession.shared.data(for: request)
     }
