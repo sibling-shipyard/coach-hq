@@ -97,9 +97,12 @@ that would need a second, more expensive judge-model call per transcript, deferr
 writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
 exercises `coachTurn.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
 single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
-real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024), so it's manual/CI-gated,
-never on every PR - `.github/workflows/eval-coach-chat.yml` only runs it on `workflow_dispatch` or
-a `push` to `main` matching prompt/schema/model/harness paths.
+real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024/0047), so it's manual only,
+never automatic - `.github/workflows/eval-coach-chat.yml` runs on `workflow_dispatch` alone. It
+used to also run on a `push` to `main` touching prompt/schema/model/harness paths; that gate ran
+unwatched for weeks and stayed red for reasons unrelated to any real regression, so ADR 0047
+dropped it. Run it deliberately with `gh workflow run eval-coach-chat.yml`, same discipline as
+the simulation suite - decide to spend the money, then spend it.
 
 **Cost discipline, already built in:** every call costs money and Gemini 503s non-deterministically,
 so a red run is usually infrastructure rather than the change under test. Transient failures retry
