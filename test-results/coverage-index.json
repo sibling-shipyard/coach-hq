@@ -65,7 +65,7 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "fail",
-    "last_cost_usd": 0.052
+    "last_cost_usd": 0.056423475
   },
   "manual:session-plan": {
     "type": "manual",
@@ -99,7 +99,7 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "fail",
-    "last_cost_usd": 0.061
+    "last_cost_usd": 0.0632955
   },
   "manual:workout-lifecycle": {
     "type": "manual",
@@ -188,7 +188,7 @@
   },
   "manual:week-kickoff-flash": {
     "type": "manual",
-    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_pass_sha": "489a98e60cfcf9e71e8a14ffb4b94ab8126c151b",
     "last_run_date": "2026-09-15",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -201,6 +201,6 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.014814675
+    "last_cost_usd": 0.016809975
   }
 }
