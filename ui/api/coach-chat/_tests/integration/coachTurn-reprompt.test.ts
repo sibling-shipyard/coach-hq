@@ -1890,6 +1890,54 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
 
     expect(askGemini).toHaveBeenCalledTimes(1);
   });
+
+  // #1075: real live recurrence on coach-akash-suresh - the model narrated the week with
+  // 3-letter abbreviations plus exactly one full weekday name in prose. Against the full-name
+  // list alone that's 1 match, well under the threshold, so the reprompt never fired and the
+  // athlete read an unsaved week plan. Reproduces the exact shape here.
+  it("reprompts when the reply uses 7 abbreviated weekdays plus one full name (#1075 live recurrence)", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        coach_note: "Full weekly plan laid out for the week ahead.",
+        reply:
+          "Here's the week ahead:\n" +
+          "- Mon (Sep 14): Easy Aerobic Run (40 min)\n" +
+          "- Tue (Sep 15): Threshold Intervals (45 min)\n" +
+          "- Wed (Sep 16): Badminton (60 min)\n" +
+          "- Thu (Sep 17): Easy Recovery Run (35 min)\n" +
+          "- Fri (Sep 18): Badminton (60 min)\n" +
+          "- Sat (Sep 19): Long Run (60 min)\n" +
+          "- Sun (Sep 20): Rest & Recovery\n" +
+          "Monday court is already in the bag, so ease into the rest.",
+        unrecorded_facts: [],
+      })
+      .mockResolvedValueOnce({
+        coach_note: "Full weekly plan laid out for the week ahead.",
+        reply: "Plan is locked in for the week ahead.",
+        week_update: {
+          focus: "Aerobic build",
+          guardrails: [],
+          headline: "Week ahead",
+          body: "Steady week.",
+          days: Array.from({ length: 7 }, (_, i) => ({
+            date: `2026-09-${14 + i}`,
+            intent: "train",
+            sessions: [],
+          })),
+        },
+        unrecorded_facts: [],
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Lay out the full week for me",
+        geminiMessage: "Lay out the full week for me",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect((result as { reply: { week_update?: unknown } }).reply.week_update).toBeDefined();
+  });
 });
 
 // #1037 PR D: quest_event had no dedicated guard before this - see findMissedQuestLanguage in

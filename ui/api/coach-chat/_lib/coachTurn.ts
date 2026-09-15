@@ -44,6 +44,7 @@ import {
   PROFILE_PATH,
   MEMORY_PATH,
   WEEKDAYS,
+  type Weekday,
   type ProfileJson,
   type MemoryJson,
   type CoachLogJson,
@@ -567,11 +568,32 @@ function findMissingWorkoutCreateInjuryAck(turn: TurnState, reply: GeminiReply):
 // already has its own WEEKDAY_PATTERN for a different purpose (P2, #727 review).
 const PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD = 5;
 
+// #1075: found live on coach-akash-suresh - the model narrated a full week with the 3-letter
+// abbreviation ("Mon (Sep 14)", "Tue (Sep 15)", ...) plus exactly one full name in prose
+// ("Monday court is already in the bag"). That's 1 match against WEEKDAYS alone, so the detector
+// above never fired and the unsaved plan reached the athlete with no reprompt. Each day now
+// counts as mentioned if either its full name or its abbreviation shows up, with a real word
+// boundary so "mon" doesn't fire inside "money" and so on.
+const WEEKDAY_ABBREVIATIONS: Record<Weekday, string> = {
+  monday: "mon",
+  tuesday: "tue",
+  wednesday: "wed",
+  thursday: "thu",
+  friday: "fri",
+  saturday: "sat",
+  sunday: "sun",
+};
+
+function countMentionedWeekdays(replyText: string): number {
+  return WEEKDAYS.filter((day) => {
+    const pattern = new RegExp(`\\b(${day}|${WEEKDAY_ABBREVIATIONS[day]})\\b`, "i");
+    return pattern.test(replyText);
+  }).length;
+}
+
 function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
   if (firstSession || reply.week_update) return false;
-  const lowerReply = reply.reply.toLowerCase();
-  const mentionedWeekdays = WEEKDAYS.filter((day) => lowerReply.includes(day)).length;
-  return mentionedWeekdays >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
+  return countMentionedWeekdays(reply.reply) >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
 }
 
 // Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
