@@ -204,7 +204,7 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     // (repo-file.ts's 401 check), a more reliable signal than guessing here. Matches iOS's
     // validToken(), which has always worked this way.
     // One warning per attempt-cycle (not per try inside attemptExchange) — soft-fallback
-    // contract in docs/plans/sentry-coverage-gaps.md.
+    // contract in docs/eng-docs/sentry-runbook.md § Coverage boundary.
     await captureServerMessage(
       "GitHub token refresh soft-fallback: exchange failed, serving still-valid session",
       {
