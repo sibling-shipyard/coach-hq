@@ -518,7 +518,7 @@ async function main() {
     // see coverageIndex.ts for why (concurrent runs were clobbering each other's writes).
     writeCoverageEntry(coveragePath, key, {
       type: "manual",
-      last_pass_sha: pass ? hqSha : existing?.last_pass_sha ?? null,
+      last_pass_sha: pass ? hqSha : (existing?.last_pass_sha ?? null),
       last_run_date: today,
       watched_paths: WATCHED_PATHS,
       status: pass ? "pass" : "fail",
