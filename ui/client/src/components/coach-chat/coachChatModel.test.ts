@@ -1,4 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/observability", () => ({
+  captureFetchFailure: vi.fn(),
+}));
+
+import { captureFetchFailure } from "@/lib/observability";
 import {
   activitySync,
   challengeDayNumber,
@@ -8,9 +14,12 @@ import {
   droppedActionToastMessage,
   fetchProactiveCoachMessage,
   fetchProfileStatus,
+  fetchThreads,
+  greet,
   materializeProactiveThread,
   normalizeThread,
   parseProactiveSeed,
+  reportCoachChatFailure,
   resolveProactiveThread,
   retryActivityIdsFromThread,
   selectProactiveCoachMessage,
@@ -21,6 +30,8 @@ import {
   type ChatMessage,
   type ChatThread,
 } from "./coachChatModel";
+
+const mockedCaptureFetchFailure = vi.mocked(captureFetchFailure);
 
 const MESSAGE_ID = "cm-11111111-2222-4333-8444-555555555555";
 const SEED_ID = `local-proactive-${MESSAGE_ID}`;
@@ -519,5 +530,143 @@ describe("turn failure messages (I1)", () => {
       droppedActionToastMessage([{ field: "f", reason: "r" }]),
     ]);
     expect(messages.size).toBe(3);
+  });
+});
+
+describe("reportCoachChatFailure (F1/F2/F3)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    mockedCaptureFetchFailure.mockClear();
+  });
+
+  it("reports a send 503 once with endpoint + status, and a second call is free", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: "Coach couldn't respond in time - try again in a moment." }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    const err = await sendMessage("thread-1", [], "hello").catch((e: unknown) => e);
+    reportCoachChatFailure(err);
+    reportCoachChatFailure(err);
+
+    expect(mockedCaptureFetchFailure).toHaveBeenCalledTimes(1);
+    expect(mockedCaptureFetchFailure).toHaveBeenCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 503,
+      detail: "Coach couldn't respond in time - try again in a moment.",
+    });
+  });
+
+  it("reports activity_sync and profile-status server failures on their endpoints", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.includes("coach-chat-profile-status")) {
+        return new Response("{}", { status: 500 });
+      }
+      return new Response("{}", { status: 502 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const syncErr = await activitySync(["hk:1"]).catch((e: unknown) => e);
+    reportCoachChatFailure(syncErr);
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 502,
+      detail: undefined,
+    });
+
+    const profileErr = await fetchProfileStatus().catch((e: unknown) => e);
+    reportCoachChatFailure(profileErr);
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat-profile-status", {
+      kind: "server",
+      status: 500,
+    });
+    expect(mockedCaptureFetchFailure).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports threads load and greet failures the athlete already saw as a card/toast", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return new Response(JSON.stringify({ error: "greet failed" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("{}", { status: 502 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    reportCoachChatFailure(await fetchThreads().catch((e: unknown) => e));
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 502,
+    });
+
+    reportCoachChatFailure(await greet().catch((e: unknown) => e));
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 503,
+      detail: "greet failed",
+    });
+  });
+
+  it("reports a network drop as network, and leaves 401 revoke silent", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const netErr = await fetchThreads().catch((e: unknown) => e);
+    reportCoachChatFailure(netErr);
+    expect(mockedCaptureFetchFailure).toHaveBeenCalledWith("/api/coach-chat", {
+      kind: "network",
+      error: expect.any(TypeError),
+    });
+
+    mockedCaptureFetchFailure.mockClear();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    const revoked = await fetchThreads().catch((e: unknown) => e);
+    expect(revoked).toBeInstanceOf(CoachChatAccessRevokedError);
+    reportCoachChatFailure(revoked);
+    expect(mockedCaptureFetchFailure).not.toHaveBeenCalled();
+  });
+
+  it("reports a rate-limit and a save-failed turn the toast already showed", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 429 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 429 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 429 }))
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: "Coach replied but saving failed: GitHub timeout",
+            reply: "Nice work today, rest up.",
+          }),
+          { status: 502, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const limited = await sendMessage("thread-1", [], "hi").catch((e: unknown) => e);
+    expect(limited).toBeInstanceOf(CoachChatRateLimitedError);
+    reportCoachChatFailure(limited);
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 429,
+    });
+
+    const saveFailed = await sendMessage("thread-1", [], "done").catch((e: unknown) => e);
+    expect(saveFailed).toBeInstanceOf(CoachChatSaveFailedError);
+    reportCoachChatFailure(saveFailed);
+    expect(mockedCaptureFetchFailure).toHaveBeenLastCalledWith("/api/coach-chat", {
+      kind: "server",
+      status: 502,
+      detail: "Coach replied but saving failed: GitHub timeout",
+    });
   });
 });

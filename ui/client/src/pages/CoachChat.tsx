@@ -33,6 +33,7 @@ import {
   retryActivityIdsFromThread,
   saveThreadLocally,
   sendMessage,
+  reportCoachChatFailure,
   syncedActivityList,
   threadStatus,
   truncateTitle,
@@ -186,6 +187,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       });
       setActiveId(result.threadId);
     } catch (err: unknown) {
+      reportCoachChatFailure(err);
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
       }
@@ -268,6 +270,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       setActiveId(greeted.id);
       setMobileView((v) => (v === "new" ? "thread" : v));
     } catch (err: unknown) {
+      reportCoachChatFailure(err);
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
         return;
@@ -383,6 +386,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        reportCoachChatFailure(err);
         // Distinct from a generic failure - the session cookie is valid but GitHub access was
         // revoked/expired, same case useRepoData.ts's accessRevoked covers for the rest of the
         // dashboard. Shown as a "sign in again" card below, not a toast that just disappears.
@@ -412,7 +416,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setCoachSince(status.coachSince);
       })
       .catch((err: unknown) => {
-        if (err instanceof CoachChatAccessRevokedError && !cancelled) setThreadsAccessRevoked(true);
+        if (cancelled) return;
+        reportCoachChatFailure(err);
+        if (err instanceof CoachChatAccessRevokedError) setThreadsAccessRevoked(true);
       });
     return () => {
       cancelled = true;
@@ -440,6 +446,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setActiveId(greeted.id);
       })
       .catch((err: unknown) => {
+        reportCoachChatFailure(err);
         if (err instanceof CoachChatAccessRevokedError) {
           setThreadsAccessRevoked(true);
           return;
@@ -545,6 +552,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         });
       }
     } catch (err: unknown) {
+      reportCoachChatFailure(err);
       // D1 (#736): a save failure that still carries Coach's reply is not "Coach didn't reply" -
       // Gemini did its job, only the write failed. Keep the optimistic user message and the
       // reply text (rather than rolling everything back like every other failure below) and show

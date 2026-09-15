@@ -1,6 +1,9 @@
 import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
+import { captureFetchFailure, type FetchFailure } from "@/lib/observability";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const COACH_CHAT_ENDPOINT = "/api/coach-chat";
+const PROFILE_STATUS_ENDPOINT = "/api/coach-chat-profile-status";
 // ADR 0012 (amended): retention is a count cap (newest 7 active threads, no archive tier),
 // enforced server-side in ui/api/coach-chat.ts. Nothing to purge client-side any more - the
 // server never returns more than 7 threads to begin with, and deleting one is immediate and
@@ -443,6 +446,50 @@ export class CoachChatSaveFailedError extends Error {
   }
 }
 
+/**
+ * Enough for `captureFetchFailure` at the CoachChat consumer without a second fetch.
+ * Stashed on the thrown Error so the page reports once (toast / error-card / silent soft-degrade)
+ * without inventing status codes from the message string.
+ */
+type CoachChatFailureCarrier = Error & {
+  coachChatFailure?: { endpoint: string; failure: FetchFailure };
+  coachChatReported?: boolean;
+};
+
+function markFailure<E extends Error>(
+  err: E,
+  endpoint: string,
+  failure: FetchFailure,
+): E & CoachChatFailureCarrier {
+  const marked = err as E & CoachChatFailureCarrier;
+  marked.coachChatFailure = { endpoint, failure };
+  return marked;
+}
+
+/**
+ * One Sentry event per terminal Coach Chat client failure the athlete already felt (or that
+ * soft-degraded with zero UI). Idempotent: greets share one in-flight promise, so two catch
+ * sites can both call this without burning a second quota event.
+ *
+ * 401 / `CoachChatAccessRevokedError` stays silent — same deliberate revoke silence as
+ * `/api/auth/me`.
+ */
+export function reportCoachChatFailure(err: unknown): void {
+  if (err instanceof CoachChatAccessRevokedError) return;
+  if (typeof err !== "object" || err === null) {
+    captureFetchFailure(COACH_CHAT_ENDPOINT, { kind: "network", error: err });
+    return;
+  }
+  const carrier = err as CoachChatFailureCarrier;
+  if (carrier.coachChatReported) return;
+  carrier.coachChatReported = true;
+  if (carrier.coachChatFailure) {
+    captureFetchFailure(carrier.coachChatFailure.endpoint, carrier.coachChatFailure.failure);
+    return;
+  }
+  captureFetchFailure(COACH_CHAT_ENDPOINT, { kind: "network", error: err });
+}
+
 export interface DroppedAction {
   field: string;
   reason: string;
@@ -515,10 +562,60 @@ async function fetchWithRetry(
   throw lastError ?? new Error("Coach chat request failed");
 }
 
+/** fetchWithRetry, marking a terminal network drop so the CoachChat page can report it once. */
+async function fetchCoachChat(
+  endpoint: string,
+  input: RequestInfo,
+  init?: RequestInit,
+  attempts = 3,
+  retryNetworkFailures = true,
+): Promise<Response> {
+  try {
+    return await fetchWithRetry(input, init, attempts, retryNetworkFailures);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw markFailure(err, endpoint, { kind: "network", error });
+  }
+}
+
+function throwCoachChatHttpError(
+  endpoint: string,
+  res: Response,
+  body: { error?: string; reply?: string; traceId?: string },
+): never {
+  if (res.status === 429) {
+    throw markFailure(new CoachChatRateLimitedError(), endpoint, {
+      kind: "server",
+      status: 429,
+    });
+  }
+  if (body.reply) {
+    throw markFailure(
+      new CoachChatSaveFailedError(
+        body.error ?? `Coach chat request failed (${res.status})`,
+        body.reply,
+        body.traceId,
+      ),
+      endpoint,
+      { kind: "server", status: res.status, detail: body.error },
+    );
+  }
+  throw markFailure(
+    new Error(body.error ?? `Coach chat request failed (${res.status})`),
+    endpoint,
+    { kind: "server", status: res.status, detail: body.error },
+  );
+}
+
 export async function fetchThreads(): Promise<ChatThread[]> {
-  const res = await fetchWithRetry("/api/coach-chat");
+  const res = await fetchCoachChat(COACH_CHAT_ENDPOINT, "/api/coach-chat");
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (!res.ok) throw new Error(`Failed to load coach chat (${res.status})`);
+  if (!res.ok) {
+    throw markFailure(new Error(`Failed to load coach chat (${res.status})`), COACH_CHAT_ENDPOINT, {
+      kind: "server",
+      status: res.status,
+    });
+  }
   const body = (await res.json()) as { threads: ChatThread[] };
   pruneRepoSha(body.threads.map((t) => t.id));
   return body.threads.map(normalizeThread);
@@ -569,7 +666,8 @@ export async function sendMessage(
   message: string,
 ): Promise<SendMessageResult> {
   const knownSha = threadId ? lastKnownSha.get(threadId) : undefined;
-  const res = await fetchWithRetry(
+  const res = await fetchCoachChat(
+    COACH_CHAT_ENDPOINT,
     "/api/coach-chat",
     {
       method: "POST",
@@ -585,7 +683,6 @@ export async function sendMessage(
     false,
   );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as {
       error?: string;
@@ -595,14 +692,7 @@ export async function sendMessage(
     // D1 (#736): a `reply` alongside `error` means Gemini generated a reply but the save
     // failed - show the reply, not just a generic failure. Its absence means Coach never got to
     // reply at all (a Gemini-call failure), which stays a plain Error.
-    if (body.reply) {
-      throw new CoachChatSaveFailedError(
-        body.error ?? `Coach chat request failed (${res.status})`,
-        body.reply,
-        body.traceId,
-      );
-    }
-    throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
+    throwCoachChatHttpError(COACH_CHAT_ENDPOINT, res, body);
   }
   const body = (await res.json()) as SendMessageResult & { repoSha?: string };
   rememberRepoSha(body.threadId, body.repoSha);
@@ -620,7 +710,8 @@ export type ActivitySyncResult = {
 };
 
 export async function activitySync(activityIds: string[]): Promise<ActivitySyncResult> {
-  const res = await fetchWithRetry(
+  const res = await fetchCoachChat(
+    COACH_CHAT_ENDPOINT,
     "/api/coach-chat",
     {
       method: "POST",
@@ -631,10 +722,9 @@ export async function activitySync(activityIds: string[]): Promise<ActivitySyncR
     false,
   );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
+    throwCoachChatHttpError(COACH_CHAT_ENDPOINT, res, body);
   }
   const body = (await res.json()) as ActivitySyncResult & { repoSha?: string };
   rememberRepoSha(body.threadId, body.repoSha);
@@ -659,9 +749,15 @@ export interface ProfileStatus {
 }
 
 export async function fetchProfileStatus(): Promise<ProfileStatus> {
-  const res = await fetchWithRetry("/api/coach-chat-profile-status");
+  const res = await fetchCoachChat(PROFILE_STATUS_ENDPOINT, "/api/coach-chat-profile-status");
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (!res.ok) throw new Error(`Failed to load coach profile status (${res.status})`);
+  if (!res.ok) {
+    throw markFailure(
+      new Error(`Failed to load coach profile status (${res.status})`),
+      PROFILE_STATUS_ENDPOINT,
+      { kind: "server", status: res.status },
+    );
+  }
   const body = (await res.json()) as { profileComplete: boolean; coachSince?: string | null };
   return {
     profileComplete: body.profileComplete,
@@ -670,7 +766,8 @@ export async function fetchProfileStatus(): Promise<ProfileStatus> {
 }
 
 export async function greet(): Promise<GreetResult> {
-  const res = await fetchWithRetry(
+  const res = await fetchCoachChat(
+    COACH_CHAT_ENDPOINT,
     "/api/coach-chat",
     {
       method: "POST",
@@ -681,10 +778,9 @@ export async function greet(): Promise<GreetResult> {
     false,
   );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
+    throwCoachChatHttpError(COACH_CHAT_ENDPOINT, res, body);
   }
   const body = (await res.json()) as GreetResult & { repoSha?: string };
   rememberRepoSha(body.threadId, body.repoSha);
