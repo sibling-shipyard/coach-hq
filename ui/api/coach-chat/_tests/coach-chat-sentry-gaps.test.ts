@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { captureServerException, loadCoachContext, loadChatHistory, resolveProviderName } =
   vi.hoisted(() => ({
-    captureServerException: vi.fn(async () => ({ sent: true })),
+    captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
     loadCoachContext: vi.fn(),
     loadChatHistory: vi.fn(async () => ({ threads: [] })),
     resolveProviderName: vi.fn(() => "gemini" as const),
@@ -75,9 +75,9 @@ describe("coach-chat silent 500 capture (B5/B6)", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toMatchObject({ error: "Coach chat isn't configured yet" });
     expect(captureServerException).toHaveBeenCalledTimes(1);
-    expect((captureServerException.mock.calls[0][0] as Error).message).toContain(
-      "isn't configured",
-    );
+    const missingKeyErr = captureServerException.mock.calls[0]?.[0];
+    expect(missingKeyErr).toBeInstanceOf(Error);
+    expect((missingKeyErr as Error).message).toContain("isn't configured");
   });
 
   it("B5: captures when greet finds no SOUL bundle", async () => {
@@ -103,6 +103,8 @@ describe("coach-chat silent 500 capture (B5/B6)", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toMatchObject({ error: "Coach SOUL bundle is unavailable" });
     expect(captureServerException).toHaveBeenCalledTimes(1);
-    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("SOUL bundle");
+    const soulErr = captureServerException.mock.calls[0]?.[0];
+    expect(soulErr).toBeInstanceOf(Error);
+    expect((soulErr as Error).message).toContain("SOUL bundle");
   });
 });
