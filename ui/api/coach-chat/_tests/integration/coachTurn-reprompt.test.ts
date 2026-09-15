@@ -1938,6 +1938,30 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
     expect(askGemini).toHaveBeenCalledTimes(2);
     expect((result as { reply: { week_update?: unknown } }).reply.week_update).toBeDefined();
   });
+
+  // #1075 review: "sat" ("I sat down"), "sun" ("the sun was out"), and "wed" ("we wed last
+  // spring") are real English words a bare-word abbreviation match would wrongly count as a
+  // weekday mention. An ordinary reply using those words, plus a few genuine full weekday
+  // mentions that don't clear the threshold on their own, must not trigger the reprompt.
+  it("does not reprompt on ordinary text using sat/sun/wed as common words, not weekday abbreviations", async () => {
+    askGemini.mockResolvedValueOnce({
+      coach_note: "Checked in on the week.",
+      reply:
+        "Sounds like a good stretch - I sat down for a proper rest yesterday, the sun was out " +
+        "for today's run, and we wed last spring so anniversary season always sneaks up. On the " +
+        "training side, Tuesday and Thursday went well, and Friday should be an easy one too.",
+      unrecorded_facts: [],
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Just checking in",
+        geminiMessage: "Just checking in",
+      }),
+    );
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
 });
 
 // #1037 PR D: quest_event had no dedicated guard before this - see findMissedQuestLanguage in
