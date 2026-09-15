@@ -6,7 +6,7 @@
 
 ## Scope
 
-- **Own:** `ui/client/` — the React dashboard, components, widgets, pages, styles, and client-side tests. Includes `ui/client/src/lib/observability.ts` (browser Sentry init). Also `shared/warm-instrument/` (design tokens — `tokens.json`, `generate.mjs`, and generated outputs) — it feeds `ui/client/` styling directly, formalized 2026-09-15 (was previously undeclared but already touched via #943/#957).
+- **Own:** `ui/client/` — the React dashboard, components, widgets, pages, styles, and client-side tests. Includes `ui/client/src/lib/observability.ts` (browser Sentry init). Also `shared/warm-instrument/` (design tokens — `tokens.json`, `generate.mjs`, and generated outputs) — it feeds `ui/client/` styling directly.
 - **Don't touch:** `ui/api/` (Bob the Builder — ADR 0034); `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/`, `user_data/` (Bob the Builder); `ios/` (iOS Builder — but `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` regenerates as a side effect of a token change; values only, never hand-edit it); `ui/client/src/data/` (pipeline-built — never edit directly); `shared/golden-dataset/`, `shared/workout-library/` (Tech Lead).
 - **Dev:** run from `ui/` — `npm run dev` (predev runs `build-data.mjs` then Vite, `localhost:3000`).
 
