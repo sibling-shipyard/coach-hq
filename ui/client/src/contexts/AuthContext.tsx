@@ -79,6 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (!reposRes.ok || !reposData) {
+            // Athlete lands on the auth_error page; without this the cause never reaches Sentry.
+            captureFetchFailure("/api/auth/list-my-repos", {
+              kind: "server",
+              status: reposRes.status,
+              detail: !reposData ? "invalid_json" : undefined,
+            });
             setState({ status: "auth_error", errorType: "lookup_failed" });
             return;
           }
@@ -93,8 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // matching dead-end message instead of silently bouncing to login.
             setState({ status: "auth_error", errorType: reposData.reason ?? "needs_ios_setup" });
           }
-        } catch {
-          if (!cancelled) setState({ status: "auth_error", errorType: "lookup_failed" });
+        } catch (error: unknown) {
+          if (cancelled) return;
+          captureFetchFailure("/api/auth/list-my-repos", { kind: "network", error });
+          setState({ status: "auth_error", errorType: "lookup_failed" });
         }
       })
       .catch((error: unknown) => {

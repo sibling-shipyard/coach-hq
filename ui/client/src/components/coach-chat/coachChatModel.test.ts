@@ -55,6 +55,10 @@ function widgetSnapshots() {
 const THREAD_SEED_ID = "t-1756540800000";
 
 describe("proactive Coach seed", () => {
+  afterEach(() => {
+    vi.mocked(captureFetchFailure).mockClear();
+  });
+
   it("parses one valid seed and rejects absent, malformed, or repeated values", () => {
     expect(parseProactiveSeed(`?seed=${encodeURIComponent(SEED_ID)}`)).toBe(SEED_ID);
     expect(parseProactiveSeed("")).toBeNull();
@@ -175,11 +179,30 @@ describe("proactive Coach seed", () => {
       "/api/widget-snapshots",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+    expect(captureFetchFailure).not.toHaveBeenCalled();
 
     const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
     await expect(
       fetchProactiveCoachMessage(SEED_ID, unavailableFetcher as typeof fetch),
     ).resolves.toBeNull();
+    expect(captureFetchFailure).toHaveBeenCalledWith("/api/widget-snapshots", {
+      kind: "server",
+      status: 503,
+    });
+  });
+
+  it("captures a rejected widget-snapshots fetch as a network failure", async () => {
+    const networkError = new TypeError("Failed to fetch");
+    const rejectedFetcher = vi.fn(async () => {
+      throw networkError;
+    });
+    await expect(
+      fetchProactiveCoachMessage(SEED_ID, rejectedFetcher as typeof fetch),
+    ).resolves.toBeNull();
+    expect(captureFetchFailure).toHaveBeenCalledWith("/api/widget-snapshots", {
+      kind: "network",
+      error: networkError,
+    });
   });
 
   it("also fetches a real thread-id seed", async () => {

@@ -230,9 +230,9 @@ function describeError(error: unknown): string {
 /**
  * Report a data fetch the client turned into UI state instead of throwing.
  *
- * Only for a failure the athlete is shown — a blank dashboard, a bounce to the login screen. A
- * fetch that degrades on purpose (the latency warmers in `prefetchCoachContext.ts` and
- * `useWidgetSnapshots.ts`) stays silent: the athlete never learns it happened, and neither
+ * Only for a failure the athlete is shown — a blank dashboard, a bounce to the login screen, a
+ * missing proactive seed. A fetch that degrades on purpose (the latency warmer in
+ * `prefetchCoachContext.ts`) stays silent: the athlete never learns it happened, and neither
  * should the issue stream.
  *
  * `endpoint` is the literal path, never the request URL — a URL can carry a query string, and a

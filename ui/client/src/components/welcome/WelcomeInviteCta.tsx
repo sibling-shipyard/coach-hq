@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { captureFetchFailure } from "@/lib/observability";
 
 interface WelcomeInviteCtaProps {
   betaLabel?: string;
@@ -25,17 +26,20 @@ export function WelcomeInviteCta({ betaLabel = "PRIVATE BETA" }: WelcomeInviteCt
       });
 
       if (res.status === 503) {
+        captureFetchFailure("/api/waitlist", { kind: "server", status: 503 });
         setSubmitState("error");
         return;
       }
 
       if (!res.ok) {
+        captureFetchFailure("/api/waitlist", { kind: "server", status: res.status });
         setSubmitState("error");
         return;
       }
 
       setSubmitState("sent");
-    } catch {
+    } catch (error: unknown) {
+      captureFetchFailure("/api/waitlist", { kind: "network", error });
       setSubmitState("error");
     }
   }
