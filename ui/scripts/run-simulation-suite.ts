@@ -51,6 +51,7 @@ import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
 import { formatCostUsd } from "./lib/llmPricing.js";
+import { readCoverageIndex, writeCoverageEntry } from "./lib/coverageIndex.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -405,20 +406,6 @@ function scoreScenario(
   return { pass: failures.length === 0, failures };
 }
 
-function readCoverageIndex(coveragePath: string): Record<string, unknown> {
-  if (!fs.existsSync(coveragePath)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(coveragePath, "utf8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function writeCoverageIndex(coveragePath: string, index: Record<string, unknown>) {
-  fs.mkdirSync(path.dirname(coveragePath), { recursive: true });
-  fs.writeFileSync(coveragePath, `${JSON.stringify(index, null, 2)}\n`);
-}
-
 function currentHqSha(): string {
   return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
 }
@@ -507,14 +494,13 @@ async function main() {
     if (!logPath) {
       console.log(`${scenario.id}: no run log found - treating as a hard failure.`);
       anyFailed = true;
-      coverageIndex[key] = {
+      writeCoverageEntry(coveragePath, key, {
         type: "manual",
-        last_pass_sha:
-          (coverageIndex[key] as { last_pass_sha?: string } | undefined)?.last_pass_sha ?? null,
+        last_pass_sha: existing?.last_pass_sha ?? null,
         last_run_date: today,
         watched_paths: WATCHED_PATHS,
         status: "fail",
-      };
+      });
       continue;
     }
 
@@ -527,22 +513,22 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`);
     if (!pass) anyFailed = true;
 
-    coverageIndex[key] = {
+    // #1076: write this scenario's entry now, re-reading the file fresh first, instead of
+    // accumulating into the in-memory coverageIndex and writing it all back at the very end -
+    // see coverageIndex.ts for why (concurrent runs were clobbering each other's writes).
+    writeCoverageEntry(coveragePath, key, {
       type: "manual",
-      last_pass_sha: pass
-        ? hqSha
-        : ((coverageIndex[key] as { last_pass_sha?: string } | undefined)?.last_pass_sha ?? null),
+      last_pass_sha: pass ? hqSha : existing?.last_pass_sha ?? null,
       last_run_date: today,
       watched_paths: WATCHED_PATHS,
       status: pass ? "pass" : "fail",
       last_cost_usd: scenarioCostUsd,
-    };
+    });
   }
 
   if (args.dryRun) return;
 
-  writeCoverageIndex(coveragePath, coverageIndex);
-  console.log(`\nCoverage index written to ${path.relative(repoRoot, coveragePath)}`);
+  console.log(`\nCoverage index updates written to ${path.relative(repoRoot, coveragePath)}`);
   if (anyFailed) process.exit(2);
 }
 
