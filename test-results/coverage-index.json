@@ -1,8 +1,8 @@
 {
   "manual:daily-basic": {
     "type": "manual",
-    "last_pass_sha": "bf5f1c45468fd0f887542292c470ed6ab0f099ac",
-    "last_run_date": "2026-09-14",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
     "watched_paths": [
       "ui/api/coach-chat.ts",
       "ui/api/coach-chat/_lib/coachTurn.ts",
@@ -13,7 +13,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass"
+    "status": "pass",
+    "last_cost_usd": 0.07112850000000001
   },
   "manual:daily-sleep-skip": {
     "type": "manual",
@@ -34,8 +35,8 @@
   },
   "manual:fsp-basic": {
     "type": "manual",
-    "last_pass_sha": "c604a89eef84e9726679b0d6eb0ea773daf850ed",
-    "last_run_date": "2026-09-14",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
     "watched_paths": [
       "ui/api/coach-chat.ts",
       "ui/api/coach-chat/_lib/coachTurn.ts",
@@ -47,6 +48,159 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.06654525
+    "last_cost_usd": 0.062
+  },
+  "manual:ambiguous-contradiction": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "fail",
+    "last_cost_usd": 0.052
+  },
+  "manual:session-plan": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "fail",
+    "last_cost_usd": 0.046
+  },
+  "manual:template-edit-permanent": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "fail",
+    "last_cost_usd": 0.061
+  },
+  "manual:workout-lifecycle": {
+    "type": "manual",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.0491745
+  },
+  "manual:injury-resolve-by-bodypart": {
+    "type": "manual",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.06012675
+  },
+  "manual:season-transition": {
+    "type": "manual",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.0342555
+  },
+  "manual:quest-create-standalone": {
+    "type": "manual",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.033224250000000004
+  },
+  "manual:quest-event": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "fail",
+    "last_cost_usd": 0.02840865
+  },
+  "manual:week-kickoff-flash": {
+    "type": "manual",
+    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
+    "last_run_date": "2026-09-15",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/coachTurn.ts",
+      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.014814675
   }
 }

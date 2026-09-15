@@ -1,0 +1,208 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-15T08-55-20-381Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Morning Prateek. We've got the Strength and Weight Gain season on the board, but we're sitting at zero on that 20-session target. What's on deck for training today?",
+      "threadId": "t-1789462525984",
+      "threads": [],
+      "repoSha": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "usage": {
+      "promptTokens": 6926,
+      "completionTokens": 48,
+      "totalTokens": 6974,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.0053745
+    },
+    "costUsd": 0.0053745
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-15T08-55-20-381Z",
+    "input": {
+      "threadId": "t-1789462525984",
+      "messages": [],
+      "message": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+    },
+    "output": {
+      "reply": "Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired.",
+      "threadId": "t-1789462525984",
+      "threads": [
+        {
+          "id": "t-1789462525984",
+          "createdAt": 1789462527393,
+          "title": "Nothing major to report toda…",
+          "preview": "Look, building a habit at night is all about consistency. Twenty minutes before ",
+          "messages": [
+            {
+              "id": "d-1789462527393",
+              "role": "divider",
+              "label": "TODAY · 9:55 AM"
+            },
+            {
+              "id": "u-1789462527393",
+              "role": "user",
+              "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+            },
+            {
+              "id": "c-1789462527393",
+              "role": "coach",
+              "paragraphs": [
+                "Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "827ed4bae99a3ab21012fb95ad9eb9e5421516bb",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "a6999xsa",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/quests.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex c4344e1..17c62a1 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,3 +1,34 @@\n {\n-  \"threads\": []\n-}\n+  \"_meta\": {\n+    \"updated_at\": \"2026-09-15T08:55:36.877Z\",\n+    \"updated_by\": \"coach\",\n+    \"trace_id\": \"a6999xsa\"\n+  },\n+  \"threads\": [\n+    {\n+      \"id\": \"t-1789462525984\",\n+      \"createdAt\": 1789462527393,\n+      \"title\": \"Nothing major to report toda…\",\n+      \"preview\": \"Look, building a habit at night is all about consistency. Twenty minutes before \",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789462527393\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 9:55 AM\"\n+        },\n+        {\n+          \"id\": \"u-1789462527393\",\n+          \"role\": \"user\",\n+          \"text\": \"Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal.\"\n+        },\n+        {\n+          \"id\": \"c-1789462527393\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired.\"\n+          ]\n+        }\n+      ]\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 452e1ea..5a41e5c 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -1,4 +1,13 @@\n {\n   \"version\": 1,\n-  \"rows\": []\n-}\n+  \"rows\": [\n+    {\n+      \"id\": \"sess_2026-09-15_8ejx\",\n+      \"date\": \"2026-09-15\",\n+      \"ts\": \"2026-09-15T08:55:32.364Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Prateek added a daily habit: reading for 20 minutes every night.\",\n+      \"trace_id\": \"a6999xsa\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/quests.json b/user_data/ledger/quests.json\nindex b0c94b4..af7aa7d 100644\n--- a/user_data/ledger/quests.json\n+++ b/user_data/ledger/quests.json\n@@ -1,9 +1,9 @@\n {\n   \"version\": 1,\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-11\",\n-    \"updated_by\": \"coach\",\n-    \"trace_id\": \"f1-migration-2026-09-11\"\n+    \"updated_at\": \"2026-09-15T08:55:33.204Z\",\n+    \"updated_by\": \"model\",\n+    \"trace_id\": \"a6999xsa\"\n   },\n   \"weekly_targets\": {},\n   \"main_quest\": {\n@@ -14,5 +14,18 @@\n     \"count_pattern\": \"^WeightTraining\\\\s*#\",\n     \"season_id\": \"season_strength_weight_gain_sea_o1jd\"\n   },\n-  \"quests\": []\n-}\n+  \"quests\": [\n+    {\n+      \"id\": \"q_read_20_mins_every_night_cle5\",\n+      \"name\": \"Read 20 mins every night\",\n+      \"type\": \"daily_streak\",\n+      \"start_date\": \"2026-09-15\",\n+      \"end_date\": null,\n+      \"status\": \"active\",\n+      \"polarity\": \"default_not_done\",\n+      \"target\": 20,\n+      \"unit\": \"mins\",\n+      \"source\": \"model\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "827ed4bae99a3ab21012fb95ad9eb9e5421516bb",
+    "usage": {
+      "promptTokens": 12342,
+      "completionTokens": 180,
+      "totalTokens": 12522,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.0099315
+    },
+    "costUsd": 0.0099315
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-15T08-55-20-381Z",
+    "input": {
+      "threadId": "t-1789462525984",
+      "messages": [
+        {
+          "id": "d-1789462541221",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789462541221",
+          "role": "user",
+          "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+        },
+        {
+          "id": "c-1789462541221",
+          "role": "coach",
+          "paragraphs": [
+            "Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired."
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "reply": "Understood. Get your reading done tonight and stay focused on the process. We pick back up tomorrow.",
+      "threadId": "t-1789462525984",
+      "threads": [
+        {
+          "id": "t-1789462525984",
+          "createdAt": 1789462527393,
+          "title": "Nothing major to report toda…",
+          "preview": "Understood. Get your reading done tonight and stay focused on the process. We pi",
+          "messages": [
+            {
+              "id": "d-1789462541221",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789462541221",
+              "role": "user",
+              "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+            },
+            {
+              "id": "c-1789462541221",
+              "role": "coach",
+              "paragraphs": [
+                "Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired."
+              ]
+            },
+            {
+              "id": "u-1789462544303",
+              "role": "user",
+              "text": "That's it for today, wrap this up."
+            },
+            {
+              "id": "c-1789462544303",
+              "role": "coach",
+              "paragraphs": [
+                "Understood. Get your reading done tonight and stay focused on the process. We pick back up tomorrow."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "ea5a27c155607ef2cba6a1202c9be57ce72b3a5e",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "4ri61dgy",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 17c62a1..3e736ca 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,32 +1,44 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-15T08:55:36.877Z\",\n+    \"updated_at\": \"2026-09-15T08:55:47.762Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"a6999xsa\"\n+    \"trace_id\": \"4ri61dgy\"\n   },\n   \"threads\": [\n     {\n       \"id\": \"t-1789462525984\",\n       \"createdAt\": 1789462527393,\n       \"title\": \"Nothing major to report toda…\",\n-      \"preview\": \"Look, building a habit at night is all about consistency. Twenty minutes before \",\n+      \"preview\": \"Understood. Get your reading done tonight and stay focused on the process. We pi\",\n       \"messages\": [\n         {\n-          \"id\": \"d-1789462527393\",\n+          \"id\": \"d-1789462541221\",\n           \"role\": \"divider\",\n-          \"label\": \"TODAY · 9:55 AM\"\n+          \"label\": \"Today\"\n         },\n         {\n-          \"id\": \"u-1789462527393\",\n+          \"id\": \"u-1789462541221\",\n           \"role\": \"user\",\n           \"text\": \"Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal.\"\n         },\n         {\n-          \"id\": \"c-1789462527393\",\n+          \"id\": \"c-1789462541221\",\n           \"role\": \"coach\",\n           \"paragraphs\": [\n             \"Look, building a habit at night is all about consistency. Twenty minutes before bed is a solid way to wind down and clear your head. I've got that tracked for you now. Just make sure you protect that window and don't let it slip when you're tired.\"\n           ]\n+        },\n+        {\n+          \"id\": \"u-1789462544303\",\n+          \"role\": \"user\",\n+          \"text\": \"That's it for today, wrap this up.\"\n+        },\n+        {\n+          \"id\": \"c-1789462544303\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Understood. Get your reading done tonight and stay focused on the process. We pick back up tomorrow.\"\n+          ]\n         }\n       ]\n     }\n"
+    },
+    "shaBefore": "827ed4bae99a3ab21012fb95ad9eb9e5421516bb",
+    "shaAfter": "ea5a27c155607ef2cba6a1202c9be57ce72b3a5e",
+    "usage": {
+      "promptTokens": 12513,
+      "completionTokens": 31,
+      "totalTokens": 12544,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.009501
+    },
+    "costUsd": 0.009501
+  }
+]
