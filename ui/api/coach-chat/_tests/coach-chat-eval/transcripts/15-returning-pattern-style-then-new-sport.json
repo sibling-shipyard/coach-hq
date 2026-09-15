@@ -1,7 +1,6 @@
 {
   "name": "returning-pattern-style-then-new-sport",
   "description": "Multi-turn merge of the old #37 (memory-update-learned-pattern), #38 (sports-update-new-sport), and #39 (returning-coaching-style-explicit-change) into one realistic conversation - the athlete's own complaint was that real check-ins drop multiple facts stated together, not one fact per transcript. Turn 1 states #37's durable training pattern and #39's explicit coaching-style request in the same message, the compound shape that actually needs testing. Turn 2 is #38's new-sport disclosure on its own turn later in the same check-in.",
-  "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Strength Training\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** encouragement\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
   "history": [

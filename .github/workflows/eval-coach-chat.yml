@@ -45,6 +45,15 @@ jobs:
         run: npm ci
 
       - name: Run coach-chat eval harness
+        # This has been failing on every run against direct Gemini - the account's
+        # GEMINI_API_KEY credit is depleted (429 RESOURCE_EXHAUSTED), the same dev-environment
+        # state docs/eng-docs/llm-provider-current.md already documents for local runs. I'm
+        # routing this at OpenRouter for the same reason every local live/manual/eval run
+        # already has to - not a permanent provider decision, just matching the interim state
+        # everything else in this repo is already running in. Switch back to direct once
+        # GEMINI_API_KEY has real credit again.
         run: npm run eval:coach-chat
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_PROVIDER: openrouter
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

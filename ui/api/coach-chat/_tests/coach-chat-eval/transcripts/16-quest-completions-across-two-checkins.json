@@ -1,7 +1,6 @@
 {
   "name": "quest-completions-across-two-checkins",
   "description": "Multi-turn merge of the old #33 (coach-note-required-with-quest-event) and #10 (quest-event-array) - a single streak completion in one check-in, then a later check-in reporting two completions at once, instead of two disconnected single-fact transcripts. Turn 1 is #33's real case (one quest_event, day-13-streak). Turn 2 is #10's real case (quest_event array-shaped - two separate completions in one message must both land, not just the first).",
-  "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Recent Session Notes (rolling - last 5 sessions)\n*(No note written yet today.)*\n- 2026-08-17: Badminton match, won 2-1.\n- 2026-08-16: Strength session, all sets hit.\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily (id: q-coldshower)\n",
   "extraContext": "Current quests (use these exact quest_ids for quest_event):\n- quest_id: q-sub45 | type: main | main quest\n- quest_id: q-coldshower | type: streak | status: active",
