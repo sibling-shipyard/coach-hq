@@ -176,6 +176,7 @@ final class GitHubAuthManagerTests: XCTestCase {
         XCTAssertEqual(calls, 1)
     }
 
+    // #1078 I4/I5/I9 capture coverage — TimelineBuffer asserts (Sentry itself is gated off in tests).
     @MainActor
     func testValidTokenSoftFallbackCapturesOneWarningPerAttemptCycle() async throws {
         let manager = try prepareKeychainManager()
