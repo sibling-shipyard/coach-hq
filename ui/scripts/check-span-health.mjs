@@ -16,8 +16,8 @@
  * and never opens the dashboard leaves no browser span and no API error, so a web-and-errors-only
  * conjunction would call that day quiet and pass while the outage ran underneath it.
  *
- * Run it by hand. Nothing schedules it: what runs on a timer is one owned decision, not something
- * each PR settles for itself.
+ * Scheduled by `.github/workflows/span-health.yml` (daily cron + workflow_dispatch).
+ * Still safe to run by hand.
  *
  * Env: SENTRY_AUTH_TOKEN, falling back to `~/.config/sentry-token` the way the runbook does.
  * SPAN_HEALTH_WINDOW (a Sentry `statsPeriod`, default `24h`) so the failing branch can be
