@@ -10,7 +10,11 @@
  * base64-encoded), used directly as an A256GCM key.
  */
 import { EncryptJWT, jwtDecrypt } from "jose";
-import { queueServerException } from "../../_lib/sentry.js";
+import {
+  captureServerException,
+  captureServerMessage,
+  queueServerException,
+} from "../../_lib/sentry.js";
 
 export const SESSION_COOKIE = "coach_session";
 export const OAUTH_STATE_COOKIE = "coach_oauth_state";
@@ -138,6 +142,9 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
   }
 
   if (!CLIENT_ID || !CLIENT_SECRET) {
+    const err = new Error("Site misconfigured: GITHUB_APP_CLIENT_ID/SECRET unset");
+    console.error("[session]", err);
+    await captureServerException(err);
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
 
@@ -196,6 +203,15 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     // hard-fail. A genuine revocation surfaces on its own once that old token is actually used
     // (repo-file.ts's 401 check), a more reliable signal than guessing here. Matches iOS's
     // validToken(), which has always worked this way.
+    // One warning per attempt-cycle (not per try inside attemptExchange) — soft-fallback
+    // contract in docs/plans/sentry-coverage-gaps.md.
+    await captureServerMessage(
+      "GitHub token refresh soft-fallback: exchange failed, serving still-valid session",
+      {
+        level: "warning",
+        tags: { auth_path: "ensureFreshSession", outcome: "soft_fallback" },
+      },
+    );
     return { session };
   }
 

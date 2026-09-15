@@ -14,13 +14,20 @@ import { encryptSession, buildCookie, SESSION_COOKIE } from "../_lib/session.js"
 import { signOAuthState } from "../_lib/pkce.js";
 import { InstallationLookupFailedError, MarkerLookupFailedError } from "../_lib/repo-resolution.js";
 
-process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
-process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
-process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
-
-const { captureServerException, queueServerException, setAthleteScope, withSentryRoute } =
-  vi.hoisted(() => ({
+// session.ts latches CLIENT_ID/SECRET at module load; vi.hoisted runs before static imports.
+const {
+  captureServerException,
+  captureServerMessage,
+  queueServerException,
+  setAthleteScope,
+  withSentryRoute,
+} = vi.hoisted(() => {
+  process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
+  process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
+  process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
+  return {
     captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+    captureServerMessage: vi.fn(async (_message: string, _options?: unknown) => ({ sent: true })),
     queueServerException: vi.fn((_error: unknown) => "event-id"),
     setAthleteScope: vi.fn(),
     withSentryRoute: vi.fn(
@@ -32,7 +39,8 @@ const { captureServerException, queueServerException, setAthleteScope, withSentr
         }) => Promise<unknown>,
       ) => handler({ captureException: captureServerException, setAthleteScope }),
     ),
-  }));
+  };
+});
 
 vi.mock("../../_lib/sentry.js", () => ({
   withSentryRoute,
@@ -40,12 +48,13 @@ vi.mock("../../_lib/sentry.js", () => ({
   // below any route context - so a partial factory would leave it undefined at call time. It
   // queues rather than captures: it runs on every authenticated request and must not flush.
   captureServerException,
+  captureServerMessage,
   queueServerException,
 }));
 
 const { default: handler } = await import("../[...action].js");
 
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET!;
 
 async function sessionCookie(repoFullName?: string): Promise<string> {
   const token = await encryptSession({
@@ -55,6 +64,20 @@ async function sessionCookie(repoFullName?: string): Promise<string> {
     refresh_token: "refresh-token",
     // Comfortably inside the refresh buffer, so ensureFreshSession never calls GitHub.
     gh_token_expires_at: Date.now() + 60 * 60 * 1000,
+    installation_id: 42,
+    ...(repoFullName ? { repo_full_name: repoFullName } : {}),
+  });
+  return buildCookie(SESSION_COOKIE, token, 1000).split(";")[0];
+}
+
+/** Inside the 5min refresh buffer so ensureFreshSession attempts a token exchange. */
+async function nearExpirySessionCookie(repoFullName?: string): Promise<string> {
+  const token = await encryptSession({
+    github_user_id: 1,
+    login: "alice",
+    gh_token: "gh-token",
+    refresh_token: "refresh-token",
+    gh_token_expires_at: Date.now() + 60 * 1000,
     installation_id: 42,
     ...(repoFullName ? { repo_full_name: repoFullName } : {}),
   });
@@ -316,8 +339,8 @@ describe("auth catch-all error capture", () => {
     expect(captureServerException).not.toHaveBeenCalled();
   });
 
-  it("does not capture a handled rejection - only a throw", async () => {
-    // token_exchange_failed is an answer, not a fault: GitHub replied, the code was just bad.
+  it("captures token_exchange_failed before callback redirects", async () => {
+    // Athlete lands on auth_error with no other record; mirror the /user capture below.
     fetchMock.mockResolvedValue(Response.json({ error: "bad_verification_code" }));
     const state = await signOAuthState(
       { codeVerifier: "v", platform: "web", popup: false },
@@ -327,8 +350,88 @@ describe("auth catch-all error capture", () => {
 
     const res = await handler.fetch(new Request(url));
 
-    expect(captureServerException).not.toHaveBeenCalled();
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain(
+      "token exchange failed",
+    );
     expect(res.headers.get("location")).toContain("auth_error=token_exchange_failed");
+  });
+
+  it("captures a token exchange missing refresh_token before redirect", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        access_token: "gh-token",
+        // refresh_token / expires_in absent — App must mint both for rotation.
+      }),
+    );
+    const state = await signOAuthState(
+      { codeVerifier: "v", platform: "web", popup: false },
+      SESSION_SECRET,
+    );
+
+    const res = await handler.fetch(
+      new Request(
+        `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
+      ),
+    );
+
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("refresh_token");
+    expect(res.headers.get("location")).toContain("auth_error=token_exchange_failed");
+  });
+
+  it("captures installations-repo re-fetch failure before serving empty candidates", async () => {
+    // resolveOwnedRepos succeeds with zero confirmed; the reason re-fetch then fails.
+    // Soft-fallback still returns no_owned_repos — capture is additional, not a new failure mode.
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ repositories: [] }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const res = await handler.fetch(authRequest("list-my-repos", await sessionCookie()));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ candidates: [], reason: "no_owned_repos" });
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("503");
+  });
+
+  it("fires one warning when ensureFreshSession soft-falls back after refresh fails", async () => {
+    // Two exchange attempts fail; athlete keeps the still-valid cookie. One warning for the
+    // attempt-cycle — never per try inside it (B17 soft-fallback contract).
+    fetchMock.mockRejectedValue(new Error("token endpoint unreachable"));
+
+    const res = await handler.fetch(
+      authRequest("me", await nearExpirySessionCookie("alice/coach-alice")),
+    );
+
+    expect(res.status).toBe(200);
+    expect(captureServerMessage).toHaveBeenCalledOnce();
+    expect(captureServerMessage).toHaveBeenCalledWith(
+      expect.stringContaining("soft-fallback"),
+      expect.objectContaining({ level: "warning" }),
+    );
+    expect(captureServerException).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("captures config_error when CLIENT_ID is unset on start", async () => {
+    vi.resetModules();
+    const prevId = process.env.GITHUB_APP_CLIENT_ID;
+    delete process.env.GITHUB_APP_CLIENT_ID;
+    try {
+      const { default: misconfiguredHandler } = await import("../[...action].js");
+      const res = await misconfiguredHandler.fetch(authRequest("start"));
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toContain("auth_error=config_error");
+      expect(captureServerException).toHaveBeenCalledOnce();
+      expect((captureServerException.mock.calls[0][0] as Error).message).toContain(
+        "Site misconfigured",
+      );
+    } finally {
+      process.env.GITHUB_APP_CLIENT_ID = prevId;
+      vi.resetModules();
+    }
   });
 });
 
