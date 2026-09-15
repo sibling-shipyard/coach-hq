@@ -156,9 +156,17 @@ export async function fetchProactiveCoachMessage(
     const response = await fetcher("/api/widget-snapshots", {
       signal: controller.signal,
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      captureFetchFailure("/api/widget-snapshots", {
+        kind: "server",
+        status: response.status,
+      });
+      return null;
+    }
     return selectProactiveCoachMessage(await response.json(), requestedSeed);
-  } catch {
+  } catch (error: unknown) {
+    // Timeout abort and real network drops both leave the proactive seed unavailable.
+    captureFetchFailure("/api/widget-snapshots", { kind: "network", error });
     return null;
   } finally {
     clearTimeout(timeout);
