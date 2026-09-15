@@ -1,5 +1,26 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { coachDayNumber } from "../../_lib/decide/coachDay.js";
+
+const { captureServerException, applyJsonMergePatchMock, realApplyHolder } = vi.hoisted(() => ({
+  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+  applyJsonMergePatchMock: vi.fn(),
+  realApplyHolder: {} as {
+    fn?: typeof import("../../../_lib/fileEdits.js").applyJsonMergePatch;
+  },
+}));
+
+vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
+  return { ...original, captureServerException };
+});
+
+vi.mock("../../../_lib/fileEdits.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../_lib/fileEdits.js")>();
+  realApplyHolder.fn = original.applyJsonMergePatch;
+  applyJsonMergePatchMock.mockImplementation(original.applyJsonMergePatch);
+  return { ...original, applyJsonMergePatch: applyJsonMergePatchMock };
+});
+
 import { injectCoachSinceIfNeeded } from "../../_lib/decide/coachSinceStamp.js";
 
 // ADR 0018: coach_since is a durable, write-once day-number anchor. These tests cover the two
@@ -58,26 +79,32 @@ describe("injectCoachSinceIfNeeded", () => {
   // dead code until Part A made it reachable, so the wrong target never surfaced until now.
   const closingFiles = { profile: '{"name":"Skanda","timezone":"UTC"}' };
 
-  it("does nothing when the profile was already complete before this turn", () => {
+  beforeEach(() => {
+    captureServerException.mockClear();
+    applyJsonMergePatchMock.mockReset();
+    applyJsonMergePatchMock.mockImplementation(realApplyHolder.fn!);
+  });
+
+  it("does nothing when the profile was already complete before this turn", async () => {
     const updates = [{ path: "user_data/coach/profile.json", content: "filled in" }];
-    const result = injectCoachSinceIfNeeded(updates, closingFiles, true, true, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded(updates, closingFiles, true, true, timezoneUTC);
     expect(result).toBe(updates);
   });
 
-  it("does nothing when the profile still isn't complete after this turn", () => {
+  it("does nothing when the profile still isn't complete after this turn", async () => {
     const updates: { path: string; content: string }[] = [];
-    const result = injectCoachSinceIfNeeded(updates, closingFiles, false, false, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded(updates, closingFiles, false, false, timezoneUTC);
     expect(result).toBe(updates);
   });
 
-  it("does nothing on an ordinary turn where closingFiles was never fetched", () => {
+  it("does nothing on an ordinary turn where closingFiles was never fetched", async () => {
     const updates: { path: string; content: string }[] = [];
-    const result = injectCoachSinceIfNeeded(updates, undefined, false, true, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded(updates, undefined, false, true, timezoneUTC);
     expect(result).toBe(updates);
   });
 
-  it("stamps coach_since onto profile.json on the false→true transition", () => {
-    const result = injectCoachSinceIfNeeded([], closingFiles, false, true, timezoneUTC);
+  it("stamps coach_since onto profile.json on the false→true transition", async () => {
+    const result = await injectCoachSinceIfNeeded([], closingFiles, false, true, timezoneUTC);
     const entry = result.find((u) => u.path === "user_data/coach/profile.json");
     expect(entry).toBeDefined();
     const parsed = JSON.parse(entry!.content);
@@ -86,12 +113,18 @@ describe("injectCoachSinceIfNeeded", () => {
     expect(parsed.coach_since).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("merges onto a profile.json write Gemini already proposed this same turn, instead of adding a second write", () => {
+  it("merges onto a profile.json write Gemini already proposed this same turn, instead of adding a second write", async () => {
     const geminiUpdate = {
       path: "user_data/coach/profile.json",
       content: '{"name":"Skanda","timezone":"America/Chicago"}',
     };
-    const result = injectCoachSinceIfNeeded([geminiUpdate], closingFiles, false, true, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded(
+      [geminiUpdate],
+      closingFiles,
+      false,
+      true,
+      timezoneUTC,
+    );
     const profileEntries = result.filter((u) => u.path === "user_data/coach/profile.json");
     expect(profileEntries).toHaveLength(1);
     const parsed = JSON.parse(profileEntries[0].content);
@@ -99,18 +132,42 @@ describe("injectCoachSinceIfNeeded", () => {
     expect(typeof parsed.coach_since).toBe("string");
   });
 
-  it("never overwrites an existing coach_since, even if the transition logic somehow fires again", () => {
+  it("never overwrites an existing coach_since, even if the transition logic somehow fires again", async () => {
     const files = { profile: '{"coach_since":"2026-01-01"}' };
-    const result = injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
     expect(result).toEqual([]);
   });
 
-  it("handles profile.json not existing yet (null)", () => {
+  it("handles profile.json not existing yet (null)", async () => {
     const files = { profile: null };
-    const result = injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
+    const result = await injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
     const entry = result.find((u) => u.path === "user_data/coach/profile.json");
     expect(entry).toBeDefined();
     const parsed = JSON.parse(entry!.content);
     expect(typeof parsed.coach_since).toBe("string");
+  });
+
+  it("captures and skips when profile.json is unparsable", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const files = { profile: "{not valid" };
+    const updates: { path: string; content: string }[] = [];
+    const result = await injectCoachSinceIfNeeded(updates, files, false, true, timezoneUTC);
+    expect(result).toBe(updates);
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("unparsable");
+    warnSpy.mockRestore();
+  });
+
+  it("captures and skips when the coach_since merge patch fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    applyJsonMergePatchMock.mockReturnValueOnce({ ok: false, error: "forced merge failure" });
+    const updates: { path: string; content: string }[] = [];
+    const result = await injectCoachSinceIfNeeded(updates, closingFiles, false, true, timezoneUTC);
+    expect(result).toBe(updates);
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain(
+      "forced merge failure",
+    );
+    warnSpy.mockRestore();
   });
 });

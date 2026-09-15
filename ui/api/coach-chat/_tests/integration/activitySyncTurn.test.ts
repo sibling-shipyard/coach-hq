@@ -8,6 +8,7 @@ import type { LlmAdapter } from "../../../_lib/llmClient.js";
 
 const {
   captureGeminiFailure,
+  captureServerException,
   commitFilesAtomic,
   getFileRaw,
   listDirectory,
@@ -44,6 +45,10 @@ const {
     eventId: "event-id",
     sent: true,
   })),
+  captureServerException: vi.fn(async (_error: unknown) => ({
+    eventId: "event-id",
+    sent: true,
+  })),
   // generateProactiveBody's own contract: a strict-schema `{body}` string, not the old
   // coach-chat askGemini conversational reply shape.
   generate: vi.fn(async () => ({
@@ -53,7 +58,7 @@ const {
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure }));
+vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure, captureServerException }));
 vi.mock("../../../_lib/llmClient.js", () => ({
   selectLlmAdapter: vi.fn(
     (): LlmAdapter => ({ name: "gemini", model: "gemini-pro-latest", generate }),
@@ -180,6 +185,7 @@ describe("activity-sync turn contract", () => {
       telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
     });
     captureGeminiFailure.mockClear();
+    captureServerException.mockClear();
     getFileRaw.mockReset();
     getFileRaw.mockResolvedValue(null);
     listDirectory.mockReset();
@@ -642,6 +648,9 @@ describe("activity-sync turn contract", () => {
     expect(await response.json()).toMatchObject({
       error: expect.stringContaining("saving failed"),
     });
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+    expect(captureServerException.mock.calls[0][0]).toEqual(expect.any(Error));
+    expect((captureServerException.mock.calls[0][0] as Error).message).toBe("github 409");
     errorSpy.mockRestore();
   });
 });

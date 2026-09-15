@@ -4,12 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // real athlete repo): generateFirstSessionWorkoutsAfterCompletion must never fire for an
 // already-established athlete, only on the genuine false->true profileComplete transition.
 
-const { commitFilesAtomic } = vi.hoisted(() => ({
+const { commitFilesAtomic, captureServerException } = vi.hoisted(() => ({
   commitFilesAtomic: vi.fn(async (_writes: { path: string; content?: string }[]) => ({
     commitSha: "commit-sha",
   })),
+  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
 }));
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
+vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
+  return { ...original, captureServerException };
+});
 
 // A manifest that does NOT list the benchmark id - the exact real-world state of every
 // established athlete repo, since the benchmark concept never touched them. PROFILE_PATH
@@ -78,6 +83,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
 describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
   beforeEach(() => {
     commitFilesAtomic.mockClear();
+    captureServerException.mockClear();
     getFileRaw.mockClear();
     buildBenchmarkSpec.mockReset();
     buildBenchmarkSpec.mockImplementation(originalHolder.fn!);
@@ -350,6 +356,8 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
       expect(commitFilesAtomic).toHaveBeenCalledTimes(2);
       const attemptWrite = commitFilesAtomic.mock.calls[1][0];
       expect(JSON.parse(attemptWrite[0].content!).first_session_benchmark_attempts).toBe(1);
+      expect(captureServerException).toHaveBeenCalledTimes(1);
+      expect((captureServerException.mock.calls[0][0] as Error).message).toBe("network blip");
     });
   });
 

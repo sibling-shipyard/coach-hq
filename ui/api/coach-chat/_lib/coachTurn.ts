@@ -54,6 +54,7 @@ import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
 import { sumUsage, type GeminiUsage } from "../../_lib/sentry.js";
 import {
   captureGeminiFailure,
+  captureServerException,
   captureValidationFailure,
   captureStillUnresolvedGuard,
 } from "../../_lib/sentry.js";
@@ -344,7 +345,10 @@ export async function loadTurnState(
     progressions,
     athleteInsights,
   } = context;
-  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
+  if (!soul) {
+    await captureServerException(new Error("Coach SOUL bundle is unavailable"));
+    return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
+  }
 
   const timezone = profile?.timezone?.trim() || "UTC";
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
@@ -2089,7 +2093,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   if (!wasProfileComplete && profileComplete && !closingFiles) {
     closingFiles = await loadClosingFileContext(repo, token);
   }
-  let validUpdates = injectCoachSinceIfNeeded(
+  let validUpdates = await injectCoachSinceIfNeeded(
     [],
     closingFiles,
     wasProfileComplete,
@@ -2386,6 +2390,9 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
         traceId: turn.traceId,
       },
     );
+    // Once per failure cycle (not per inner attempt) — soft-continue without the benchmark, but
+    // the operator still needs the signal (B8).
+    await captureServerException(err);
     // Review finding (P1, #727 hardening): records the failed attempt so the cap check at the top
     // of this function can eventually give up instead of retrying forever - see
     // FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS. Its own failure (a bad read, a bad patch, a commit
@@ -2496,6 +2503,8 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
     console.error("[coach-chat] chat commitFilesAtomic failed:", err, {
       traceId: turn.traceId,
     });
+    // Response-built 502 — withSentryRoute only captures throws, so capture here (B1).
+    await captureServerException(err);
     // Gemini already ran and was billed by this point regardless of whether the commit itself
     // succeeds - drop the usage header here too and a harness reading it sees $0 for a turn that
     // really cost money (review finding).

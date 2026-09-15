@@ -1,5 +1,6 @@
 /** Server-owned coach_since stamping at the First Session completion boundary. */
 import { applyJsonMergePatch } from "../../../_lib/fileEdits.js";
+import { captureServerException } from "../../../_lib/sentry.js";
 import { getFileRaw } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 import { PROFILE_PATH } from "./coachMemoryFiles.js";
@@ -26,13 +27,13 @@ export async function loadClosingFileContext(
 // coach_since-guarded patch means it only ever gets set on the real transition, never for an
 // athlete who already has coach_since - the exact protection this file already existed to give
 // coach_since.
-export function injectCoachSinceIfNeeded(
+export async function injectCoachSinceIfNeeded(
   validUpdates: { path: string; content: string }[],
   closingFiles: ClosingFileContext | undefined,
   wasProfileComplete: boolean,
   isProfileCompleteNow: boolean,
   timezone: string,
-): { path: string; content: string }[] {
+): Promise<{ path: string; content: string }[]> {
   if (wasProfileComplete || !isProfileCompleteNow || !closingFiles) return validUpdates;
   const existing = validUpdates.find((u) => u.path === PROFILE_PATH);
   const baseContent = existing?.content ?? closingFiles.profile;
@@ -41,6 +42,7 @@ export function injectCoachSinceIfNeeded(
     if (parsed.coach_since) return validUpdates;
   } catch {
     console.warn("[coach-chat] profile.json unparsable - skipping coach_since stamp");
+    await captureServerException(new Error("profile.json unparsable - skipping coach_since stamp"));
     return validUpdates;
   }
   const patch = JSON.stringify({
@@ -50,6 +52,7 @@ export function injectCoachSinceIfNeeded(
   const result = applyJsonMergePatch(baseContent ?? null, patch);
   if (!result.ok) {
     console.warn(`[coach-chat] coach_since stamp failed - ${result.error}`);
+    await captureServerException(new Error(`coach_since stamp failed - ${result.error}`));
     return validUpdates;
   }
   const rest = validUpdates.filter((u) => u.path !== PROFILE_PATH);
