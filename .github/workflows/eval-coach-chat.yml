@@ -1,30 +1,15 @@
 name: Eval Coach Chat
 
-# ADR 0024 (kdb/decisions/0024-paid-checks-run-at-gates.md) governs this trigger:
-# eval:coach-chat calls the live Gemini API once per transcript — it is a paid check that only
-# runs at named gates. The two named gates are:
-#   1. Manual dispatch — operator-driven, on demand.
-#   2. Push to main when the diff touches prompt construction, the response schema, the model
-#      config, or the eval harness/fixtures — the only diffs where the eval can actually fail.
+# ADR 0047 (kdb/decisions/0047-eval-coach-chat-manual-dispatch-only.md) governs this trigger:
+# eval:coach-chat calls the live Gemini/OpenRouter API once per transcript - it is a paid check
+# that runs only on manual dispatch. This superseded ADR 0024's push-on-named-paths gate: that
+# gate ran unattended for weeks with nobody watching it, so its real cost bought no real safety.
 #
-# DO NOT add a pull_request trigger. ADR 0024 explicitly forbids it: running a paid check
-# reflexively on every PR normalises ignoring red and decays the signal into noise.
+# DO NOT add a push or pull_request trigger. Run it deliberately, when someone is actually
+# testing this area, the same discipline every other paid check in this repo already uses.
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      # Prompt construction
-      - 'ui/api/coach-chat/_lib/gemini/coachPromptText.ts'
-      - 'ui/api/coach-chat/_lib/decide/coachContext.ts'
-      # Response schema
-      - 'ui/api/coach-chat/_lib/gemini/coachReplySchema.ts'
-      # Model config
-      - 'ui/api/coach-chat/_lib/gemini/geminiClient.ts'
-      # Eval harness and fixtures
-      - 'ui/scripts/eval-coach-chat.ts'
-      - 'ui/api/coach-chat/_tests/coach-chat-eval/**'
 
 jobs:
   eval-coach-chat:
