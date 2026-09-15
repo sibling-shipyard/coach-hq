@@ -44,6 +44,7 @@ import {
   PROFILE_PATH,
   MEMORY_PATH,
   WEEKDAYS,
+  type Weekday,
   type ProfileJson,
   type MemoryJson,
   type CoachLogJson,
@@ -567,11 +568,41 @@ function findMissingWorkoutCreateInjuryAck(turn: TurnState, reply: GeminiReply):
 // already has its own WEEKDAY_PATTERN for a different purpose (P2, #727 review).
 const PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD = 5;
 
+// #1075: found live on coach-akash-suresh - the model narrated a full week with the 3-letter
+// abbreviation ("Mon (Sep 14)", "Tue (Sep 15)", ...) plus exactly one full name in prose
+// ("Monday court is already in the bag"). That's 1 match against WEEKDAYS alone, so the detector
+// above never fired and the unsaved plan reached the athlete with no reprompt.
+//
+// A bare-word abbreviation match is NOT safe on its own - "sat" ("I sat down"), "sun" ("the sun
+// was out"), and "wed" ("we wed last spring") are real English words a normal coaching reply can
+// say without describing a week at all, and re-introducing that risk is exactly what this
+// detector's own header comment (above) rejected a generic keyword match for. The real narrated-
+// week shape always pairs the abbreviation with the day-by-day list markup around it - every
+// live-reproduced case has the abbreviation immediately followed by a date/label separator
+// (`Mon (Sep 14)`, `Tue:`, `Wed -`). Requiring that trailing punctuation keeps the false-positive
+// risk at the same "not something ordinary conversation produces by accident" bar the full-name
+// check already meets, while still catching this real shape.
+const WEEKDAY_ABBREVIATIONS: Record<Weekday, string> = {
+  monday: "mon",
+  tuesday: "tue",
+  wednesday: "wed",
+  thursday: "thu",
+  friday: "fri",
+  saturday: "sat",
+  sunday: "sun",
+};
+
+function countMentionedWeekdays(replyText: string): number {
+  return WEEKDAYS.filter((day) => {
+    const abbrev = WEEKDAY_ABBREVIATIONS[day];
+    const pattern = new RegExp(`\\b(${day}|${abbrev}\\s*[:\\-(])`, "i");
+    return pattern.test(replyText);
+  }).length;
+}
+
 function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
   if (firstSession || reply.week_update) return false;
-  const lowerReply = reply.reply.toLowerCase();
-  const mentionedWeekdays = WEEKDAYS.filter((day) => lowerReply.includes(day)).length;
-  return mentionedWeekdays >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
+  return countMentionedWeekdays(reply.reply) >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
 }
 
 // Direct-pro baseline (2026-09-10): the FSP dense-message scenario above still silently dropped
