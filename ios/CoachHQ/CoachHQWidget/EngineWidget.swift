@@ -21,11 +21,11 @@ struct EngineProvider: TimelineProvider {
             completion(EngineEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
-        completion(EngineEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.engine, isPlaceholder: false))
+        completion(EngineEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.engine, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<EngineEntry>) -> Void) {
-        let entry = EngineEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.engine, isPlaceholder: false)
+        let entry = EngineEntry(date: Date(), sizes: WidgetSentry.loadSnapshots()?.sizes.engine, isPlaceholder: false)
         // Safety-net refresh — the app calls `WidgetCenter.reloadAllTimelines()` right after
         // every sync/refresh, so this window is a fallback, not the primary update path.
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)

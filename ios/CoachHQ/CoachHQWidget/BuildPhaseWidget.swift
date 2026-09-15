@@ -21,11 +21,11 @@ struct BuildPhaseProvider: TimelineProvider {
             completion(BuildPhaseEntry(date: Date(), phase: Self.previewPhase, isPlaceholder: false))
             return
         }
-        completion(BuildPhaseEntry(date: Date(), phase: AppGroupSnapshotBridge.read()?.home.phase, isPlaceholder: false))
+        completion(BuildPhaseEntry(date: Date(), phase: WidgetSentry.loadSnapshots()?.home.phase, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<BuildPhaseEntry>) -> Void) {
-        let entry = BuildPhaseEntry(date: Date(), phase: AppGroupSnapshotBridge.read()?.home.phase, isPlaceholder: false)
+        let entry = BuildPhaseEntry(date: Date(), phase: WidgetSentry.loadSnapshots()?.home.phase, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }

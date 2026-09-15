@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		33A1581630436B59002B97D6 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 33A1581730436B59002B97D6 /* Sentry-Dynamic */; };
 		33E4DF2530436B59002B97D6 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 33E4DF2430436B59002B97D6 /* Sentry-Dynamic */; };
 		33FBADC33014A92000439B25 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC23014A92000439B25 /* WidgetKit.framework */; };
 		33FBADC53014A92000439B25 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC43014A92000439B25 /* SwiftUI.framework */; };
@@ -73,6 +74,7 @@
 				Models/WidgetSnapshots.swift,
 				Models/Workout.swift,
 				Resources/golden_widget_snapshots.json,
+				Secrets.swift,
 				Shared/AppGroupSnapshotBridge.swift,
 				Shared/GoldenDataset.swift,
 				Views/Theme.swift,
@@ -135,6 +137,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33A1581630436B59002B97D6 /* Sentry-Dynamic in Frameworks */,
 				33FBADC53014A92000439B25 /* SwiftUI.framework in Frameworks */,
 				33FBADC33014A92000439B25 /* WidgetKit.framework in Frameworks */,
 			);
@@ -241,6 +244,7 @@
 			);
 			name = CoachHQWidgetExtension;
 			packageProductDependencies = (
+				33A1581730436B59002B97D6 /* Sentry-Dynamic */,
 			);
 			productName = CoachHQWidgetExtension;
 			productReference = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */;
@@ -718,6 +722,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		33A1581730436B59002B97D6 /* Sentry-Dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = "Sentry-Dynamic";
+		};
 		33E4DF2430436B59002B97D6 /* Sentry-Dynamic */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
