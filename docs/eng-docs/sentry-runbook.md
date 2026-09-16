@@ -1,6 +1,8 @@
 # Sentry operator runbook
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-09-15 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+>
+> Coverage boundary rewritten after the #1078 stack (PRs #1088–#1098).
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -29,8 +31,10 @@ flowchart LR
    Preview. Put the public iOS DSN in the uncommitted `Secrets.swift` used by the app build.
    Athlete repos report failed Sync runs into `coach-hq-api` (tag `operation:sync`): export the
    same `SENTRY_DSN` before `node platform/scripts/carve-skeleton.mjs`, which stamps it into the
-   Sync workflow it carves. A DSN only writes, so it needs no athlete secret. Carve
-   without it and the script warns; the repo it produces reports nothing.
+   Sync workflow it carves. A DSN only writes, so it needs no athlete secret. Carve **fails
+   closed** when `SENTRY_DSN` is unset — pass `--no-sentry` only for local/test carves that
+   intentionally skip Sync alerts. Repos carved before that rule may still lack a DSN; audit
+   them once (operational follow-up, no PR).
 3. **Nothing uploads source maps or dSYMs yet — there is no setup step here to do.**
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
    web stack frames arrive minified. iOS is the same story for a different reason: the repo builds
@@ -238,18 +242,25 @@ Seven constraints to check before editing Sentry setup.
 
 ## Coverage boundary
 
-**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, React
-render-crash paths, and the two client fetches the dashboard cannot start without —
-`/api/auth/me` and `/api/repo-file` (`captureFetchFailure` in
-`ui/client/src/lib/observability.ts`). That means the browser's own pageload and navigation
-spans, one manual `http.server` span on each wrapped API route, and the Gemini spans we open by
-hand. On the OpenRouter path, that span also carries `gen_ai.usage.cost.usd` (USD for the whole
-call) and `gen_ai.usage.input_tokens.cached` (#889) — direct Gemini has neither, since Vertex
-reports no per-call cost on that path. A web report
-carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
-`extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
-would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
-Also counted: a sync whose numbers never refreshed, `healthkit.sync.stale`, described next.
+**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, and
+React render-crash paths. Client fetches go through `captureFetchFailure`
+(`ui/client/src/lib/observability.ts`): `/api/auth/me`, `/api/repo-file`,
+`/api/widget-snapshots`, `/api/auth/list-my-repos`, `/api/waitlist`, plus Coach Chat verbs
+(`/api/coach-chat`, `/api/coach-chat-profile-status`, activity-sync) via
+`reportCoachChatFailure`. That means the browser's own pageload and navigation spans, one manual
+`http.server` span on each wrapped API route, and the Gemini spans we open by hand. On the
+OpenRouter path, that span also carries `gen_ai.usage.cost.usd` (USD for the whole call) and
+`gen_ai.usage.input_tokens.cached` (#889) — direct Gemini has neither, since Vertex reports no
+per-call cost on that path. A web report carries the SDK's own click, navigation and fetch
+breadcrumbs as its timeline, copied onto `extra.trail` when the dialog opens. `beforeBreadcrumb`
+drops the `console` ones, because those would carry arbitrary logged text on a path ADR 0032
+scoped to failed Gemini calls. Also counted: a sync whose numbers never refreshed,
+`healthkit.sync.stale`, described next.
+
+**API / iOS soft-fallback is counted once.** When GitHub token refresh fails and we keep serving
+the still-valid session (`ensureFreshSession` in `ui/api/auth/_lib/session.ts`; matching path in
+`GitHubAuthManager.swift`), that is one `level:warning` per failed attempt-cycle — never per
+retry inside it. Same quota math as errors on the free plan.
 
 **A failure a route returns instead of throwing is only counted if that route captures it by
 hand** — `withSentryRoute` sees throws, and a fault built into a `Response` never reaches it. Two
@@ -259,6 +270,7 @@ six months idle. A non-2xx from GitHub, or a 200 whose body carries neither a to
 is a fault. And a session cookie that will not decrypt is a fault — a rotated `SESSION_SECRET`
 looks exactly like signing out — except when jose codes it `ERR_JWT_EXPIRED`, which really is a
 cookie that aged out. A 404 before first sync and a revoked install stay uncaptured everywhere.
+Post-commit soft reads that are not 404 (`getHeadSha` callers) capture on terminal fault.
 
 **A client fetch failure says which half of the trace to look at.** `fetch_failure:network` means
 the request never got a response: there is no API event to join it to, and `online:false` says the
@@ -314,6 +326,14 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
 - **iOS dSYM upload**, still parked.
 - **Chat text on a successful turn.** It reaches Sentry only when a Gemini call fails; a turn that
   works stays in `chat_history.json`.
+- **`parseJsonOrNull` on athlete data files** (`coachChatFiles.ts` / `coachMessage.ts`) — best-effort
+  reads with no capture. Athlete call whether to count corruption; leave quiet until decided.
+- **Python pipeline entry points** (`engine/`, `scripts/`) beyond the Sync-workflow envelope POST
+  (`notify_sync_failure.py`). ADR 0032 names web/API/iOS only. Correctness bugs that never throw
+  (corrupt activity drop, empty quest ledger exit 0, hardcoded sync counters) need raises first;
+  Sentry scope for Python needs its own ADR before wiring more capture.
+- **Per-widget React error boundaries** and explicit iOS `enableCrashHandler` /
+  `enableAutoSessionTracking` — deferred architecture / SDK-default clarity, not capture gaps.
 
 And this is error monitoring, not product analytics. It says what broke, never what athletes do —
 a different tool and a different question. See `ops-observability.md` § What this does not cover.
