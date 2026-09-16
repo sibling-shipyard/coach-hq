@@ -21,7 +21,7 @@ _LIB = _BOOT.parent / "lib"
 _CORE = _BOOT.parent / "core"
 sys.path.insert(0, str(_LIB))
 sys.path.insert(0, str(_CORE))
-from plugins import badminton_analytics_script, is_plugin_enabled  # noqa: E402
+from plugins import badminton_analytics_script, badminton_snapshot_path, is_plugin_enabled  # noqa: E402
 from repo_layout import gen_dir, hist_dir, p, repo_root_from_here, sync_status_path  # noqa: E402
 from vs_usual import enrich_activity_files  # noqa: E402
 
@@ -47,6 +47,9 @@ def run(script: str) -> None:
 
 
 def maybe_run_badminton_analytics() -> None:
+    # The generator writes nothing when no sessions have games; remove the prior
+    # result so disabled or empty plugins cannot leave stale analytics behind.
+    badminton_snapshot_path(REPO).unlink(missing_ok=True)
     if not is_plugin_enabled(REPO, "badminton"):
         log("Badminton plugin not enabled — skipping analytics snapshot")
         return
