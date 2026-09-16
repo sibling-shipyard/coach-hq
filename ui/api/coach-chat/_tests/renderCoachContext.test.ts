@@ -144,6 +144,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     for (const header of [
       "## Athlete Profile",
@@ -166,6 +167,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("- **Name:** Test Athlete");
     expect(text).toContain("- **Sport(s) / Activities:** badminton, strength");
@@ -182,6 +184,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("inj_knee");
     expect(text).not.toContain("inj_elbow");
@@ -195,6 +198,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
     expect(section).toContain("2026-08-17");
@@ -217,6 +221,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-17",
+      todayActivityNotes: [],
     });
     const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
     expect(section).toContain("Today's existing note (2026-08-17)");
@@ -232,6 +237,7 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("Responds well to short intervals.");
     expect(text).toContain("Under-eats on heavy training days.");
@@ -246,6 +252,7 @@ describe("renderCoachContext section shape", () => {
       coachLog: null,
       athleteInsights: null,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("## Athlete Profile");
     expect(text).toContain("- **Timezone:** UTC");
@@ -274,6 +281,7 @@ describe("renderCoachContext section shape", () => {
         },
       },
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("## Fitness Snapshot (last 365 days)");
     expect(text).toContain(
@@ -306,6 +314,7 @@ describe("renderCoachContext section shape", () => {
         },
       },
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("1 session in the window");
     expect(text).not.toContain("1 sessions");
@@ -349,6 +358,7 @@ describe("renderCoachContext section shape", () => {
         },
       },
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     const snapshot = text.split("## Fitness Snapshot")[1].split("## Fitness Baseline")[0];
     const badmintonPos = snapshot.indexOf("Badminton");
@@ -385,6 +395,7 @@ describe("renderCoachContext section shape", () => {
         sports,
       },
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("(+ 1 more sport)");
     expect(text).not.toContain("Zeta"); // 6th sport capped
@@ -411,6 +422,7 @@ describe("renderCoachContext section shape", () => {
         },
       } as never,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("**Run:** 20 sessions in the window");
     expect(text).toContain("longest gap 14 days; last session 5 days ago.");
@@ -439,6 +451,7 @@ describe("renderCoachContext section shape", () => {
         },
       },
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).toContain("## Fitness Snapshot (last 90 days)");
   });
@@ -505,7 +518,55 @@ describe("renderCoachContext section shape", () => {
       coachLog,
       athleteInsights: athleteInsights as never,
       today: "2026-08-18",
+      todayActivityNotes: [],
     });
     expect(text).not.toContain("Fitness Snapshot");
+  });
+
+  // #1147: the reply-turn context step (todayActivityNotes.ts) hands renderCoachContext already-
+  // filtered rows - this only checks the render side stays a strict no-op on empty and renders
+  // correctly when populated.
+  describe("today's activity notes section", () => {
+    it("omits the section entirely when there are no notes", () => {
+      const text = renderCoachContext({
+        profile,
+        memory,
+        injuries,
+        coachLog,
+        athleteInsights: null,
+        today: "2026-08-18",
+        todayActivityNotes: [],
+      });
+      expect(text).not.toContain("Today's Activity Notes");
+    });
+
+    it("renders each note under its activity title", () => {
+      const text = renderCoachContext({
+        profile,
+        memory,
+        injuries,
+        coachLog,
+        athleteInsights: null,
+        today: "2026-08-18",
+        todayActivityNotes: [
+          { activity_id: "healthkit:abc", title: "Evening badminton", note: "Played my old rival, close set." },
+        ],
+      });
+      expect(text).toContain("## Today's Activity Notes");
+      expect(text).toContain("- **Evening badminton:** Played my old rival, close set.");
+    });
+
+    it("falls back to the activity id when the title is blank", () => {
+      const text = renderCoachContext({
+        profile,
+        memory,
+        injuries,
+        coachLog,
+        athleteInsights: null,
+        today: "2026-08-18",
+        todayActivityNotes: [{ activity_id: "healthkit:abc", title: "", note: "Felt strong today." }],
+      });
+      expect(text).toContain("- **healthkit:abc:** Felt strong today.");
+    });
   });
 });

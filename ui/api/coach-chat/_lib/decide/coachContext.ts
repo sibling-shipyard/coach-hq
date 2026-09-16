@@ -18,6 +18,7 @@ import type {
   AthleteSportInsight,
   DurationBuckets,
 } from "./coachChatFiles.js";
+import type { TodayActivityNote } from "./todayActivityNotes.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
@@ -29,6 +30,11 @@ export interface CoachContextStorage {
   // row by name (C2): coach_note is now a day-keyed overwrite, so Gemini needs to know which row,
   // if any, it's revising today rather than just seeing it buried in the last-5 history list.
   today: string;
+  // #1147: activities that seeded this thread's sync and landed today, with whatever description
+  // the athlete has written as of this exact turn - see todayActivityNotes.ts for the re-read.
+  // Empty on every turn that isn't in a same-day sync thread, which is what keeps this section
+  // absent for ordinary chat.
+  todayActivityNotes: readonly TodayActivityNote[];
 }
 
 export interface QuestContextStorage {
@@ -188,6 +194,15 @@ function activeInjuryFlagsSection(injuries: InjuriesJson | null): string {
   const body =
     flags.length > 0 ? flags.map((f) => `- **${f.id}:** ${f.text}`).join("\n") : "*(None)*";
   return ["## Active Injury Flags", body].join("\n");
+}
+
+// #1147: omitted entirely (not even an empty header) when there's nothing to show - a thread
+// that wasn't seeded by today's sync, or one where the athlete hasn't written a note yet, must
+// stay a strict no-op for ordinary chat.
+function todayActivityNotesSection(notes: readonly TodayActivityNote[]): string | null {
+  if (notes.length === 0) return null;
+  const body = notes.map((n) => `- **${n.title || n.activity_id}:** ${n.note}`).join("\n");
+  return ["## Today's Activity Notes", body].join("\n");
 }
 
 function coachingPrioritiesSection(memory: MemoryJson | null): string {
@@ -397,6 +412,7 @@ export function renderCoachContext(storage: CoachContextStorage): string {
     profileSection(storage.profile, storage.memory),
     equipmentSection(storage.memory),
     recentSessionNotesSection(storage.coachLog, storage.today),
+    todayActivityNotesSection(storage.todayActivityNotes),
     fitnessSnapshotSection(storage.athleteInsights),
     fitnessBaselineSection(storage.memory),
     activeInjuryFlagsSection(storage.injuries),

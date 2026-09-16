@@ -121,6 +121,9 @@ async function handleGreet(
     coachLog,
     athleteInsights,
     today: todayDateString(timezone, new Date()),
+    // A greet has no priorMessages to scan - #1147's reply-turn notes only ever apply once a
+    // thread already exists.
+    todayActivityNotes: [],
   });
   const questContext = renderQuestContext({
     seasons,
