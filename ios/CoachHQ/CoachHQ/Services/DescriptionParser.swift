@@ -81,6 +81,8 @@ struct MatchSummary: Codable, Equatable {
 }
 
 struct MatchSession: Codable, Equatable {
+    /// Exact committed hist basename; absent on date-only match records.
+    var historyFile: String? = nil
     var date: String
     var activityId: Int?
     var preMentalState: MatchPreMentalState?
@@ -93,6 +95,20 @@ struct MatchSession: Codable, Equatable {
 struct MatchHistory: Codable, Equatable {
     var version: Int
     var sessions: [MatchSession]
+
+    mutating func upsert(_ session: MatchSession, historyFile: String) {
+        var keyedSession = session
+        keyedSession.historyFile = historyFile
+        // A date cannot prove which committed hist file an unkeyed row names.
+        // Preserve unkeyed rows until their committed history file is known.
+        if let index = sessions.firstIndex(where: { $0.historyFile == historyFile }) {
+            keyedSession.activityId = keyedSession.activityId ?? sessions[index].activityId
+            sessions[index] = keyedSession
+        } else {
+            sessions.append(keyedSession)
+        }
+        sessions.sort { $0.date > $1.date }
+    }
 }
 
 // MARK: - Parser

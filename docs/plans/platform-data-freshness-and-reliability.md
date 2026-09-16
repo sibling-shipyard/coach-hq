@@ -26,7 +26,7 @@ No P0 was found. The seven P1 findings drive the PR stack below; three split int
 
 - ADR 0042 owns reconciliation and scheduled rollover; `week_update` stays the sole Coach write action.
 - ADR 0035 requires one hist file per real session. A failed read must not make a committed session look absent.
-- ADR 0013 makes `match_history.json` canonical. Supersede its date-only identity with a stable key and migration before changing the contract.
+- ADR 0013 makes `match_history.json` canonical. ADR 0049 adds the exact hist basename as the key for new entries; old date-only entries remain readable without a bulk migration.
 - `ui/api/repo-file.ts` uses `no-store` after a confirmed cross-account cache leak. Performance work must preserve that privacy property.
 
 ## Milestones
@@ -56,8 +56,8 @@ M1's plugin output must persist before M2's badminton analytics contract is judg
 | 5 | M1 | P1 · Commit plugin analytics and remove obsolete output. | PR 4 | `sync.user.yml`, `regenerate_derived.py`, engine tests, `ios-sync.md`, this plan | Bob + Tech Lead docs | 6 | Enabled, disabled, and empty-session trees are correct. |
 | 6 | M2 | P1 · Stop iOS sync when required hist reads fail. | PR 5 | `HealthKitSyncManager.swift`, iOS tests | iOS Builder | 1–5 | Read failure plus Garmin rewrite makes no duplicate. |
 | 7 | M2 | P1 · Add a stable match identity to iOS's structured write. | PR 6 | ADR, `ActivityDetailView.swift`, `DescriptionParser.swift`, iOS tests | iOS Builder + Tech Lead ADR | — | New saves carry a stable key alongside the date; two same-day saves stay distinct. |
-| 8 | M2 | P1 · Migrate `analytics.py` to the stable match identity, date-keyed fallback for pre-migration files. | PR 7 | `analytics.py`, platform tests | Tech Lead | — | Two same-day matches survive analytics; pre-migration date-only entries still resolve. |
-| 9 | M2 | P1 · Make the snapshot builder emit structured badminton matches. | PR 8 | `sync.user.yml`, snapshot builder, engine tests | Bob | — | Snapshot carries the stable-keyed match list; two-session fixture round-trips. |
+| 8 | M2 | P1 · Read the stable match identity in `analytics.py`, with cautious date fallback for older entries. | PR 7 | `analytics.py`, platform tests | Tech Lead | — | Two same-day matches survive analytics; older date-only entries still resolve. |
+| 9 | M2 | P1 · Make the snapshot builder emit structured badminton matches. | PR 8 | snapshot builder, engine tests | Bob | — | Snapshot carries the stable-keyed match list; two-session fixture round-trips. |
 | 10 | M2 | P1 · Make web badminton read structured matches. | PR 9 | `matchParser.ts`, Home/lens models, UI tests | UI Expert | — | Web and Python agree on the two-session fixture. |
 
 Agents may build disjoint work in parallel, but final PR branches follow the one-parent chain above. After a parent squash-merges, forward-merge `main` into its child and retarget the child PR; do not rebase. Create scoped issues before implementation. This plan PR references the platform-hardening epic without closing it. Delete the plan in the last PR after moving durable contracts into engineering docs.
