@@ -96,8 +96,13 @@ test("badminton staging adds enabled output and deletes disabled or empty output
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
   function run(command) {
-    const result = spawnSync("bash", ["-e", "-c", command], { cwd: root, encoding: "utf8" });
-    assert.equal(result.status, 0, `${command}: ${result.stderr}`);
+    // Git hooks export their parent repository paths; the fixture needs its own .git.
+    const env = { ...process.env };
+    for (const key of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX"]) {
+      delete env[key];
+    }
+    const result = spawnSync("bash", ["-e", "-c", command], { cwd: root, encoding: "utf8", env });
+    assert.equal(result.status, 0, `${command}: ${result.stdout}${result.stderr}`);
     return result.stdout.trim();
   }
 
