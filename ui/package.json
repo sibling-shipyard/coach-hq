@@ -27,6 +27,7 @@
     "pretest:simulation-suite": "node scripts/build-soul.mjs",
     "test:simulation-suite": "tsx --tsconfig tsconfig.json scripts/run-simulation-suite.ts",
     "test:coach-message-manual": "tsx --tsconfig tsconfig.json scripts/run-manual-coach-message-test.ts",
+    "check:coverage-reconciliation": "tsx --tsconfig tsconfig.json scripts/check-coverage-reconciliation.ts",
     "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run",
     "pretest:logged": "node scripts/build-soul.mjs",
