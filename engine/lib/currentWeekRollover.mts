@@ -8,28 +8,14 @@
  * coach-chat Vercel function, once that consumer lands.
  */
 import type { CurrentWeekRuntime } from "./current-week.mts";
+import { addDays, getIsoWeekId } from "./current-week.mts";
 
-function addDays(dateString: string, days: number): string {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
+// current-week.mts has no equivalent - this file's own placeholder-building needs "the Monday
+// on or before today" specifically, a shape nothing else in that file has a reason to compute.
 function mondayOnOrBefore(dateString: string): string {
   const date = new Date(`${dateString}T00:00:00Z`);
   const day = date.getUTCDay() || 7; // Sunday is 0 -> treat as 7
   return addDays(dateString, 1 - day);
-}
-
-function getIsoWeekId(dateString: string): string {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - day);
-  const isoYear = date.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const daysSinceYearStart = Math.floor((date.getTime() - yearStart.getTime()) / 86_400_000) + 1;
-  const week = Math.ceil(daysSinceYearStart / 7);
-  return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
 
 /**
