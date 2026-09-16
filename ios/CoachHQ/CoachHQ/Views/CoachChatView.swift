@@ -851,7 +851,12 @@ struct CoachChatView: View {
                     severity: .warning,
                     operation: "coach.chat.dropped_actions",
                     operationID: UUID(),
-                    metadata: ["dropped_count": String(dropped.count)]
+                    metadata: [
+                        "dropped_count": String(dropped.count),
+                        // Flattened from the old Sentry context — DiagnosticsManager metadata is
+                        // string-only, so fields join rather than nest.
+                        "dropped_fields": dropped.map(\.field).joined(separator: ","),
+                    ]
                 )
             }
         } catch let error as CoachChatSaveFailedError {
