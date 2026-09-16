@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 >
 > Coverage boundary rewritten after the #1078 stack (PRs #1088–#1098).
 
@@ -329,9 +329,11 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
 - **`parseJsonOrNull` on athlete data files** (`coachChatFiles.ts` / `coachMessage.ts`) — best-effort
   reads with no capture. Athlete call whether to count corruption; leave quiet until decided.
 - **Python pipeline entry points** (`engine/`, `scripts/`) beyond the Sync-workflow envelope POST
-  (`notify_sync_failure.py`). ADR 0032 names web/API/iOS only. Correctness bugs that never throw
-  (corrupt activity drop, empty quest ledger exit 0, hardcoded sync counters) need raises first;
-  Sentry scope for Python needs its own ADR before wiring more capture.
+  (`notify_sync_failure.py`). ADR 0032 names web/API/iOS only; the pipeline stays standard-library
+  only by convention (`record_sync_failure.py`'s own docstring, `.github/agents/bob-the-builder.md`
+  § Learnings) rather than a new `sentry_sdk` dependency. Correctness bugs that never throw
+  (corrupt activity drop, empty quest ledger exit 0, hardcoded sync counters) still need raises
+  first — until then they reach neither this boundary nor the envelope.
 - **Per-widget React error boundaries** and explicit iOS `enableCrashHandler` /
   `enableAutoSessionTracking` — deferred architecture / SDK-default clarity, not capture gaps.
 
