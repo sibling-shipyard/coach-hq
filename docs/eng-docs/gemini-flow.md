@@ -14,7 +14,8 @@ the same way `coach-chat-flow.md` is the one reference for the request lifecycle
 Chat runs `gemini-pro-latest`, pinned in `ui/api/_lib/geminiModel.ts:11`. Flash is the intended
 model and the pin is temporary — #668 moved off it after capacity failures, not quality ones.
 Called via raw `fetch` to `generateContent`, no SDK (`GEMINI_API_KEY` env var). One call per turn,
-no streaming (issue #270).
+no streaming (#870: plain reply text must stream separately from validated structured actions and
+terminal state behind `LlmAdapter` for Gemini/OpenRouter).
 
 `ui/api/coach-message.ts` no longer shares that model and key. It reaches the model through
 `ui/api/_lib/llmClient.ts`, which picks one adapter per request from `LLM_PROVIDER`: the default
@@ -529,8 +530,9 @@ guard - see the coverage table above for the current state.
 
 ## Deferred
 
-- P2: token-level streaming — issue #270, blocked on deciding how `reply` streams separately
-  from the structured metadata fields.
+- P2: token-level streaming — #870 must stream plain reply text separately from validated
+  structured actions and terminal state behind `LlmAdapter` for Gemini/OpenRouter, with web/iOS
+  cancellation, retry, and disconnect/reconciliation proof.
 - P3: cache invalidation is TTL + content-hash only, no active push on SOUL redeploy — acceptable
   given deploy frequency vs. the 2h TTL, revisit if that ratio changes.
 - P3: `getCachedSoulName`'s read-then-write race under concurrent cold starts, documented above -

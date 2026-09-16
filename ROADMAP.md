@@ -37,14 +37,23 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 
 ## 🎯 Now — M3: Scale to 10
 
+### Ready — M3
+
+- [ ] #68 Stop publishing a fabricated calorie target
+- [ ] #755 Recover stale GitHub credentials across chat and iOS
+- [ ] #884 Stop Sentry discarding API transactions as `sample_rate`
+- [ ] #899 Preserve unparsed score lines in edited sessions
+- [ ] #1028 Retry HealthKit sync after Code 6 during background sync
+- [ ] #1085 Preserve `memory_update` on compound turns
+
 ### Epic: Give new athletes a great first hour (#302)
 
 - [ ] #303 Define the setup journey improvements
 - [ ] #306 Pass the first-session Coach-chat exit test
-	- [ ] #772 Seed a real main-quest placeholder without fooling the completion gate
 
 ### Epic: Make Home earn its place as the daily surface (#307)
 
+- [ ] #68 Stop publishing a fabricated calorie target
 - [ ] #309 Define the concrete Home redesign delta
 - [ ] #310 Improve activity icons at small sizes
 - [ ] #312 Recover or replace the missing web bug list
@@ -56,16 +65,12 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 	- [ ] #501 Persist day-grain HealthKit recovery signals
 - [ ] #314 Make Home widgets sport-agnostic
 - [ ] #346 Verify signup journeys for runners and cyclists
-- [ ] #727 Replace frozen templates with compiled season plans
-- [ ] #766 Open activity description editing to every sport
 
 ### Epic: Make Coach guidance feel specific and earned (#317)
 
 - [ ] #319 Distill durable athlete patterns from the Coach log
 - [ ] #321 Define the first-week and strength-benchmark outcome
-- [ ] #323 Improve Coach-chat flow and stream replies
-	- [ ] #270 Stream Coach replies across web and iOS
-	- [ ] #764 Reuse activity rows in Coach Chat and refine its composer
+- [ ] #323 Improve Coach-chat interaction states
 	- [ ] #765 Preserve chat sends when the app is minimized
 - [ ] #324 Split advanced coaching scenarios into testable outcomes
 - [ ] #486 Add activity rhythm and load patterns to Coach context
@@ -78,27 +83,23 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 	- [ ] #729 Detect drift in carved athlete-repository files
 	- [ ] #755 Recover stale GitHub credentials across chat and iOS
 - [ ] #329 Present a clean Coach-chat voice evaluation
-	- [ ] #670 Make the Coach-chat evaluation gate reliably green
 	- [ ] #714 Score model quality on real Coach turns
+	- [ ] #1081 Automate voice/persona quality checks against SOUL
 - [x] #473 Coach-chat write path — retained as parent for open work
 	- [ ] #565 Remove unused source enum values from Coach data
 	- [ ] #575 Fold phase and week closures out of the Coach log
 	- [ ] #576 Write supported per-athlete schema extensions
 	- [ ] #577 Support bounded edits to week guardrails
 - [ ] #547 Install Prod, Dev, and Staging iOS apps side by side
-- [ ] #595 Record and surface failed athlete sync runs
-- [ ] #609 Ignore null template IDs during closing turns
-- [ ] #616 Persist acknowledged updates during ordinary turns
-- [ ] #630 Preserve chat turns through wrap and thread eviction
 - [ ] #703 Batch athlete-repository schema and carve migrations
 	- [ ] #762 Block BYOB Coach pushes when athlete data validation is red
-- [ ] #713 Route Coach model calls through one OpenRouter client
-	- [ ] #638 Send Gemini credentials in a request header
-	- [ ] #668 Decide the production fallback for Gemini capacity failures
 - [ ] #725 Standardize Sentry operation tags
-- [ ] #736 Validate nested athlete-data shapes and enums
-- [ ] #747 Enforce issue hygiene and Project 4 maintenance
 - [ ] #756 Recover from malformed Gemini JSON and week plans
+
+### Epic: Route every Coach model call through one provider client (#871)
+
+- [ ] #713 Route Coach model calls through one OpenRouter client
+	- [ ] #668 Decide the production fallback for Gemini capacity failures
 
 ### Epic: Deliver the approved M3 stretch surfaces (#330)
 
@@ -120,6 +121,11 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 - [ ] #339 Complete the approved product motion pass
 - [ ] #340 Assign activity categories with deterministic rules
 - [ ] #341 Rebuild sleep analytics from HealthKit data
+- [ ] #870 Stream the Coach's reply text instead of one JSON response
+
+### Epic: Decide what athlete state moves out of git into a database (#872)
+
+- [ ] #21 Add session revocation and an authorized user registry
 
 ### Epic: Ready for strangers — M4 (#342)
 
@@ -130,14 +136,16 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 
 ## 🧊 Later / standalone backlog
 
-- M4: #68 fabricated calorie target · #21 session revocation/user registry · #239 GitHub re-auth
+- Later: #239 restore convenient GitHub re-authentication after testing
 - Later: #43 half-marathon GPS over-distance tolerance
+- Later: #1105 Harden the Coach-chat test harness against unverified repository state
 
 ## 🔀 Decisions to take
 
 - [x] **Gemini vs Claude** — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
 - [x] **backend+DB** — **DEFERRED, not rejected** (2026-08-25). Revisit once the product is proven at
-  5 users and the open bugs are cleared. Long-term shape still stands in `scaling-plan.md` §9.
+  5 users and the open bugs are cleared. #872 holds the future database-boundary decision; the
+  long-term shape still stands in `scaling-plan.md` §9.
 	- ⚠️ **This releases #327 / #326 rather than blocking them.** The old hold read "do not start those
 	  — may die if we go backend." If the backend is that far out, athlete repos drift for months with
 	  no way to receive a fix. The hold's reason is gone, so PR #586 proceeds — judged on its scope,
@@ -147,8 +155,8 @@ Prateek followed through the same self-serve flow with no operator involvement. 
 
 ## ✅ Done
 
-**Sep 2 — M3 hierarchy:** all 51 open M3 non-epics reach one of seven native epics. Project 4's
-M3 By epic view groups that work by parent, and linked implementation PRs enforce the same path.
+**Sep 16 — Roadmap refresh:** removed closed M3 task references; #323 now owns interaction polish only;
+#871 owns provider work; Ready lists six live unblockers; and #870/#872 are M4 streaming/database work.
 
 **Sep 1 — Issue hygiene + Project 4:** the frozen 91-issue backlog was classified and normalized;
 all non-closure issues pass the enforced title/body/category/milestone contract. Project 4 keeps
