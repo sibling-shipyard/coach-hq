@@ -264,9 +264,9 @@ Read the script when they disagree — it is what runs.
 | `user_data/`, `gen/` at HQ | **never copied** | — |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
 
-`sync.user.yml` is the one file the carve rewrites rather than copies: it stamps the operator's
-`SENTRY_DSN` into the workflow so a failed Sync reports itself, with no athlete-set secret
-(`sentry-runbook.md` § Set up once). Carve without that variable and the script warns.
+The carve stamps the operator's `SENTRY_DSN` into `sync.yml` and `rollover.yml` so failed data
+workflows report themselves without an athlete-set secret (`sentry-runbook.md` § Set up once).
+Carve fails without that variable unless `--no-sentry` is selected for a local test.
 
 `platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
 The bare `propagated/SOUL.md` name is retired; neither runtime owns it.
