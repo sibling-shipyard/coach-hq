@@ -3,6 +3,7 @@ import { captureGeminiFailure } from "../../_lib/sentry.js";
 import {
   activityMatches,
   candidateFile,
+  isObject,
   requestedIdParts,
   type ActivityFileEntry,
 } from "../../_lib/activityLookup.js";
@@ -333,10 +334,6 @@ export interface CoachMessageResult {
   commitSha: string | null;
   idempotent: boolean;
   shouldNotify: boolean;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export function parseActivityHistoryTree(payload: unknown): ActivityFileEntry[] {
