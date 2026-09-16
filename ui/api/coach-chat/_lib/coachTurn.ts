@@ -55,6 +55,7 @@ import { sumUsage, type GeminiUsage } from "../../_lib/sentry.js";
 import {
   captureGeminiFailure,
   captureServerException,
+  captureServerMessage,
   captureValidationFailure,
   captureStillUnresolvedGuard,
 } from "../../_lib/sentry.js";
@@ -1183,9 +1184,29 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
   let templatesManifestContent: string | null | undefined;
   let currentWeekContent: string | null | undefined;
   if (!turn.firstSession) {
+    // Soft reads: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+    // Inlined at each site — do not add getFileRawOrNull.
     [templatesManifestContent, currentWeekContent] = await Promise.all([
-      getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token).catch(() => null),
-      getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token).catch(() => null),
+      (async () => {
+        try {
+          return await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
+        } catch (err: unknown) {
+          const status = (err as { status?: number }).status;
+          if (status === 404) return null;
+          await captureServerException(err);
+          return null;
+        }
+      })(),
+      (async () => {
+        try {
+          return await getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token);
+        } catch (err: unknown) {
+          const status = (err as { status?: number }).status;
+          if (status === 404) return null;
+          await captureServerException(err);
+          return null;
+        }
+      })(),
     ]);
   }
   const extraContext = combineExtraContext(
@@ -1797,7 +1818,17 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     ? validTemplateIdsFromManifest(
         turn.prefetchedTemplatesManifestContent !== undefined
           ? turn.prefetchedTemplatesManifestContent
-          : await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
+          : await (async () => {
+              // Soft read: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+              try {
+                return await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
+              } catch (err: unknown) {
+                const status = (err as { status?: number }).status;
+                if (status === 404) return null;
+                await captureServerException(err);
+                return null;
+              }
+            })(),
       )
     : new Set<string>();
 
@@ -1858,7 +1889,17 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const currentWeekContent = needsCurrentWeekContext
     ? turn.prefetchedCurrentWeekContent !== undefined
       ? turn.prefetchedCurrentWeekContent
-      : await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
+      : await (async () => {
+          // Soft read: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+          try {
+            return await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+          } catch (err: unknown) {
+            const status = (err as { status?: number }).status;
+            if (status === 404) return null;
+            await captureServerException(err);
+            return null;
+          }
+        })()
     : undefined;
   // Single parse of currentWeekContent, with both the id set and the discipline/kind map derived
   // from it - two independent parseJsonOrNull calls over the same raw string would be redundant
@@ -2244,6 +2285,20 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       `[coach-chat] first session benchmark generation gave up after ${attemptsSoFar} failed` +
         " attempts - clearing pending instead of retrying again",
       { traceId: turn.traceId },
+    );
+    // Terminal give-up only — retry attempts already capture at B8 (`captureServerException`
+    // below). One tagged message so triage can tell "permanently dead for this athlete" from
+    // the three prior transient-looking failures.
+    await captureServerMessage(
+      `First session benchmark gave up after ${attemptsSoFar} failed attempts`,
+      {
+        level: "error",
+        tags: {
+          outcome: "gave_up",
+          attempts: attemptsSoFar,
+          ...(turn.traceId ? { vercel_trace_id: turn.traceId } : {}),
+        },
+      },
     );
     const write = await buildClearPendingWrite(turn);
     if (write) {
