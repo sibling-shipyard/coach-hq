@@ -49,10 +49,19 @@ describe("loadTodayActivityNotes", () => {
     const priorMessages = [
       syncMessage([{ id: UUID, start: "2026-09-16T08:00:00", title: "Morning badminton" }]),
     ];
-    const files = { [`user_data/activities/hist/hk_2026-09-16_${UUID}.json`]: histFile(UUID, "Played my old rival.") };
+    const files = {
+      [`user_data/activities/hist/hk_2026-09-16_${UUID}.json`]: histFile(
+        UUID,
+        "Played my old rival.",
+      ),
+    };
     const notes = await loadTodayActivityNotes(priorMessages, "2026-09-16", deps(files));
     expect(notes).toEqual([
-      { activity_id: `healthkit:${UUID}`, title: "Morning badminton", note: "Played my old rival." },
+      {
+        activity_id: `healthkit:${UUID}`,
+        title: "Morning badminton",
+        note: "Played my old rival.",
+      },
     ]);
   });
 
@@ -60,7 +69,9 @@ describe("loadTodayActivityNotes", () => {
     const priorMessages = [
       syncMessage([{ id: UUID, start: "2026-09-16T08:00:00", title: "Morning badminton" }]),
     ];
-    const files = { [`user_data/activities/hist/hk_2026-09-16_${UUID}.json`]: histFile(UUID, "   ") };
+    const files = {
+      [`user_data/activities/hist/hk_2026-09-16_${UUID}.json`]: histFile(UUID, "   "),
+    };
     const notes = await loadTodayActivityNotes(priorMessages, "2026-09-16", deps(files));
     expect(notes).toEqual([]);
   });
@@ -69,7 +80,9 @@ describe("loadTodayActivityNotes", () => {
     const priorMessages = [
       syncMessage([{ id: UUID, start: "2026-09-15T08:00:00", title: "Yesterday's session" }]),
     ];
-    const files = { [`user_data/activities/hist/hk_2026-09-15_${UUID}.json`]: histFile(UUID, "A note.") };
+    const files = {
+      [`user_data/activities/hist/hk_2026-09-15_${UUID}.json`]: histFile(UUID, "A note."),
+    };
     const d = deps(files);
     const notes = await loadTodayActivityNotes(priorMessages, "2026-09-16", d);
     expect(notes).toEqual([]);

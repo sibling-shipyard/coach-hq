@@ -549,7 +549,11 @@ describe("renderCoachContext section shape", () => {
         athleteInsights: null,
         today: "2026-08-18",
         todayActivityNotes: [
-          { activity_id: "healthkit:abc", title: "Evening badminton", note: "Played my old rival, close set." },
+          {
+            activity_id: "healthkit:abc",
+            title: "Evening badminton",
+            note: "Played my old rival, close set.",
+          },
         ],
       });
       expect(text).toContain("## Today's Activity Notes");
@@ -564,7 +568,9 @@ describe("renderCoachContext section shape", () => {
         coachLog,
         athleteInsights: null,
         today: "2026-08-18",
-        todayActivityNotes: [{ activity_id: "healthkit:abc", title: "", note: "Felt strong today." }],
+        todayActivityNotes: [
+          { activity_id: "healthkit:abc", title: "", note: "Felt strong today." },
+        ],
       });
       expect(text).toContain("- **healthkit:abc:** Felt strong today.");
     });

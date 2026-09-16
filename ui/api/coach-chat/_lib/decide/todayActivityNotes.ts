@@ -16,7 +16,11 @@ import {
   requestedIdParts,
   type ActivityFileEntry,
 } from "../../../_lib/activityLookup.js";
-import type { ChatMessage, SyncedActivityListAttachment, SyncedActivityRow } from "../chatThreads.js";
+import type {
+  ChatMessage,
+  SyncedActivityListAttachment,
+  SyncedActivityRow,
+} from "../chatThreads.js";
 
 export interface TodayActivityNote {
   activity_id: string;
@@ -87,7 +91,8 @@ async function readNote(
   for (const entry of candidates) {
     const value = parseJson(await readFile(entry.path));
     if (!activityMatches(value, source, localId)) continue;
-    const note = isObject(value) && typeof value.description === "string" ? value.description.trim() : "";
+    const note =
+      isObject(value) && typeof value.description === "string" ? value.description.trim() : "";
     if (!note) return null;
     return { activity_id: activityId, title: row.title, note };
   }

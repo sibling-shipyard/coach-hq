@@ -108,7 +108,11 @@ describe("loadTurnState today-activity-notes soft reads (#1147)", () => {
 
   it("captures once and still returns a usable turn state when the hist file read 5xxs", async () => {
     listDirectory.mockResolvedValue([
-      { name: `hk_${today()}_${UUID}.json`, type: "file", path: `${ACTIVITIES_HIST_DIR}/hk_${today()}_${UUID}.json` },
+      {
+        name: `hk_${today()}_${UUID}.json`,
+        type: "file",
+        path: `${ACTIVITIES_HIST_DIR}/hk_${today()}_${UUID}.json`,
+      },
     ]);
     const err = Object.assign(new Error("Failed to fetch hist file (503)"), { status: 503 });
     getFileRaw.mockRejectedValue(err);
@@ -123,7 +127,11 @@ describe("loadTurnState today-activity-notes soft reads (#1147)", () => {
 
   it("stays quiet on a true 404 from the hist file read", async () => {
     listDirectory.mockResolvedValue([
-      { name: `hk_${today()}_${UUID}.json`, type: "file", path: `${ACTIVITIES_HIST_DIR}/hk_${today()}_${UUID}.json` },
+      {
+        name: `hk_${today()}_${UUID}.json`,
+        type: "file",
+        path: `${ACTIVITIES_HIST_DIR}/hk_${today()}_${UUID}.json`,
+      },
     ]);
     const missing = Object.assign(new Error("Failed to fetch hist file (404)"), { status: 404 });
     getFileRaw.mockRejectedValue(missing);
