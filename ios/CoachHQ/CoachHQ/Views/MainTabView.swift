@@ -209,6 +209,9 @@ struct MainTabView: View {
             .opacity(router.effectivePhase == .hkPrompt || router.effectivePhase == .reveal ? 0 : 1)
             .allowsHitTesting(router.effectivePhase == .complete || router.effectivePhase == .notStarted)
 
+            WarmStatusFade()
+                .zIndex(2)
+
             if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
             }
@@ -396,19 +399,19 @@ private struct WarmTabBar: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 tabItem(tab)
             }
         }
-        .padding(5)
+        .padding(7)
         .background(WarmInstrument.paper)
         .clipShape(Capsule(style: .continuous))
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
         )
-        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
+        .shadow(color: WarmInstrument.cardShadow, radius: 16, x: 0, y: 6)
         .padding(.horizontal, WarmDockMetrics.horizontalPadding)
         .padding(.top, WarmDockMetrics.topPadding)
     }
@@ -431,8 +434,8 @@ private struct WarmTabBar: View {
 
                 HStack(spacing: 5) {
                     Text(tab.labelText.uppercased())
-                        .font(WarmInstrument.monoLabel(9))
-                        .tracking(1.2)
+                        .font(WarmInstrument.monoLabel(10))
+                        .tracking(1.4)
                         .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
                     if tab == .chat && chatHasUnread && !selected {
                         Circle()
@@ -442,7 +445,7 @@ private struct WarmTabBar: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 36)
+            .frame(height: 48)
             .contentShape(Capsule())
         }
         .buttonStyle(TabBarPressStyle())
@@ -456,6 +459,24 @@ private struct TabBarPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.spring(duration: 0.18, bounce: 0.08), value: configuration.isPressed)
+    }
+}
+
+/// Desk fade under the status bar / Dynamic Island so scrolled content does not clip hard.
+private struct WarmStatusFade: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: WarmInstrument.desk, location: 0),
+                .init(color: WarmInstrument.desk.opacity(0.88), location: 0.42),
+                .init(color: WarmInstrument.desk.opacity(0), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 56)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
     }
 }
 
@@ -478,12 +499,12 @@ private struct WarmDockStartCTA: View {
             .foregroundColor(WarmInstrument.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: WarmDockMetrics.pillHeight)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 1)
-                )
+            .background(WorkoutTimerWarm.rust)
+            .clipShape(Capsule(style: .continuous))
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 1)
+            )
                 .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
         }
         .buttonStyle(TimerWarmPressStyle())
