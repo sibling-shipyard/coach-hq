@@ -7,8 +7,9 @@
 # after one fails, and the table at the end is the whole picture.
 #
 # Usage:
-#   bash platform/scripts/check.sh            # full output per check
-#   bash platform/scripts/check.sh --quiet    # summary only; failing checks still print output
+#   bash platform/scripts/check.sh                 # full output per check
+#   bash platform/scripts/check.sh --quiet         # summary only; failing checks still print
+#   bash platform/scripts/check.sh --quiet --changed  # only checks whose paths hit this branch
 set -uo pipefail
 
 # Derive the root from this script's location — the caller's cwd is not ours to trust.
@@ -16,11 +17,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 QUIET=0
+CHANGED=0
 for arg in "$@"; do
   case "$arg" in
     --quiet) QUIET=1 ;;
+    --changed) CHANGED=1 ;;
     -h|--help)
-      echo "Usage: bash platform/scripts/check.sh [--quiet]"
+      echo "Usage: bash platform/scripts/check.sh [--quiet] [--changed]"
       exit 0
       ;;
     *)
@@ -41,20 +44,81 @@ if [ "$(git -C "$REPO_ROOT" config --local --get core.hooksPath 2>/dev/null)" !=
   fi
 fi
 
-# A fresh worktree has no ui/node_modules, so every npm check below exits 127 and the pre-push
-# hook blocks on four failures that name no cause. Catch it once, here, with the fix attached.
-if [ -f "$REPO_ROOT/ui/package.json" ] && [ ! -d "$REPO_ROOT/ui/node_modules" ]; then
-  echo "error: $REPO_ROOT/ui/node_modules is missing - every ui check would exit 127." >&2
-  echo "  Same package.json as your primary checkout? Symlink it, do not reinstall:" >&2
-  echo "    ln -s <primary-checkout>/ui/node_modules $REPO_ROOT/ui/node_modules" >&2
-  echo "  Otherwise: (cd $REPO_ROOT/ui && npm ci)" >&2
-  exit 2
+NAMES=()
+DIRS=()
+CMDS=()
+POLICIES=()
+PATHS=()
+
+# Read checks from checks.conf; skip blank lines and comments.
+# $REPO_ROOT in the dir field is expanded via parameter substitution.
+# Optional 5th field: comma-separated path globs for --changed (default * = always).
+while IFS='|' read -r name dir cmd policy paths || [ -n "$name" ]; do
+  [[ -z "$name" || "$name" == \#* ]] && continue
+  dir="${dir/\$REPO_ROOT/$REPO_ROOT}"
+  NAMES+=("$name")
+  DIRS+=("$dir")
+  CMDS+=("$cmd")
+  POLICIES+=("${policy:-block}")
+  PATHS+=("${paths:-*}")
+done < "$SCRIPT_DIR/checks.conf"
+
+# validate_kdb is hardcoded here — it is not in checks.conf because it validates
+# the repo's knowledge-base tooling (including checks.conf itself) and must always run last.
+NAMES+=("validate_kdb")
+DIRS+=("$REPO_ROOT")
+CMDS+=("python3 kdb/scripts/validate_kdb.py")
+POLICIES+=("block")
+PATHS+=("*")
+
+CHANGED_FILES=""
+if [ "$CHANGED" -eq 1 ]; then
+  MERGE_BASE="$(git -C "$REPO_ROOT" merge-base HEAD origin/main 2>/dev/null || true)"
+  if [ -z "$MERGE_BASE" ]; then
+    CHANGED=0
+  else
+    CHANGED_FILES="$(git -C "$REPO_ROOT" diff --name-only "$MERGE_BASE" HEAD)"
+  fi
 fi
 
-# A ui/node_modules symlinked from another checkout resolves, but predates any dependency the
-# current branch adds - npm then fails with "Cannot find package X", which reads like a code
-# error and sends you looking in the wrong place. Name the real cause here instead.
-if [ -f "$REPO_ROOT/ui/package.json" ] && [ -d "$REPO_ROOT/ui/node_modules" ]; then
+paths_hit() {
+  local globs="$1"
+  PATHS_HIT_ROOT="$REPO_ROOT" PATHS_HIT_GLOBS="$globs" PATHS_HIT_FILES="$CHANGED_FILES" python3 - <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(os.environ["PATHS_HIT_ROOT"], "kdb/scripts"))
+from stack_ci_gate import path_matches
+globs = [g.strip() for g in os.environ["PATHS_HIT_GLOBS"].split(",") if g.strip()]
+files = [f for f in os.environ["PATHS_HIT_FILES"].splitlines() if f]
+if not globs or "*" in globs or "always" in globs:
+    raise SystemExit(0)
+for path in files:
+    if any(path_matches(path, glob) for glob in globs):
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
+SKIP=()
+NEED_UI=0
+for i in "${!NAMES[@]}"; do
+  if [ "$CHANGED" -eq 1 ] && ! paths_hit "${PATHS[$i]}"; then
+    SKIP+=("1")
+  else
+    SKIP+=("0")
+    if [ "${DIRS[$i]}" = "$REPO_ROOT/ui" ]; then
+      NEED_UI=1
+    fi
+  fi
+done
+
+require_ui_node_modules() {
+  if [ ! -d "$REPO_ROOT/ui/node_modules" ]; then
+    echo "error: $REPO_ROOT/ui/node_modules is missing - every ui check would exit 127." >&2
+    echo "  Same package.json as your primary checkout? Symlink it, do not reinstall:" >&2
+    echo "    ln -s <primary-checkout>/ui/node_modules $REPO_ROOT/ui/node_modules" >&2
+    echo "  Otherwise: (cd $REPO_ROOT/ui && npm ci)" >&2
+    exit 2
+  fi
   MISSING_DEPS=$(node -e '
     const fs = require("fs");
     const path = require("path");
@@ -72,36 +136,18 @@ if [ -f "$REPO_ROOT/ui/package.json" ] && [ -d "$REPO_ROOT/ui/node_modules" ]; t
     echo "    (cd $REPO_ROOT/ui && rm -rf node_modules && npm ci)" >&2
     exit 2
   fi
+}
+
+if [ "$NEED_UI" -eq 1 ] && [ -f "$REPO_ROOT/ui/package.json" ]; then
+  require_ui_node_modules
 fi
-
-NAMES=()
-DIRS=()
-CMDS=()
-POLICIES=()
-
-# Read checks from checks.conf; skip blank lines and comments.
-# $REPO_ROOT in the dir field is expanded via parameter substitution.
-while IFS='|' read -r name dir cmd policy || [ -n "$name" ]; do
-  [[ -z "$name" || "$name" == \#* ]] && continue
-  dir="${dir/\$REPO_ROOT/$REPO_ROOT}"
-  NAMES+=("$name")
-  DIRS+=("$dir")
-  CMDS+=("$cmd")
-  POLICIES+=("${policy:-block}")
-done < "$SCRIPT_DIR/checks.conf"
-
-# validate_kdb is hardcoded here — it is not in checks.conf because it validates
-# the repo's knowledge-base tooling (including checks.conf itself) and must always run last.
-NAMES+=("validate_kdb")
-DIRS+=("$REPO_ROOT")
-CMDS+=("python3 kdb/scripts/validate_kdb.py")
-POLICIES+=("block")
 
 TOTAL=${#NAMES[@]}
 STATUSES=()
 DURATIONS=()
 FAILED=0
 WARNED=0
+SKIPPED=0
 GATE_STARTED=$SECONDS
 
 for i in "${!NAMES[@]}"; do
@@ -110,6 +156,13 @@ for i in "${!NAMES[@]}"; do
   policy="${POLICIES[$i]}"
   header="=== [$n/$TOTAL] $name ==="
   check_started=$SECONDS
+
+  if [ "${SKIP[$i]}" = "1" ]; then
+    STATUSES+=("SKIP (--changed)")
+    DURATIONS+=("0s")
+    SKIPPED=$((SKIPPED + 1))
+    continue
+  fi
 
   # --quiet buffers rather than discards: output is only worth hiding while a check is passing.
   if [ "$QUIET" -eq 1 ]; then
@@ -151,9 +204,9 @@ echo "Total gate time: $((SECONDS - GATE_STARTED))s"
 echo
 if [ "$FAILED" -eq 0 ]; then
   if [ "$WARNED" -eq 0 ]; then
-    echo "All $TOTAL checks passed."
+    echo "All $TOTAL checks passed ($SKIPPED skipped)."
   else
-    echo "All blocking checks passed; $WARNED non-blocking check(s) warned."
+    echo "All blocking checks passed; $WARNED non-blocking check(s) warned; $SKIPPED skipped."
   fi
   exit 0
 fi
