@@ -801,19 +801,12 @@ struct CoachChatView: View {
         sending = true
         defer { sending = false }
 
-        // #765: a bare `Task { }` gave iOS no reason to keep the app alive past a few seconds
-        // once the athlete switched away mid-send, so the in-flight request got killed and
-        // surfaced as a network cancellation. Reserve background execution time for the request
-        // itself (not the surrounding UI work) so a brief app-switch doesn't kill it. This buys
-        // time only - it doesn't touch `retryNetworkFailures: false` below, which stays off on
-        // purpose because a network failure here may mean the message already committed
-        // server-side (retrying blind risks a double-send).
+        // This only buys execution time - it doesn't touch `retryNetworkFailures: false` below,
+        // which stays off on purpose because a network failure here may mean the message already
+        // committed server-side (retrying blind risks a double-send).
         var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "coach-chat-send") {
-            // Purely a "ran out of time before the send finished" signal, not an error capture -
-            // the send itself may still succeed or fail on its own after this fires, and the
-            // toast/failure path is unchanged either way. Mirrors D1's DiagnosticsManager.capture
-            // below: lets us see how often the background window isn't enough.
+            // Signal only, not an error - the send may still resolve on its own after this fires.
             DiagnosticsManager.capture(
                 message: "coach-chat: background task expired mid-send",
                 severity: .warning,
