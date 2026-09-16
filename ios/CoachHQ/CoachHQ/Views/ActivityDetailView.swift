@@ -789,12 +789,8 @@ struct ActivityDetailView: View {
             if !parsed.isPlainNote {
                 let dateStr = String(currentActivity.startDateLocal.prefix(10))
                 let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
-                let history = try await readMatchHistoryForSave()
-                var sessions = history.sessions
-                sessions.removeAll { $0.date == dateStr }
-                sessions.append(newEntry)
-                sessions.sort { $0.date > $1.date }
-                let updatedHistory = MatchHistory(version: 1, sessions: sessions)
+                var updatedHistory = try await readMatchHistoryForSave()
+                updatedHistory.upsert(newEntry, historyFile: entry.fileName)
                 files.append(
                     (path: "user_data/activities/match_history.json", data: try encoder.encode(updatedHistory))
                 )

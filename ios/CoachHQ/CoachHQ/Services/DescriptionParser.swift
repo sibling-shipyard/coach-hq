@@ -81,6 +81,8 @@ struct MatchSummary: Codable, Equatable {
 }
 
 struct MatchSession: Codable, Equatable {
+    /// Exact committed hist basename; absent on date-only match records.
+    var historyFile: String? = nil
     var date: String
     var activityId: Int?
     var preMentalState: MatchPreMentalState?
@@ -93,6 +95,24 @@ struct MatchSession: Codable, Equatable {
 struct MatchHistory: Codable, Equatable {
     var version: Int
     var sessions: [MatchSession]
+
+    mutating func upsert(_ session: MatchSession, historyFile: String) {
+        var keyedSession = session
+        keyedSession.historyFile = historyFile
+        let sameDate = sessions.indices.filter { sessions[$0].date == session.date }
+        let exactMatch = sessions.firstIndex { $0.historyFile == historyFile }
+        // A date-only row can be upgraded only when no other row shares its date.
+        // With several same-day rows, preserve them rather than guessing an identity.
+        let legacyMatch = sameDate.count == 1 && sessions[sameDate[0]].historyFile == nil
+            ? sameDate[0] : nil
+        if let index = exactMatch ?? legacyMatch {
+            keyedSession.activityId = keyedSession.activityId ?? sessions[index].activityId
+            sessions[index] = keyedSession
+        } else {
+            sessions.append(keyedSession)
+        }
+        sessions.sort { $0.date > $1.date }
+    }
 }
 
 // MARK: - Parser
