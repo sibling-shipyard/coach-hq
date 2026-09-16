@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
 
 ## Context
 
@@ -286,12 +286,14 @@ deliberately **not** part of the key — bucketing on it shatters one sport acro
 Every turn, `loadCoachContext()` (`coachChatFiles.ts`) fetches all nine files above (profile,
 memory, injuries, coach_log, seasons, quests, progress, progressions, athlete_insights) in
 parallel, cached 60s in-memory per repo. `coachContext.ts` then renders two prompt blocks from
-that data:
+that data.
 
 - **`renderCoachContext()`** — Athlete Profile, Equipment, Recent Session Notes (last 5
   `coach_log.json` rows), Fitness Snapshot (from `athlete_insights.json`, omitted entirely if
   absent/malformed), Fitness Baseline, Active Injury Flags, Coaching Priorities, Learned
-  Patterns.
+  Patterns, Today's Activity Notes. The last is read fresh outside the cached nine-file batch
+  above, omitted when there's no same-day synced activity or its note is empty - see
+  [`chat-coach-message.md`](chat-coach-message.md#reply-turn-notes-gap-and-the-fix).
 - **`renderQuestContext()`** — Current Season, Main Quest, Side Quests (progress computed
   per-quest, scoped to the current season and, for `weekly_frequency` quests, the current ISO
   week), Weekly Targets, Milestones (from `progressions.json`).

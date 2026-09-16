@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
 
 ## Context
 
@@ -10,8 +10,9 @@ and anything landing on `main`. For the one-time intake conversation, see
 [`coach-chat-fsp.md`](coach-chat-fsp.md) — same endpoint, same mechanics, different prompt
 context and write timing. For Gemini request/schema/caching mechanics specifically, see
 [`gemini-flow.md`](gemini-flow.md). For every file/enum Coach reads or writes, see
-[`coach-data-schema.md`](coach-data-schema.md). For the dated history of how this system got
-here, see [`coach-chat-design-history.md`](coach-chat-design-history.md). Commit/retention
+[`coach-data-schema.md`](coach-data-schema.md). For how the proactive post-sync message itself is
+generated, see [`chat-coach-message.md`](chat-coach-message.md). For the dated history of how this
+system got here, see [`coach-chat-design-history.md`](coach-chat-design-history.md). Commit/retention
 design: ADR 0012 (commits); ADR 0037 (retention). Vercel function-count constraint that shapes
 the endpoint layout: ADR 0017.
 
@@ -135,9 +136,10 @@ persist-on-close: after Gemini replies, the server atomically writes only `chat_
 16 hex of sha256 of the sorted unique ids — the same set always returns the existing thread
 (`duplicate: true`) with no second Gemini call. Missing hist files → 422, no write. Gemini
 failure or a failed commit returns an error and writes nothing; the client keeps the list and
-offers Retry. Card values are reread from the athlete repo; the request carries ids only. Gemini's
-schema is reply-only. The prompt sees the verified batch, fresh insights, live week when present,
-injuries, and recent continuity; the reply must stand alone and invent no cause.
+offers Retry. Card values are reread from the athlete repo; the request carries ids only.
+Generation itself (prompt input, schema, storage) is documented once in
+[`chat-coach-message.md`](chat-coach-message.md), shared with the backgrounded `coach-message.ts`
+fallback path.
 
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/gemini/geminiClient.ts`)
 
