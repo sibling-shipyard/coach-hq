@@ -62,16 +62,20 @@ Pure read, no network calls, no git operations. Add `repoDataProfile.test.ts` co
 placeholder week (0 sessions), a live week with sessions, zero/one/many injury flags, and a repo
 missing one of the input files entirely (should not throw - return the field's empty/null shape).
 
-**A2 - `feat/1105-scenario-preconditions`** (stacks on A1)
-In `ui/scripts/run-simulation-suite.ts`, extend the `Scenario` type with an optional
-`preconditions` field, e.g.:
+**A2 - `feat/1105-scenario-preconditions`** (stacks on A1).
+This PR is the safety net only - it stops the false-positive problem, nothing smarter yet (A2b
+below adds the smarter behavior on top.) In `ui/scripts/run-simulation-suite.ts`, extend the
+`Scenario` type with an optional `preconditions` field. For example:
 ```ts
 preconditions?: {
   currentWeekHasSessions?: boolean;
   injuryFlags?: "any" | "none";
   hasHabitQuest?: boolean;
+  hasTemplate?: boolean;
 };
 ```
+(`hasTemplate` checks `repoDataProfile.ts`'s `templateCount > 0` - added here because B2/B3 need
+it, see Track B below.)
 Before running a scenario, call `repoDataProfile.ts` (from A1) against the scenario's target
 repo and check its profile against `preconditions`. If unmet, do not call the model - record a
 new `"skipped-precondition"` status in `coverage-index.json` (a status distinct from
@@ -81,18 +85,61 @@ guard, not just the scenario-suite path. Add the `ambiguous-contradiction`,
 `workout-lifecycle`/`template-edit-permanent` (injury-related), `quest-event`, and
 `pattern-style-sport` scenarios' real preconditions now that the field exists (these are the
 ones yesterday's pass found broken by unmet preconditions - see `test-results/2026-09-15.md` F1,
-B1, B2).
+B1, B2). At this stage they're bare checks with no seed recipe - A2b below adds the recipes.
 
-**A3 - `feat/1105-all-repos-runner`** (stacks on A2)
+**A2b - `feat/1105-precondition-seeding`** (stacks on A2).
+A2 alone just skips a scenario when its target repo doesn't match - which avoids a false pass,
+but a skip still isn't real coverage. Almost every precondition here can be produced honestly by
+running the real coach-chat pipeline first, on the same scratch branch, before the scenario's own
+turns. An injury flag is just a real message that states one. A habit quest is a real
+`season_start`/`quest_create` conversation. A populated week is a real Weekly Kick-off
+conversation. Extend each `preconditions` entry with an optional seed recipe: one or a few real
+messages to send first, when the check in A2 finds the precondition unmet. For example:
+```ts
+preconditions?: {
+  currentWeekHasSessions?: { seedMessages: string[] };
+  injuryFlags?: { need: "any" | "none"; seedMessages?: string[] };
+  hasHabitQuest?: { seedMessages: string[] };
+  hasTemplate?: { seedMessages: string[] };
+};
+```
+When a precondition is unmet and a seed recipe exists: send the seed messages first, through the
+same turn-sending code `run-manual-coach-chat-test.ts` already has. Then **re-check the profile
+before proceeding** - a seed message is a real model call, and it can fail the same
+narration-vs-action way every other turn can, so don't just assume it worked. If the re-check
+still shows the precondition unmet, record a `"seed-failed"` status (distinct from
+`"skipped-precondition"`) and stop. Proceeding anyway would silently recreate the exact bug this
+whole track exists to fix, one layer deeper. If re-checking confirms the precondition now holds,
+run the scenario's actual turns and score normally.
+
+Skip (A2's original behavior) stays as the fallback, not the default, for two cases. First: a
+precondition with no seed recipe defined, because it genuinely can't be produced by a short
+scripted conversation. Real usage history (`progress.json` row counts) is the clearest example -
+138 real rows on `coach-skanda-2003` versus 0 on `coach-prateekdevaraju` can't be faked by one
+message. Second: a precondition where a *different* one of the 5 real repos already satisfies it
+naturally - prefer routing to that repo over seeding a new state into this one. It's both cheaper
+(no extra API call) and more honest (real accumulated state, not manufactured this run).
+
+**Cost note:** every seed message is a real, billed model call, on top of the scenario's own
+turns. A2b roughly doubles the per-scenario cost for any repo that doesn't already match, so
+expect round-2's total cost (see `coach-chat-live-test-round-2.md`) to run higher than
+2026-09-15's for that reason - budget for it, don't be surprised by it.
+
+Give `ambiguous-contradiction` a real seed recipe in this PR: a short Weekly Kick-off Ritual
+conversation (2-3 messages) as its `currentWeekHasSessions` seed. This is the fix for the exact
+F1 false positive from 2026-09-15 - once this lands, every repo the scenario runs against gets a
+real plan seeded first, instead of relying on a manually pre-seeded repo picked ahead of time.
+
+**A3 - `feat/1105-all-repos-runner`** (stacks on A2b).
 Add `--repo <shortcut>` and `--all-repos` CLI flags to `run-simulation-suite.ts` (currently only
 `--list`, `--only`, `--dry-run`, `--force`, `--branch` exist). `--repo` overrides a scenario's
 hardcoded target repo for that invocation; `--all-repos` runs every scenario against all 5 real
 athlete repos in `ATHLETE_REPOS` (from `run-manual-coach-chat-test.ts`), still going through
-normal scoring and `coverage-index.json` bookkeeping. This replaces the ad hoc pattern used in
-the 2026-09-15 pass, where the all-5 "Group B" run called `run-manual-coach-chat-test.ts`
-directly per repo and never got scored or recorded.
+normal scoring, seeding (A2b), and `coverage-index.json` bookkeeping. This replaces the ad hoc
+pattern used in the 2026-09-15 pass, where the all-5 "Group B" run called
+`run-manual-coach-chat-test.ts` directly per repo and never got scored or recorded.
 
-**A4 - `fix/1105-coverage-index-reconciliation`** (off `main`, independent of A1-A3).
+**A4 - `fix/1105-coverage-index-reconciliation`** (off `main`, independent of A1-A3/A2b).
 New script (e.g. `ui/scripts/check-coverage-reconciliation.ts`) that diffs
 `test-results/coverage-index.json` against the raw run logs under
 `test-results/raw/<date>/manual/` for a given date, and flags any run present in the raw logs
@@ -112,9 +159,10 @@ present.
 
 ## Track B - scenario-content fixes
 
-Each of these is small and independent of the others; B1-B3 lightly depend on A2's
-`preconditions` field existing if the new scenario needs to declare one, so stack B1-B3 on A2 if
-A2 hasn't merged yet, otherwise off `main`. B4-B5 are fully independent of everything in Track A.
+Each of these is small and independent of the others. B1 lightly depends on A2's `preconditions`
+field existing; stack it on A2 if A2 hasn't merged yet, otherwise off `main`. B2 and B3 need
+A2b's seed mechanism specifically (see each PR's note below); stack them on A2b if it hasn't
+merged yet, otherwise off `main`. B4-B5 are fully independent of everything in Track A.
 
 **B1 - `feat/1105-coach-note-assertion`**
 Every action field except `coach_note` has a simulation scenario asserting its target file
@@ -123,21 +171,25 @@ one existing ordinary-turn scenario in `run-simulation-suite.ts` that already ex
 `coach_note` implicitly (e.g. `daily-basic`), closing the one acknowledged gap in the coverage
 matrix (`docs/eng-docs/coach-chat-test-scenarios.md` L148-152).
 
-**B2 - `feat/1105-multi-field-success-scenario`**.
+**B2 - `feat/1105-multi-field-success-scenario`** (stacks on A2b, needs its seed mechanism).
 Add one new simulation scenario where two action fields succeed together in the same turn - e.g.
 a message that both restructures the week (`week_update`) and edits an existing routine
-(`template_edit`) in one go. Every existing multi-field integration test
-(`fullTurnPipeline.test.ts`) only covers two fields *failing* together (a hallucinated
-`template_id` alongside a valid write); nothing today proves two fields can both land correctly
-in one commit.
+(`template_edit`) in one go. `template_edit` needs a real existing template to point at, so
+declare `hasTemplate: { seedMessages: [...] }` (a real `workout_create` conversation) as this
+scenario's precondition - don't assume any of the 5 real repos already has the right one on file.
+Every existing multi-field integration test (`fullTurnPipeline.test.ts`) only covers two fields
+*failing* together (a hallucinated `template_id` alongside a valid write); nothing today proves
+two fields can both land correctly in one commit.
 
-**B3 - `feat/1105-compound-message-narration-probe`**
+**B3 - `feat/1105-compound-message-narration-probe`** (stacks on A2b, needs its seed mechanism).
 Add one new scenario using the same compound-message shape that broke `memory_update` (a durable
 fact stated alongside an unrelated request, in one message) - but aimed at `template_edit`,
-`session_plan`, `week_update`, and `workout_create` instead. `memory_update`'s drop on this shape
-is an accepted known gap (issue tracked separately, not reopened here); this scenario checks
-proactively whether the same narration-vs-action failure class exists on these four fields before
-it's found live by accident.
+`session_plan`, `week_update`, and `workout_create` instead. Like B2, the `template_edit`/
+`session_plan` variants need `hasTemplate` as a precondition, and the `week_update` variant needs
+`currentWeekHasSessions` - reuse A2b's seed recipes for both rather than duplicating them.
+`memory_update`'s drop on this shape is an accepted known gap (issue tracked separately, not
+reopened here); this scenario checks proactively whether the same narration-vs-action failure
+class exists on these four fields before it's found live by accident.
 
 **B4 - `fix/1105-discipline-enum-validation`**
 No test (unit, integration, or eval) exercises `current_week.json`'s `discipline` enum
@@ -212,8 +264,12 @@ matching `rollover-current-week.mjs`'s own existing no-op-on-invalid behavior).
 
 - A1: unit tests against fixture JSON shapes (placeholder vs live week, 0/1/many injury flags,
   missing files).
-- A2/A3: `run-simulation-suite.ts --dry-run --all-repos` confirms precondition-skip logic fires
+- A2: `run-simulation-suite.ts --dry-run --all-repos` confirms precondition-skip logic fires
   without spending real API calls.
+- A2b: on a scratch branch, deliberately run a scenario against a repo that doesn't match its
+  precondition, confirm the seed messages send, the re-check passes, and the scenario's own
+  turns then run for real. Separately confirm a precondition with no seed recipe still falls back
+  to a clean skip, and that a failed seed attempt records `"seed-failed"`, not a silent pass.
 - C1: confirm `rollover-current-week.mjs`'s existing behavior is unchanged against its current
   test fixtures after the extraction.
 - C3: unit tests for every date-boundary case listed above; live-verify in the round-2 pass (see
