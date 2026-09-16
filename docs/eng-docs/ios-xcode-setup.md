@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-01 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-16 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -129,7 +129,9 @@ committed settings, so local overrides just hide what CI will still see.
 `macos-26`. That scheme compiles the app and its embedded widget before running `CoachHQTests`.
 CI uses `CODE_SIGNING_ALLOWED=NO` and copies `Secrets.swift` from the `.example`. Signing, devices,
 and HealthKit runtime behaviour are not covered. A local build on a real phone is still the only
-way to verify those behaviours.
+way to verify those behaviours. On a stacked PR it skips when an upstack open PR also changes
+`ios/**` (`kdb/scripts/stack_ci_gate.py`); `workflow_dispatch` still runs a middle PR. Superseded
+runs on the same branch cancel. `push` to `main` still runs: this repo squash-merges.
 
 ## Layout
 

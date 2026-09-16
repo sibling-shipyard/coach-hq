@@ -2,7 +2,7 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then exit 1; else git diff --quiet HEAD^ HEAD -- .; fi",
+  "ignoreCommand": "python3 ../kdb/scripts/stack_ci_gate.py --vercel --paths 'ui/**'",
   "functions": {
     "api/coach-chat.ts": { "maxDuration": 300 }
   },
