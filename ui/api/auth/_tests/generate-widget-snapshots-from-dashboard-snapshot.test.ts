@@ -193,6 +193,8 @@ describe("generateWidgetSnapshotsFromDashboardSnapshot missing coach_comments", 
   });
 
   it("passes structured same-day match history through to Home commitments", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-17T12:00:00"));
     const activities = [
       {
         id: 1,
