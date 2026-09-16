@@ -103,17 +103,16 @@ struct AllActivitiesListView: View {
                 Haptics.tap()
                 Task { await allActivitiesStore.loadMore(client: histClient) }
             } label: {
-                if allActivitiesStore.isLoadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                } else {
-                    Text("Load 20 more")
+                HStack(spacing: 8) {
+                    if allActivitiesStore.isLoadingMore {
+                        WarmSignalLoader(size: 18)
+                    }
+                    Text(allActivitiesStore.isLoadingMore ? "Loading…" : "Load 20 more")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(WarmInstrument.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
             }
             .buttonStyle(.plain)
             .disabled(allActivitiesStore.isLoadingMore)
@@ -135,14 +134,8 @@ struct AllActivitiesListView: View {
     }
 
     private var loadingState: some View {
-        WarmCard {
-            HStack {
-                Spacer()
-                ProgressView()
-                Spacer()
-            }
-            .padding(.vertical, 20)
-        }
+        WarmPageWait()
+            .frame(minHeight: 220)
     }
 
     private func errorState(_ message: String) -> some View {

@@ -130,16 +130,8 @@ struct HealthSettingsView: View {
     }
 
     private var loadingState: some View {
-        WarmCard {
-            HStack(spacing: 10) {
-                ProgressView()
-                Text("Reading Apple Health…")
-                    .font(.system(size: 13))
-                    .foregroundColor(WarmInstrument.inkMuted)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 18)
-        }
+        WarmPageWait(caption: "Reading Apple Health…")
+            .frame(minHeight: 220)
     }
 
     private var emptyState: some View {
@@ -276,9 +268,7 @@ private struct WorkoutImportRow: View {
             Button(action: onImport) {
                 Group {
                     if isImporting {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(WarmInstrument.onAccent)
+                        WarmSignalLoader(size: 16, color: WarmInstrument.onAccent)
                     } else {
                         Text("Import")
                             .font(.system(size: 12, weight: .semibold))

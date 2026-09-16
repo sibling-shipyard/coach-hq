@@ -92,9 +92,7 @@ struct SetupView: View {
             .onboardingReveal(index: 1)
 
             if isChecking {
-                ProgressView()
-                    .scaleEffect(0.65)
-                    .tint(WarmInstrument.inkMuted)
+                WarmSignalLoader(size: 24)
                     .padding(.top, 24)
                     .onboardingReveal(index: 2)
             }
@@ -112,9 +110,7 @@ struct SetupView: View {
                 .padding(.bottom, 28)
 
             if isChecking {
-                ProgressView()
-                    .scaleEffect(0.65)
-                    .tint(WarmInstrument.inkMuted)
+                WarmSignalLoader(size: 24)
                     .onboardingReveal(index: 1)
             } else {
                 VStack(alignment: .leading, spacing: 18) {
@@ -183,9 +179,7 @@ struct SetupView: View {
             } label: {
                 HStack(spacing: 10) {
                     if isInstalling {
-                        ProgressView()
-                            .tint(WarmInstrument.onAccent)
-                            .scaleEffect(0.85)
+                        WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
                             .transition(.scale.combined(with: .opacity))
                     }
                     Text(primaryButtonLabel)

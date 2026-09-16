@@ -330,19 +330,25 @@ struct TimerWarmPressStyle: ButtonStyle {
 
 struct WarmPrimaryCTA: View {
     let title: String
+    var isBusy: Bool = false
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 15, weight: .bold))
-                .kerning(0.3)
-                .foregroundColor(WarmInstrument.onAccent)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
+            HStack(spacing: 8) {
+                if isBusy {
+                    WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
+                }
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .kerning(0.3)
+            }
+            .foregroundColor(WarmInstrument.onAccent)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(WorkoutTimerWarm.rust)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
         }
         .buttonStyle(TimerWarmPressStyle())
     }

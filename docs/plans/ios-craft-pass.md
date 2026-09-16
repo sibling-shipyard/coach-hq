@@ -22,7 +22,7 @@ Bar: sit with every state, as the ledger did. Do not clone paper stacks, `‹ HQ
 
 | Site | Today | Kind |
 |---|---|---|
-| Home `HomeSkeletonView` | pulsing empty cards | page |
+| Home | pulsing empty cards | page |
 | Chat `loadingView` | `ProgressView` + "Loading Coach…" | page |
 | Train empty overlay | `ProgressView` | page |
 | Ledger `loadingState` | `ProgressView` in a card | page |
@@ -61,3 +61,4 @@ File overlap is PR 1 vs everyone. After PR 1 merges, 2–6 are disjoint and may 
 - Shared-element open from pulled card into Detail.
 - You Health / Rage sheets; Detail PRE chip; TextLoader for streamed Coach tokens.
 - Restyling pull-to-refresh or WidgetKit placeholders.
+- Shared Warm control kit (primary, secondary, chip, empty) — #1161, after this stack.

@@ -54,6 +54,7 @@ struct CoachHQApp: App {
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
+    @AppStorage("debugWarmLoaderGallery") private var showLoaderGallery = false
 
     var body: some Scene {
         WindowGroup {
@@ -88,6 +89,12 @@ struct CoachHQApp: App {
             }
             .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
+            .overlay {
+                if showLoaderGallery {
+                    WarmLoaderGalleryView()
+                        .zIndex(200)
+                }
+            }
             .onOpenURL { url in
                 // Catch coachhq:// callbacks that reach the app via the OS URL scheme
                 // handler instead of being intercepted inside WKWebView (e.g. when the

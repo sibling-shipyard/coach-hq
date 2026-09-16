@@ -95,7 +95,7 @@ Two waits, ink on desk, never terracotta (ADR 0041). Reduce Motion freezes both.
 
 | Kind | Component | Use |
 |---|---|---|
-| Page | `WarmWaveLoader` | Empty first paint: Home, Chat, Train, Ledger, Health Data |
+| Page | `WarmWaveLoader` | Stamp-sized wave on empty first paint: Home, Chat, Train, Ledger, Health Data |
 | Inline | `WarmSignalLoader` | Busy control: save, load more, sync, import, sign in |
 | Chat reply | thinking bubble + Signal | Keep cycling copy; Signal replaces the three dots |
 

@@ -42,19 +42,20 @@ Two components, ink on desk, never terracotta. Reduce Motion freezes both.
 
 ### 3a. Page — `WarmWaveLoader`
 
-Port of Amicro `WavePhysicsLoader`. Constants from the athlete's snippet:
+Port of Amicro `WavePhysicsLoader`, stamped so it reads as a desk mark, not a poster:
 
 | Name | Value |
 |---|---|
-| bars | 15 |
-| bar width / gap | 12 / 8 pt |
-| frames | 201 |
-| bounces along the row (`B`) | 4 |
-| max bounce height | 60 pt |
-| base bar / wave peak | 16 / 48 pt |
-| loop | 4s linear, reverse after halfway |
+| bars | 9 |
+| bar width / gap | 5 / 6 pt |
+| bounces along the row (`B`) | 2 |
+| max bounce height | 12 pt |
+| base bar / wave peak | 10 / 16 pt |
+| ball | 8 pt ink circle, no squash or indent |
+| loop | 5.2s cosine ping-pong, sin² hops |
+| draw | `Canvas` (no per-frame layout) |
 
-Ball travels left → right → left. Bars rise with cosine falloff (`dist < 3`). Bars indent under the ball (`dist < 1.5`). Ball squashes on contact. Recolour zinc-200/800 → `WarmInstrument.inkFaint` → `ink`. Dark mode flips that.
+Ball eases along the inner bars (skips the two ends so the circle never clips). Two sin² hops, not a slamming parabola. Bars lift with a gaussian. Recolour zinc → `WarmInstrument.inkFaint` → `ink`. Dark mode flips that.
 
 Use on **empty first paint** only. Not on pull-to-refresh.
 
@@ -79,41 +80,35 @@ Docs: signal is for buttons, status rows, and the short wait before a reply. Tha
 
 ---
 
-## 4. Wait inventory (today)
+## 4. Wait inventory (PR 1)
 
-Replace in **PR 1**. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
+Replaced. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
 
-**Page**
+**Page — `WarmPageWait` / `WarmWaveLoader`**
 
-| Site | File | Today |
-|---|---|---|
-| Home | `WarmInstrumentHomeView.swift:67–68`, `HomeSkeletonView:715–748` | Empty pulsing rects; sim 01-launch was near-white with leftover left bars |
-| Chat | `CoachChatView.swift:142`, `loadingView:351–360` | Centred `ProgressView` + "Loading Coach…". No header, no composer |
-| Train | `WorkoutListView.swift:88–89` | Overlay `ProgressView` when templates empty |
-| Ledger | `AllActivitiesListView.swift:35–36`, `loadingState:137–146` | Spinner in a WarmCard |
-| Health Data | `HealthSettingsView.swift:132–143` | "Reading Apple Health…" + `ProgressView` |
+| Site | File |
+|---|---|
+| Home | `WarmInstrumentHomeView.swift` |
+| Chat | `CoachChatView.swift` `loadingView` |
+| Train | `WorkoutListView.swift` empty overlay |
+| Ledger | `AllActivitiesListView.swift` `loadingState` |
+| Health Data | `HealthSettingsView.swift` `loadingState` |
 
-**Inline**
+**Inline — `WarmSignalLoader`**
 
-| Site | File | Today |
-|---|---|---|
-| Detail header | `ActivityDetailView.swift:139–140` | Small `ProgressView` |
-| Detail Save | `ActivityDetailView.swift:861` | Overlay spinner on terracotta CTA |
-| Ledger load-more | `AllActivitiesListView.swift:106–107` | Spinner replaces "Load 20 more" |
-| You Sync | `SettingsView.swift:231`, `759–764` | SF Symbol rotation, not ProgressView |
-| You Reset test | `SettingsView.swift:476` | Spinner in rust button |
-| Health Import | `HealthSettingsView.swift:279` | Small spinner on Import |
-| Login GitHub | `LoginView.swift:104–105` | Spinner in Sign in |
-| Login retry | `LoginView.swift:76` | "Checking…" |
-| Setup check | `SetupView.swift:95`, `115` | Small ProgressView |
-| Setup install | `SetupView.swift:186` | Spinner in primary button |
+| Site | File |
+|---|---|
+| Detail header / Save | `ActivityDetailView.swift`, `WarmPrimaryCTA(isBusy:)` |
+| Ledger load-more | `AllActivitiesListView.swift` |
+| You Sync / Reset | `SettingsView.swift` |
+| Health Import | `HealthSettingsView.swift` |
+| Login / Setup | `LoginView.swift`, `SetupView.swift` |
 
 **Chat reply**
 
-| Site | File | Today |
-|---|---|---|
-| Thinking bubble | `CoachChatWarmUI.swift:363–401` | Three bouncing dots + stage copy |
-| Composer | `CoachChatView.swift:341` | Placeholder `""` unless replying; "Coach is replying…" while sending |
+| Site | File |
+|---|---|
+| Thinking bubble | `CoachChatWarmUI.swift` — stage copy + Signal |
 
 ---
 
@@ -123,7 +118,7 @@ Replace in **PR 1**. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
 
 **Drops.**
 
-1. Launch (`01-launch.png`): near-white field, ghost HQ, leftover bars. `HomeSkeletonView` is blank muted rects (`:715–747`), not the real column. `Theme.skeleton` exists and is unused here. Widgets start at opacity 0 (`StaggerRevealModifier`) so the handoff collapses left.
+1. Launch (`01-launch.png`): near-white field, ghost HQ, leftover bars. PR 1 replaced the pulsing skeleton with `WarmPageWait`. Widgets start at opacity 0 (`StaggerRevealModifier`) so the handoff can still collapse left until PR 3.
 2. Empty / no-repo (`:307–338`): SF Symbol + 12pt caption, 100pt pad. Fetch fail is toast only (`:112–116`).
 3. Loaded (`04-home-loaded.png`): calories/quest sit under the floating dock. `mainTabScrollBottomClearance` ~84pt (`Theme.swift:843–851`) is not enough for the pair (`minHeight` 148).
 4. Compact `SessionRow` is not a button (`RecentSessionsCard.swift:42–43`). `onOpen` is swipe-to-edit on the non-compact path only.

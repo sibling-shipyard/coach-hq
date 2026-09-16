@@ -226,9 +226,13 @@ struct SettingsView: View {
                 Task { await syncManager.syncNewWorkouts() }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
+                    if syncManager.isSyncing {
+                        WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    Text(syncManager.isSyncing ? "Syncing…" : "Sync Now")
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundColor(WarmInstrument.onAccent)
@@ -473,9 +477,7 @@ struct SettingsView: View {
                 } label: {
                     HStack(spacing: 8) {
                         if isResetting {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(WarmInstrument.onAccent)
+                            WarmSignalLoader(size: 16, color: WarmInstrument.onAccent)
                         }
                         Text(isResetting ? "Resetting..." : "Reset Test Branch")
                             .font(.system(size: 13, weight: .semibold))
@@ -753,16 +755,13 @@ private struct SettingsProfileHeader: View {
                 }
 
                 HStack(spacing: 10) {
-                    Image(systemName: syncIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(syncColor)
-                        .rotationEffect(isSyncing ? .degrees(360) : .zero)
-                        .animation(
-                            isSyncing
-                                ? .linear(duration: 1).repeatForever(autoreverses: false)
-                                : .default,
-                            value: isSyncing
-                        )
+                    if isSyncing {
+                        WarmSignalLoader(size: 16, color: syncColor)
+                    } else {
+                        Image(systemName: syncIcon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(syncColor)
+                    }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(syncTitle)

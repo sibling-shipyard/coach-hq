@@ -86,7 +86,8 @@ struct WorkoutListView: View {
             }
             .overlay {
                 if workoutService.isLoading && workoutService.templates.isEmpty && isEmpty {
-                    ProgressView()
+                    WarmPageWait()
+                        .background(WarmInstrument.desk)
                 } else if let error = workoutService.fetchError, workoutService.templates.isEmpty {
                     // A fetch failure must never look identical to "you genuinely have no
                     // plan" — that false-empty state is what sent Skanda's real workouts

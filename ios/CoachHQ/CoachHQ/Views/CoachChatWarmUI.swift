@@ -361,20 +361,11 @@ enum CoachChatThinkingStage {
 }
 
 struct CoachChatThinkingBubble: View {
-    @State private var activeDot: Int = 0
     @State private var stageIndex: Int = 0
 
     var body: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .frame(width: 6, height: 6)
-                        .foregroundStyle(WarmInstrument.inkFaint)
-                        .offset(y: activeDot == index ? -4 : 0)
-                        .animation(.easeInOut(duration: 0.25), value: activeDot)
-                }
-            }
+            WarmSignalLoader(size: 22, color: WarmInstrument.inkFaint)
             Text(CoachChatThinkingStage.labels[stageIndex])
                 .font(.system(size: 13))
                 .foregroundStyle(WarmInstrument.inkMuted)
@@ -399,15 +390,6 @@ struct CoachChatThinkingBubble: View {
             )
         )
         .accessibilityLabel("Coach is thinking")
-        .task {
-            while !Task.isCancelled {
-                for i in 0..<3 {
-                    activeDot = i
-                    try? await Task.sleep(for: .milliseconds(300))
-                }
-                try? await Task.sleep(for: .milliseconds(200))
-            }
-        }
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(CoachChatThinkingStage.intervalMs))

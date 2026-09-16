@@ -349,14 +349,7 @@ struct CoachChatView: View {
     }
 
     private var loadingView: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .tint(WarmInstrument.inkMuted)
-            Text("Loading Coach…")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(WarmInstrument.inkFaint)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        WarmPageWait(caption: "Loading Coach…")
     }
 
     // MARK: - Messages

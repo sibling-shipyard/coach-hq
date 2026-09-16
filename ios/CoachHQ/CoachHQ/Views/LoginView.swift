@@ -73,7 +73,7 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 8) {
                         if isRetryingMultipleRepos {
-                            ProgressView().scaleEffect(0.85)
+                            WarmSignalLoader(size: 16, color: WarmInstrument.inkMuted)
                         }
                         Text(isRetryingMultipleRepos ? "Checking…" : "I've removed access - try again")
                     }
@@ -102,9 +102,7 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 10) {
                         if isLoading {
-                            ProgressView()
-                                .tint(WarmInstrument.onAccent)
-                                .scaleEffect(0.85)
+                            WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
                                 .transition(.scale.combined(with: .opacity))
                         } else {
                             Image("GitHubMark")
