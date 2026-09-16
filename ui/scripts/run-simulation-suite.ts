@@ -52,6 +52,9 @@ import { slugify } from "../api/_lib/slugify.js";
 import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
 import { formatCostUsd } from "./lib/llmPricing.js";
 import { readCoverageIndex, writeCoverageEntry } from "./lib/coverageIndex.js";
+import { ATHLETE_REPOS } from "./lib/athleteRepos.js";
+import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
+import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -83,7 +86,23 @@ interface Scenario {
   /** Only when the athlete isn't one of that script's pre-registered shortcuts. */
   repo?: string;
   localPath?: string;
+  /**
+   * Checked against the target repo's real RepoDataProfile (lib/repoDataProfile.ts) before this
+   * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
+   * section. An unmet precondition means the repo can't produce the behavior this scenario tests
+   * right now (e.g. no planned session to contradict), so this skips the model call entirely
+   * instead of letting a fallback write pass a generic `expect` check for the wrong reason - the
+   * real `ambiguous-contradiction` false positive that motivated this.
+   */
+  preconditions?: Preconditions;
   expect: TurnExpect[];
+}
+
+/** Resolves a scenario's local clone path the same way run-manual-coach-chat-test.ts would. */
+function resolveLocalPath(scenario: Scenario): string | undefined {
+  if (scenario.localPath) return scenario.localPath;
+  if (scenario.athlete) return ATHLETE_REPOS[scenario.athlete]?.localPath;
+  return undefined;
 }
 
 /**
@@ -149,6 +168,10 @@ const SCENARIOS: Scenario[] = [
       "Athlete reports a planned session done, immediately contradicts it (wrong day), then confirms which one really happened - checks the coach reconciles rather than writing both versions.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 F1: this needs a real planned session on file to reconcile against - all 5 real
+    // athlete repos currently have an empty (data_status: "placeholder") week plan, which is
+    // exactly the false positive that motivated this precondition (see this doc's header comment).
+    preconditions: { currentWeekHasSessions: true },
     // The real bug this guards against: a contradiction landing as two conflicting current_week.json
     // writes (the wrongly-claimed session left "done" alongside a synthetically-created new session
     // for the real one) instead of one reconciled state - coachWeekFiles.ts's applyWeekPatch creates
@@ -175,6 +198,10 @@ const SCENARIOS: Scenario[] = [
       "workout_create then workout_remove in the same conversation, real-write coverage - both actions had zero simulation coverage before this (eval-only narration guards existed, no real commit had ever been checked).",
     athlete: "skanda",
     repo: "skanda-2003/coach-skanda-2003",
+    // #1105 F2: workout_create's injury_ack invariant (coachReplySchema.ts) is required whenever
+    // the athlete has any active flag - this scenario's turn 1 only exercises that path for real
+    // on a repo that actually has one, otherwise there's nothing for the model to acknowledge.
+    preconditions: { injuryFlags: "any" },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
       { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
@@ -224,6 +251,11 @@ const SCENARIOS: Scenario[] = [
       "Real-write companion to eval transcript 15 - memory_update (learned pattern), coaching_style_update, and sports_update all land in memory.json and had no simulation coverage at all before this.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105: this scenario's real precondition is "starting coaching_style != the requested one"
+    // (2026-09-15's pass found several repos skipped for real because they were already
+    // "accountability", the style turn 2 asks for) - a plain boolean precondition can't express a
+    // starting-value-not-equal-to-X check, only presence/absence, so this scenario deliberately
+    // has no `preconditions` entry yet. A2b's richer seed-recipe shape is the right place for it.
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/coach/memory.json"] },
       { turnIndex: 2, filesChangedInclude: ["user_data/coach/memory.json"] },
@@ -252,6 +284,10 @@ const SCENARIOS: Scenario[] = [
       "quest_event real-write coverage - progress.json had no simulation coverage at all: eval transcript 16 proves the model reports a completion, nothing had ever checked the real append-only write. Message deliberately references 'the daily habit' generically rather than a specific quest name, since the target repo's real active quest names aren't known ahead of a live run - see this repo's real quests.json before running for real, per coach-chat-testing.md's 'pick real content first' discipline.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 B2: needs a real daily-habit quest on file for "kept up with my daily habit again" to
+    // have anything to anchor to - otherwise the model reasonably asks "which habit?" instead of
+    // firing quest_event, and that clarifying question doesn't match this scenario's expect block.
+    preconditions: { hasHabitQuest: true },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/ledger/progress.json"] },
       { turnIndex: 2 },
@@ -278,6 +314,9 @@ const SCENARIOS: Scenario[] = [
       "template_edit real-write coverage - had never been asserted present anywhere (transcript 05 only proves the negative, that a one-day swap is week_update not template_edit). Creates its own template first, then asks for a permanent change to it, framed as 'going forward' / 'every time' to disambiguate against session_plan's 'just today' framing (covered separately by the session-plan scenario).",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 F2: same injury_ack invariant as workout-lifecycle above - turn 1 builds a routine
+    // from scratch via workout_create, which needs an active flag on file to acknowledge for real.
+    preconditions: { injuryFlags: "any" },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
       { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/"] },
@@ -335,7 +374,11 @@ interface CoverageEntry {
   last_pass_sha: string | null;
   last_run_date: string;
   watched_paths: string[];
-  status: "pass" | "fail";
+  // #1105: "skipped-precondition" is distinct from "pass"/"fail" - the model was never called
+  // because the target repo's real data couldn't produce the behavior this scenario tests, not
+  // because anything succeeded or broke. `reason` carries which precondition field was unmet.
+  status: "pass" | "fail" | "skipped-precondition";
+  reason?: string;
   last_cost_usd?: number;
 }
 
@@ -456,6 +499,30 @@ async function main() {
             ` ${existing.last_run_date}. Use --force to run anyway.`,
         );
         continue;
+      }
+    }
+
+    if (scenario.preconditions) {
+      const localPath = resolveLocalPath(scenario);
+      // No local clone to check against - can't verify the precondition either way, so fall
+      // through to running it rather than silently skipping something we have no evidence about.
+      if (localPath && fs.existsSync(localPath)) {
+        const profile = buildRepoDataProfile(localPath);
+        const { met, reason } = checkPreconditions(profile, scenario.preconditions);
+        if (!met) {
+          console.log(`[skip] ${scenario.id}: precondition unmet - ${reason}`);
+          if (!args.dryRun) {
+            writeCoverageEntry(coveragePath, key, {
+              type: "manual",
+              last_pass_sha: existing?.last_pass_sha ?? null,
+              last_run_date: today,
+              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+              status: "skipped-precondition",
+              reason,
+            });
+          }
+          continue;
+        }
       }
     }
 
