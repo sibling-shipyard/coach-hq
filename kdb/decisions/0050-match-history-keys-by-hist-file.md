@@ -1,4 +1,4 @@
-# 0049 — Match history keys each session by its history file
+# 0050 — Match history keys each session by its history file
 
 - **Status:** Accepted · 2026-09-16 · Tech Lead
 - **Area:** cross-cutting (iOS, pipeline, web)
