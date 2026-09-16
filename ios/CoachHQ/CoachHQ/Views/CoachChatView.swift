@@ -810,6 +810,16 @@ struct CoachChatView: View {
         // server-side (retrying blind risks a double-send).
         var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "coach-chat-send") {
+            // Purely a "ran out of time before the send finished" signal, not an error capture -
+            // the send itself may still succeed or fail on its own after this fires, and the
+            // toast/failure path is unchanged either way. Mirrors D1's DiagnosticsManager.capture
+            // below: lets us see how often the background window isn't enough.
+            DiagnosticsManager.capture(
+                message: "coach-chat: background task expired mid-send",
+                severity: .warning,
+                operation: "coach.chat.send_background_expired",
+                operationID: UUID()
+            )
             UIApplication.shared.endBackgroundTask(backgroundTaskID)
             backgroundTaskID = .invalid
         }
