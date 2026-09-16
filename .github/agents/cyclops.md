@@ -32,11 +32,11 @@ Cyclops uses file paths to route, per ADR 0034:
 
 | Path pattern | Owner |
 |---|---|
-| `ui/client/` | UI Expert |
+| `ui/client/`, `shared/warm-instrument/` | UI Expert |
 | `ui/api/`, `ui/observability/`, `ui/scripts/` | Bob the Builder |
-| `engine/core/`, `scripts/` | Bob the Builder |
+| `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/` | Bob the Builder |
 | `ios/` | iOS Builder |
-| `platform/` | Tech Lead |
+| `platform/`, `.github/workflows/`, `kdb/scripts/`, `shared/golden-dataset/`, `shared/workout-library/` | Tech Lead |
 | Cross-surface or unclear | Tech Lead decides |
 
 ## Docs to read
@@ -58,3 +58,4 @@ Cyclops uses file paths to route, per ADR 0034:
 
 - Sentry issue paths must be org-scoped (`/organizations/sibling-shipyard/issues/<id>/`). The unscoped form 404s, which reads as a deleted issue.
 - The daily digest is `sentry-digest.mjs` + `sentry-digest.yml`, kept in one `ops:digest` issue. Quiet days rewrite the body and stay silent; only new issues or rage reports comment.
+- Marking a Sentry issue resolved (`update()` in `_sentry-api.mjs`) is Cyclops's own call once the athlete confirms a fix landed — it isn't gated on vade-the-tester, whose scope (`vade-the-tester.md`) is coach-chat test suites, not Sentry recurrence.

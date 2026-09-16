@@ -38,6 +38,8 @@ SCOPE_MAP: list[tuple[str, str]] = [
     # Backend API, engine core, scripts, user data — Bob the Builder
     ("ui/api/",                            "Bob-the-Builder"),
     ("engine/core/",                       "Bob-the-Builder"),
+    ("engine/lib/",                         "Bob-the-Builder"),
+    ("engine/scripts/",                     "Bob-the-Builder"),
     ("scripts/",                           "Bob-the-Builder"),
     ("ui/observability/",                  "Bob-the-Builder"),
     ("ui/scripts/",                        "Bob-the-Builder"),
@@ -62,8 +64,13 @@ SCOPE_MAP: list[tuple[str, str]] = [
     ("user_data/ledger/challenge_v2.json", "Coach-Phelps"),
     ("sessions/",                          "Coach-Phelps"),
     
-    # Soul layers — Tech Lead only (overrides Coach if anything matches, though path is separate)
-    ("platform/soul/",                     "Tech-Lead"),
+    # ADR 0048 — explicit Tech Lead / UI Expert shared paths (last match wins)
+    ("shared/warm-instrument/",            "UI-Expert"),
+    ("shared/golden-dataset/",             "Tech-Lead"),
+    ("shared/workout-library/",            "Tech-Lead"),
+    ("platform/",                          "Tech-Lead"),
+    (".github/workflows/",                 "Tech-Lead"),
+    ("kdb/scripts/",                       "Tech-Lead"),
 ]
 
 # ---------------------------------------------------------------------------

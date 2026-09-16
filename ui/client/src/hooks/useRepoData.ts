@@ -15,6 +15,7 @@
  * loading/error check - not a rewrite of page logic.
  */
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/react";
 import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
 import { captureFetchFailure } from "../lib/observability";
 export interface RepoData {
@@ -38,7 +39,21 @@ const LOCAL_DATA = dashboardSnapshotRaw as RepoData;
 
 // Bump when the dashboard snapshot shape changes in a way old dashboards can't render
 // safely. Kept in sync with build-data.mjs's SCHEMA_VERSION.
-const SUPPORTED_SCHEMA_VERSION = 1;
+export const SUPPORTED_SCHEMA_VERSION = 1;
+
+/** Athlete-facing schema gate — one Sentry message so deploy skew is searchable. */
+export function reportSchemaUnsupported(schemaVersion: number): void {
+  Sentry.captureMessage(`repo-file schema_version unsupported: ${schemaVersion}`, {
+    level: "error",
+    fingerprint: ["schema_unsupported", "/api/repo-file"],
+    tags: {
+      fetch_endpoint: "/api/repo-file",
+      outcome: "schema_unsupported",
+      schema_version: String(schemaVersion),
+      supported_schema_version: String(SUPPORTED_SCHEMA_VERSION),
+    },
+  });
+}
 
 export interface UseRepoDataResult {
   data: RepoData | null;
@@ -122,6 +137,8 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
       ) {
+        // Athlete-facing blocking card — capture once so deploy skew is visible in Sentry.
+        reportSchemaUnsupported(aggregate.schema_version);
         setState({
           data: null,
           loading: false,

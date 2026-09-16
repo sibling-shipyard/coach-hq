@@ -538,26 +538,47 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
   // update), not just itself. validateTemplateEdit/validateSessionReconcile now catch both
   // before either write is built, so only the two bad fields drop and the valid one commits.
   it("a hallucinated template_id and session_id in the same turn each get dropped on their own - a valid profile_update still commits", async () => {
+    // #1105 track C3 (lazy rollover): this week must stay live/current for the real
+    // loadTurnState/buildTurnWrites this test wires together, or the lazy rollover check (ADR
+    // 0049) correctly replaces it with a fresh placeholder before the assertions below ever run,
+    // which is real behavior, not a bug in this test. Computed from the real current date rather
+    // than a hardcoded one, same reason every date in here has to move together - a hardcoded
+    // past week goes stale (and gets rolled over) the moment enough real time passes.
+    const mondayOnOrBefore = (d: Date) => {
+      const day = d.getUTCDay() || 7;
+      const monday = new Date(d);
+      monday.setUTCDate(d.getUTCDate() + 1 - day);
+      return monday;
+    };
+    const addDays = (d: Date, days: number) => {
+      const copy = new Date(d);
+      copy.setUTCDate(copy.getUTCDate() + days);
+      return copy;
+    };
+    const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+    const weekStart = mondayOnOrBefore(new Date());
+    const weekDates = Array.from({ length: 7 }, (_, i) => isoDate(addDays(weekStart, i)));
+
     const currentWeek = JSON.stringify({
       schema_version: 1,
       data_status: "live",
       timezone: "America/New_York",
       week: {
         id: "2026-W34",
-        start_date: "2026-08-17",
-        end_date: "2026-08-23",
+        start_date: weekDates[0],
+        end_date: weekDates[6],
         focus: null,
         guardrails: [],
       },
       coach_read: {
         headline: "Steady week ahead.",
         body: "Focus on consistency.",
-        valid_from: "2026-08-17",
-        valid_until: "2026-08-23",
+        valid_from: weekDates[0],
+        valid_until: weekDates[6],
       },
       days: [
         {
-          date: "2026-08-17",
+          date: weekDates[0],
           intent: null,
           coach_note: null,
           sessions: [
@@ -578,11 +599,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
             },
           ],
         },
-        ...["2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"].map(
-          (date) => ({ date, intent: null, coach_note: null, sessions: [] }),
-        ),
+        ...weekDates
+          .slice(1)
+          .map((date) => ({ date, intent: null, coach_note: null, sessions: [] })),
       ],
-      updated_at: "2026-08-17T12:00:00.000Z",
+      updated_at: `${weekDates[0]}T12:00:00.000Z`,
       updated_by: "model",
       trace_id: "old",
     });
@@ -604,7 +625,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         template_edit: { template_id: "made_up_template" },
         week_update: {
           days: [
-            { date: "2026-08-17", sessions: [{ session_id: "made_up_session", status: "done" }] },
+            { date: weekDates[0], sessions: [{ session_id: "made_up_session", status: "done" }] },
           ],
         },
       },

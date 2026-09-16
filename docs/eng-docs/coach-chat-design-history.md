@@ -504,11 +504,15 @@ green (`OPENROUTER-K1-RETEST-FINDINGS.md`/`GEMINI-PRO-BASELINE-2026-09-10.md`), 
 merged. Per `AGENTS.md`'s plan-delete-on-last-PR rule, `docs/plans/chat-commit-redesign.md` and
 every `ccr-*-lld.md` file are deleted in this same PR - this entry, `coach-data-schema.md`,
 `coach-chat-daily.md`, `coach-chat-fsp.md`, and `coach-chat-testing.md` already carry whatever
-from them is durable. Remaining real open items (F1's repo-by-repo propagation, one unresolved
-eval-suite finding, two items deferred to the workouts redesign) are tracked in
-`docs/plans/coach-chat-redesign-followups.md`, not lost with the deleted plan docs. F1's most
-urgent piece - backfilling `coaching_style` onto all 5 real athlete repos, since production now
-requires it for `isAthleteProfileComplete()` - shipped the same day, ahead of F1's own Step 0/1/2.
+from them is durable. F1's most urgent piece - backfilling `coaching_style` onto all 5 real
+athlete repos, since production now requires it for `isAthleteProfileComplete()` - shipped the
+same day, ahead of F1's own Step 0/1/2. The remaining open items (the eval-suite finding on dense
+FSP intake, and the two workouts-redesign follow-ups on `week_update` kickoff and `session_plan`)
+were all settled by the 2026-09-15 coverage-audit pass and its live-testing round - see
+`docs/eng-docs/coach-chat-test-scenarios.md`'s transcripts 19/20 and the `session-plan`/
+`week-kickoff-flash` simulation scenarios for the fixtures, and `test-results/2026-09-15.md` for
+the live verification. `docs/plans/coach-chat-redesign-followups.md` is deleted with nothing left
+open.
 
 No single ADR covers the whole redesign; individual locked decisions from it are ADR 0037
 (retention) and ADR 0038 (coaching-style restored).

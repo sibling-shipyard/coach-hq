@@ -1,6 +1,9 @@
 name: Platform Tests
 
-# Runs the engine and platform Python suites plus the engine and platform Node suites.
+# Runs platform/ Python tests, platform/skills node:test, and engine/scripts Node + Python
+# suites. Added because it had NO runner at all - same failure shape as issue #194. #911 added
+# platform/skills/sentry-digest.test.mjs to checks.conf without adding it here. #1117 adds the
+# engine/scripts suites the local gate already needed.
 
 # Self-included in both path filters on purpose: a gate that cannot run on its own PR
 # ships unproven, which is how this workflow reached main with zero executions (#533).
@@ -11,7 +14,6 @@ on:
     paths:
       - 'platform/tests/**'
       - 'platform/skills/**'
-      - 'platform/scripts/checks.conf'
       - 'engine/**'
       - 'shared/golden-dataset/**'
       - '.github/workflows/platform-tests.yml'
@@ -19,10 +21,13 @@ on:
     paths:
       - 'platform/tests/**'
       - 'platform/skills/**'
-      - 'platform/scripts/checks.conf'
       - 'engine/**'
       - 'shared/golden-dataset/**'
       - '.github/workflows/platform-tests.yml'
+
+concurrency:
+  group: platform-tests-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   platform-tests:
@@ -36,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
 
       - name: Install dependencies
         run: pip install requests
@@ -44,11 +49,11 @@ jobs:
       - name: Run test suite
         run: python3 -m unittest discover -s platform/tests -p "test_*.py"
 
-      - name: Run engine Python tests
-        run: python3 -m unittest discover -s engine/scripts -p "test_*.py"
-
-      - name: Run engine Node tests
-        run: node --test engine/scripts/*.test.mjs shared/golden-dataset/*.test.mjs
-
       - name: Run platform/skills tests
         run: node --test platform/skills/*.test.mjs
+
+      - name: Run engine Node tests
+        run: node --experimental-strip-types --test engine/scripts/*.test.mjs shared/golden-dataset/*.test.mjs
+
+      - name: Run engine Python tests
+        run: python3 -m unittest discover -s engine/scripts -p "test_*.py"

@@ -6,7 +6,7 @@
   "questLog": "## Active Quests\n- Main: General strength\n",
   "extraContext": "Current templates/routines (use these exact ids for template_edit, workout_remove, or session_plan):\n(none yet)",
   "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
-  "userMessage": "I'd like a new bodyweight strength routine I can do at home, no equipment, about 3 times a week. Can you put one together for me?",
+  "userMessage": "I'd like a new bodyweight strength routine I can do at home, no equipment, about 3 times a week - a mix of rep-based moves like push-ups and squats, plus a timed hold like a plank. Can you put one together for me?",
   "expect": {
     "actionFieldsPresent": ["workout_create"]
   }

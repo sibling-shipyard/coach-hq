@@ -25,6 +25,14 @@
  *   npm run test:coach-chat-manual -- --athlete skanda --branch test/reuse-me --message "..."
  *   npm run test:coach-chat-manual -- --athlete skanda --greet --debug   # dump the raw prompt too
  *   npm run test:coach-chat-manual -- --athlete skanda --activity-ids "hk:UUID1,hk:UUID2"
+ *   npm run test:coach-chat-manual -- --athlete akash --message "..." --preconditions '{"injuryFlags":"any"}'
+ *
+ * **--preconditions** takes the same JSON shape as run-simulation-suite.ts's Scenario#preconditions
+ * (lib/preconditions.ts) - a cheap, real-file check of the target repo's actual data (does the
+ * current week have real sessions, is there an active injury flag, etc.) run once before any turn
+ * is sent. This exists so an ad hoc manual run against a repo that plainly can't produce the
+ * behavior you're checking fails fast and honestly, instead of a real Gemini call falling back to
+ * whatever it can and someone reading a clean-looking reply as if it tested what they asked for.
  *
  * **--message starts a new thread every invocation.** It's a one-shot: there is no state carried
  * between two separate `--message` runs, so calling it twice in a row does NOT continue one
@@ -88,6 +96,9 @@ import type { GeminiUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
 import { estimateCostUsd, formatCostUsd } from "./lib/llmPricing.js";
+import { ATHLETE_REPOS } from "./lib/athleteRepos.js";
+import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
+import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -109,29 +120,6 @@ if (!process.env[requiredKeyName]) {
   );
   process.exit(1);
 }
-
-const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
-  skanda: {
-    repo: "skanda-2003/coach-skanda-2003",
-    localPath: "/home/skanda_suresh/Projects/coach-skanda",
-  },
-  akash: {
-    repo: "akash-suresh/coach-akash-suresh",
-    localPath: "/home/skanda_suresh/Projects/coach-akash",
-  },
-  date2022: {
-    repo: "date2022/coach-date2022",
-    localPath: "/home/skanda_suresh/Projects/coach-date2022",
-  },
-  prateek: {
-    repo: "prateekdevaraju/coach-prateekdevaraju",
-    localPath: "/home/skanda_suresh/Projects/coach-prateek",
-  },
-  shreyas: {
-    repo: "shreyas-95-cyber/coach-shreyas-95-cyber",
-    localPath: "/home/skanda_suresh/Projects/coach-shreyas",
-  },
-};
 
 interface ManualTurn {
   message: string;
@@ -175,6 +163,7 @@ function parseArgs(argv: string[]) {
     turnsPath: get("--turns"),
     debug: argv.includes("--debug") || process.env.DEBUG === "1",
     activityIds: get("--activity-ids"),
+    preconditions: get("--preconditions"),
   };
 }
 
@@ -241,6 +230,32 @@ async function main() {
     );
     process.exit(1);
     return;
+  }
+
+  // #1105: the same guard run-simulation-suite.ts applies per-scenario, run once here for an ad
+  // hoc/manual invocation - before anything else, so an unmet precondition never spends a real
+  // branch-creation call, let alone a real Gemini turn.
+  if (args.preconditions) {
+    let preconditions: Preconditions;
+    try {
+      preconditions = JSON.parse(args.preconditions) as Preconditions;
+    } catch {
+      console.error(
+        `run-manual-coach-chat-test: --preconditions is not valid JSON: ${args.preconditions}`,
+      );
+      process.exit(1);
+      return;
+    }
+    const profile = buildRepoDataProfile(localPath);
+    const { met, reason } = checkPreconditions(profile, preconditions);
+    if (!met) {
+      console.error(
+        `run-manual-coach-chat-test: precondition unmet on ${repo} - ${reason}. Refusing to ` +
+          `send any turn - pick a repo that meets it, or drop --preconditions to run anyway.`,
+      );
+      process.exit(3);
+      return;
+    }
   }
 
   const modeFlags = [
