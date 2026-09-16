@@ -265,24 +265,15 @@ private struct WorkoutImportRow: View {
             MonoLabel("Can't check", size: 9, color: WarmInstrument.inkFaint)
 
         case .notSynced:
-            Button(action: onImport) {
-                Group {
-                    if isImporting {
-                        WarmSignalLoader(size: 16, color: WarmInstrument.onAccent)
-                    } else {
-                        Text("Import")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(WarmInstrument.onAccent)
-                    }
-                }
-                .frame(minWidth: 64)
-                .frame(height: 30)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(TimerWarmPressStyle())
+            WarmPrimary(
+                title: isImporting ? "" : "Import",
+                isBusy: isImporting,
+                size: .compact,
+                action: onImport
+            )
             .disabled(isBusy)
             .opacity(isBusy && !isImporting ? 0.5 : 1)
+            .accessibilityLabel("Import")
         }
     }
 

@@ -334,23 +334,7 @@ struct WarmPrimaryCTA: View {
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                if isBusy {
-                    WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
-                }
-                Text(title)
-                    .font(.system(size: 15, weight: .bold))
-                    .kerning(0.3)
-            }
-            .foregroundColor(WarmInstrument.onAccent)
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(WorkoutTimerWarm.rust)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
-        }
-        .buttonStyle(TimerWarmPressStyle())
+        WarmPrimary(title: title, isBusy: isBusy, action: action)
     }
 }
 
@@ -359,20 +343,7 @@ struct WarmSecondaryCTA: View {
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13.5, weight: .semibold))
-                .foregroundColor(Theme.ink)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(WarmInstrument.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(WorkoutTimerWarm.exerciseCardBorder, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(TimerWarmPressStyle())
+        WarmSecondary(title: title, action: action)
     }
 }
 

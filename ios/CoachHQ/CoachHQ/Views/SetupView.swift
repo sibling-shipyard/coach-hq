@@ -169,25 +169,18 @@ struct SetupView: View {
                     .padding(.horizontal, 4)
             }
 
-            Button {
+            WarmPrimary(
+                title: primaryButtonLabel,
+                isBusy: isInstalling,
+                fill: Theme.ink
+            ) {
                 Haptics.tap()
                 if repoStepComplete {
                     continueToInstall()
                 } else {
                     openCreateRepo()
                 }
-            } label: {
-                HStack(spacing: 10) {
-                    if isInstalling {
-                        WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                    Text(primaryButtonLabel)
-                        .contentTransition(.opacity)
-                }
-                .animation(PremiumMotion.press, value: isInstalling)
             }
-            .buttonStyle(WarmSetupButtonStyle(primary: true))
             .disabled(primaryButtonDisabled)
             .onboardingReveal(index: 5)
 
@@ -370,13 +363,10 @@ struct HealthKitPrePromptView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
             VStack(spacing: 12) {
-                Button {
+                WarmPrimary(title: "Connect Health", fill: Theme.ink) {
                     Haptics.tap()
                     onConnect()
-                } label: {
-                    Text("Connect Health")
                 }
-                .buttonStyle(WarmSetupButtonStyle(primary: true))
                 .onboardingReveal(index: 3)
 
                 Text("Health access is required for Coach to work.")
@@ -391,35 +381,5 @@ struct HealthKitPrePromptView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
-    }
-}
-
-// MARK: - Setup button style
-
-struct WarmSetupButtonStyle: ButtonStyle {
-    let primary: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 15, weight: .semibold))
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(primaryBackground(pressed: configuration.isPressed))
-            .foregroundColor(primary ? WarmInstrument.paper : Theme.ink)
-            .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
-                    .strokeBorder(primary ? Color.clear : WarmInstrument.border, lineWidth: 1)
-            )
-            .shadow(color: primary ? WarmInstrument.cardShadow : .clear, radius: 10, y: 5)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
-    }
-
-    private func primaryBackground(pressed: Bool) -> Color {
-        if primary {
-            return Theme.ink.opacity(pressed ? 0.85 : 1)
-        }
-        return WarmInstrument.surfaceMuted
     }
 }

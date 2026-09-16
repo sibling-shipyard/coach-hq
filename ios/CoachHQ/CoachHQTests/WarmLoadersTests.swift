@@ -35,14 +35,14 @@ final class WarmLoadersTests: XCTestCase {
         }
     }
 
-    func testTurnaroundSitsOnLastBar() {
+    func testTurnaroundHangsInTheAir() {
         let frame = WavePhysics.frame(at: 0.5)
-        XCTAssertEqual(frame.bounce, 0, accuracy: 0.01)
+        XCTAssertGreaterThan(frame.bounce, 0.9)
     }
 
     func testHopPeaksOffTheGround() {
-        let frame = WavePhysics.frame(at: 0.125)
-        XCTAssertGreaterThan(frame.bounce, 0.4)
+        let frame = WavePhysics.frame(at: 0)
+        XCTAssertGreaterThan(frame.bounce, 0.9)
     }
 
     func testReducedMotionPoseIsOutbound() {

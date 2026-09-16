@@ -43,11 +43,10 @@ enum WavePhysics {
         let xFrac = 0.5 - 0.5 * cos(clamped * 2 * .pi)
         let ballIndex = travelStartIndex + xFrac * (travelEndIndex - travelStartIndex)
 
-        var bounceF = (xFrac * bounceCount).truncatingRemainder(dividingBy: 1)
-        if xFrac == 0 || xFrac == 1 { bounceF = 0 }
-        // sin² lands with zero slope — the old 4x(1-x) parabola slammed.
+        // Phase 0.5 so cosine hang at the ends is the hop apex, not a landing on the bar.
+        let bounceF = (xFrac * bounceCount + 0.5).truncatingRemainder(dividingBy: 1)
         let bounceH = sin(bounceF * .pi) * sin(bounceF * .pi)
-        let ballY = (baseBarHeight + wavePeak) + CGFloat(bounceH) * maxBounce
+        let ballY = (baseBarHeight + wavePeak + 1.5) + CGFloat(bounceH) * maxBounce
 
         let bars: [Bar] = (0..<barCount).map { i in
             let dist = abs(Double(i) - ballIndex)
@@ -188,7 +187,129 @@ private extension Color {
     }
 }
 
-/// Desk gallery: current spinner vs Wave / Signal, before we swap every wait.
+// MARK: - Buttons
+
+/// Terracotta or ink primary. Signal sits beside the label; the pair is centred.
+struct WarmPrimary: View {
+    enum Size {
+        case regular
+        case compact
+
+        var height: CGFloat { self == .regular ? 54 : 30 }
+        var signal: CGFloat { self == .regular ? 18 : 16 }
+        var font: Font {
+            self == .regular
+                ? .system(size: 15, weight: .semibold)
+                : .system(size: 12, weight: .semibold)
+        }
+        var radius: CGFloat { self == .regular ? WarmInstrument.cardRadius : 15 }
+        var isCapsule: Bool { self == .compact }
+    }
+
+    enum Icon {
+        case none
+        case system(String)
+        case asset(String)
+    }
+
+    let title: String
+    var isBusy: Bool = false
+    var fill: Color = WarmInstrument.accent
+    var size: Size = .regular
+    var icon: Icon = .none
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isBusy {
+                    WarmSignalLoader(size: size.signal, color: WarmInstrument.onAccent)
+                } else {
+                    idleIcon
+                }
+                if !title.isEmpty {
+                    Text(title)
+                        .font(size.font)
+                        .contentTransition(.opacity)
+                }
+            }
+            .foregroundColor(WarmInstrument.onAccent)
+            .frame(maxWidth: size.isCapsule ? nil : .infinity)
+            .frame(minWidth: size.isCapsule ? 64 : nil)
+            .frame(height: size.height)
+            .padding(.horizontal, size.isCapsule ? 12 : 0)
+            .background(fill)
+            .clipShape(
+                RoundedRectangle(cornerRadius: size.isCapsule ? size.height / 2 : size.radius, style: .continuous)
+            )
+        }
+        .buttonStyle(WarmPrimaryPressStyle(shadowed: !size.isCapsule, shadowColor: fill))
+    }
+
+    @ViewBuilder
+    private var idleIcon: some View {
+        switch icon {
+        case .none:
+            EmptyView()
+        case .system(let name):
+            Image(systemName: name)
+                .font(.system(size: size.signal - 5, weight: .semibold))
+                .frame(width: size.signal, height: size.signal)
+        case .asset(let name):
+            Image(name)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size.signal, height: size.signal)
+        }
+    }
+}
+
+/// Paper secondary. Same 54pt rhythm as `WarmPrimary`.
+struct WarmSecondary: View {
+    let title: String
+    var isBusy: Bool = false
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isBusy {
+                    WarmSignalLoader(size: 18, color: WarmInstrument.ink)
+                }
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundColor(WarmInstrument.ink)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(WarmInstrument.paper)
+            .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(WarmPrimaryPressStyle(shadowed: false, shadowColor: .clear))
+    }
+}
+
+private struct WarmPrimaryPressStyle: ButtonStyle {
+    var shadowed: Bool
+    var shadowColor: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .shadow(
+                color: shadowed ? shadowColor.opacity(configuration.isPressed ? 0.18 : 0.28) : .clear,
+                radius: 8,
+                y: 4
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
+    }
+}
+
+/// Desk gallery: Wave, Signal, and the shared busy button.
 struct WarmLoaderGalleryView: View {
     var body: some View {
         ScrollView {
@@ -246,21 +367,20 @@ struct WarmLoaderGalleryView: View {
                 }
 
                 compareSection("PRIMARY ACTION") {
-                    HStack(spacing: 10) {
-                        labeled("NOW") {
-                            actionButton {
-                                ProgressView()
-                                    .tint(WarmInstrument.onAccent)
-                                    .scaleEffect(0.85)
-                                Text("Signing in…")
-                            }
-                        }
-                        labeled("NEXT") {
-                            actionButton {
-                                WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
-                                Text("Signing in…")
-                            }
-                        }
+                    labeled("IDLE") {
+                        WarmPrimary(title: "Save & Sync", action: {})
+                    }
+                    labeled("BUSY") {
+                        WarmPrimary(title: "Saving…", isBusy: true, action: {})
+                    }
+                    labeled("INK · AUTH") {
+                        WarmPrimary(
+                            title: "Signing in…",
+                            isBusy: true,
+                            fill: Theme.ink,
+                            icon: .asset("GitHubMark"),
+                            action: {}
+                        )
                     }
                 }
 
@@ -327,18 +447,6 @@ struct WarmLoaderGalleryView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
-    }
-
-    private func actionButton<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 8) {
-            content()
-        }
-        .font(.system(size: 14, weight: .semibold))
-        .foregroundColor(WarmInstrument.onAccent)
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
-        .background(WarmInstrument.accent)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

@@ -55,7 +55,7 @@ Port of Amicro `WavePhysicsLoader`, stamped so it reads as a desk mark, not a po
 | loop | 5.2s cosine ping-pong, sin² hops |
 | draw | `Canvas` (no per-frame layout) |
 
-Ball eases along the inner bars (skips the two ends so the circle never clips). Two sin² hops, not a slamming parabola. Bars lift with a gaussian. Recolour zinc → `WarmInstrument.inkFaint` → `ink`. Dark mode flips that.
+Ball eases along the inner bars. Hops are phase-shifted so the cosine hang at each end is the apex, not a landing on the bar.
 
 Use on **empty first paint** only. Not on pull-to-refresh.
 

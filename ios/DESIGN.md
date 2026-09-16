@@ -101,6 +101,17 @@ Two waits, ink on desk, never terracotta (ADR 0041). Reduce Motion freezes both.
 
 Leave: pull-to-refresh, WidgetKit `.redacted`, onboarding `.skeleton()` (reveal, not wait).
 
+## Buttons
+
+One primary, one secondary. Signal in a fixed slot beside the label; the pair is centred. Never overlay a spinner on the words.
+
+| Kind | Component | Use |
+|---|---|---|
+| Primary | `WarmPrimary` | Terracotta load/save (`fill` default). Ink fill for GitHub / setup. Compact capsule for Import. |
+| Secondary | `WarmSecondary` | Paper, 54pt, hairline border |
+
+Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` for the same job.
+
 Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
 
 ---

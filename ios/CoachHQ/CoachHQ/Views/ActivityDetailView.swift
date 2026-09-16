@@ -849,7 +849,7 @@ private struct DescriptionEditorSheet: View {
                         .foregroundColor(WarmInstrument.accent)
                         .padding(.horizontal, 4)
                 }
-                WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync", isBusy: isSaving) {
+                WarmPrimary(title: isSaving ? "Saving…" : "Save & Sync", isBusy: isSaving) {
                     Task { await onSave() }
                 }
                 .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

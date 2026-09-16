@@ -221,30 +221,15 @@ struct SettingsView: View {
 
     private var syncSection: some View {
         WarmSettingsSection(title: "Sync") {
-            Button {
+            WarmPrimary(
+                title: syncManager.isSyncing ? "Syncing…" : "Sync Now",
+                isBusy: syncManager.isSyncing,
+                icon: .system("arrow.clockwise")
+            ) {
                 Haptics.tap()
                 Task { await syncManager.syncNewWorkouts() }
-            } label: {
-                HStack(spacing: 8) {
-                    if syncManager.isSyncing {
-                        WarmSignalLoader(size: 18, color: WarmInstrument.onAccent)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    Text(syncManager.isSyncing ? "Syncing…" : "Sync Now")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(WarmInstrument.onAccent)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
             }
-            .buttonStyle(TimerWarmPressStyle())
             .disabled(syncManager.isSyncing)
-            .opacity(syncManager.isSyncing ? 0.6 : 1)
 
             if let error = syncManager.syncError {
                 Text(error)
@@ -472,24 +457,12 @@ struct SettingsView: View {
                 }
                 .padding(.top, 2)
 
-                Button {
+                WarmPrimary(
+                    title: isResetting ? "Resetting…" : "Reset Test Branch",
+                    isBusy: isResetting
+                ) {
                     Task { await resetTestBranch() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if isResetting {
-                            WarmSignalLoader(size: 16, color: WarmInstrument.onAccent)
-                        }
-                        Text(isResetting ? "Resetting..." : "Reset Test Branch")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(WarmInstrument.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(WorkoutTimerWarm.rust)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
                 }
-                .buttonStyle(TimerWarmPressStyle())
                 .disabled(isResetting)
 
                 if let resetResult {
