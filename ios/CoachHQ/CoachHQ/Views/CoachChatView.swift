@@ -1,4 +1,3 @@
-import Sentry
 import SwiftUI
 
 /// Native Coach Chat — Warm Instrument continuous landing (`Coach Chat Mobile.dc.html` Turn 1).
@@ -847,11 +846,13 @@ struct CoachChatView: View {
                     ? "Coach's reply saved, but one of your updates didn't - try mentioning it again"
                     : "Coach couldn't quite save one of your updates - it wasn't lost, just skipped"
                 toast = Toast(kind: .info, message: message)
-                SentrySDK.capture(message: "coach-chat: droppedActions in turn response") { scope in
-                    scope.setLevel(.warning)
-                    scope.setTag(value: String(dropped.count), key: "dropped_count")
-                    scope.setContext(value: ["dropped_actions": dropped.map { ["field": $0.field, "reason": $0.reason] }], key: "coach_turn")
-                }
+                DiagnosticsManager.capture(
+                    message: "coach-chat: droppedActions in turn response",
+                    severity: .warning,
+                    operation: "coach.chat.dropped_actions",
+                    operationID: UUID(),
+                    metadata: ["dropped_count": String(dropped.count)]
+                )
             }
         } catch let error as CoachChatSaveFailedError {
             // D1 (#736): a save failure that still carries Coach's reply is not "Coach didn't
