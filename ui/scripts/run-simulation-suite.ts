@@ -608,11 +608,47 @@ async function main() {
   // undefined means "no override - each scenario keeps its own hardcoded athlete/repo/localPath",
   // which is today's behavior and what --list/plain runs/--only alone still do. --repo runs a
   // single pass against one forced repo; --all-repos runs one pass per entry in ATHLETE_REPOS.
-  const repoPasses: (AthleteOverride | undefined)[] = args.allRepos
+  let repoPasses: (AthleteOverride | undefined)[] = args.allRepos
     ? Object.keys(ATHLETE_REPOS).map((shortcut) => resolveAthleteOverride(shortcut))
     : args.repo
       ? [resolveAthleteOverride(args.repo)]
       : [undefined];
+
+  // #1105 A3 follow-up: a real athlete repo in ATHLETE_REPOS isn't guaranteed to be cloned on
+  // this machine - not every machine running this suite has all 5 checked out locally.
+  // buildRepoDataProfile/the post-turn diff verification below both need a real local clone
+  // (fs.readFileSync, git -C <path> fetch/diff); without this check, a missing clone's scenario
+  // still runs, the turn itself succeeds via the GitHub API, and only the post-turn `git -C
+  // <missing-path> fetch` throws - caught by the try/catch around the child-process invocation,
+  // but reported as a hard failure rather than what it actually is (this repo just isn't
+  // available on this machine). --all-repos runs on whichever repos ARE present and warns about
+  // the rest; --repo <shortcut> for a repo that isn't cloned locally is a clear config error, not
+  // something to silently skip - the operator explicitly asked for that one.
+  if (args.allRepos) {
+    const missing = repoPasses.filter(
+      (pass) => pass && !fs.existsSync(pass.localPath),
+    ) as AthleteOverride[];
+    if (missing.length > 0) {
+      console.log(
+        `[all-repos] not cloned locally, skipping: ${missing.map((p) => `${p.athlete} (${p.localPath})`).join(", ")}.`,
+      );
+    }
+    repoPasses = repoPasses.filter((pass) => !pass || fs.existsSync(pass.localPath));
+    if (repoPasses.length === 0) {
+      console.error(
+        "run-simulation-suite: --all-repos found no locally-cloned repo to run against.",
+      );
+      process.exit(1);
+    }
+  } else if (args.repo) {
+    const [pass] = repoPasses;
+    if (pass && !fs.existsSync(pass.localPath)) {
+      console.error(
+        `run-simulation-suite: --repo ${args.repo} isn't cloned locally at ${pass.localPath}.`,
+      );
+      process.exit(1);
+    }
+  }
 
   let anyFailed = false;
   // A2b cost note: every seed message is a real, billed model call on top of the scenario's own
