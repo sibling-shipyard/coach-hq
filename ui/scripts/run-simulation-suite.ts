@@ -52,6 +52,9 @@ import { slugify } from "../api/_lib/slugify.js";
 import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
 import { formatCostUsd } from "./lib/llmPricing.js";
 import { readCoverageIndex, writeCoverageEntry } from "./lib/coverageIndex.js";
+import { ATHLETE_REPOS } from "./lib/athleteRepos.js";
+import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
+import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -83,7 +86,26 @@ interface Scenario {
   /** Only when the athlete isn't one of that script's pre-registered shortcuts. */
   repo?: string;
   localPath?: string;
+  /**
+   * Checked against the target repo's real RepoDataProfile (lib/repoDataProfile.ts) before this
+   * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
+   * section. An unmet precondition means the repo can't produce the behavior this scenario tests
+   * right now (e.g. no planned session to contradict). A2b: when the unmet field carries a
+   * `seedMessages` recipe, this sends that real conversation first and re-checks before deciding
+   * - only a field with no recipe (or an unmet one that's still unmet after seeding) falls back
+   * to skipping the model call entirely, instead of letting a fallback write pass a generic
+   * `expect` check for the wrong reason - the real `ambiguous-contradiction` false positive that
+   * motivated this.
+   */
+  preconditions?: Preconditions;
   expect: TurnExpect[];
+}
+
+/** Resolves a scenario's local clone path the same way run-manual-coach-chat-test.ts would. */
+function resolveLocalPath(scenario: Scenario): string | undefined {
+  if (scenario.localPath) return scenario.localPath;
+  if (scenario.athlete) return ATHLETE_REPOS[scenario.athlete]?.localPath;
+  return undefined;
 }
 
 /**
@@ -126,8 +148,15 @@ const SCENARIOS: Scenario[] = [
     // ("manual-coach-chat-skanda-2003-coach-skanda-2003-log-...ison"), a real bug caught by a
     // live run against a real repo, not by reading the code.
     repo: "skanda-2003/coach-skanda-2003",
+    // #1105 B1: turn 1 also asserts coach_log.json (coach_note's write target) - coach_note fires
+    // on nearly every ordinary turn (C2), and this is the first non-greet turn in the scenario, so
+    // it closes the one acknowledged gap in the coverage matrix (coach-chat-test-scenarios.md) -
+    // every other action field already has a real-write assertion somewhere in this file.
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["user_data/coach/profile.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/coach/profile.json", "user_data/coach/coach_log.json"],
+      },
       { turnIndex: 2, filesChangedInclude: ["user_data/coach/injuries.json"] },
       { turnIndex: 3 },
       { turnIndex: 4 },
@@ -149,6 +178,22 @@ const SCENARIOS: Scenario[] = [
       "Athlete reports a planned session done, immediately contradicts it (wrong day), then confirms which one really happened - checks the coach reconciles rather than writing both versions.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 F1: this needs a real planned session on file to reconcile against - all 5 real
+    // athlete repos currently have an empty (data_status: "placeholder") week plan, which is
+    // exactly the false positive that motivated this precondition (see this doc's header comment).
+    // A2b: rather than skip when unmet (every real repo's week is empty right now), seed a real
+    // plan first - the same Weekly Kick-off Ritual request already proven in
+    // examples/manual-coach-chat-turns-week-kickoff.json, plus a short real acknowledgment - so
+    // whichever repo this runs against gets a real plan to reconcile against instead of relying
+    // on a manually pre-seeded repo picked ahead of time.
+    preconditions: {
+      currentWeekHasSessions: {
+        seedMessages: [
+          "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+          "That looks good, let's go with that.",
+        ],
+      },
+    },
     // The real bug this guards against: a contradiction landing as two conflicting current_week.json
     // writes (the wrongly-claimed session left "done" alongside a synthetically-created new session
     // for the real one) instead of one reconciled state - coachWeekFiles.ts's applyWeekPatch creates
@@ -175,6 +220,10 @@ const SCENARIOS: Scenario[] = [
       "workout_create then workout_remove in the same conversation, real-write coverage - both actions had zero simulation coverage before this (eval-only narration guards existed, no real commit had ever been checked).",
     athlete: "skanda",
     repo: "skanda-2003/coach-skanda-2003",
+    // #1105 F2: workout_create's injury_ack invariant (coachReplySchema.ts) is required whenever
+    // the athlete has any active flag - this scenario's turn 1 only exercises that path for real
+    // on a repo that actually has one, otherwise there's nothing for the model to acknowledge.
+    preconditions: { injuryFlags: "any" },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
       { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
@@ -224,6 +273,11 @@ const SCENARIOS: Scenario[] = [
       "Real-write companion to eval transcript 15 - memory_update (learned pattern), coaching_style_update, and sports_update all land in memory.json and had no simulation coverage at all before this.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105: this scenario's real precondition is "starting coaching_style != the requested one"
+    // (2026-09-15's pass found several repos skipped for real because they were already
+    // "accountability", the style turn 2 asks for) - a plain boolean precondition can't express a
+    // starting-value-not-equal-to-X check, only presence/absence, so this scenario deliberately
+    // has no `preconditions` entry yet. A2b's richer seed-recipe shape is the right place for it.
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/coach/memory.json"] },
       { turnIndex: 2, filesChangedInclude: ["user_data/coach/memory.json"] },
@@ -252,6 +306,10 @@ const SCENARIOS: Scenario[] = [
       "quest_event real-write coverage - progress.json had no simulation coverage at all: eval transcript 16 proves the model reports a completion, nothing had ever checked the real append-only write. Message deliberately references 'the daily habit' generically rather than a specific quest name, since the target repo's real active quest names aren't known ahead of a live run - see this repo's real quests.json before running for real, per coach-chat-testing.md's 'pick real content first' discipline.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 B2: needs a real daily-habit quest on file for "kept up with my daily habit again" to
+    // have anything to anchor to - otherwise the model reasonably asks "which habit?" instead of
+    // firing quest_event, and that clarifying question doesn't match this scenario's expect block.
+    preconditions: { hasHabitQuest: true },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/ledger/progress.json"] },
       { turnIndex: 2 },
@@ -278,10 +336,39 @@ const SCENARIOS: Scenario[] = [
       "template_edit real-write coverage - had never been asserted present anywhere (transcript 05 only proves the negative, that a one-day swap is week_update not template_edit). Creates its own template first, then asks for a permanent change to it, framed as 'going forward' / 'every time' to disambiguate against session_plan's 'just today' framing (covered separately by the session-plan scenario).",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
+    // #1105 F2: same injury_ack invariant as workout-lifecycle above - turn 1 builds a routine
+    // from scratch via workout_create, which needs an active flag on file to acknowledge for real.
+    preconditions: { injuryFlags: "any" },
     expect: [
       { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
       { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/"] },
       { turnIndex: 3 },
+    ],
+  },
+  {
+    id: "multi-field-success",
+    file: "manual-coach-chat-turns-multi-field-success.json",
+    description:
+      "B2 (#1105): two action fields landing together on the same turn, both correct - a single message asking for a permanent template_edit ('going forward') and a this-week-only week_update in one go. Every existing multi-field integration coverage (fullTurnPipeline.test.ts) only proves two fields failing together (a hallucinated template_id alongside a valid write); nothing before this proved two real fields can both commit cleanly from one turn.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    // template_edit needs a real existing template to point at - no real athlete repo is assumed
+    // to already have the right one on file, so this seeds one first with a real workout_create
+    // ask (same phrasing as template-edit-permanent's own turn 1) rather than relying on whatever
+    // happens to already be there.
+    preconditions: {
+      hasTemplate: {
+        seedMessages: [
+          "Can you build me a full-body strength routine, no equipment, for twice a week?",
+        ],
+      },
+    },
+    expect: [
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/ledger/current_week.json", "workout_plans/templates/"],
+      },
+      { turnIndex: 2 },
     ],
   },
 ];
@@ -335,7 +422,15 @@ interface CoverageEntry {
   last_pass_sha: string | null;
   last_run_date: string;
   watched_paths: string[];
-  status: "pass" | "fail";
+  // #1105: "skipped-precondition" is distinct from "pass"/"fail" - the model was never called
+  // because the target repo's real data couldn't produce the behavior this scenario tests, not
+  // because anything succeeded or broke. `reason` carries which precondition field was unmet.
+  // A2b adds "seed-failed": a seed recipe existed and was actually sent (real, billed turns), but
+  // the re-check afterward still found the precondition unmet - distinct from "skipped-precondition"
+  // because real cost was spent here, and distinct from "fail" because the scenario's own turns
+  // never ran at all.
+  status: "pass" | "fail" | "skipped-precondition" | "seed-failed";
+  reason?: string;
   last_cost_usd?: number;
 }
 
@@ -410,6 +505,63 @@ function currentHqSha(): string {
   return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
 }
 
+/**
+ * A2b: sends a scenario's seed recipe - a synthetic greet turn plus each real message in
+ * `seedMessages`, in order - through the exact same child-process path (run-manual-coach-chat-test.ts,
+ * `--turns`) the scenario's own turns use below, on the same repo and the same scratch branch.
+ * This is a real, separate multi-turn run: every message here is a real, billed model call, on
+ * top of the scenario's own turns that follow if the re-check afterward passes (see this file's
+ * cost-reporting at the end of main() - seed cost is tracked and printed separately from
+ * scenario cost on purpose, not folded into it, per the A2b cost note).
+ *
+ * Returns the real cost spent (read back off the seed run's own log entry, same shape as a
+ * scenario's log) and whether the child process finished without throwing - a hard failure here
+ * doesn't necessarily mean nothing landed, but the caller re-checks the real profile either way
+ * rather than trusting this flag.
+ */
+function sendSeedMessages(
+  scenario: Scenario,
+  seedMessages: string[],
+  branch: string,
+): { costUsd: number; ranCleanly: boolean } {
+  const seedTurns = [{ greet: true, message: "" }, ...seedMessages.map((message) => ({ message }))];
+  const seedPath = path.join(examplesDir, `.seed-${scenario.id}-${Date.now()}.json`);
+  fs.writeFileSync(seedPath, JSON.stringify(seedTurns, null, 2));
+
+  const scriptArgs = [
+    "tsx",
+    "--tsconfig",
+    "tsconfig.json",
+    "scripts/run-manual-coach-chat-test.ts",
+    ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
+    ...(scenario.repo ? ["--repo", scenario.repo] : []),
+    ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
+    "--branch",
+    branch,
+    "--turns",
+    seedPath,
+  ];
+
+  const repoSlug = slugify(scenario.repo ?? scenario.athlete ?? scenario.id, "-");
+  const startMs = Date.now();
+  let ranCleanly = true;
+  try {
+    execFileSync("npx", scriptArgs, { cwd: uiRoot, stdio: "inherit" });
+  } catch {
+    // Same as the scenario's own invocation below - a non-zero exit (an ERROR turn) doesn't mean
+    // nothing happened; the seed's own log, read next, is the ground truth either way.
+    ranCleanly = false;
+  } finally {
+    fs.rmSync(seedPath, { force: true });
+  }
+
+  const logPath = findLatestManualLog(repoSlug, startMs);
+  if (!logPath) return { costUsd: 0, ranCleanly: false };
+  const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
+  const costUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
+  return { costUsd, ranCleanly };
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -444,6 +596,11 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10);
 
   let anyFailed = false;
+  // A2b cost note: every seed message is a real, billed model call on top of the scenario's own
+  // turns - tracked separately here and printed separately at the end, so it's visible rather
+  // than hidden inside the per-scenario cost numbers above.
+  let totalSeedCostUsd = 0;
+  let totalSeedMessages = 0;
   for (const scenario of scenarios) {
     const key = `manual:${scenario.id}`;
     const existing = coverageIndex[key] as CoverageEntry | undefined;
@@ -459,6 +616,130 @@ async function main() {
       }
     }
 
+    // A2b: the branch the scenario itself runs against. Left as args.branch (possibly undefined,
+    // in which case run-manual-coach-chat-test.ts auto-names one) unless this scenario needs
+    // seeding first - seeding and the scenario's real turns must land on the SAME scratch branch,
+    // so as soon as a seed is about to run, this is pinned to one explicit name shared by both.
+    let scenarioBranch = args.branch;
+
+    if (scenario.preconditions) {
+      const localPath = resolveLocalPath(scenario);
+      // No local clone to check against - can't verify the precondition either way, so fall
+      // through to running it rather than silently skipping something we have no evidence about.
+      if (localPath && fs.existsSync(localPath)) {
+        const profile = buildRepoDataProfile(localPath);
+        const { met, reason, seedMessages } = checkPreconditions(profile, scenario.preconditions);
+        if (!met && (!seedMessages || seedMessages.length === 0)) {
+          // No seed recipe for this field - the only honest fallback left is A2's original skip
+          // (real usage history can't be faked, or a different one of the 5 real repos already
+          // satisfies it naturally and should be used instead of seeding this one).
+          console.log(`[skip] ${scenario.id}: precondition unmet - ${reason}`);
+          if (!args.dryRun) {
+            writeCoverageEntry(coveragePath, key, {
+              type: "manual",
+              last_pass_sha: existing?.last_pass_sha ?? null,
+              last_run_date: today,
+              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+              status: "skipped-precondition",
+              reason,
+            });
+          }
+          continue;
+        }
+        if (!met && seedMessages && seedMessages.length > 0) {
+          if (args.dryRun) {
+            console.log(
+              `[dry-run] ${scenario.id}: precondition unmet - ${reason}. Would send ${seedMessages.length} real seed message(s) then re-check, rather than spend anything for real.`,
+            );
+            continue;
+          }
+
+          scenarioBranch = scenarioBranch ?? `test/manual-seed-${scenario.id}-${Date.now()}`;
+          console.log(
+            `[seed] ${scenario.id}: precondition unmet - ${reason}. Sending ${seedMessages.length} ` +
+              `real seed message(s) on ${scenarioBranch} before re-checking.`,
+          );
+          const seedResult = sendSeedMessages(scenario, seedMessages, scenarioBranch);
+          totalSeedCostUsd += seedResult.costUsd;
+          totalSeedMessages += seedMessages.length;
+          console.log(
+            `[seed] ${scenario.id}: seed run cost ${formatCostUsd(seedResult.costUsd)} for ` +
+              `${seedMessages.length} real message(s) - billed separately from this scenario's own turns.`,
+          );
+
+          // buildRepoDataProfile reads whatever's on disk at localPath - the seed's commits
+          // landed on scenarioBranch via the GitHub API, not on whatever branch this clone
+          // happened to have checked out, so pull it down for real before re-checking. This
+          // clone is shared across every scenario that targets the same repo (several SCENARIOS
+          // entries reuse one athlete's localPath), so the checkout below must be temporary -
+          // captured and restored right after the read, not left on scenarioBranch for the rest
+          // of the run.
+          const originalRef = execFileSync(
+            "git",
+            ["-C", localPath, "rev-parse", "--abbrev-ref", "HEAD"],
+            { encoding: "utf8" },
+          ).trim();
+          let checkedOutForSeed = false;
+          try {
+            execFileSync("git", ["-C", localPath, "fetch", "origin", scenarioBranch], {
+              stdio: "pipe",
+            });
+            execFileSync(
+              "git",
+              ["-C", localPath, "checkout", "-B", scenarioBranch, `origin/${scenarioBranch}`],
+              { stdio: "pipe" },
+            );
+            checkedOutForSeed = true;
+          } catch (err) {
+            console.log(
+              `[seed] ${scenario.id}: couldn't check out ${scenarioBranch} locally to re-check ` +
+                `(${err instanceof Error ? err.message : String(err)}) - treating the ` +
+                `precondition as still unmet.`,
+            );
+          }
+
+          const reprofile = buildRepoDataProfile(localPath);
+
+          if (checkedOutForSeed) {
+            try {
+              execFileSync("git", ["-C", localPath, "checkout", originalRef], { stdio: "pipe" });
+            } catch (err) {
+              console.log(
+                `[seed] ${scenario.id}: couldn't restore ${localPath} to ${originalRef} after ` +
+                  `re-checking (${err instanceof Error ? err.message : String(err)}) - this ` +
+                  `clone may be left on ${scenarioBranch} for later scenarios that share it.`,
+              );
+            }
+          }
+
+          const recheck = checkPreconditions(reprofile, scenario.preconditions);
+          if (!recheck.met) {
+            // The seed message is a real model call and can fail the same narration-vs-action way
+            // any other turn can - proceeding anyway would silently recreate the exact bug this
+            // whole track exists to fix, one layer deeper. Distinct status from
+            // "skipped-precondition": real cost was spent here, so this counts against the run.
+            console.log(
+              `[seed-failed] ${scenario.id}: still unmet after seeding - ${recheck.reason}`,
+            );
+            anyFailed = true;
+            writeCoverageEntry(coveragePath, key, {
+              type: "manual",
+              last_pass_sha: existing?.last_pass_sha ?? null,
+              last_run_date: today,
+              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+              status: "seed-failed",
+              reason: recheck.reason,
+              last_cost_usd: seedResult.costUsd,
+            });
+            continue;
+          }
+          console.log(
+            `[seed] ${scenario.id}: precondition met after seeding - running the scenario's real turns.`,
+          );
+        }
+      }
+    }
+
     const turnsPath = path.join(examplesDir, scenario.file);
     const scriptArgs = [
       "tsx",
@@ -468,7 +749,7 @@ async function main() {
       ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
       ...(scenario.repo ? ["--repo", scenario.repo] : []),
       ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
-      ...(args.branch ? ["--branch", args.branch] : []),
+      ...(scenarioBranch ? ["--branch", scenarioBranch] : []),
       "--turns",
       turnsPath,
     ];
@@ -528,6 +809,12 @@ async function main() {
 
   if (args.dryRun) return;
 
+  if (totalSeedMessages > 0) {
+    console.log(
+      `\nSeed cost (A2b, on top of every scenario's own turns above): ${totalSeedMessages} real ` +
+        `message(s), ${formatCostUsd(totalSeedCostUsd)} total.`,
+    );
+  }
   console.log(`\nCoverage index updates written to ${path.relative(repoRoot, coveragePath)}`);
   if (anyFailed) process.exit(2);
 }
