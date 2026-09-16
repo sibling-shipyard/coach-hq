@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: pip install requests
@@ -51,7 +51,7 @@ jobs:
         run: node --test platform/skills/*.test.mjs
 
       - name: Run engine Node tests
-        run: node --test engine/scripts/*.test.mjs
+        run: node --experimental-strip-types --test engine/scripts/*.test.mjs
 
       - name: Run engine Python tests
         run: python3 -m unittest discover -s engine/scripts -p "test_*.py"
