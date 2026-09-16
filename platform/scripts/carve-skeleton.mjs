@@ -560,10 +560,11 @@ function copyWorkflows(outDir, opts = {}) {
   ]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));
   }
-  fs.copyFileSync(
+  const rollover = fs.readFileSync(
     path.join(ENGINE_DIR, ".github/workflows/rollover.user.yml"),
-    path.join(wfDir, "rollover.yml"),
+    "utf8",
   );
+  fs.writeFileSync(path.join(wfDir, "rollover.yml"), stampSyncDsn(rollover, opts));
 }
 
 // Reference docs that ship to every athlete repo (issue #358's scope — the other soul/*.md

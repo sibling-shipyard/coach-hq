@@ -44,7 +44,9 @@ def failed_step(steps_json: str) -> str:
 
 def build_record(env: dict) -> dict:
     step = failed_step(env.get("SYNC_STEPS_JSON", ""))
-    return {
+    operation = env.get("SYNC_OPERATION", "sync").strip() or "sync"
+    suffix = "previous sync" if operation == "sync" else "previous run"
+    record = {
         "schema_version": SCHEMA_VERSION,
         "status": "error",
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -53,10 +55,13 @@ def build_record(env: dict) -> dict:
         "run_attempt": env.get("SYNC_RUN_ATTEMPT", ""),
         "run_url": env.get("SYNC_RUN_URL", ""),
         "message": (
-            f"Sync failed at step '{step}'. Derived files were not regenerated, "
-            "so anything reading them is showing the previous sync."
+            f"{operation.capitalize()} failed at step '{step}'. Derived files were not regenerated, "
+            f"so anything reading them is showing the {suffix}."
         ),
     }
+    if operation != "sync":
+        record["operation"] = operation
+    return record
 
 
 def main() -> None:
