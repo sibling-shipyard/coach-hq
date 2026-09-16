@@ -162,4 +162,94 @@ describe("checkReconciliation", () => {
     expect(ok).toBe(true);
     expect(lines.some((l) => l.includes("workout-lifecycle") && l.startsWith("  ok"))).toBe(true);
   });
+
+  // #1105 A3: --repo/--all-repos write an athlete-suffixed key ("manual:<id>:<athlete>") instead
+  // of the plain one. Without checking for it too, this tool reports every one of those runs as
+  // a false "no entry at all" - the exact class of false positive it exists to prevent.
+  it("reconciles against the athlete-suffixed key an --all-repos run writes, not just the plain one", () => {
+    fs.writeFileSync(
+      path.join(examplesDir, "manual-coach-chat-turns-workout-lifecycle.json"),
+      JSON.stringify([
+        { message: "create a workout" },
+        { message: "remove it" },
+        { message: "wrap up" },
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(examplesDir, "manual-coach-chat-turns-injury-resolve-by-bodypart.json"),
+      JSON.stringify([
+        { message: "my knee hurts" },
+        { message: "my hip hurts too" },
+        { message: "knee is fine now" },
+        { message: "wrap up" },
+      ]),
+    );
+    // --all-repos ran workout-lifecycle against akash instead of its own default (skanda) -
+    // same repo slug shape run-manual-coach-chat-test.ts always uses, just a different repo.
+    writeRawLog("manual-coach-chat-akash-suresh-coach-akash-suresh-log-10-00-00.json", [
+      "create a workout",
+      "remove it",
+      "wrap up",
+    ]);
+    writeCoverageIndex(coveragePath, {
+      "manual:workout-lifecycle:akash": {
+        type: "manual",
+        status: "pass",
+        last_run_date: "2026-09-15",
+      },
+    });
+
+    const { ok, lines } = checkReconciliation(
+      "2026-09-15",
+      rawManualDir,
+      coveragePath,
+      examplesDir,
+    );
+
+    expect(ok).toBe(true);
+    expect(lines.some((l) => l.includes("workout-lifecycle") && l.startsWith("  ok"))).toBe(true);
+  });
+
+  it("still flags a missing entry when neither the plain nor the suffixed key exists", () => {
+    fs.writeFileSync(
+      path.join(examplesDir, "manual-coach-chat-turns-workout-lifecycle.json"),
+      JSON.stringify([
+        { message: "create a workout" },
+        { message: "remove it" },
+        { message: "wrap up" },
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(examplesDir, "manual-coach-chat-turns-injury-resolve-by-bodypart.json"),
+      JSON.stringify([
+        { message: "my knee hurts" },
+        { message: "my hip hurts too" },
+        { message: "knee is fine now" },
+        { message: "wrap up" },
+      ]),
+    );
+    writeRawLog("manual-coach-chat-akash-suresh-coach-akash-suresh-log-10-00-00.json", [
+      "create a workout",
+      "remove it",
+      "wrap up",
+    ]);
+    // No coverage-index.json entry at all - neither key format was ever written.
+
+    const { ok, lines } = checkReconciliation(
+      "2026-09-15",
+      rawManualDir,
+      coveragePath,
+      examplesDir,
+    );
+
+    expect(ok).toBe(false);
+    expect(
+      lines.some(
+        (l) =>
+          l.includes("workout-lifecycle") &&
+          l.includes("manual:workout-lifecycle") &&
+          l.includes("manual:workout-lifecycle:akash"),
+      ),
+    ).toBe(true);
+  });
 });

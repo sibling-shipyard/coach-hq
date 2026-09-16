@@ -8,6 +8,23 @@ import path from "node:path";
 import { slugify } from "../../api/_lib/slugify.js";
 import { readCoverageIndex } from "./coverageIndex.js";
 
+// #1105 A3 introduced an athlete-suffixed coverage-index.json key (`manual:<id>:<athlete>`) for
+// scenarios run via --repo/--all-repos, distinct from the plain `manual:<id>` an unoverridden run
+// writes. This reconciliation tool has to recognize both shapes or it reports every --all-repos
+// run as a false "no entry at all". Not an import of lib/athleteRepos.ts's ATHLETE_REPOS - same
+// reasoning as SCENARIO_REPOS below: this tool needs to stand alone on `main` without depending
+// on a sibling PR's file existing yet. Keep this list in sync by hand with ATHLETE_REPOS.
+const ATHLETE_SHORTCUTS: Record<string, string> = {
+  skanda: "skanda-2003/coach-skanda-2003",
+  akash: "akash-suresh/coach-akash-suresh",
+  date2022: "date2022/coach-date2022",
+  prateek: "prateekdevaraju/coach-prateekdevaraju",
+  shreyas: "shreyas-95-cyber/coach-shreyas-95-cyber",
+};
+const SLUG_TO_ATHLETE = new Map<string, string>(
+  Object.entries(ATHLETE_SHORTCUTS).map(([shortcut, repo]) => [slugify(repo, "-"), shortcut]),
+);
+
 // Mirrors run-simulation-suite.ts's SCENARIOS list - just the id and whichever of repo/athlete
 // each one passes to run-manual-coach-chat-test.ts, enough to reconstruct the same repo slug
 // findLatestManualLog there computes. Not an import of that module: it calls main() at its own
@@ -91,6 +108,17 @@ for (const { id, repo, file } of SCENARIO_REPOS) {
   else SCENARIOS_BY_REPO_SLUG.set(slug, [{ id, file }]);
 }
 
+// A scenario's hardcoded default repo doesn't limit which real repo it can actually run
+// against - --repo/--all-repos can point any scenario at any of the 5. A raw log's repo slug
+// alone is therefore not enough to identify which scenario produced it when that slug is one of
+// the 5 real repos; only turn content can. So for those slugs, every scenario in the library is
+// a candidate for matchScenario's content check below, not just the ones whose own default repo
+// happens to equal the slug.
+const ALL_SCENARIO_CANDIDATES = SCENARIO_REPOS.map(({ id, file }) => ({ id, file }));
+const REAL_ATHLETE_REPO_SLUGS = new Set(
+  Object.values(ATHLETE_SHORTCUTS).map((repo) => slugify(repo, "-")),
+);
+
 interface CoverageEntry {
   last_run_date?: string;
   [key: string]: unknown;
@@ -137,7 +165,12 @@ function matchScenario(
   entries: RawLogTurn[],
   examplesDir: string,
 ): { scenarioId: string } | { ambiguous: string[] } | undefined {
-  const candidates = SCENARIOS_BY_REPO_SLUG.get(repoSlug);
+  // A real athlete repo's slug could be hosting any scenario via --repo/--all-repos, not just
+  // the ones whose own hardcoded default happens to be this repo - widen the candidate pool for
+  // those slugs rather than trusting the narrower default-only list SCENARIOS_BY_REPO_SLUG builds.
+  const candidates = REAL_ATHLETE_REPO_SLUGS.has(repoSlug)
+    ? ALL_SCENARIO_CANDIDATES
+    : SCENARIOS_BY_REPO_SLUG.get(repoSlug);
   if (!candidates) return undefined;
   if (candidates.length === 1) return { scenarioId: candidates[0].id };
 
@@ -214,12 +247,23 @@ export function checkReconciliation(
       continue;
     }
 
-    const key = `manual:${match.scenarioId}`;
-    const entry = coverageIndex[key] as CoverageEntry | undefined;
+    // A3 writes the plain key for an unoverridden run (a scenario against its own hardcoded
+    // repo) and the athlete-suffixed key for a --repo/--all-repos override. This raw log's own
+    // repo slug can't tell us which mode produced it, so check both - a scenario pinned to this
+    // repo by default and one that landed here via an override are indistinguishable from the
+    // log alone, and either key reconciling the run is a real "yes, this was recorded."
+    const plainKey = `manual:${match.scenarioId}`;
+    const athleteShortcut = SLUG_TO_ATHLETE.get(repoSlug);
+    const suffixedKey = athleteShortcut ? `manual:${match.scenarioId}:${athleteShortcut}` : null;
+    const entry =
+      (coverageIndex[plainKey] as CoverageEntry | undefined) ??
+      (suffixedKey ? (coverageIndex[suffixedKey] as CoverageEntry | undefined) : undefined);
+    const key = coverageIndex[plainKey] ? plainKey : (suffixedKey ?? plainKey);
     if (!entry) {
       ok = false;
+      const checked = suffixedKey ? `"${plainKey}" or "${suffixedKey}"` : `"${plainKey}"`;
       lines.push(
-        `  x ${file}: scenario "${match.scenarioId}" ran (this raw log exists) but coverage-index.json has no "${key}" entry at all.`,
+        `  x ${file}: scenario "${match.scenarioId}" ran (this raw log exists) but coverage-index.json has no ${checked} entry.`,
       );
     } else if (entry.last_run_date !== date) {
       ok = false;
