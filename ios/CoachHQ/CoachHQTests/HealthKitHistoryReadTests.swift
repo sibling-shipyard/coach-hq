@@ -39,6 +39,7 @@ final class HealthKitHistoryReadTests: XCTestCase {
     }
 
     func testListedFile404FailsSync() async {
+        TimelineBuffer.shared.clearOnSignOut()
         let (manager, client) = fixture()
         client.bodyError = GitHubAPIError.notFound(operation: "Reading listed history")
         await manager.syncNewWorkouts()
@@ -71,6 +72,7 @@ final class HealthKitHistoryReadTests: XCTestCase {
     }
 
     func testMissingHistoryDirectoryAllowsFirstInsert() async throws {
+        TimelineBuffer.shared.clearOnSignOut()
         let (manager, client) = fixture()
         client.listError = GitHubAPIError.notFound(operation: "Listing history")
         await manager.syncNewWorkouts()
