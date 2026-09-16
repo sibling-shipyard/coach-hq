@@ -643,7 +643,17 @@ async function main() {
 
           // buildRepoDataProfile reads whatever's on disk at localPath - the seed's commits
           // landed on scenarioBranch via the GitHub API, not on whatever branch this clone
-          // happened to have checked out, so pull it down for real before re-checking.
+          // happened to have checked out, so pull it down for real before re-checking. This
+          // clone is shared across every scenario that targets the same repo (several SCENARIOS
+          // entries reuse one athlete's localPath), so the checkout below must be temporary -
+          // captured and restored right after the read, not left on scenarioBranch for the rest
+          // of the run.
+          const originalRef = execFileSync(
+            "git",
+            ["-C", localPath, "rev-parse", "--abbrev-ref", "HEAD"],
+            { encoding: "utf8" },
+          ).trim();
+          let checkedOutForSeed = false;
           try {
             execFileSync("git", ["-C", localPath, "fetch", "origin", scenarioBranch], {
               stdio: "pipe",
@@ -653,6 +663,7 @@ async function main() {
               ["-C", localPath, "checkout", "-B", scenarioBranch, `origin/${scenarioBranch}`],
               { stdio: "pipe" },
             );
+            checkedOutForSeed = true;
           } catch (err) {
             console.log(
               `[seed] ${scenario.id}: couldn't check out ${scenarioBranch} locally to re-check ` +
@@ -662,6 +673,19 @@ async function main() {
           }
 
           const reprofile = buildRepoDataProfile(localPath);
+
+          if (checkedOutForSeed) {
+            try {
+              execFileSync("git", ["-C", localPath, "checkout", originalRef], { stdio: "pipe" });
+            } catch (err) {
+              console.log(
+                `[seed] ${scenario.id}: couldn't restore ${localPath} to ${originalRef} after ` +
+                  `re-checking (${err instanceof Error ? err.message : String(err)}) - this ` +
+                  `clone may be left on ${scenarioBranch} for later scenarios that share it.`,
+              );
+            }
+          }
+
           const recheck = checkPreconditions(reprofile, scenario.preconditions);
           if (!recheck.met) {
             // The seed message is a real model call and can fail the same narration-vs-action way
