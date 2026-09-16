@@ -1,4 +1,3 @@
-import Sentry
 import SwiftUI
 
 /// Native Coach Chat — Warm Instrument continuous landing (`Coach Chat Mobile.dc.html` Turn 1).
@@ -802,6 +801,28 @@ struct CoachChatView: View {
         sending = true
         defer { sending = false }
 
+        // This only buys execution time - it doesn't touch `retryNetworkFailures: false` below,
+        // which stays off on purpose because a network failure here may mean the message already
+        // committed server-side (retrying blind risks a double-send).
+        var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "coach-chat-send") {
+            // Signal only, not an error - the send may still resolve on its own after this fires.
+            DiagnosticsManager.capture(
+                message: "coach-chat: background task expired mid-send",
+                severity: .warning,
+                operation: "coach.chat.send_background_expired",
+                operationID: UUID()
+            )
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+        defer {
+            if backgroundTaskID != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+
         do {
             let result = try await apiClient.sendMessage(
                 threadId: targetId,
@@ -847,11 +868,18 @@ struct CoachChatView: View {
                     ? "Coach's reply saved, but one of your updates didn't - try mentioning it again"
                     : "Coach couldn't quite save one of your updates - it wasn't lost, just skipped"
                 toast = Toast(kind: .info, message: message)
-                SentrySDK.capture(message: "coach-chat: droppedActions in turn response") { scope in
-                    scope.setLevel(.warning)
-                    scope.setTag(value: String(dropped.count), key: "dropped_count")
-                    scope.setContext(value: ["dropped_actions": dropped.map { ["field": $0.field, "reason": $0.reason] }], key: "coach_turn")
-                }
+                DiagnosticsManager.capture(
+                    message: "coach-chat: droppedActions in turn response",
+                    severity: .warning,
+                    operation: "coach.chat.dropped_actions",
+                    operationID: UUID(),
+                    metadata: [
+                        "dropped_count": String(dropped.count),
+                        // Flattened from the old Sentry context — DiagnosticsManager metadata is
+                        // string-only, so fields join rather than nest.
+                        "dropped_fields": dropped.map(\.field).joined(separator: ","),
+                    ]
+                )
             }
         } catch let error as CoachChatSaveFailedError {
             // D1 (#736): a save failure that still carries Coach's reply is not "Coach didn't

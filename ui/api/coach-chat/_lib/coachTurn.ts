@@ -55,6 +55,7 @@ import { sumUsage, type GeminiUsage } from "../../_lib/sentry.js";
 import {
   captureGeminiFailure,
   captureServerException,
+  captureServerMessage,
   captureValidationFailure,
   captureStillUnresolvedGuard,
 } from "../../_lib/sentry.js";
@@ -77,6 +78,8 @@ import {
   isFullWeekKickoff,
   applyWeekUpdate,
   assertCurrentWeekCommitReady,
+  currentWeekNeedsRollover,
+  buildRolloverPlaceholder,
 } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
@@ -1183,9 +1186,29 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
   let templatesManifestContent: string | null | undefined;
   let currentWeekContent: string | null | undefined;
   if (!turn.firstSession) {
+    // Soft reads: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+    // Inlined at each site — do not add getFileRawOrNull.
     [templatesManifestContent, currentWeekContent] = await Promise.all([
-      getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token).catch(() => null),
-      getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token).catch(() => null),
+      (async () => {
+        try {
+          return await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
+        } catch (err: unknown) {
+          const status = (err as { status?: number }).status;
+          if (status === 404) return null;
+          await captureServerException(err);
+          return null;
+        }
+      })(),
+      (async () => {
+        try {
+          return await getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token);
+        } catch (err: unknown) {
+          const status = (err as { status?: number }).status;
+          if (status === 404) return null;
+          await captureServerException(err);
+          return null;
+        }
+      })(),
     ]);
   }
   const extraContext = combineExtraContext(
@@ -1797,7 +1820,17 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     ? validTemplateIdsFromManifest(
         turn.prefetchedTemplatesManifestContent !== undefined
           ? turn.prefetchedTemplatesManifestContent
-          : await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null),
+          : await (async () => {
+              // Soft read: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+              try {
+                return await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
+              } catch (err: unknown) {
+                const status = (err as { status?: number }).status;
+                if (status === 404) return null;
+                await captureServerException(err);
+                return null;
+              }
+            })(),
       )
     : new Set<string>();
 
@@ -1858,7 +1891,17 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const currentWeekContent = needsCurrentWeekContext
     ? turn.prefetchedCurrentWeekContent !== undefined
       ? turn.prefetchedCurrentWeekContent
-      : await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null)
+      : await (async () => {
+          // Soft read: same contract as getHeadShaOrNull (404 quiet; else capture once → null).
+          try {
+            return await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+          } catch (err: unknown) {
+            const status = (err as { status?: number }).status;
+            if (status === 404) return null;
+            await captureServerException(err);
+            return null;
+          }
+        })()
     : undefined;
   // Single parse of currentWeekContent, with both the id set and the discipline/kind map derived
   // from it - two independent parseJsonOrNull calls over the same raw string would be redundant
@@ -1950,6 +1993,51 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       field: "week_update",
       reason: err instanceof Error ? err.message : String(err),
     });
+  }
+
+  // ADR 0049: lazy same-turn rollover, alongside the CI job. current_week.json's rollover
+  // otherwise only runs inside sync.user.yml, gated on the iOS app's own activity-sync push - an
+  // athlete who hasn't synced recently gets no rollover at all. Checked on every turn, same as
+  // injectCoachSinceIfNeeded is below, but only when this turn's own week_update didn't already
+  // produce a write to the same path - the athlete's own intent this turn is more current than a
+  // generic empty-frame refresh, and commitFilesAtomic does not merge two writes to the same path.
+  let rolloverWrite: FileEntry | undefined;
+  // turn.today is always a real YYYY-MM-DD date in production (loadTurnState computes it from
+  // todayDateString before this ever runs) - this guard is defense-in-depth only, so a turn built
+  // by a test harness (or any future caller) that skips that step no-ops here instead of handing
+  // an unparseable date string into buildRolloverPlaceholder's own date arithmetic.
+  if (currentWeekWrite === undefined && /^\d{4}-\d{2}-\d{2}$/.test(turn.today)) {
+    // Reuse whatever read of current_week.json this turn already did - the patch-mode fetch
+    // above when a (dropped) week_update needed one, otherwise requestCoachReply's own prefetch
+    // (undefined only on a first-session turn, where it's never fetched at all). Only a
+    // first-session turn falls back to a fresh soft read here, same contract as every other soft
+    // read in this file: 404 quiet, anything else captured once, both read as null.
+    const rolloverSourceContent =
+      currentWeekContent !== undefined
+        ? currentWeekContent
+        : turn.prefetchedCurrentWeekContent !== undefined
+          ? turn.prefetchedCurrentWeekContent
+          : await (async () => {
+              try {
+                return await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+              } catch (err: unknown) {
+                const status = (err as { status?: number }).status;
+                if (status === 404) return null;
+                await captureServerException(err);
+                return null;
+              }
+            })();
+    const rolloverNow = new Date(turn.now);
+    if (currentWeekNeedsRollover(rolloverSourceContent ?? null, turn.today, rolloverNow)) {
+      rolloverWrite = {
+        path: CURRENT_WEEK_PATH,
+        content: JSON.stringify(
+          buildRolloverPlaceholder(timezone, turn.today, rolloverNow),
+          null,
+          2,
+        ),
+      };
+    }
   }
 
   for (const dropped of droppedActions) {
@@ -2140,6 +2228,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     sessionPlanWrite,
     ...workoutCreateAndRemoveWrites,
     currentWeekWrite,
+    rolloverWrite,
     seasonStartWrites?.seasonWrite,
     seasonStartWrites?.questWrite,
     questCreateWrite,
@@ -2244,6 +2333,20 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       `[coach-chat] first session benchmark generation gave up after ${attemptsSoFar} failed` +
         " attempts - clearing pending instead of retrying again",
       { traceId: turn.traceId },
+    );
+    // Terminal give-up only — retry attempts already capture at B8 (`captureServerException`
+    // below). One tagged message so triage can tell "permanently dead for this athlete" from
+    // the three prior transient-looking failures.
+    await captureServerMessage(
+      `First session benchmark gave up after ${attemptsSoFar} failed attempts`,
+      {
+        level: "error",
+        tags: {
+          outcome: "gave_up",
+          attempts: attemptsSoFar,
+          ...(turn.traceId ? { vercel_trace_id: turn.traceId } : {}),
+        },
+      },
     );
     const write = await buildClearPendingWrite(turn);
     if (write) {
