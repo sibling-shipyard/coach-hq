@@ -36,3 +36,18 @@ test("scheduled rollover serializes with data-triggered Sync", () => {
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /permissions:\n  contents: write/);
 });
+
+test("rollover failures alert and record without masking the original failure", () => {
+  const failure = workflow.split("- name: Record rollover failure", 2)[1];
+  assert.ok(failure, "missing rollover failure step");
+  assert.match(failure, /if: failure\(\)/);
+  assert.match(failure, /SENTRY_DSN: ""/);
+  assert.match(failure, /SYNC_OPERATION: rollover/);
+  assert.match(failure, /set \+e/);
+  assert.match(failure, /python3 engine\/scripts\/notify_sync_failure\.py \\\n\s+\|\|/);
+  assert.match(failure, /python3 engine\/scripts\/record_sync_failure\.py/);
+  assert.ok(
+    failure.indexOf("notify_sync_failure.py") < failure.indexOf("record_sync_failure.py"),
+    "the alert must run before the fallback record is pushed",
+  );
+});

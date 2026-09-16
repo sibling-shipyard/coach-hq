@@ -71,6 +71,7 @@ def build_event(record: dict, env: dict) -> dict:
     same step into one issue, so a repeatedly broken pipeline is one row, not fifty.
     """
     step = record["failed_step"]
+    operation = record.get("operation", "sync")
     athlete_id = env.get("SYNC_ATHLETE_ID", "").strip()
     event = {
         "event_id": uuid.uuid4().hex,
@@ -79,18 +80,18 @@ def build_event(record: dict, env: dict) -> dict:
         "level": "error",
         "logger": "sync-workflow",
         "environment": "production",
-        "transaction": "sync.workflow",
+        "transaction": f"{operation}.workflow",
         "exception": {
             "values": [
                 {
-                    "type": "SyncWorkflowFailure",
-                    "value": f"Sync failed at step '{step}'",
+                    "type": f"{operation.capitalize()}WorkflowFailure",
+                    "value": f"{operation.capitalize()} failed at step '{step}'",
                 }
             ]
         },
-        "fingerprint": ["sync-workflow-failure", step],
+        "fingerprint": [f"{operation}-workflow-failure", step],
         "tags": {
-            "operation": "sync",
+            "operation": operation,
             "failed_step": step,
             "run_id": record["run_id"],
             "run_attempt": record["run_attempt"],
