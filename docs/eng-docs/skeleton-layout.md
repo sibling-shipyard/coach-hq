@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-13 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -265,7 +265,9 @@ Read the script when they disagree — it is what runs.
 
 `sync.user.yml` is the one file the carve rewrites rather than copies: it stamps the operator's
 `SENTRY_DSN` into the workflow so a failed Sync reports itself, with no athlete-set secret
-(`sentry-runbook.md` § Set up once). Carve without that variable and the script warns.
+(`sentry-runbook.md` § Set up once). Carve without that variable and the script fails closed —
+it refuses to carve rather than ship a repo that can't report a failed Sync (`--no-sentry` opts
+out explicitly for local/test carves).
 
 `platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
 The bare `propagated/SOUL.md` name is retired; neither runtime owns it.

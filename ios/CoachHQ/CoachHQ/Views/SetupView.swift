@@ -241,13 +241,21 @@ struct SetupView: View {
 
         // Step 1 — repo (skip the network call if already confirmed this session)
         if !repoStepComplete {
-            let repoExists = await authManager.coachRepoExists(for: login)
-            if !repoExists {
+            // nil = check failed (network/token); false = confirmed missing; true = exists.
+            switch await authManager.coachRepoExists(for: login) {
+            case true:
+                repoStepComplete = true
+            case false:
                 // One retry — GitHub can lag a second after repo create.
                 try? await Task.sleep(for: .seconds(1))
-                repoStepComplete = await authManager.coachRepoExists(for: login)
-            } else {
-                repoStepComplete = true
+                switch await authManager.coachRepoExists(for: login) {
+                case true:
+                    repoStepComplete = true
+                case false, nil:
+                    break
+                }
+            case nil:
+                break
             }
             guard repoStepComplete else { return }
         }

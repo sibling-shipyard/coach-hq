@@ -232,13 +232,16 @@ function validateDate(value: unknown, path: string, issues: string[]): value is 
   return true;
 }
 
-function addDays(dateString: string, days: number): string {
+// Exported for currentWeekRollover.mts's own date math - both files operate on the same
+// day/week arithmetic, and one implementation is the only way to guarantee they never disagree
+// about what "a day later" or "which ISO week" means.
+export function addDays(dateString: string, days: number): string {
   const date = new Date(`${dateString}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-function getIsoWeekId(dateString: string): string {
+export function getIsoWeekId(dateString: string): string {
   const date = new Date(`${dateString}T00:00:00Z`);
   const day = date.getUTCDay() || 7;
   date.setUTCDate(date.getUTCDate() + 4 - day);

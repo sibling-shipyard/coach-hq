@@ -174,5 +174,6 @@ bash platform/scripts/check.sh --quiet
 `.githooks/pre-commit` runs the knowledge-base validator, refuses staged `node_modules` paths and
 absolute-target symlinks, flags added comments that record chronology instead of a constraint, and
 blocks a direct commit to `main`. It is plain git, so it holds under Claude Code, Codex and Cursor
-alike. `.githooks/pre-push` runs the full local gate and blocks on required-check failures.
-`validate-soul` reports a non-blocking warning, matching GitHub. GitHub checks remain authoritative.
+alike. `.githooks/pre-push` runs `check.sh --quiet --changed` and blocks on required-check failures.
+An iOS-only push does not wait on vitest. `validate-soul` reports a non-blocking warning, matching
+GitHub. GitHub checks remain authoritative.
