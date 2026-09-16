@@ -131,7 +131,7 @@ function isBlackout(date) {
 const PARTNER_NAME = "Jordan";
 const OPPONENTS = ["Marcus", "Priya", "Chris", "Sam"];
 
-function badmintonDescription(rw, rl) {
+function badmintonMatch(rw, rl, category) {
   const pct = Math.round((rw / (rw + rl)) * 100);
   const lines = [`${rw}W-${rl}L (${pct}%)`, "Games:"];
   const results = [
@@ -143,13 +143,25 @@ function badmintonDescription(rw, rl) {
     const j = Math.floor(random() * (i + 1));
     [results[i], results[j]] = [results[j], results[i]];
   }
+  const games = [];
   for (const result of results) {
     const opponent = OPPONENTS[Math.floor(random() * OPPONENTS.length)];
     const myScore = result === "W" ? 19 + Math.round(random() * 4) : 12 + Math.round(random() * 6);
     const oppScore = result === "W" ? 12 + Math.round(random() * 6) : 19 + Math.round(random() * 4);
     lines.push(`${result} ${myScore}-${oppScore} w/ ${PARTNER_NAME} vs ${opponent}`);
+    games.push({
+      format: "doubles",
+      category,
+      partner: PARTNER_NAME,
+      opponents: [opponent],
+      scoreFor: myScore,
+      scoreAgainst: oppScore,
+      result,
+      preNote: null,
+      postNote: null,
+    });
   }
-  return lines.join("\n");
+  return { description: lines.join("\n"), games };
 }
 
 // ─── Activities ─────────────────────────────────────────────────────────────
@@ -165,6 +177,7 @@ let calisthenicsN = 45;
 let runN = 20;
 
 const activities = [];
+const matchSessions = [];
 
 function pushActivity(a) {
   activities.push({
@@ -220,6 +233,8 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     badmintonRankedN++;
     const rw = 2 + Math.round(random() * 3);
     const rl = 1 + Math.round(random() * 3);
+    const match = badmintonMatch(rw, rl, "ranked");
+    const historyFile = `golden-${nextId}.json`;
     pushActivity({
       name: `Badminton: Ranked #${badmintonRankedN}`,
       sport_type: "Badminton",
@@ -231,7 +246,15 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
       max_heartrate: 176,
       has_heartrate: true,
       hr_zones: hrZones(seconds),
-      description: badmintonDescription(rw, rl),
+      description: match.description,
+      history_file: historyFile,
+    });
+    matchSessions.push({
+      historyFile,
+      date: toLocalDateStr(date),
+      activityId: nextId - 1,
+      summary: { wins: rw, losses: rl, winPct: Math.round((rw / (rw + rl)) * 100) },
+      games: match.games,
     });
   }
 
@@ -244,6 +267,8 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
       badmintonFriendlyN++;
       const rw = 1 + Math.round(random() * 2);
       const rl = Math.round(random() * 2);
+      const match = badmintonMatch(rw, rl, "friendly");
+      const historyFile = `golden-${nextId}.json`;
       pushActivity({
         name: `Badminton: Friendly #${badmintonFriendlyN}`,
         sport_type: "Badminton",
@@ -255,7 +280,15 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
         max_heartrate: 165,
         has_heartrate: true,
         hr_zones: hrZones(seconds),
-        description: badmintonDescription(rw, rl),
+        description: match.description,
+        history_file: historyFile,
+      });
+      matchSessions.push({
+        historyFile,
+        date: toLocalDateStr(date),
+        activityId: nextId - 1,
+        summary: { wins: rw, losses: rl, winPct: Math.round((rw / (rw + rl)) * 100) },
+        games: match.games,
       });
     }
   }
@@ -747,6 +780,7 @@ const currentWeek = {
 mkdirSync(OUT_DIR, { recursive: true });
 const files = {
   "activities.json": activities,
+  "match_history.json": { version: 1, sessions: matchSessions },
   "ledger.json": ledger,
   "workouts.json": workouts,
   "sync_status.json": syncStatus,

@@ -43,6 +43,7 @@ function copyGoldenToOutDir() {
     JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf-8"));
   const dashboardSnapshot = {
     activities: readGolden("activities"),
+    match_history: readGolden("match_history"),
     ledger_schema: "split_v1",
     ledger: readGolden("ledger"),
     current_week: readGolden("current_week"),
