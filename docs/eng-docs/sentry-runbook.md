@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 >
 > Coverage boundary rewritten after the #1078 stack (PRs #1088–#1098).
 
@@ -29,11 +29,12 @@ flowchart LR
 2. Create `coach-hq-web` (React), `coach-hq-api` (Node), and `coach-hq-ios` (Cocoa) projects — the
    single Developer-plan user owns all three. Put `VITE_SENTRY_DSN` and `SENTRY_DSN` in Vercel Production and
    Preview. Put the public iOS DSN in the uncommitted `Secrets.swift` used by the app build.
-   Athlete repos report failed Sync runs into `coach-hq-api` (tag `operation:sync`): export the
+   Athlete repos report failed Sync and rollover runs into `coach-hq-api` (tags `operation:sync`
+   and `operation:rollover`): export the
    same `SENTRY_DSN` before `node platform/scripts/carve-skeleton.mjs`, which stamps it into the
-   Sync workflow it carves. A DSN only writes, so it needs no athlete secret. Carve **fails
+   Sync and rollover workflows it carves. A DSN only writes, so it needs no athlete secret. Carve **fails
    closed** when `SENTRY_DSN` is unset — pass `--no-sentry` only for local/test carves that
-   intentionally skip Sync alerts. Repos carved before that rule may still lack a DSN; audit
+   intentionally skip data-workflow alerts. Repos carved before that rule may still lack a DSN; audit
    them once (operational follow-up, no PR).
 3. **Nothing uploads source maps or dSYMs yet — there is no setup step here to do.**
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so

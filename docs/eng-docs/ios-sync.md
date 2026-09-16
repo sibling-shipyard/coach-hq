@@ -73,7 +73,8 @@ sequenceDiagram
    the window. Filenames give uuids; contents give start/end/sport/`aliases` for session match
    (ADR 0035). A failed read of any listed file stops the round before it can commit a duplicate.
    Only a missing history directory counts as empty history on first sync. Import preview also
-   stops when a listed file cannot be read.
+   stops when a listed file cannot be read. A listed-file 404 reaches Sentry as
+   `healthkit.history.read`; a missing-directory 404 remains a normal first-sync case.
 4. **Cluster** — `WorkoutDeduplicator` groups live HealthKit recordings with those committed
    rows (see "Late arrivals").
 5. **Per cluster:**
