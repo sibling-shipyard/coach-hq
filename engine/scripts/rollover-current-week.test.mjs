@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
-import { buildRolloverPlaceholder, needsRollover } from "./rollover-current-week.mjs";
+import { buildRolloverPlaceholder, main as rolloverCurrentWeek, needsRollover } from "./rollover-current-week.mjs";
 import { parseCurrentWeek } from "../lib/current-week.mts";
 
 function isoWeekId(dateString) {
@@ -89,4 +92,34 @@ test("needsRollover: no data (invalid/missing) never needs rollover", () => {
   const now = new Date("2026-09-01T12:00:00Z");
   const runtime = parseCurrentWeek({ not: "a real week" }, now);
   assert.equal(needsRollover(runtime, "2026-09-01"), false);
+});
+
+test("main leaves a current week byte-for-byte unchanged", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rollover-main-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const ledger = path.join(root, "user_data/ledger");
+  fs.mkdirSync(ledger, { recursive: true });
+  const weekPath = path.join(ledger, "current_week.json");
+  const source = JSON.stringify(liveWeek("2026-08-17", "2026-08-23"), null, 2) + "\n";
+  fs.writeFileSync(weekPath, source);
+
+  rolloverCurrentWeek(root, new Date("2026-08-20T12:00:00Z"));
+
+  assert.equal(fs.readFileSync(weekPath, "utf8"), source);
+});
+
+test("main replaces an aged week with the current placeholder frame", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rollover-main-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const ledger = path.join(root, "user_data/ledger");
+  fs.mkdirSync(ledger, { recursive: true });
+  const weekPath = path.join(ledger, "current_week.json");
+  fs.writeFileSync(weekPath, JSON.stringify(liveWeek("2026-08-17", "2026-08-23")));
+
+  rolloverCurrentWeek(root, new Date("2026-09-01T12:00:00Z"));
+
+  const rolled = JSON.parse(fs.readFileSync(weekPath, "utf8"));
+  assert.equal(rolled.updated_by, "rollover");
+  assert.equal(rolled.week.start_date, "2026-08-31");
+  assert.equal(rolled.data_status, "placeholder");
 });

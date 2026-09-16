@@ -7,6 +7,7 @@ from engine.scripts import record_sync_failure
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = (REPO_ROOT / "engine/.github/workflows/sync.user.yml").read_text()
+ROLLOVER_WORKFLOW = (REPO_ROOT / "engine/.github/workflows/rollover.user.yml").read_text()
 
 
 class TestFailedStep(unittest.TestCase):
@@ -49,6 +50,11 @@ class TestBuildRecord(unittest.TestCase):
         self.assertEqual(record["failed_step"], "unknown")
         self.assertEqual(record["run_url"], "")
 
+    def test_rollover_record_names_its_operation(self):
+        record = record_sync_failure.build_record({"SYNC_OPERATION": "rollover"})
+        self.assertEqual(record["operation"], "rollover")
+        self.assertTrue(record["message"].startswith("Rollover failed"))
+
 
 class TestSyncWorkflow(unittest.TestCase):
     def test_recorder_runs_on_failure_and_is_the_last_step(self):
@@ -89,6 +95,18 @@ class TestSyncWorkflow(unittest.TestCase):
         # The green run clears a stale marker; it never writes one.
         self.assertEqual(success.count("git rm -q --cached --ignore-unmatch gen/sync_failure.json"), 2)
         self.assertNotIn("record_sync_failure.py", success)
+
+
+class TestRolloverWorkflow(unittest.TestCase):
+    def test_every_fallible_step_has_an_id_for_failure_records(self):
+        # toJSON(steps) only reports steps with an id; without one, a failed setup/build/push
+        # step would be recorded as unknown.
+        self.assertEqual(
+            ROLLOVER_WORKFLOW.count("      - name: "),
+            ROLLOVER_WORKFLOW.count("        id: ") + 1,
+        )
+        for step_id in ("checkout", "setup_node", "rollover_current_week", "build_snapshot", "commit_and_push"):
+            self.assertIn(f"id: {step_id}", ROLLOVER_WORKFLOW)
 
 
 if __name__ == "__main__":
