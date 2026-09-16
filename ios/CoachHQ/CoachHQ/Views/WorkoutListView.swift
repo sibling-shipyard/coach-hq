@@ -52,22 +52,23 @@ struct WorkoutListView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
 
-                    if let day = selectedDay {
-                        TrainDayCard(
-                            day: day,
-                            today: today,
-                            focusIndex: focusIndex,
-                            onFocus: { focusIndex = $0 },
-                            onOpen: open,
-                            onJumpToday: { selectDate(today) },
-                            onSwipe: swipe
-                        )
-                        .id(day.date)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: cardTravel > 0 ? .trailing : .leading).combined(with: .opacity),
-                            removal: .opacity
-                        ))
+                    ZStack {
+                        if let day = selectedDay {
+                            TrainDayCard(
+                                day: day,
+                                focusIndex: focusIndex,
+                                onFocus: { focusIndex = $0 },
+                                onOpen: open,
+                                onSwipe: swipe
+                            )
+                            .id(day.date)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: cardTravel > 0 ? .trailing : .leading).combined(with: .opacity),
+                                removal: .opacity
+                            ))
+                        }
                     }
+                    .animation(.spring(duration: 0.18, bounce: 0), value: selectedDate)
 
                     if let week = selection.week {
                         TrainWeekStrip(
@@ -84,14 +85,16 @@ struct WorkoutListView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
-                .animation(.easeInOut(duration: 0.22), value: selectedDay?.date)
             }
-            .contentMargins(.bottom, weekListOpen ? 130 : 110, for: .scrollContent)
+            .contentMargins(.bottom, weekListOpen ? 220 : 160, for: .scrollContent)
             .scrollClipDisabled()
             .refreshable { await refreshAll() }
             .task(id: workoutFetchToken) {
                 guard authManager.isSessionReady, authManager.repoFullName != nil else { return }
                 await refreshAll()
+            }
+            .onChange(of: allActivitiesStore.loadedEntries.count) { _, _ in
+                Task { await recomputeSelection(fetchSessions: false) }
             }
             .overlay {
                 ZStack {
@@ -123,19 +126,26 @@ struct WorkoutListView: View {
     // MARK: - Fetch
 
     private func refreshAll() async {
-        await workoutService.fetchTemplates()
-        await workoutService.fetchCurrentWeek()
-        await workoutService.fetchAthleteTimezone()
-        if let repo = authManager.repoFullName {
-            await allActivitiesStore.loadInitialIfNeeded(
-                repo: repo,
-                client: GitHubActivityHistClient(authManager: authManager)
-            )
-        }
-        await recomputeSelection(fetchSessionsFor: selectedDate.isEmpty ? nil : selectedDate)
+        async let templates: Void = workoutService.fetchTemplates()
+        async let week: Void = workoutService.fetchCurrentWeek()
+        async let timezone: Void = workoutService.fetchAthleteTimezone()
+        async let hist: Void = loadHistIfPossible()
+        _ = await (templates, week, timezone)
+        // Plan + 7-day cache first. Hist is 50 GitHub reads; waiting on it left only the library.
+        await recomputeSelection(fetchSessions: true)
+        await hist
+        await recomputeSelection(fetchSessions: false)
     }
 
-    private func recomputeSelection(fetchSessionsFor date: String?) async {
+    private func loadHistIfPossible() async {
+        guard let repo = authManager.repoFullName else { return }
+        await allActivitiesStore.loadInitialIfNeeded(
+            repo: repo,
+            client: GitHubActivityHistClient(authManager: authManager)
+        )
+    }
+
+    private func recomputeSelection(fetchSessions: Bool) async {
         let plan = workoutService.currentWeek
         let availability = workoutService.currentWeekAvailability
         let live = (availability?.available ?? false) && plan != nil
@@ -149,8 +159,10 @@ struct WorkoutListView: View {
         let resolvedToday = dateString(for: Date(), inTimeZoneIdentifier: todayZone)
         today = resolvedToday
 
-        let sessionDate = date ?? (selectedDate.isEmpty ? resolvedToday : selectedDate)
-        await workoutService.fetchTodaySessions(forDate: sessionDate)
+        if fetchSessions {
+            let sessionDate = selectedDate.isEmpty ? resolvedToday : selectedDate
+            await workoutService.fetchTodaySessions(forDate: sessionDate)
+        }
 
         let next = WorkoutsPageSelector.select(WorkoutsPageSelector.Input(
             currentWeek: plan,
@@ -203,7 +215,6 @@ struct WorkoutListView: View {
         } else {
             focusIndex = 0
         }
-        Task { await recomputeSelection(fetchSessionsFor: date) }
     }
 
     private func swipe(_ delta: Int) {
@@ -264,9 +275,9 @@ struct WorkoutListView: View {
             }
             .padding(.vertical, 4)
             .background(WarmInstrument.paper)
-            .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous)
                     .strokeBorder(WarmInstrument.border, lineWidth: 1)
             )
             .shadow(color: WarmInstrument.cardShadow, radius: 14, y: 7)

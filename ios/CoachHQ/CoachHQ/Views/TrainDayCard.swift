@@ -1,44 +1,62 @@
 import SwiftUI
 
-/// Train Day Card — five slots, five voices. Height stays 314pt so the page does not jump.
+/// Train Day Card — five slots, fixed height. Empty slots stay empty so title/ribbon/footer
+/// do not jump when the day changes.
 struct TrainDayCard: View {
     let day: WorkoutsPageSelector.TrainDay
-    let today: String
     let focusIndex: Int
     var onFocus: (Int) -> Void
     var onOpen: (WorkoutsPageSelector.TrainSession) -> Void
-    var onJumpToday: () -> Void
     var onSwipe: (Int) -> Void
 
+    @EnvironmentObject private var authManager: GitHubAuthManager
     @State private var hrStream: HRStreamFile?
+
+    init(
+        day: WorkoutsPageSelector.TrainDay,
+        focusIndex: Int,
+        onFocus: @escaping (Int) -> Void,
+        onOpen: @escaping (WorkoutsPageSelector.TrainSession) -> Void,
+        onSwipe: @escaping (Int) -> Void
+    ) {
+        self.day = day
+        self.focusIndex = focusIndex
+        self.onFocus = onFocus
+        self.onOpen = onOpen
+        self.onSwipe = onSwipe
+        let focused = day.sessions[safe: focusIndex] ?? day.sessions.first
+        if let uuid = focused?.activity?.activity?.activityId, HRStreamCache.contains(uuid) {
+            _hrStream = State(initialValue: HRStreamCache.lookup(uuid))
+        }
+    }
 
     private var session: WorkoutsPageSelector.TrainSession? {
         day.sessions[safe: focusIndex] ?? day.sessions.first
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             header.frame(height: 14)
-            titleBlock.frame(height: 76, alignment: .top)
+            titleBlock.frame(height: 56, alignment: .top)
             ribbon.frame(height: 66, alignment: .bottom)
-            coachLine.frame(height: 42, alignment: .top)
-            footer.frame(height: 46, alignment: .bottom)
+            coachLine.frame(height: 32, alignment: .top)
+            footer.frame(height: 46, alignment: .top)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 314)
+        .frame(height: 276)
         .background(shellFill)
-        .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous)
                 .strokeBorder(shellBorder, style: shellStroke)
         )
         .shadow(color: shellShadow, radius: 14, y: 7)
         .contentShape(Rectangle())
         .onTapGesture { openFocused() }
-        .gesture(swipeGesture)
+        .simultaneousGesture(swipeGesture)
         .task(id: session?.activity?.activity?.activityId) {
             await loadStream()
         }
@@ -53,58 +71,47 @@ struct TrainDayCard: View {
                 .tracking(1.4)
                 .foregroundColor(day.isToday ? WarmInstrument.ink : WarmInstrument.inkFaintText)
             Spacer(minLength: 0)
-            if let session {
-                Text(headerRight(session))
-                    .font(WarmInstrument.monoLabel(9))
-                    .foregroundColor(WarmInstrument.sportColor(session.sport))
-            }
-            if !day.isToday {
-                Button("TODAY ›", action: onJumpToday)
-                    .font(WarmInstrument.monoLabel(9))
-                    .foregroundColor(WarmInstrument.ink)
-                    .buttonStyle(.plain)
-                    .padding(.leading, 8)
-            }
         }
     }
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            pillRow
+            if showsPills {
+                pillRow
+            } else {
+                Color.clear.frame(height: 22)
+            }
             Text(session?.title ?? restTitle)
-                .font(.system(size: 26, weight: .semibold))
+                .font(.system(size: 28, weight: .semibold))
+                .tracking(-0.4)
                 .foregroundColor(WarmInstrument.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            Text(session?.subline ?? restSubline)
-                .font(.system(size: 13.5))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .lineLimit(1)
         }
     }
 
     private var pillRow: some View {
-        HStack(spacing: 6) {
-            if day.sessions.count <= 1 {
-                if let session {
-                    TrainPill(title: session.status == .logged ? "LOGGED" : "COACH DRAFT", filled: false)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                if day.sessions.count == 1, let session, session.status == .draft {
+                    TrainPill(title: "COACH DRAFT", filled: false)
                 } else {
-                    TrainPill(title: "REST", filled: false)
-                }
-            } else {
-                ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, item in
-                    Button {
-                        Haptics.tap()
-                        onFocus(index)
-                    } label: {
-                        TrainPill(title: item.shortTitle, filled: index == focusIndex)
+                    ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            tapFocus(index)
+                        } label: {
+                            TrainPill(title: item.shortTitle, filled: index == focusIndex)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .highPriorityGesture(
+                            TapGesture().onEnded { tapFocus(index) }
+                        )
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            Spacer(minLength: 0)
         }
-        .frame(height: 18)
+        .frame(height: 22)
     }
 
     @ViewBuilder
@@ -133,24 +140,43 @@ struct TrainDayCard: View {
         }
     }
 
-    @ViewBuilder
     private var footer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Rectangle()
+                .fill(WarmInstrument.headerRule)
+                .frame(height: 1)
+            footerContent
+        }
+    }
+
+    @ViewBuilder
+    private var footerContent: some View {
         if day.isRest {
-            hairlineFooter(label: "NOTHING DRAFTED", value: "—")
+            HStack {
+                Text("NOTHING DRAFTED")
+                    .font(WarmInstrument.monoLabel(8))
+                    .foregroundColor(WarmInstrument.inkFaintText)
+                Spacer()
+                Text("—")
+                    .font(WarmInstrument.figures(15, weight: .bold))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
         } else if let session, session.status == .logged {
             receiptFooter(session)
         } else if day.isToday, let session, session.isProtocol {
             Button("DETAIL") { onOpen(session) }
+                .buttonStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(WarmInstrument.ink)
                 .frame(maxWidth: .infinity)
-                .frame(height: 40)
+                .frame(height: 32)
+                .contentShape(Rectangle())
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(WarmInstrument.border, lineWidth: 1)
                 )
         } else {
-            hairlineFooter(label: "PLANNED", value: session?.plannedMin.map { "\($0)M" } ?? "—")
+            Color.clear
         }
     }
 
@@ -158,13 +184,7 @@ struct TrainDayCard: View {
 
     private func loggedRibbon(_ session: WorkoutsPageSelector.TrainSession) -> some View {
         let zones = session.activity?.activity?.hrZones
-        let colors: [Color] = {
-            guard let stream = hrStream, let zones, !stream.points.isEmpty else { return [] }
-            let config = RibbonBuilder.storedConfig(from: zones)
-            let cells = min(30, RibbonBuilder.cellCount(elapsedSeconds: stream.elapsedSeconds))
-            let perCell = RibbonBuilder.zonesPerCell(stream: stream, config: config, cells: cells)
-            return RibbonBuilder.carryGaps(perCell).map { HRZone.colors[$0] }
-        }()
+        let colors = ribbonColors(session: session, zones: zones)
         return VStack(alignment: .leading, spacing: 6) {
             if colors.isEmpty {
                 Color.clear
@@ -177,10 +197,25 @@ struct TrainDayCard: View {
                 .frame(height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
-            if let zones {
+            if let zones, !colors.isEmpty {
                 legend(zones)
             }
         }
+    }
+
+    /// Same path as Activity Detail: measured stream when we have it, stored-zone estimate otherwise.
+    private func ribbonColors(session: WorkoutsPageSelector.TrainSession, zones: [String: HRZoneEntry]?) -> [Color] {
+        guard let zones, zones.values.contains(where: { $0.seconds > 0 }) else { return [] }
+        if let stream = hrStream, !stream.points.isEmpty {
+            let config = RibbonBuilder.storedConfig(from: zones)
+            let cells = min(30, RibbonBuilder.cellCount(elapsedSeconds: stream.elapsedSeconds))
+            let perCell = RibbonBuilder.zonesPerCell(stream: stream, config: config, cells: cells)
+            return RibbonBuilder.carryGaps(perCell).map { HRZone.colors[$0] }
+        }
+        let elapsed = session.activity?.elapsedTime ?? (session.durationMin ?? 0) * 60
+        let seed = session.activity?.fileName ?? session.id
+        return RibbonBuilder.estimatedSequence(elapsedSeconds: elapsed, zones: zones, seedKey: seed)
+            .map { HRZone.colors[$0] }
     }
 
     private func legend(_ zones: [String: HRZoneEntry]) -> some View {
@@ -205,13 +240,14 @@ struct TrainDayCard: View {
     }
 
     private func phaseBar(_ session: WorkoutsPageSelector.TrainSession) -> some View {
-        let minutes = session.phases.map { phaseMinutes($0) }
+        let phases = Array(session.phases.prefix(TrainLayout.maxProtocolPhases))
+        let minutes = phases.map { phaseMinutes($0) }
         let total = max(minutes.reduce(0, +), 1)
         let color = WarmInstrument.sportColor(session.sport)
         return VStack(alignment: .leading, spacing: 6) {
             GeometryReader { geo in
                 HStack(spacing: 2) {
-                    ForEach(Array(session.phases.enumerated()), id: \.element.id) { index, _ in
+                    ForEach(Array(phases.enumerated()), id: \.element.id) { index, _ in
                         color.opacity(max(0.28, 1.0 - Double(index) * 0.18))
                             .frame(width: max(4, geo.size.width * (minutes[index] / total)))
                     }
@@ -221,8 +257,8 @@ struct TrainDayCard: View {
             .clipShape(Capsule())
 
             HStack {
-                ForEach(session.phases.prefix(4)) { phase in
-                    Text(phase.name.uppercased())
+                ForEach(phases) { phase in
+                    Text(phaseTitle(phase.name))
                         .font(WarmInstrument.monoLabel(7))
                         .foregroundColor(WarmInstrument.inkFaintText)
                         .lineLimit(1)
@@ -230,6 +266,13 @@ struct TrainDayCard: View {
                 }
             }
         }
+    }
+
+    private func phaseTitle(_ name: String) -> String {
+        let upper = name.uppercased()
+        let limit = TrainLayout.maxPhaseTitleChars
+        guard upper.count > limit else { return upper }
+        return String(upper.prefix(limit - 1)) + "…"
     }
 
     private var matchRibbon: some View {
@@ -246,15 +289,32 @@ struct TrainDayCard: View {
     }
 
     private func receiptFooter(_ session: WorkoutsPageSelector.TrainSession) -> some View {
-        HStack {
-            footerStat(session.durationMin.map { "\($0)M" } ?? "—", "TIME")
-            footerStat(session.load.map { "+\($0)" } ?? "—", "LOAD", accent: session.load != nil)
-            footerStat(session.plannedMin.map { "\($0)M" } ?? "—", "PLANNED")
+        HStack(alignment: .top, spacing: 0) {
+            footerStat(durationLabel(session), "TIME", alignment: .leading)
+            footerStat(session.load.map { "+\($0)" } ?? "—", "LOAD", accent: session.load != nil, alignment: .center)
+            footerStat(calorieLabel(session), "KCAL", alignment: .trailing)
         }
     }
 
-    private func footerStat(_ value: String, _ label: String, accent: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private func durationLabel(_ session: WorkoutsPageSelector.TrainSession) -> String {
+        guard let minutes = session.durationMin else { return "—" }
+        return Format.duration(seconds: minutes * 60)
+    }
+
+    private func calorieLabel(_ session: WorkoutsPageSelector.TrainSession) -> String {
+        guard let kcal = session.activity?.calories ?? session.activity?.activity?.calories else {
+            return "—"
+        }
+        return "\(kcal)"
+    }
+
+    private func footerStat(
+        _ value: String,
+        _ label: String,
+        accent: Bool = false,
+        alignment: HorizontalAlignment = .leading
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
             Text(value)
                 .font(WarmInstrument.figures(15, weight: .bold))
                 .foregroundColor(accent ? WarmInstrument.accent : WarmInstrument.ink)
@@ -262,22 +322,7 @@ struct TrainDayCard: View {
                 .font(WarmInstrument.monoLabel(8))
                 .foregroundColor(WarmInstrument.inkFaintText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func hairlineFooter(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(WarmInstrument.monoLabel(8))
-                .foregroundColor(WarmInstrument.inkFaintText)
-            Spacer()
-            Text(value)
-                .font(WarmInstrument.figures(15, weight: .bold))
-                .foregroundColor(WarmInstrument.inkFaint)
-        }
-        .overlay(alignment: .top) {
-            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
-        }
+        .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .top))
     }
 
     private func coachText(_ text: String) -> some View {
@@ -298,21 +343,15 @@ struct TrainDayCard: View {
     private var headerLeft: String {
         let dayStamp = TrainFormat.dayHeader(day.date)
         if day.isToday { return "\(dayStamp) · TODAY" }
-        if day.isRest { return "\(dayStamp) · REST" }
-        if session?.status == .logged { return "\(dayStamp) · LOGGED" }
-        return "\(dayStamp) · DRAFT"
+        if session?.status == .draft { return "\(dayStamp) · DRAFT" }
+        return dayStamp
     }
 
-    private func headerRight(_ session: WorkoutsPageSelector.TrainSession) -> String {
-        let code = TrainFormat.sportCode(session.sport)
-        if session.status == .logged, let load = session.load {
-            return "✓ \(code) · +\(load)"
-        }
-        return "\(code) · —"
+    private var showsPills: Bool {
+        day.sessions.count > 1 || (session?.status == .draft && session?.isMatchDraft != true)
     }
 
     private var restTitle: String { "Rest" }
-    private var restSubline: String { "Nothing drafted" }
 
     private var shellFill: Color {
         if day.kind == .future || day.isRest { return Color.clear }
@@ -339,10 +378,16 @@ struct TrainDayCard: View {
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 24)
             .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                if value.translation.width <= -40 { onSwipe(1) }
-                else if value.translation.width >= 40 { onSwipe(-1) }
+                let dx = value.translation.width
+                let dy = value.translation.height
+                guard abs(dx) > abs(dy), abs(dx) >= 40 else { return }
+                onSwipe(dx < 0 ? 1 : -1)
             }
+    }
+
+    private func tapFocus(_ index: Int) {
+        Haptics.tap()
+        onFocus(index)
     }
 
     private func openFocused() {
@@ -367,7 +412,20 @@ struct TrainDayCard: View {
             hrStream = HRStreamCache.lookup(uuid)
             return
         }
-        hrStream = nil
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        do {
+            let data = try await GitHubAPIClient(authManager: authManager)
+                .readFile(path: "user_data/activities/streams/\(uuid).json")
+            let decoded = try JSONDecoder().decode(HRStreamFile.self, from: data)
+            HRStreamCache.store(uuid, stream: decoded)
+            hrStream = decoded
+        } catch {
+            if HRStreamCache.shouldCacheAsMiss(error) {
+                HRStreamCache.store(uuid, stream: nil)
+            }
+            hrStream = nil
+        }
     }
 }
 
@@ -387,5 +445,6 @@ private struct TrainPill: View {
             .overlay(
                 Capsule().strokeBorder(WarmInstrument.border, lineWidth: filled ? 0 : 1)
             )
+            .contentShape(Capsule())
     }
 }

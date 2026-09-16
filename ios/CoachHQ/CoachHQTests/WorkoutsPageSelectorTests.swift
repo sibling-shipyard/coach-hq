@@ -158,10 +158,12 @@ final class WorkoutsPageSelectorTests: XCTestCase {
         XCTAssertEqual(WorkoutsPageSelector.defaultFocusIndex(in: day!), 0)
     }
 
-    func testNotLiveWithNoLoggedActivityHidesTheWeekBandEntirely() {
+    func testNotLiveWithNoLoggedActivityStillShowsThisIsoWeek() {
         let selection = WorkoutsPageSelector.select(input(today: "2026-09-09"))
         XCTAssertEqual(selection.today, .none)
-        XCTAssertNil(selection.week)
+        XCTAssertEqual(selection.week?.days.count, 7)
+        XCTAssertEqual(selection.week?.days.allSatisfy(\.isRest), true)
+        XCTAssertEqual(selection.week?.days.first { $0.isToday }?.date, "2026-09-09")
     }
 
     func testNotLiveWithLoggedActivityShowsOnlyThatIsoWeek() {

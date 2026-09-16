@@ -67,7 +67,7 @@ enum WorkoutsPageSelector {
 
     struct Selection: Equatable {
         let today: TodayBand
-        /// nil means the strip hides — no live plan and nothing logged this ISO week.
+        /// Always a 7-day strip for `today`'s ISO week. Empty days are rest cubes.
         let week: TrainWeek?
     }
 
@@ -223,7 +223,7 @@ enum WorkoutsPageSelector {
         return TrainSession(
             id: session.id,
             title: activity?.name ?? session.title,
-            shortTitle: shortTitle(activity?.name ?? session.title),
+            shortTitle: shortTitle(activity?.name ?? session.title, sport: session.discipline.asWarmSport),
             sport: session.discipline.asWarmSport,
             status: logged ? .logged : .draft,
             load: load,
@@ -239,9 +239,9 @@ enum WorkoutsPageSelector {
 
     // MARK: - Not-live fallback
 
-    /// Not live, or missing, means the week band shows only logged activity for that ISO
-    /// week if any exists, else hides entirely.
-    private static func weekFromActivities(_ input: Input) -> TrainWeek? {
+    /// Not live, or missing, still paints this ISO week so Train is never library-only
+    /// while hist is still arriving. Empty days are rest.
+    private static func weekFromActivities(_ input: Input) -> TrainWeek {
         let monday = mondayOfWeek(containing: input.today)
         let weekDates = (0..<7).map { addDaysToDateString(monday, $0) }
         let byDate = Dictionary(grouping: input.loggedActivities) { String($0.startDateLocal.prefix(10)) }
@@ -257,7 +257,6 @@ enum WorkoutsPageSelector {
                 coachNote: nil
             )
         }
-        guard days.contains(where: { !$0.sessions.isEmpty }) else { return nil }
         return makeWeek(
             id: isoWeekId(fromMonday: monday),
             days: days,
@@ -272,13 +271,13 @@ enum WorkoutsPageSelector {
         return TrainSession(
             id: entry.fileName,
             title: entry.name,
-            shortTitle: shortTitle(entry.name),
+            shortTitle: shortTitle(entry.name, sport: sport),
             sport: sport,
             status: .logged,
             load: sessionLoad(activity: entry, date: date, hints: hints),
             durationMin: Int((Double(entry.elapsedTime) / 60).rounded()),
             plannedMin: nil,
-            subline: entry.activity?.description?.nilIfEmpty ?? Format.duration(seconds: entry.elapsedTime),
+            subline: sportSubline(sport),
             phases: [],
             coachNote: nil,
             workout: nil,
@@ -346,19 +345,32 @@ enum WorkoutsPageSelector {
         return date < today ? .past : .future
     }
 
-    private static func shortTitle(_ title: String) -> String {
+    private static func shortTitle(_ title: String, sport: WarmSportId) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
-        if trimmed.count <= 14 { return trimmed }
         if let hash = trimmed.range(of: "#") {
-            return String(trimmed[hash.lowerBound...]).prefix(14).description
+            let num = String(trimmed[hash.lowerBound...]).prefix(8)
+            return "\(TrainFormat.sportCode(sport)) \(num)"
         }
+        if trimmed.count <= 12 { return trimmed }
         return trimmed.split(separator: " ").prefix(2).joined(separator: " ")
+    }
+
+    private static func sportSubline(_ sport: WarmSportId) -> String {
+        switch sport {
+        case .weightTraining, .strength: return "Strength"
+        case .foundation: return "Foundation"
+        case .cycling: return "Ride"
+        case .badminton: return "Badminton"
+        case .calisthenics: return "Calisthenics"
+        case .run: return "Run"
+        default: return sport.rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+        }
     }
 
     private static func subline(session: CurrentWeekSession, workout: Workout?, activity: SyncCacheEntry?) -> String {
         if let subtitle = workout?.subtitle, !subtitle.isEmpty { return subtitle }
+        if activity != nil { return sportSubline(session.discipline.asWarmSport) }
         if let kind = session.kind.nilIfEmpty { return kind.replacingOccurrences(of: "_", with: " ") }
-        if let duration = activity.map({ Format.duration(seconds: $0.elapsedTime) }) { return duration }
         if let minutes = session.plannedDurationMin { return "\(minutes) min" }
         return session.title
     }

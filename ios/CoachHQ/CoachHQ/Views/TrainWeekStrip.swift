@@ -23,9 +23,9 @@ struct TrainWeekStrip: View {
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous)
                 .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
         .shadow(color: WarmInstrument.cardShadow, radius: 14, y: 7)
@@ -33,19 +33,12 @@ struct TrainWeekStrip: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text(headerLeft)
+            Text("WK \(week.number)")
                 .font(WarmInstrument.monoLabel(11))
                 .tracking(1.2)
                 .foregroundColor(WarmInstrument.ink)
 
             Spacer(minLength: 0)
-
-            if let verdict = week.bandVerdict {
-                Text(verdict)
-                    .font(WarmInstrument.coachVoice(13))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .lineLimit(1)
-            }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.26)) { listOpen.toggle() }
@@ -63,60 +56,73 @@ struct TrainWeekStrip: View {
         }
     }
 
-    private var headerLeft: String {
-        if let load = week.loggedLoad {
-            return "WK \(week.number) · \(load)"
-        }
-        return "WK \(week.number) · —"
-    }
-
     private var cubes: some View {
-        HStack(spacing: 6) {
-            ForEach(Array(week.days.enumerated()), id: \.element.id) { index, day in
-                Button {
-                    Haptics.tap()
-                    onSelectDate(day.date)
-                } label: {
-                    TrainWeekCube(day: day)
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                let gap: CGFloat = 6
+                let count = CGFloat(max(week.days.count, 1))
+                let width = (geo.size.width - gap * (count - 1)) / count
+                ZStack(alignment: .topLeading) {
+                    cubeRing(width: width, gap: gap)
+                    HStack(spacing: gap) {
+                        ForEach(week.days) { day in
+                            Button {
+                                tapDay(day.date)
+                            } label: {
+                                TrainWeekCube(day: day)
+                                    .frame(width: width, height: TrainLayout.cubeHeight)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .highPriorityGesture(
+                                TapGesture().onEnded { tapDay(day.date) }
+                            )
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
             }
-        }
-        .padding(.top, 2)
-        .padding(.bottom, 10)
-        .overlay(alignment: .bottom) {
-            marks
+            .frame(height: TrainLayout.cubeHeight)
+            .padding(.horizontal, 2)
+            .padding(.top, 2)
+
+            pointerRow
+                .frame(height: 12)
         }
     }
 
-    private var marks: some View {
+    private func tapDay(_ date: String) {
+        Haptics.tap()
+        onSelectDate(date)
+    }
+
+    @ViewBuilder
+    private func cubeRing(width: CGFloat, gap: CGFloat) -> some View {
+        let selected = week.days[safe: selectedIndex]
+        if selected?.isToday != true, selected != nil {
+            let x = CGFloat(selectedIndex) * (width + gap)
+            RoundedRectangle(cornerRadius: TrainLayout.cubeRingRadius, style: .continuous)
+                .strokeBorder(WarmInstrument.ink, lineWidth: 1.5)
+                .frame(width: width + 4, height: TrainLayout.cubeHeight + 4)
+                .offset(x: x - 2, y: -2)
+                .animation(.easeInOut(duration: 0.24), value: selectedIndex)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var pointerRow: some View {
         GeometryReader { geo in
-            let count = CGFloat(max(week.days.count, 1))
             let gap: CGFloat = 6
+            let count = CGFloat(max(week.days.count, 1))
             let width = (geo.size.width - gap * (count - 1)) / count
             let x = CGFloat(selectedIndex) * (width + gap)
-            let todayIndex = week.days.firstIndex(where: \.isToday)
             let selected = week.days[safe: selectedIndex]
-
-            ZStack(alignment: .topLeading) {
-                if selected?.isToday == true {
-                    TrainPointer()
-                        .frame(width: 12, height: 7)
-                        .offset(x: x + (width - 12) / 2, y: geo.size.height - 7)
-                } else if selected != nil {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(WarmInstrument.ink, lineWidth: 1.5)
-                        .frame(width: width + 8, height: geo.size.height - 6)
-                        .offset(x: x - 4, y: -4)
-                        .animation(.easeInOut(duration: 0.24), value: selectedIndex)
-                }
-
-                if let todayIndex, todayIndex != selectedIndex, selected?.isToday != true {
-                    // Pointer only while today is selected — ring owns the other days.
-                    Color.clear
-                }
+            if selected?.isToday == true {
+                TrainPointer()
+                    .frame(width: 12, height: 7)
+                    .offset(x: x + (width - 12) / 2, y: 2)
             }
         }
+        .padding(.horizontal, 2)
         .allowsHitTesting(false)
     }
 
@@ -135,14 +141,18 @@ struct TrainWeekStrip: View {
             }
             .padding(.bottom, 10)
 
-            ForEach(Array(week.days.enumerated()), id: \.element.id) { index, day in
+            ForEach(Array(week.days.enumerated()), id: \.element.id) { _, day in
                 Button {
-                    Haptics.tap()
-                    onSelectDate(day.date)
+                    tapDay(day.date)
                 } label: {
                     TrainWeekListRow(day: day, isSelected: day.date == selectedDate)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .highPriorityGesture(
+                    TapGesture().onEnded { tapDay(day.date) }
+                )
                 .opacity(1)
             }
         }
@@ -155,66 +165,75 @@ private struct TrainWeekCube: View {
     let day: WorkoutsPageSelector.TrainDay
 
     private var isToday: Bool { day.isToday }
+    private var isLogged: Bool { day.sessions.contains(where: { $0.status == .logged }) }
 
     var body: some View {
-        VStack(spacing: 6) {
+        let shape = RoundedRectangle(cornerRadius: TrainLayout.cubeRadius, style: .continuous)
+        VStack(spacing: 4) {
             Text(TrainFormat.weekday(day.date))
                 .font(WarmInstrument.monoLabel(7.5))
                 .tracking(0.6)
-                .foregroundColor(isToday ? WarmInstrument.paper : WarmInstrument.inkFaintText)
+                .foregroundColor(labelColor)
             Text(TrainFormat.dayNumber(day.date))
                 .font(WarmInstrument.monoLabel(13))
-                .foregroundColor(isToday ? WarmInstrument.paper : WarmInstrument.ink)
+                .foregroundColor(dateColor)
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 2) {
-                ForEach(day.sessions) { session in
+            VStack(spacing: 2) {
+                ForEach(Array(day.sessions.prefix(3))) { session in
                     Capsule()
                         .fill(WarmInstrument.sportColor(session.sport).opacity(session.status == .logged ? 1 : 0.45))
-                        .frame(width: 8, height: 3)
+                        .frame(width: 12, height: 3)
                 }
             }
-            .frame(height: 3)
+            .frame(width: 12, height: 13, alignment: .bottom)
 
             Text(loadLabel)
                 .font(WarmInstrument.monoLabel(9))
                 .foregroundColor(loadColor)
         }
         .padding(.horizontal, 4)
-        .padding(.top, 7)
-        .padding(.bottom, 6)
-        .frame(maxWidth: .infinity)
-        .frame(height: 88)
-        .background(cubeFill)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(cubeBorder, style: cubeStroke)
-        )
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(shape.fill(cubeFill))
+        .overlay(shape.strokeBorder(cubeBorder, style: cubeStroke))
+        .contentShape(Rectangle())
     }
 
     private var cubeFill: Color {
         if isToday { return WarmInstrument.ink }
-        if day.sessions.contains(where: { $0.status == .logged }) { return WarmInstrument.desk }
+        if isLogged { return TrainLayout.loggedFill }
         return Color.clear
     }
 
     private var cubeBorder: Color {
         if isToday { return WarmInstrument.ink }
-        return WarmInstrument.borderDashed
+        if isLogged { return WarmInstrument.borderTintBase.opacity(0.12) }
+        if day.isRest { return WarmInstrument.borderTintBase.opacity(0.30) }
+        return WarmInstrument.borderTintBase.opacity(0.38)
     }
 
     private var cubeStroke: StrokeStyle {
-        if isToday || day.sessions.contains(where: { $0.status == .logged }) {
+        if isToday || isLogged {
             return StrokeStyle(lineWidth: 1.5)
         }
         return StrokeStyle(lineWidth: 1.5, dash: [4, 3])
     }
 
+    private var labelColor: Color {
+        if isToday { return WarmInstrument.paper }
+        return WarmInstrument.inkFaintText
+    }
+
+    private var dateColor: Color {
+        if isToday { return WarmInstrument.paper }
+        if isLogged { return WarmInstrument.ink }
+        return WarmInstrument.inkFaint
+    }
+
     private var loadLabel: String {
         if let load = day.observedLoad { return "+\(load)" }
-        if day.isRest || day.sessions.allSatisfy({ $0.status == .draft }) { return "—" }
         return "—"
     }
 
@@ -269,8 +288,10 @@ private struct TrainWeekListRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(isSelected ? WarmInstrument.desk : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(Rectangle())
     }
 }
 
@@ -285,6 +306,22 @@ private struct TrainPointer: View {
             gfx.fill(path, with: .color(WarmInstrument.ink))
         }
     }
+}
+
+enum TrainLayout {
+    /// Mock Day Card / Week Strip shell is 26pt; iOS Warm cards are 18. 22 sits between.
+    static let cardRadius: CGFloat = 22
+    static let cubeRadius: CGFloat = 14
+    static let cubeHeight: CGFloat = 88
+    static let cubeRingRadius: CGFloat = 15
+    static let maxProtocolPhases = 3
+    static let maxPhaseTitleChars = 12
+    /// Logged cube fill `#f1ece2` on paper.
+    static let loggedFill = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x27 / 255, green: 0x25 / 255, blue: 0x20 / 255, alpha: 1)
+            : UIColor(red: 0xf1 / 255, green: 0xec / 255, blue: 0xe2 / 255, alpha: 1)
+    })
 }
 
 enum TrainFormat {
