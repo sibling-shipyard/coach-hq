@@ -1,10 +1,6 @@
 name: Platform Tests
 
-# Runs the platform/ Python test suite (engine + platform/tests) and platform/skills/'s node:test
-# suite. Added because it had NO runner at all - same failure shape as issue #194 which is why
-# ui-tests.yml exists: tests existed locally (checks.conf) but nothing ran them automatically.
-# #911 added platform/skills/sentry-digest.test.mjs to checks.conf without adding it here, so it
-# only ran when someone remembered `check.sh` locally - this closes that gap.
+# Runs the engine and platform Python suites plus the engine and platform Node suites.
 
 # Self-included in both path filters on purpose: a gate that cannot run on its own PR
 # ships unproven, which is how this workflow reached main with zero executions (#533).
@@ -15,12 +11,14 @@ on:
     paths:
       - 'platform/tests/**'
       - 'platform/skills/**'
+      - 'platform/scripts/checks.conf'
       - 'engine/**'
       - '.github/workflows/platform-tests.yml'
   pull_request:
     paths:
       - 'platform/tests/**'
       - 'platform/skills/**'
+      - 'platform/scripts/checks.conf'
       - 'engine/**'
       - '.github/workflows/platform-tests.yml'
 
@@ -43,6 +41,12 @@ jobs:
 
       - name: Run test suite
         run: python3 -m unittest discover -s platform/tests -p "test_*.py"
+
+      - name: Run engine Python tests
+        run: python3 -m unittest discover -s engine/scripts -p "test_*.py"
+
+      - name: Run engine Node tests
+        run: node --test engine/scripts/*.test.mjs
 
       - name: Run platform/skills tests
         run: node --test platform/skills/*.test.mjs

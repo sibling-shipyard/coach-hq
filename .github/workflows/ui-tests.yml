@@ -10,10 +10,14 @@ on:
     paths:
       - 'ui/**'
       - 'engine/lib/**'
+      - 'platform/scripts/checks.conf'
+      - '.github/workflows/ui-tests.yml'
   pull_request:
     paths:
       - 'ui/**'
       - 'engine/lib/**'
+      - 'platform/scripts/checks.conf'
+      - '.github/workflows/ui-tests.yml'
 
 jobs:
   ui-tests:
@@ -44,3 +48,6 @@ jobs:
 
       - name: Run test suite
         run: npm run test
+
+      - name: Build production bundle
+        run: npm run build
