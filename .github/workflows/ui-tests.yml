@@ -10,10 +10,16 @@ on:
     paths:
       - 'ui/**'
       - 'engine/lib/**'
+      - '.github/workflows/ui-tests.yml'
   pull_request:
     paths:
       - 'ui/**'
       - 'engine/lib/**'
+      - '.github/workflows/ui-tests.yml'
+
+concurrency:
+  group: ui-tests-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ui-tests:
@@ -44,3 +50,6 @@ jobs:
 
       - name: Run test suite
         run: npm run test
+
+      - name: Production build
+        run: npm run build
