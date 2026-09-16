@@ -230,30 +230,6 @@ enum EnginePageMath {
         String(startDateLocal.prefix(10))
     }
 
-    static func receiptSubject(
-        body: String,
-        doseRows: [DoseRowSnapshot],
-        hist: [HistSession] = []
-    ) -> String? {
-        let titles = doseRows.filter { $0.isRest != true }.map(\.title) + hist.map(\.name)
-        if let hit = titles.first(where: { body.localizedCaseInsensitiveContains($0) }) {
-            return hit
-        }
-        if let minutes = minutesMentioned(in: body),
-           let hit = hist.first(where: { abs($0.elapsedSeconds / 60 - minutes) <= 1 }) {
-            return hit.name
-        }
-        return nil
-    }
-
-    static func minutesMentioned(in body: String) -> Int? {
-        let pattern = #"(\d+)\s*-?\s*min"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-              let match = regex.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)),
-              let range = Range(match.range(at: 1), in: body) else { return nil }
-        return Int(body[range])
-    }
-
     static func namesMatch(_ a: String, _ b: String) -> Bool {
         a.trimmingCharacters(in: .whitespacesAndNewlines)
             .localizedCaseInsensitiveCompare(b.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame

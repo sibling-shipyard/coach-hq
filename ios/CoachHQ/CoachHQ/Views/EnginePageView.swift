@@ -3,8 +3,6 @@ import SwiftUI
 /// Pushed Engine page (Home Engine tile → push). Layout follows Engine Page v1.
 struct EngineDetailView: View {
     let engine: EngineSnapshot
-    let coachMessage: CoachMessageSnapshot?
-    var onOpenCoach: ((CoachMessageSnapshot) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -51,9 +49,6 @@ struct EngineDetailView: View {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 loadHero
-                if let coachMessage {
-                    receipt(coachMessage)
-                }
                 doseSection
             }
             .padding(.horizontal, 16)
@@ -212,64 +207,6 @@ struct EngineDetailView: View {
                 isCurrent: isCurrent
             )
         }
-    }
-
-    private func receipt(_ message: CoachMessageSnapshot) -> some View {
-        Button {
-            Haptics.tap()
-            onOpenCoach?(message)
-        } label: {
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(alignment: .firstTextBaseline) {
-                    HStack(spacing: 0) {
-                        Text("COACH")
-                            .font(WarmInstrument.monoLabel(9))
-                            .tracking(1.4)
-                            .foregroundColor(WarmInstrument.inkFaint)
-                        if let subject = EnginePageMath.receiptSubject(
-                            body: message.body,
-                            doseRows: engine.doseRows,
-                            hist: hist
-                        ) {
-                            Text(" · RE: \(subject.uppercased())")
-                                .font(WarmInstrument.monoLabel(9, weight: .regular))
-                                .tracking(1.4)
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Text("REPLY ›")
-                        .font(WarmInstrument.monoLabel(9))
-                        .tracking(1.2)
-                        .foregroundColor(WarmInstrument.accent)
-                }
-                Text(message.body)
-                    .font(WarmInstrument.coachVoice(16))
-                    .foregroundColor(WarmInstrument.ink)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-                Text("— PHELPS")
-                    .font(WarmInstrument.monoLabel(9, weight: .regular))
-                    .tracking(1.2)
-                    .foregroundColor(WarmInstrument.inkFaint)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 15)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: EnginePageLayout.cardRadius, style: .continuous)
-                    .fill(WarmInstrument.surfaceMuted)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: EnginePageLayout.cardRadius, style: .continuous)
-                    .strokeBorder(WarmInstrument.border.opacity(0.75), lineWidth: 1)
-            )
-        }
-        .buttonStyle(EngineReceiptPressStyle())
-        .accessibilityLabel("Coach. \(message.body)")
-        .accessibilityHint("Opens this message in Coach chat")
     }
 
     private var doseSection: some View {
@@ -444,14 +381,6 @@ private enum EnginePageLayout {
     static let heroRadius: CGFloat = 26
 }
 
-private struct EngineReceiptPressStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
-    }
-}
-
 private struct EngineWeekPlot: View {
     struct Point: Identifiable {
         let label: String
@@ -561,7 +490,7 @@ private struct EngineWeekPlot: View {
 
 #Preview("Engine page — golden dataset") {
     NavigationStack {
-        EngineDetailView(engine: GoldenDataset.engine, coachMessage: GoldenDataset.home.coachMessage)
+        EngineDetailView(engine: GoldenDataset.engine)
             .environmentObject(GitHubAuthManager())
             .environmentObject(AllActivitiesStore())
     }
@@ -569,7 +498,7 @@ private struct EngineWeekPlot: View {
 
 #Preview("Engine page — empty dose") {
     NavigationStack {
-        EngineDetailView(engine: GoldenDataset.engine.withEmptyDose, coachMessage: nil)
+        EngineDetailView(engine: GoldenDataset.engine.withEmptyDose)
             .environmentObject(GitHubAuthManager())
             .environmentObject(AllActivitiesStore())
     }

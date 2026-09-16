@@ -86,17 +86,6 @@ final class EnginePageMathTests: XCTestCase {
         XCTAssertEqual(EnginePageMath.sessionMeta(row: row, hist: [], weekDates: week), EnginePageMath.SessionMeta())
     }
 
-    func testReceiptSubjectOnlyWhenBodyNamesASession() {
-        let rows = [
-            DoseRowSnapshot(day: "TUE", title: "Ride #115", detail: nil, load: 38, sport: .cycling, isRest: nil),
-        ]
-        XCTAssertEqual(
-            EnginePageMath.receiptSubject(body: "Ride #115 did most of this.", doseRows: rows),
-            "Ride #115"
-        )
-        XCTAssertNil(EnginePageMath.receiptSubject(body: "Quiet start.", doseRows: rows))
-    }
-
     func testLedgerRowsPreferHistFullWeekOverSlicedDose() {
         let now = EnginePageMath.parseLocal("2026-09-16T12:00:00")!
         let week = EnginePageMath.weekDateKeys(weekLabel: "WK 38", now: now)

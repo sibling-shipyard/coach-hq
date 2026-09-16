@@ -9,7 +9,6 @@ import UniformTypeIdentifiers
 /// (platform row "iOS app (Home)").
 enum HomeRoute: Hashable {
     case engine
-    case coach(CoachMessageSnapshot)
     case activities
     case activity(SyncCacheEntry)
 }
@@ -88,21 +87,9 @@ struct WarmInstrumentHomeView: View {
                 case .engine:
                     if let snapshots = store.snapshots {
                         EngineDetailView(
-                            engine: snapshots.home.engine,
-                            coachMessage: snapshots.home.coachMessage,
-                            onOpenCoach: { openCoachOnHomeStack($0) }
+                            engine: snapshots.home.engine
                         )
                     }
-                case .coach(let message):
-                    HomeCoachPush(
-                        message: message,
-                        repoFullName: authManager.repoFullName,
-                        onPop: {
-                            if case .coach = navigationPath.last {
-                                navigationPath.removeLast()
-                            }
-                        }
-                    )
                 case .activities:
                     // Full paginated history, not the 7-day widget cache — see
                     // AllActivitiesListView's doc comment for why it's a separate view.
@@ -288,18 +275,6 @@ struct WarmInstrumentHomeView: View {
         }
         let word = n == 1 ? "session" : "sessions"
         return "\(n) \(word) synced — Coach is on it"
-    }
-
-    private func openCoachOnHomeStack(_ message: CoachMessageSnapshot) {
-        guard let repoFullName = authManager.repoFullName,
-              let route = CoachMessageRoute(
-                repoFullName: repoFullName,
-                conversationSeedId: message.conversationSeedId,
-                body: message.body,
-                createdAt: message.createdAt
-              ) else { return }
-        route.persist()
-        navigationPath.append(.coach(message))
     }
 
     private func openCoachMessage(_ message: CoachMessageSnapshot, playHaptic: Bool = true) {
@@ -518,29 +493,6 @@ private struct SizePickerBadge: View {
         .clipShape(Capsule())
         .overlay(Capsule().strokeBorder(WarmInstrument.border, lineWidth: 1))
         .shadow(color: WarmInstrument.cardShadow, radius: 6, x: 0, y: 3)
-    }
-}
-
-private struct HomeCoachPush: View {
-    let message: CoachMessageSnapshot
-    let repoFullName: String?
-    var onPop: () -> Void
-
-    @State private var route: CoachMessageRoute?
-
-    var body: some View {
-        CoachChatView(requestedProactiveRoute: $route, onPop: onPop)
-            .onAppear {
-                guard route == nil, let repoFullName else { return }
-                route = CoachMessageRoute(
-                    repoFullName: repoFullName,
-                    conversationSeedId: message.conversationSeedId,
-                    body: message.body,
-                    createdAt: message.createdAt
-                )
-            }
-            .navigationBarBackButtonHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
     }
 }
 

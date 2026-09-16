@@ -128,15 +128,15 @@ Terracotta is load figures and WarmPrimary only. Draft load is `—` until a rea
 
 ## Engine
 
-Home tile still lives in `EngineCard`. This is the **push**: `WarmPageHeader` (`‹` + `ENGINE` + `WK 38`) → terracotta load hero → fresh coach receipt → `LEDGER`. Desk behind; tab bar hidden. Edge-swipe pops.
+Home tile still lives in `EngineCard`. This is the **push**: `WarmPageHeader` (`‹` + `ENGINE` + `WK 38`) → terracotta load hero → `LEDGER`. Desk behind; tab bar hidden. Edge-swipe pops. Coach voice stays on Home and Train — Engine has no receipt and no REPLY.
 
-LEDGER is the full ISO week from hist, not the snapshot's last-five `doseRows`. Plot draws the band rect on all six weeks; this week also gets the 1px edge and a dashed cap to projected Sunday load when that figure exists. `HOW IT'S COUNTED` reuses `HowLoadIsCountedSheet` from Activity Ledger. REPLY pushes Coach on the Home stack (`‹` pops back to Engine) — it does not switch the Chat tab.
+LEDGER is the full ISO week from hist, not the snapshot's last-five `doseRows`. Plot draws the band rect on all six weeks; this week also gets the 1px edge and a dashed cap to projected Sunday load when that figure exists. `HOW IT'S COUNTED` reuses `HowLoadIsCountedSheet` from Activity Ledger.
 
 Hero is the only terracotta fill. Verdict is `Absorb.` / `In rhythm.` / `Ease off.` from load vs band. Six load bars on a 300–950 plot; this week's band rect only. No sport colour on the hero, no "ABOVE BAND" badge, no formula in the card.
 
-Dose is one paper card, Mon→Sun groups, ink `+N`. Empty is the dashed "Nothing logged yet" shell, section `0 SESSIONS`. Receipt is the Home event message (`REPLY ›`), not Coach's Read. Omit HR, dashed cap, and `+N% VS 8W AGO` when those snapshot fields are missing.
+Dose is one paper card, Mon→Sun groups, ink `+N`. Empty is the dashed "Nothing logged yet" shell, section `0 SESSIONS`. Omit HR, dashed cap, and `+N% VS 8W AGO` when those snapshot fields are missing.
 
-Haptics: `.light` on back, sheet open, coach tap; `.soft` on sheet close. Silent scroll and draw-in.
+Haptics: `.light` on back and sheet open; `.soft` on sheet close. Silent scroll and draw-in.
 
 Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
 
