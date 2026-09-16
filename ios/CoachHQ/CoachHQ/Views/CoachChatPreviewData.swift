@@ -9,7 +9,7 @@ import Foundation
 //   3. Inline chips on coach morning-read messages (engine + commitments)
 //   4. 7-day thread window (no search)
 
-/// Header mono line — no "Coach" title per mock Turn 1.
+/// Day label for the Coach header trailing (`D-143`). Wordmark is `COACH` on `WarmPageHeader`.
 ///
 /// Day-only now (week label was dropped - see issue #244): `secondaryLabel` is only used when
 /// browsing an older thread, where it carries that thread's title (e.g. `D-142 · Bar felt cold`),

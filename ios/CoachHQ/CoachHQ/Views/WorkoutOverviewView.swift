@@ -17,7 +17,6 @@ struct WorkoutOverviewView: View {
                 phaseBlocks
             }
             .padding(.horizontal, 16)
-            .padding(.top, 16)
             .padding(.bottom, WarmMainDockLayout.scrollBottomClearance)
         }
         .background(WarmInstrument.desk)
@@ -43,23 +42,17 @@ struct WorkoutOverviewView: View {
 
     private var metaSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
-                Button {
-                    Haptics.tap()
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                }
-                .buttonStyle(.plain)
+            WarmPageHeader(
+                title: "TRAIN",
+                showsBack: true,
+                onBack: { dismiss() }
+            )
 
-                Text(workout.title)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Theme.ink)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(workout.title)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Theme.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             WarmWorkoutTypeBadge(
                 label: Theme.workoutLabel(for: workout.workoutType),

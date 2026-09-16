@@ -30,6 +30,8 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    WarmPageHeader(title: "YOU")
+
                     SettingsProfileHeader(
                         user: authManager.user,
                         preferredName: preferredName,
@@ -54,7 +56,6 @@ struct SettingsView: View {
                     signedInFooter
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
                 .animation(PremiumMotion.state, value: devModeEnabled || testMode.isEnabled)
             }
             .mainTabScrollBottomClearance()

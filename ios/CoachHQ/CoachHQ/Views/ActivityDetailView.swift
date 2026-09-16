@@ -118,24 +118,11 @@ struct ActivityDetailView: View {
     // MARK: - Header bar
 
     private var headerBar: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Button {
-                Haptics.tap()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.inkMuted)
-            }
-            .buttonStyle(.plain)
-
-            Text(entry.name)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(WarmInstrument.ink)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-
+        WarmPageHeader(
+            title: "ACTIVITY",
+            showsBack: true,
+            onBack: { dismiss() }
+        ) {
             if isLoading {
                 WarmSignalLoader(size: 18)
             } else {
@@ -143,10 +130,6 @@ struct ActivityDetailView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
-        }
     }
 
     // MARK: - Beat 01: What it was
@@ -155,6 +138,12 @@ struct ActivityDetailView: View {
         WarmCard(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 MonoLabel(heroDateString, size: 9.5, color: WarmInstrument.inkFaint)
+                    .padding(.bottom, 8)
+
+                Text(entry.name)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .lineLimit(2)
                     .padding(.bottom, 12)
 
                 Text(durationString)

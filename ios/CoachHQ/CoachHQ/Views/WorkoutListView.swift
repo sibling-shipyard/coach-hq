@@ -237,15 +237,10 @@ struct WorkoutListView: View {
     // MARK: - Chrome
 
     private var header: some View {
-        HStack {
-            Text("TRAIN")
-                .font(WarmInstrument.monoLabel(12))
-                .tracking(1.4)
-                .foregroundColor(WarmInstrument.ink)
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 14)
-        .padding(.bottom, 2)
+        WarmPageHeader(
+            title: "TRAIN",
+            trailing: WarmPageDate.label(isoDay: selectedDay?.date ?? selectedDate)
+        )
     }
 
     private var libraryCard: some View {

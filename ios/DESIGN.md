@@ -116,7 +116,7 @@ Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` f
 
 ## Tab chrome
 
-Tab roots share `WarmPageHeader`: small mono wordmark left (`TRAIN` / `HOME` / `COACH` / `YOU`), quiet meta right, desk behind. No UIKit nav bar and no circular chips. Pushes use `‹` then the wordmark, never a paper circle.
+Tab roots share `WarmPageHeader`: small mono wordmark left (`TRAIN` / `HOME` / `COACH` / `YOU`), quiet meta right, desk behind. No UIKit nav bar and no circular chips. Pushes use `‹` then the wordmark (same mono as Ledger's `‹ HQ`), never a paper circle.
 
 ## Train
 
