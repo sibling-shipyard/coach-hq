@@ -10,6 +10,8 @@
 ui/client/                             UI-Expert
 ui/api/                                Bob-the-Builder
 engine/core/                           Bob-the-Builder
+engine/lib/                            Bob-the-Builder
+engine/scripts/                        Bob-the-Builder
 scripts/                               Bob-the-Builder
 ui/observability/                      Bob-the-Builder
 ui/scripts/                            Bob-the-Builder
@@ -27,4 +29,9 @@ ui/scripts/examples/                   Vade-the-Tester
 user_data/coach/                       Coach-Phelps
 user_data/ledger/challenge_v2.json     Coach-Phelps
 sessions/                              Coach-Phelps
-platform/soul/                         Tech-Lead
+shared/warm-instrument/                UI-Expert
+shared/golden-dataset/                 Tech-Lead
+shared/workout-library/                Tech-Lead
+platform/                              Tech-Lead
+.github/workflows/                     Tech-Lead
+kdb/scripts/                           Tech-Lead

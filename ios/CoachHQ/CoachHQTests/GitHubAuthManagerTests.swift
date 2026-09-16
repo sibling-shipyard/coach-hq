@@ -341,6 +341,65 @@ final class GitHubAuthManagerTests: XCTestCase {
         XCTAssertEqual(events.first?.metadata["http_status"], "503")
     }
 
+    @MainActor
+    func testCoachRepoExistsReturnsNilAndCapturesOnHTTPFault() async throws {
+        let manager = try prepareKeychainManager()
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_ok",
+            refreshToken: "ghr_ok",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        manager.dataRequestHandler = { _ in
+            let response = HTTPURLResponse(
+                url: URL(string: "https://api.github.com/repos/alice/coach-alice")!,
+                statusCode: 503,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (Data(), response)
+        }
+
+        let exists = await manager.coachRepoExists(for: "alice")
+
+        XCTAssertNil(exists)
+        let events = TimelineBuffer.shared.getEvents().filter {
+            $0.category == "github.auth.coach_repo_exists"
+                && $0.message == "coachRepoExists: repos API failed"
+        }
+        XCTAssertEqual(events.count, 1, "coachRepoExists HTTP failure must capture")
+        XCTAssertEqual(events.first?.metadata["http_status"], "503")
+    }
+
+    @MainActor
+    func testCoachRepoExistsReturnsFalseOn404() async throws {
+        let manager = try prepareKeychainManager()
+        TimelineBuffer.shared.clearOnSignOut()
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_ok",
+            refreshToken: "ghr_ok",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        manager.dataRequestHandler = { _ in
+            let response = HTTPURLResponse(
+                url: URL(string: "https://api.github.com/repos/alice/coach-alice")!,
+                statusCode: 404,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (Data(), response)
+        }
+
+        let exists = await manager.coachRepoExists(for: "alice")
+        XCTAssertEqual(exists, false)
+        let events = TimelineBuffer.shared.getEvents().filter {
+            $0.category == "github.auth.coach_repo_exists"
+        }
+        XCTAssertTrue(events.isEmpty, "404 is confirmed absence — no capture")
+    }
+
     // MARK: - Raw Keychain helpers (test-only; mirrors GitHubAuthManager's own private
     // saveKeychainString/loadKeychainString so the legacy-format test can seed data without
     // going through the new combined-item write path it's meant to be independent of).

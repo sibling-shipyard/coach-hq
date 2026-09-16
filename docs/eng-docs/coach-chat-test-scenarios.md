@@ -14,8 +14,8 @@ test libraries going forward - update it whenever a scenario is added, removed, 
 The 2026-09-15 coverage-audit pass (phase 1) cross-referenced every action field the code can
 actually emit against this catalog. It closed every real gap it found except two, then a same-day
 follow-up (issue #1066) closed those last two - see the Coverage matrix section below, which now
-has zero open rows, and `docs/plans/coach-chat-redesign-followups.md`'s two items this pass
-settles/retests.
+has zero open rows. The same pass also settled the coach-chat redesign's own last open items
+(transcripts 19/20 and the `session-plan`/`week-kickoff-flash` scenarios below).
 
 ## Eval transcripts
 
@@ -145,11 +145,9 @@ signal that tells them apart: "permanent, going forward, every time" (`template_
 permanent` scenario both use that framing explicitly, the same way transcript `05` already
 disambiguates `template_edit` from `week_update` on the time-scope axis.
 
-**`coach_note`'s own file write has no dedicated simulation assertion**, and this is not being
-closed as a gap. It fires on nearly every turn in every scenario in this library, so it's
-exercised constantly in practice. No scenario's `expect` block happens to check `coach_log.json`
-specifically, but that's a narrower gap than the others were, not an unproven write path. Any
-future scenario touching an ordinary turn already exercises this.
+**`coach_note`'s own file write has a dedicated simulation assertion.** `daily-basic`'s turn 1
+checks `coach_log.json` alongside `profile.json`, closing the one gap this doc used to flag here -
+every action field now has at least one scenario asserting its real write.
 
 This doc is the catalog of record going forward, replacing the ad hoc numbering that grew up
 around individual issue fixes - update it on the next add/remove/renumber, don't let it drift

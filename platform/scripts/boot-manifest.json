@@ -25,5 +25,13 @@
       { "path": "docs/eng-docs/ios-app-spec.md", "conditional": true },
       { "path": "ios/DESIGN.md", "conditional": true }
     ]
+  },
+  {
+    "name": "Cyclops",
+    "files": ["AGENTS.md", ".github/agents/cyclops.md", "kdb/decisions/README.md"]
+  },
+  {
+    "name": "vade-the-tester",
+    "files": ["AGENTS.md", ".github/agents/vade-the-tester.md", "kdb/decisions/README.md"]
   }
 ]
