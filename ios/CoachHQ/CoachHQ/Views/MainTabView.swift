@@ -209,9 +209,6 @@ struct MainTabView: View {
             .opacity(router.effectivePhase == .hkPrompt || router.effectivePhase == .reveal ? 0 : 1)
             .allowsHitTesting(router.effectivePhase == .complete || router.effectivePhase == .notStarted)
 
-            WarmStatusFade()
-                .zIndex(2)
-
             if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
             }
@@ -399,19 +396,20 @@ private struct WarmTabBar: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 tabItem(tab)
             }
         }
-        .padding(7)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
         .background(WarmInstrument.paper)
         .clipShape(Capsule(style: .continuous))
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
         )
-        .shadow(color: WarmInstrument.cardShadow, radius: 16, x: 0, y: 6)
+        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
         .padding(.horizontal, WarmDockMetrics.horizontalPadding)
         .padding(.top, WarmDockMetrics.topPadding)
     }
@@ -425,28 +423,29 @@ private struct WarmTabBar: View {
                 selection = tab
             }
         } label: {
-            ZStack {
-                if selected {
-                    Capsule(style: .continuous)
-                        .fill(WarmInstrument.ink)
-                        .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
+            Text(tab.labelText.uppercased())
+                .font(WarmInstrument.monoLabel(9))
+                .tracking(1.2)
+                .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background {
+                    if selected {
+                        Capsule(style: .continuous)
+                            .fill(WarmInstrument.ink)
+                            .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
+                    }
                 }
-
-                HStack(spacing: 5) {
-                    Text(tab.labelText.uppercased())
-                        .font(WarmInstrument.monoLabel(10))
-                        .tracking(1.4)
-                        .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
+                .overlay(alignment: .topTrailing) {
                     if tab == .chat && chatHasUnread && !selected {
                         Circle()
                             .fill(WarmInstrument.accent)
                             .frame(width: 6, height: 6)
+                            .offset(x: 2, y: 2)
                     }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .contentShape(Capsule())
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(TabBarPressStyle())
         .accessibilityLabel(tab.accessibilityLabel)
@@ -459,24 +458,6 @@ private struct TabBarPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.spring(duration: 0.18, bounce: 0.08), value: configuration.isPressed)
-    }
-}
-
-/// Desk fade under the status bar / Dynamic Island so scrolled content does not clip hard.
-private struct WarmStatusFade: View {
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: WarmInstrument.desk, location: 0),
-                .init(color: WarmInstrument.desk.opacity(0.88), location: 0.42),
-                .init(color: WarmInstrument.desk.opacity(0), location: 1),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: 56)
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
     }
 }
 
