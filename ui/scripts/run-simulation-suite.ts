@@ -90,9 +90,12 @@ interface Scenario {
    * Checked against the target repo's real RepoDataProfile (lib/repoDataProfile.ts) before this
    * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
    * section. An unmet precondition means the repo can't produce the behavior this scenario tests
-   * right now (e.g. no planned session to contradict), so this skips the model call entirely
-   * instead of letting a fallback write pass a generic `expect` check for the wrong reason - the
-   * real `ambiguous-contradiction` false positive that motivated this.
+   * right now (e.g. no planned session to contradict). A2b: when the unmet field carries a
+   * `seedMessages` recipe, this sends that real conversation first and re-checks before deciding
+   * - only a field with no recipe (or an unmet one that's still unmet after seeding) falls back
+   * to skipping the model call entirely, instead of letting a fallback write pass a generic
+   * `expect` check for the wrong reason - the real `ambiguous-contradiction` false positive that
+   * motivated this.
    */
   preconditions?: Preconditions;
   expect: TurnExpect[];
@@ -171,7 +174,19 @@ const SCENARIOS: Scenario[] = [
     // #1105 F1: this needs a real planned session on file to reconcile against - all 5 real
     // athlete repos currently have an empty (data_status: "placeholder") week plan, which is
     // exactly the false positive that motivated this precondition (see this doc's header comment).
-    preconditions: { currentWeekHasSessions: true },
+    // A2b: rather than skip when unmet (every real repo's week is empty right now), seed a real
+    // plan first - the same Weekly Kick-off Ritual request already proven in
+    // examples/manual-coach-chat-turns-week-kickoff.json, plus a short real acknowledgment - so
+    // whichever repo this runs against gets a real plan to reconcile against instead of relying
+    // on a manually pre-seeded repo picked ahead of time.
+    preconditions: {
+      currentWeekHasSessions: {
+        seedMessages: [
+          "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+          "That looks good, let's go with that.",
+        ],
+      },
+    },
     // The real bug this guards against: a contradiction landing as two conflicting current_week.json
     // writes (the wrongly-claimed session left "done" alongside a synthetically-created new session
     // for the real one) instead of one reconciled state - coachWeekFiles.ts's applyWeekPatch creates
@@ -377,7 +392,11 @@ interface CoverageEntry {
   // #1105: "skipped-precondition" is distinct from "pass"/"fail" - the model was never called
   // because the target repo's real data couldn't produce the behavior this scenario tests, not
   // because anything succeeded or broke. `reason` carries which precondition field was unmet.
-  status: "pass" | "fail" | "skipped-precondition";
+  // A2b adds "seed-failed": a seed recipe existed and was actually sent (real, billed turns), but
+  // the re-check afterward still found the precondition unmet - distinct from "skipped-precondition"
+  // because real cost was spent here, and distinct from "fail" because the scenario's own turns
+  // never ran at all.
+  status: "pass" | "fail" | "skipped-precondition" | "seed-failed";
   reason?: string;
   last_cost_usd?: number;
 }
@@ -453,6 +472,66 @@ function currentHqSha(): string {
   return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
 }
 
+/**
+ * A2b: sends a scenario's seed recipe - a synthetic greet turn plus each real message in
+ * `seedMessages`, in order - through the exact same child-process path (run-manual-coach-chat-test.ts,
+ * `--turns`) the scenario's own turns use below, on the same repo and the same scratch branch.
+ * This is a real, separate multi-turn run: every message here is a real, billed model call, on
+ * top of the scenario's own turns that follow if the re-check afterward passes (see this file's
+ * cost-reporting at the end of main() - seed cost is tracked and printed separately from
+ * scenario cost on purpose, not folded into it, per the A2b cost note).
+ *
+ * Returns the real cost spent (read back off the seed run's own log entry, same shape as a
+ * scenario's log) and whether the child process finished without throwing - a hard failure here
+ * doesn't necessarily mean nothing landed, but the caller re-checks the real profile either way
+ * rather than trusting this flag.
+ */
+function sendSeedMessages(
+  scenario: Scenario,
+  seedMessages: string[],
+  branch: string,
+): { costUsd: number; ranCleanly: boolean } {
+  const seedTurns = [
+    { greet: true, message: "" },
+    ...seedMessages.map((message) => ({ message })),
+  ];
+  const seedPath = path.join(examplesDir, `.seed-${scenario.id}-${Date.now()}.json`);
+  fs.writeFileSync(seedPath, JSON.stringify(seedTurns, null, 2));
+
+  const scriptArgs = [
+    "tsx",
+    "--tsconfig",
+    "tsconfig.json",
+    "scripts/run-manual-coach-chat-test.ts",
+    ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
+    ...(scenario.repo ? ["--repo", scenario.repo] : []),
+    ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
+    "--branch",
+    branch,
+    "--turns",
+    seedPath,
+  ];
+
+  const repoSlug = slugify(scenario.repo ?? scenario.athlete ?? scenario.id, "-");
+  const startMs = Date.now();
+  let ranCleanly = true;
+  try {
+    execFileSync("npx", scriptArgs, { cwd: uiRoot, stdio: "inherit" });
+  } catch {
+    // Same as the scenario's own invocation below - a non-zero exit (an ERROR turn) doesn't mean
+    // nothing happened; the seed's own log, read next, is the ground truth either way.
+    ranCleanly = false;
+  } finally {
+    fs.rmSync(seedPath, { force: true });
+  }
+
+  const logPath = findLatestManualLog(repoSlug, startMs);
+  if (!logPath) return { costUsd: 0, ranCleanly: false };
+  const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
+  const costUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
+  return { costUsd, ranCleanly };
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -487,6 +566,11 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10);
 
   let anyFailed = false;
+  // A2b cost note: every seed message is a real, billed model call on top of the scenario's own
+  // turns - tracked separately here and printed separately at the end, so it's visible rather
+  // than hidden inside the per-scenario cost numbers above.
+  let totalSeedCostUsd = 0;
+  let totalSeedMessages = 0;
   for (const scenario of scenarios) {
     const key = `manual:${scenario.id}`;
     const existing = coverageIndex[key] as CoverageEntry | undefined;
@@ -502,14 +586,23 @@ async function main() {
       }
     }
 
+    // A2b: the branch the scenario itself runs against. Left as args.branch (possibly undefined,
+    // in which case run-manual-coach-chat-test.ts auto-names one) unless this scenario needs
+    // seeding first - seeding and the scenario's real turns must land on the SAME scratch branch,
+    // so as soon as a seed is about to run, this is pinned to one explicit name shared by both.
+    let scenarioBranch = args.branch;
+
     if (scenario.preconditions) {
       const localPath = resolveLocalPath(scenario);
       // No local clone to check against - can't verify the precondition either way, so fall
       // through to running it rather than silently skipping something we have no evidence about.
       if (localPath && fs.existsSync(localPath)) {
         const profile = buildRepoDataProfile(localPath);
-        const { met, reason } = checkPreconditions(profile, scenario.preconditions);
-        if (!met) {
+        const { met, reason, seedMessages } = checkPreconditions(profile, scenario.preconditions);
+        if (!met && (!seedMessages || seedMessages.length === 0)) {
+          // No seed recipe for this field - the only honest fallback left is A2's original skip
+          // (real usage history can't be faked, or a different one of the 5 real repos already
+          // satisfies it naturally and should be used instead of seeding this one).
           console.log(`[skip] ${scenario.id}: precondition unmet - ${reason}`);
           if (!args.dryRun) {
             writeCoverageEntry(coveragePath, key, {
@@ -523,6 +616,73 @@ async function main() {
           }
           continue;
         }
+        if (!met && seedMessages && seedMessages.length > 0) {
+          if (args.dryRun) {
+            console.log(
+              `[dry-run] ${scenario.id}: precondition unmet - ${reason}. Would send ${seedMessages.length} real seed message(s) then re-check, rather than spend anything for real.`,
+            );
+            continue;
+          }
+
+          scenarioBranch = scenarioBranch ?? `test/manual-seed-${scenario.id}-${Date.now()}`;
+          console.log(
+            `[seed] ${scenario.id}: precondition unmet - ${reason}. Sending ${seedMessages.length} ` +
+              `real seed message(s) on ${scenarioBranch} before re-checking.`,
+          );
+          const seedResult = sendSeedMessages(scenario, seedMessages, scenarioBranch);
+          totalSeedCostUsd += seedResult.costUsd;
+          totalSeedMessages += seedMessages.length;
+          console.log(
+            `[seed] ${scenario.id}: seed run cost ${formatCostUsd(seedResult.costUsd)} for ` +
+              `${seedMessages.length} real message(s) - billed separately from this scenario's own turns.`,
+          );
+
+          // buildRepoDataProfile reads whatever's on disk at localPath - the seed's commits
+          // landed on scenarioBranch via the GitHub API, not on whatever branch this clone
+          // happened to have checked out, so pull it down for real before re-checking.
+          try {
+            execFileSync("git", ["-C", localPath, "fetch", "origin", scenarioBranch], {
+              stdio: "pipe",
+            });
+            execFileSync(
+              "git",
+              ["-C", localPath, "checkout", "-B", scenarioBranch, `origin/${scenarioBranch}`],
+              { stdio: "pipe" },
+            );
+          } catch (err) {
+            console.log(
+              `[seed] ${scenario.id}: couldn't check out ${scenarioBranch} locally to re-check ` +
+                `(${err instanceof Error ? err.message : String(err)}) - treating the ` +
+                `precondition as still unmet.`,
+            );
+          }
+
+          const reprofile = buildRepoDataProfile(localPath);
+          const recheck = checkPreconditions(reprofile, scenario.preconditions);
+          if (!recheck.met) {
+            // The seed message is a real model call and can fail the same narration-vs-action way
+            // any other turn can - proceeding anyway would silently recreate the exact bug this
+            // whole track exists to fix, one layer deeper. Distinct status from
+            // "skipped-precondition": real cost was spent here, so this counts against the run.
+            console.log(
+              `[seed-failed] ${scenario.id}: still unmet after seeding - ${recheck.reason}`,
+            );
+            anyFailed = true;
+            writeCoverageEntry(coveragePath, key, {
+              type: "manual",
+              last_pass_sha: existing?.last_pass_sha ?? null,
+              last_run_date: today,
+              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+              status: "seed-failed",
+              reason: recheck.reason,
+              last_cost_usd: seedResult.costUsd,
+            });
+            continue;
+          }
+          console.log(
+            `[seed] ${scenario.id}: precondition met after seeding - running the scenario's real turns.`,
+          );
+        }
       }
     }
 
@@ -535,7 +695,7 @@ async function main() {
       ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
       ...(scenario.repo ? ["--repo", scenario.repo] : []),
       ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
-      ...(args.branch ? ["--branch", args.branch] : []),
+      ...(scenarioBranch ? ["--branch", scenarioBranch] : []),
       "--turns",
       turnsPath,
     ];
@@ -595,6 +755,12 @@ async function main() {
 
   if (args.dryRun) return;
 
+  if (totalSeedMessages > 0) {
+    console.log(
+      `\nSeed cost (A2b, on top of every scenario's own turns above): ${totalSeedMessages} real ` +
+        `message(s), ${formatCostUsd(totalSeedCostUsd)} total.`,
+    );
+  }
   console.log(`\nCoverage index updates written to ${path.relative(repoRoot, coveragePath)}`);
   if (anyFailed) process.exit(2);
 }

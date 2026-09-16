@@ -75,4 +75,64 @@ describe("checkPreconditions", () => {
     expect(met).toBe(false);
     expect(reason).toContain("currentWeekHasSessions");
   });
+
+  // A2b: the object form always wants `true` (there's no honest way to seed a repo back to
+  // false) and surfaces its seedMessages back on an unmet result, so run-simulation-suite.ts
+  // knows there's a real recipe to try before falling back to a skip.
+  describe("A2b seed recipes", () => {
+    it("surfaces currentWeekHasSessions's seedMessages when unmet", () => {
+      const { met, reason, seedMessages } = checkPreconditions(profile(), {
+        currentWeekHasSessions: { seedMessages: ["lay out my week"] },
+      });
+      expect(met).toBe(false);
+      expect(reason).toContain("currentWeekHasSessions");
+      expect(seedMessages).toEqual(["lay out my week"]);
+    });
+
+    it("passes the object form once the week has a real session, same as the plain boolean", () => {
+      const p = profile({ currentWeek: { dataStatus: "live", sessionCount: 1 } });
+      expect(
+        checkPreconditions(p, { currentWeekHasSessions: { seedMessages: ["lay out my week"] } }),
+      ).toEqual({ met: true });
+    });
+
+    it("surfaces hasHabitQuest's seedMessages when unmet", () => {
+      const { seedMessages } = checkPreconditions(profile(), {
+        hasHabitQuest: { seedMessages: ["start a new habit quest"] },
+      });
+      expect(seedMessages).toEqual(["start a new habit quest"]);
+    });
+
+    it("surfaces hasTemplate's seedMessages when unmet", () => {
+      const { seedMessages } = checkPreconditions(profile(), {
+        hasTemplate: { seedMessages: ["build me a workout"] },
+      });
+      expect(seedMessages).toEqual(["build me a workout"]);
+    });
+
+    it("surfaces injuryFlags's seedMessages when unmet via the { need, seedMessages } form", () => {
+      const { met, reason, seedMessages } = checkPreconditions(profile(), {
+        injuryFlags: { need: "any", seedMessages: ["my knee's been sore for a few days"] },
+      });
+      expect(met).toBe(false);
+      expect(reason).toContain("injuryFlags");
+      expect(seedMessages).toEqual(["my knee's been sore for a few days"]);
+    });
+
+    it("passes the { need, seedMessages } injuryFlags form once a real flag is active", () => {
+      const p = profile({ injuries: { activeCount: 1, resolvedCount: 0 } });
+      expect(
+        checkPreconditions(p, { injuryFlags: { need: "any", seedMessages: ["sore knee"] } }),
+      ).toEqual({ met: true });
+    });
+
+    it("reports no seedMessages for a plain boolean/string precondition - the skip fallback stays the only option", () => {
+      const { seedMessages: boolSeed } = checkPreconditions(profile(), {
+        hasTemplate: true,
+      });
+      expect(boolSeed).toBeUndefined();
+      const { seedMessages: injurySeed } = checkPreconditions(profile(), { injuryFlags: "any" });
+      expect(injurySeed).toBeUndefined();
+    });
+  });
 });
