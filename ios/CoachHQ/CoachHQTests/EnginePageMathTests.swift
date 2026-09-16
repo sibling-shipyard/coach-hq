@@ -96,4 +96,59 @@ final class EnginePageMathTests: XCTestCase {
         )
         XCTAssertNil(EnginePageMath.receiptSubject(body: "Quiet start.", doseRows: rows))
     }
+
+    func testLedgerRowsPreferHistFullWeekOverSlicedDose() {
+        let now = EnginePageMath.parseLocal("2026-09-16T12:00:00")!
+        let week = EnginePageMath.weekDateKeys(weekLabel: "WK 38", now: now)
+        XCTAssertTrue(week.contains("2026-09-14"))
+        XCTAssertTrue(week.contains("2026-09-20"))
+
+        let dose = [
+            DoseRowSnapshot(day: "WED", title: "Kickstart", detail: nil, load: 9, sport: .foundation, isRest: nil),
+        ]
+        let hist = [
+            EnginePageMath.HistSession(
+                name: "Badminton",
+                startDateLocal: "2026-09-14T18:00:00",
+                elapsedSeconds: 3600,
+                averageHeartrate: 140,
+                sportType: "Badminton",
+                load: 40
+            ),
+            EnginePageMath.HistSession(
+                name: "Kickstart",
+                startDateLocal: "2026-09-16T07:00:00",
+                elapsedSeconds: 900,
+                averageHeartrate: 90,
+                sportType: "Foundation",
+                load: 9
+            ),
+        ]
+        let rows = EnginePageMath.ledgerRows(doseRows: dose, hist: hist, weekDates: week)
+        XCTAssertEqual(rows.map(\.title), ["Badminton", "Kickstart"])
+        XCTAssertEqual(rows.first?.day, "MON")
+        XCTAssertEqual(rows.first?.load, 40)
+        XCTAssertEqual(rows.first?.sport, .badminton)
+    }
+
+    func testLedgerRowsFallBackToDoseWhenHistMissesTheWeek() {
+        let dose = [
+            DoseRowSnapshot(day: "WED", title: "Kickstart", detail: nil, load: 9, sport: .foundation, isRest: nil),
+        ]
+        let rows = EnginePageMath.ledgerRows(
+            doseRows: dose,
+            hist: [
+                EnginePageMath.HistSession(
+                    name: "Old Ride",
+                    startDateLocal: "2026-09-01T07:00:00",
+                    elapsedSeconds: 1800,
+                    averageHeartrate: 120,
+                    sportType: "Ride",
+                    load: 22
+                ),
+            ],
+            weekDates: ["2026-09-14", "2026-09-16"]
+        )
+        XCTAssertEqual(rows.map(\.title), ["Kickstart"])
+    }
 }

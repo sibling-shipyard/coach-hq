@@ -309,7 +309,7 @@ struct CoachReadSnapshot: Codable {
     let evidence: [String]?
 }
 
-struct CoachMessageSnapshot: Codable, Equatable {
+struct CoachMessageSnapshot: Codable, Equatable, Hashable {
     let id: String
     let createdAt: String
     let body: String

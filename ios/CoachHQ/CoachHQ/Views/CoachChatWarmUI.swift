@@ -9,25 +9,13 @@ struct CoachChatHeaderBar: View {
     var onHistory: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 10) {
-            if showsBack, let onBack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(WarmInstrument.ink)
-                        .frame(width: 36, height: 36)
-                }
-                .accessibilityLabel("Back to today")
-            }
-
-            Text(context.formatted)
-                .font(WarmInstrument.monoLabel(11))
-                .tracking(1.4)
-                .foregroundStyle(WarmInstrument.Chat.ink)
-                .frame(maxWidth: .infinity, alignment: showsBack ? .leading : .leading)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
+        WarmPageHeader(
+            title: "COACH",
+            trailing: context.dayLabel,
+            showsBack: showsBack,
+            onBack: onBack,
+            backAccessibilityLabel: "Back"
+        ) {
             if let onHistory {
                 Button(action: onHistory) {
                     Image(systemName: "line.3.horizontal")
@@ -45,14 +33,7 @@ struct CoachChatHeaderBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 10)
-        .padding(.top, 8)
         .background(WarmInstrument.desk)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(WarmInstrument.headerRule.opacity(0.85))
-                .frame(height: 1)
-        }
     }
 }
 

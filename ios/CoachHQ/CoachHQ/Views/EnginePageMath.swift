@@ -35,6 +35,8 @@ enum EnginePageMath {
         var startDateLocal: String
         var elapsedSeconds: Int
         var averageHeartrate: Double?
+        var sportType: String = ""
+        var load: Int?
     }
 
     static func bandRelation(load: Double, bandLow: Double?, bandHigh: Double?) -> BandRelation? {
@@ -69,6 +71,72 @@ enum EnginePageMath {
         let mid8 = (agoLow + agoHigh) / 2
         guard mid8 != 0 else { return nil }
         return Int((((mid - mid8) / mid8) * 100).rounded())
+    }
+
+    /// Snapshot `doseRows` are the last 5 sessions of the week (web `slice(-5)`). Prefer hist.
+    static func ledgerRows(
+        doseRows: [DoseRowSnapshot],
+        hist: [HistSession],
+        weekDates: Set<String>
+    ) -> [DoseRowSnapshot] {
+        let fromHist = rowsFromHist(hist, weekDates: weekDates)
+        if !fromHist.isEmpty { return fromHist }
+        return doseRows.filter { $0.isRest != true }
+    }
+
+    static func rowsFromHist(_ hist: [HistSession], weekDates: Set<String>) -> [DoseRowSnapshot] {
+        hist
+            .filter { weekDates.contains(dateKey($0.startDateLocal)) }
+            .sorted { $0.startDateLocal < $1.startDateLocal }
+            .map { session in
+                DoseRowSnapshot(
+                    day: weekday(from: session.startDateLocal),
+                    title: session.name,
+                    detail: nil,
+                    load: session.load.map(Double.init),
+                    sport: sport(from: session.sportType),
+                    isRest: nil
+                )
+            }
+    }
+
+    static func weekday(from startDateLocal: String, calendar: Calendar = EnginePageMath.isoCalendar) -> String {
+        guard let date = parseLocal(startDateLocal) else { return "MON" }
+        let index = calendar.component(.weekday, from: date)
+        // ISO calendar: Monday = 2 … Sunday = 1
+        switch index {
+        case 2: return "MON"
+        case 3: return "TUE"
+        case 4: return "WED"
+        case 5: return "THU"
+        case 6: return "FRI"
+        case 7: return "SAT"
+        default: return "SUN"
+        }
+    }
+
+    static func parseLocal(_ startDateLocal: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        formatter.timeZone = calendarTimeZone
+        return formatter.date(from: String(startDateLocal.prefix(19)))
+            ?? {
+                formatter.dateFormat = "yyyy-MM-dd"
+                return formatter.date(from: dateKey(startDateLocal))
+            }()
+    }
+
+    static func sport(from sportType: String) -> WarmSportId {
+        switch sportType {
+        case "Badminton": return .badminton
+        case "WeightTraining", "Foundation", "TraditionalStrengthTraining", "FunctionalStrengthTraining":
+            return .weightTraining
+        case "Ride", "EBikeRide", "Cycling": return .cycling
+        case "Run", "Running": return .run
+        default:
+            return WarmSportId(rawValue: sportType.lowercased()) ?? .other
+        }
     }
 
     static func groupedSessions(
@@ -162,9 +230,28 @@ enum EnginePageMath {
         String(startDateLocal.prefix(10))
     }
 
-    static func receiptSubject(body: String, doseRows: [DoseRowSnapshot]) -> String? {
-        let sessions = doseRows.filter { $0.isRest != true }
-        return sessions.first { body.localizedCaseInsensitiveContains($0.title) }?.title
+    static func receiptSubject(
+        body: String,
+        doseRows: [DoseRowSnapshot],
+        hist: [HistSession] = []
+    ) -> String? {
+        let titles = doseRows.filter { $0.isRest != true }.map(\.title) + hist.map(\.name)
+        if let hit = titles.first(where: { body.localizedCaseInsensitiveContains($0) }) {
+            return hit
+        }
+        if let minutes = minutesMentioned(in: body),
+           let hit = hist.first(where: { abs($0.elapsedSeconds / 60 - minutes) <= 1 }) {
+            return hit.name
+        }
+        return nil
+    }
+
+    static func minutesMentioned(in body: String) -> Int? {
+        let pattern = #"(\d+)\s*-?\s*min"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)),
+              let range = Range(match.range(at: 1), in: body) else { return nil }
+        return Int(body[range])
     }
 
     static func namesMatch(_ a: String, _ b: String) -> Bool {
@@ -172,9 +259,11 @@ enum EnginePageMath {
             .localizedCaseInsensitiveCompare(b.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
     }
 
+    static var calendarTimeZone: TimeZone { .current }
+
     static var isoCalendar: Calendar {
         var calendar = Calendar(identifier: .iso8601)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        calendar.timeZone = calendarTimeZone
         return calendar
     }
 }

@@ -80,7 +80,7 @@ struct ActivityLedgerView<Footer: View>: View {
         .onAppear(perform: seedInitialState)
         .onChange(of: entries.map(\.id)) { _, _ in reconcileAfterEntriesChange() }
         .sheet(isPresented: $showingLoadSheet) {
-            ActivityLedgerLoadSheet()
+            HowLoadIsCountedSheet()
                 .presentationDetents([.height(372)])
                 .presentationDragIndicator(.visible)
                 .presentationContentInteraction(.resizes)
@@ -607,7 +607,7 @@ private struct ActivityLedgerClosedStack: View {
     }
 }
 
-private struct ActivityLedgerLoadSheet: View {
+struct HowLoadIsCountedSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

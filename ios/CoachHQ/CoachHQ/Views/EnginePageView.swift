@@ -9,6 +9,7 @@ struct EngineDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var allActivitiesStore: AllActivitiesStore
+    @EnvironmentObject private var authManager: GitHubAuthManager
 
     @State private var showCounted = false
     @State private var plotDrawn = false
@@ -19,7 +20,11 @@ struct EngineDetailView: View {
 
     private var groups: [EnginePageMath.DoseGroup] {
         EnginePageMath.groupedSessions(
-            rows: engine.doseRows,
+            rows: EnginePageMath.ledgerRows(
+                doseRows: engine.doseRows,
+                hist: hist,
+                weekDates: weekDates
+            ),
             dayNumbers: EnginePageMath.dayNumbers(weekLabel: engine.weekLabel)
         )
     }
@@ -34,7 +39,9 @@ struct EngineDetailView: View {
                 name: $0.name,
                 startDateLocal: $0.startDateLocal,
                 elapsedSeconds: $0.elapsedTime,
-                averageHeartrate: $0.averageHeartrate ?? $0.activity?.averageHeartrate
+                averageHeartrate: $0.averageHeartrate ?? $0.activity?.averageHeartrate,
+                sportType: $0.sportType,
+                load: HealthKitSyncManager.zoneLoad(hrZones: $0.activity?.hrZones)
             )
         }
     }
@@ -57,6 +64,14 @@ struct EngineDetailView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar()
+        .edgeBackSwipe { dismiss() }
+        .task {
+            guard let repo = authManager.repoFullName else { return }
+            await allActivitiesStore.loadInitialIfNeeded(
+                repo: repo,
+                client: GitHubActivityHistClient(authManager: authManager)
+            )
+        }
         .onAppear {
             if reduceMotion {
                 plotDrawn = true
@@ -69,49 +84,22 @@ struct EngineDetailView: View {
             if open { Haptics.tap() } else { Haptics.soft() }
         }
         .sheet(isPresented: $showCounted) {
-            HowEngineIsCountedSheet()
-                .presentationDetents([.medium])
+            HowLoadIsCountedSheet()
+                .presentationDetents([.height(372)])
                 .presentationDragIndicator(.visible)
+                .presentationContentInteraction(.resizes)
+                .presentationCornerRadius(28)
                 .presentationBackground(WarmInstrument.paper)
         }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Button {
-                Haptics.tap()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(WarmInstrument.ink)
-                    .frame(width: 44, height: 44)
-                    .background(WarmInstrument.paper)
-                    .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(WarmInstrument.border, lineWidth: 1))
-                    .shadow(color: WarmInstrument.cardShadow, radius: 8, y: 6)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Back")
-
-            Text("Engine")
-                .font(.system(size: 22, weight: .semibold))
-                .tracking(-0.4)
-                .foregroundColor(WarmInstrument.ink)
-
-            Spacer(minLength: 0)
-
-            Text(engine.weekLabel.uppercased())
-                .font(WarmInstrument.monoLabel(9.5))
-                .tracking(1.4)
-                .foregroundColor(WarmInstrument.inkMuted)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(WarmInstrument.paper)
-                .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(WarmInstrument.border, lineWidth: 1))
-        }
-        .padding(.top, 8)
+        WarmPageHeader(
+            title: "ENGINE",
+            trailing: engine.weekLabel,
+            showsBack: true,
+            onBack: { dismiss() }
+        )
     }
 
     private var loadHero: some View {
@@ -238,7 +226,11 @@ struct EngineDetailView: View {
                             .font(WarmInstrument.monoLabel(9))
                             .tracking(1.4)
                             .foregroundColor(WarmInstrument.inkFaint)
-                        if let subject = EnginePageMath.receiptSubject(body: message.body, doseRows: engine.doseRows) {
+                        if let subject = EnginePageMath.receiptSubject(
+                            body: message.body,
+                            doseRows: engine.doseRows,
+                            hist: hist
+                        ) {
                             Text(" · RE: \(subject.uppercased())")
                                 .font(WarmInstrument.monoLabel(9, weight: .regular))
                                 .tracking(1.4)
@@ -283,7 +275,7 @@ struct EngineDetailView: View {
     private var doseSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("THIS WEEK'S DOSE")
+                Text("LEDGER")
                     .font(WarmInstrument.monoLabel(10))
                     .tracking(1.4)
                     .foregroundColor(WarmInstrument.inkFaint)
@@ -513,14 +505,16 @@ private struct EngineWeekPlot: View {
                 return max(0, y(point.load, in: height) - y(projected, in: height))
             }()
             ZStack(alignment: .bottom) {
-                if point.isCurrent, let lo = bandLow, let hi = bandHigh {
+                if let lo = bandLow, let hi = bandHigh {
                     let top = y(hi, in: height)
                     let bottom = y(lo, in: height)
                     Rectangle()
                         .fill(WarmInstrument.onAccent.opacity(0.14))
-                        .overlay(
-                            Rectangle().strokeBorder(WarmInstrument.onAccent.opacity(0.55), lineWidth: 1)
-                        )
+                        .overlay {
+                            if point.isCurrent {
+                                Rectangle().strokeBorder(WarmInstrument.onAccent.opacity(0.55), lineWidth: 1)
+                            }
+                        }
                         .frame(width: geo.size.width, height: max(0, bottom - top))
                         .offset(y: -(height - bottom))
                 }
@@ -565,79 +559,10 @@ private struct EngineWeekPlot: View {
     }
 }
 
-private struct HowEngineIsCountedSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("How the Engine is counted")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(WarmInstrument.ink)
-                Spacer()
-                Button("DONE") { dismiss() }
-                    .font(WarmInstrument.monoLabel(9))
-                    .tracking(1.2)
-                    .foregroundColor(WarmInstrument.accent)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
-            }
-
-            countedRow(
-                key: "LOAD",
-                body: "Every minute of a session is weighted by the heart-rate zone it was spent in, 1 for recovery up to 5 for VO₂ max, then summed. A week's load is the sum of its sessions.",
-                formula: "Σ (MIN × ZONE 1–5)"
-            )
-            Rectangle().fill(WarmInstrument.border).frame(height: 1)
-            countedRow(
-                key: "BAND",
-                body: "Your usual rhythm: the average of the last eight full weeks, ±20%. It is fixed Monday to Sunday and moves once a week, so a big Tuesday does not shift it under you.",
-                formula: "8-WK MEAN ±20% · RECOMPUTED MON"
-            )
-
-            HStack(alignment: .firstTextBaseline) {
-                Text("The number is only as honest as the strap. Wear it.")
-                    .font(WarmInstrument.coachVoice(15))
-                    .foregroundColor(WarmInstrument.ink)
-                Spacer(minLength: 8)
-                Text("— PHELPS")
-                    .font(WarmInstrument.monoLabel(9, weight: .regular))
-                    .tracking(1.2)
-                    .foregroundColor(WarmInstrument.inkFaint)
-            }
-            .padding(.top, 6)
-        }
-        .padding(.horizontal, 22)
-        .padding(.top, 14)
-        .padding(.bottom, 48)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(WarmInstrument.paper)
-    }
-
-    private func countedRow(key: String, body: String, formula: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Text(key)
-                .font(WarmInstrument.monoLabel(9))
-                .tracking(1.4)
-                .foregroundColor(WarmInstrument.accent)
-                .frame(width: 58, alignment: .leading)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(body)
-                    .font(.system(size: 14))
-                    .foregroundColor(WarmInstrument.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(formula)
-                    .font(WarmInstrument.monoLabel(8.5, weight: .regular))
-                    .tracking(0.8)
-                    .foregroundColor(WarmInstrument.inkFaint)
-            }
-        }
-    }
-}
-
 #Preview("Engine page — golden dataset") {
     NavigationStack {
         EngineDetailView(engine: GoldenDataset.engine, coachMessage: GoldenDataset.home.coachMessage)
+            .environmentObject(GitHubAuthManager())
             .environmentObject(AllActivitiesStore())
     }
 }
@@ -645,6 +570,7 @@ private struct HowEngineIsCountedSheet: View {
 #Preview("Engine page — empty dose") {
     NavigationStack {
         EngineDetailView(engine: GoldenDataset.engine.withEmptyDose, coachMessage: nil)
+            .environmentObject(GitHubAuthManager())
             .environmentObject(AllActivitiesStore())
     }
 }
