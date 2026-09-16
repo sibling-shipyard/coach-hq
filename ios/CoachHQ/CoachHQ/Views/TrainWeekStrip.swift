@@ -316,6 +316,8 @@ enum TrainLayout {
     static let cubeRingRadius: CGFloat = 15
     static let maxProtocolPhases = 3
     static let maxPhaseTitleChars = 12
+    /// Coach line is a 42pt slot (~two italic lines). Truncate here so the Day Card height stays fixed.
+    static let maxCoachNoteChars = 80
     /// Logged cube fill `#f1ece2` on paper.
     static let loggedFill = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark

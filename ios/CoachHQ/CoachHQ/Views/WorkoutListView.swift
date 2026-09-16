@@ -59,6 +59,7 @@ struct WorkoutListView: View {
                                 focusIndex: focusIndex,
                                 onFocus: { focusIndex = $0 },
                                 onOpen: open,
+                                onStart: start,
                                 onSwipe: swipe
                             )
                             .id(day.date)
@@ -98,7 +99,8 @@ struct WorkoutListView: View {
             }
             .overlay {
                 ZStack {
-                    if let error = workoutService.fetchError, workoutService.templates.isEmpty,
+                    if let error = workoutService.fetchError,
+                       workoutService.templates.isEmpty,
                        !(workoutService.isLoading && isEmpty) {
                         errorState(error)
                     } else if isEmpty, !(workoutService.isLoading && workoutService.templates.isEmpty) {
@@ -116,6 +118,9 @@ struct WorkoutListView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutOverviewView(workout: workout)
+            }
+            .navigationDestination(for: TrainWorkoutLaunch.self) { launch in
+                WorkoutOverviewView(workout: launch.workout, autoStart: launch.start)
             }
             .navigationDestination(for: SyncCacheEntry.self) { entry in
                 ActivityDetailView(entry: entry)
@@ -234,6 +239,11 @@ struct WorkoutListView: View {
         }
     }
 
+    private func start(_ session: WorkoutsPageSelector.TrainSession) {
+        guard let workout = session.workout else { return }
+        navigationPath.append(TrainWorkoutLaunch(workout: workout, start: true))
+    }
+
     // MARK: - Chrome
 
     private var header: some View {
@@ -349,4 +359,9 @@ struct WorkoutListView: View {
         }
         .padding(.horizontal, 40)
     }
+}
+
+private struct TrainWorkoutLaunch: Hashable {
+    let workout: Workout
+    let start: Bool
 }

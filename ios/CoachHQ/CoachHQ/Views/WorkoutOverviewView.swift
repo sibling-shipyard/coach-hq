@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkoutOverviewView: View {
     let workout: Workout
+    var autoStart: Bool = false
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var bottomDock: BottomDockState
     @State private var showTimer = false
@@ -17,11 +18,15 @@ struct WorkoutOverviewView: View {
                 phaseBlocks
             }
             .padding(.horizontal, 16)
+            .padding(.top, 16)
             .padding(.bottom, WarmMainDockLayout.scrollBottomClearance)
         }
         .background(WarmInstrument.desk)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            if autoStart {
+                showTimer = true
+            }
             withAnimation(PremiumMotion.dock) {
                 bottomDock.showStartWorkout { showTimer = true }
             }
@@ -42,17 +47,23 @@ struct WorkoutOverviewView: View {
 
     private var metaSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            WarmPageHeader(
-                title: "TRAIN",
-                showsBack: true,
-                onBack: { dismiss() }
-            )
+            HStack(alignment: .center, spacing: 10) {
+                Button {
+                    Haptics.tap()
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .buttonStyle(.plain)
 
-            Text(workout.title)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Theme.ink)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(workout.title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             WarmWorkoutTypeBadge(
                 label: Theme.workoutLabel(for: workout.workoutType),

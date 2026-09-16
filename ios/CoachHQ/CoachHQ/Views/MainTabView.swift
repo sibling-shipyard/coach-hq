@@ -389,23 +389,23 @@ private enum WarmDockMetrics {
     static let topPadding = WarmMainDockLayout.topPadding
 }
 
-/// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
+/// Floating word dock — `HOME · COACH · TRAIN · YOU`. Selected tab is ink on paper.
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
     @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 tabItem(tab)
             }
         }
-        .padding(4)
+        .padding(5)
         .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(Capsule(style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            Capsule(style: .continuous)
                 .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
         )
         .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
@@ -424,37 +424,26 @@ private struct WarmTabBar: View {
         } label: {
             ZStack {
                 if selected {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(WarmInstrument.surfaceMuted)
+                    Capsule(style: .continuous)
+                        .fill(WarmInstrument.ink)
                         .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
-                        .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
                 }
 
-                VStack(spacing: 2) {
-                    Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
-                        .font(.system(size: 18, weight: selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                        .scaleEffect(selected ? 1.04 : 1)
-                        .offset(y: selected ? -1 : 0)
-                        .overlay(alignment: .topTrailing) {
-                            if tab == .chat && chatHasUnread {
-                                Circle()
-                                    .fill(WarmInstrument.accent)
-                                    .frame(width: 7, height: 7)
-                                    .offset(x: 5, y: -2)
-                            }
-                        }
-
-                    Text(tab.labelText)
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(0.4)
-                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                HStack(spacing: 5) {
+                    Text(tab.labelText.uppercased())
+                        .font(WarmInstrument.monoLabel(9))
+                        .tracking(1.2)
+                        .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
+                    if tab == .chat && chatHasUnread && !selected {
+                        Circle()
+                            .fill(WarmInstrument.accent)
+                            .frame(width: 6, height: 6)
+                    }
                 }
-                .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 36)
+            .contentShape(Capsule())
         }
         .buttonStyle(TabBarPressStyle())
         .accessibilityLabel(tab.accessibilityLabel)
