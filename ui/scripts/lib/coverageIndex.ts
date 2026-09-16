@@ -32,3 +32,12 @@ export function writeCoverageEntry(coveragePath: string, key: string, entry: unk
   fresh[key] = entry;
   writeCoverageIndex(coveragePath, fresh);
 }
+
+// #1105 A3: --all-repos runs every scenario once per real athlete repo, so a plain "manual:<id>"
+// key would have all 5 passes overwrite each other's coverage entry. Only append the athlete
+// shortcut when one is given (--all-repos, or a future per-repo caller) - a normal run, and a
+// --repo run (which still only runs the suite once), keep exactly today's key so every entry
+// already on disk in test-results/coverage-index.json stays valid.
+export function coverageKey(scenarioId: string, athleteShortcut?: string): string {
+  return athleteShortcut ? `manual:${scenarioId}:${athleteShortcut}` : `manual:${scenarioId}`;
+}

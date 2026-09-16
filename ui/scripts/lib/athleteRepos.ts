@@ -25,3 +25,23 @@ export const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> 
     localPath: "/home/skanda_suresh/Projects/coach-shreyas",
   },
 };
+
+// #1105 A3: --repo and --all-repos both need to force a scenario's athlete/repo/localPath to a
+// specific real repo regardless of what the scenario itself hardcodes. This is the one place that
+// turns a shortcut into the override triple, so run-simulation-suite.ts's two flags share the same
+// resolution (and the same error) instead of each rolling their own lookup.
+export interface AthleteOverride {
+  athlete: string;
+  repo: string;
+  localPath: string;
+}
+
+export function resolveAthleteOverride(shortcut: string): AthleteOverride {
+  const entry = ATHLETE_REPOS[shortcut];
+  if (!entry) {
+    throw new Error(
+      `Unknown --repo shortcut "${shortcut}" - expected one of: ${Object.keys(ATHLETE_REPOS).join(", ")}`,
+    );
+  }
+  return { athlete: shortcut, repo: entry.repo, localPath: entry.localPath };
+}
