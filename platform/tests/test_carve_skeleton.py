@@ -32,6 +32,20 @@ class TestCarveSkeleton(unittest.TestCase):
             self.assertIn("concurrency:", content)
             self.assertIn("group: sync-${{ github.ref }}", content)
             self.assertIn("cancel-in-progress: false", content)
+            self.assertIn('SENTRY_DSN: ""', content)
+
+    def test_carve_stamps_same_dsn_into_sync_and_rollover(self):
+        env = {**os.environ, "SENTRY_DSN": "https://public@example.invalid/1"}
+        with tempfile.TemporaryDirectory(prefix="carve-rollover-dsn-") as out:
+            result = subprocess.run(
+                ["node", str(CARVE), "--dry-run", "--out-dir", out],
+                cwd=REPO_ROOT, env=env, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in ("sync.yml", "rollover.yml"):
+                content = (Path(out) / ".github/workflows" / name).read_text()
+                self.assertIn('SENTRY_DSN: "https://public@example.invalid/1"', content)
+                self.assertNotIn('SENTRY_DSN: ""', content)
 
 
 if __name__ == "__main__":

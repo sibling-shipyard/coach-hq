@@ -195,6 +195,7 @@ Sync and the daily scheduled workflow run `engine/scripts/rollover-current-week.
 to replace an aged-out week with a fresh placeholder frame. The strict schema is owned by `engine/lib/current-week.mts`
 (`parseCurrentWeek`) — every write here is validated against it before being committed; a
 violation throws rather than commits.
+The scheduled workflow sends a Sentry alert and records `gen/sync_failure.json` if it fails.
 
 Top-level shape: `{ schema_version: 1, data_status: "live", timezone, week: {id, start_date,
 end_date, focus, guardrails[]}, coach_read: {headline, body, valid_from, valid_until}, days:
