@@ -383,13 +383,14 @@ private extension AnyTransition {
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
 
 private enum WarmDockMetrics {
-    /// Icon row + inner pill padding (44 + 4×2); shared by tab bar and start CTA.
+    /// Shared by the word dock trough and the start CTA.
     static let pillHeight = WarmMainDockLayout.pillHeight
     static let horizontalPadding: CGFloat = 20
     static let topPadding = WarmMainDockLayout.topPadding
 }
 
-/// Floating word dock — `HOME · COACH · TRAIN · YOU`. Selected tab is ink on paper.
+/// Floating word dock — `HOME · COACH · TRAIN · YOU`.
+/// Paper trough with a small ink chip on the selected word so the bar recedes like the Train mock.
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
@@ -401,15 +402,15 @@ private struct WarmTabBar: View {
                 tabItem(tab)
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .frame(height: WarmDockMetrics.pillHeight)
         .background(WarmInstrument.paper)
         .clipShape(Capsule(style: .continuous))
         .overlay(
             Capsule(style: .continuous)
-                .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
-        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
+        .shadow(color: WarmInstrument.cardShadow, radius: 6, x: 0, y: 2)
         .padding(.horizontal, WarmDockMetrics.horizontalPadding)
         .padding(.top, WarmDockMetrics.topPadding)
     }
@@ -426,12 +427,12 @@ private struct WarmTabBar: View {
             Text(tab.labelText.uppercased())
                 .font(WarmInstrument.monoLabel(9))
                 .tracking(1.2)
-                .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .foregroundStyle(selected ? WarmInstrument.onAccent : WarmInstrument.inkFaint)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
                 .background {
                     if selected {
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(WarmInstrument.ink)
                             .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
                     }
@@ -444,7 +445,7 @@ private struct WarmTabBar: View {
                             .offset(x: 2, y: 2)
                     }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
         .buttonStyle(TabBarPressStyle())

@@ -118,7 +118,7 @@ Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` f
 
 Tab roots share `WarmPageHeader`: small mono wordmark left (`TRAIN` / `HOME` / `COACH` / `YOU`), quiet meta right, desk behind. No UIKit nav bar and no circular chips. Pushes use `‹` then the wordmark (same mono as Ledger's `‹ HQ`), never a paper circle.
 
-The floating dock is the same four words (`HOME` `COACH` `TRAIN` `YOU`): paper capsule, ink fill hugging the selected word, no icons.
+The floating dock is the same four words (`HOME` `COACH` `TRAIN` `YOU`): a plump paper capsule (56pt) with a small ink rounded-rect hugging the selected word. Unselected labels are `inkFaint` so the bar recedes. No icons.
 
 ## Train
 
