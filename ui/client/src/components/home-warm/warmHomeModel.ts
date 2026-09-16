@@ -4,8 +4,8 @@ import {
   getThisWeekActivities,
   getTrainingCategory,
   parseLocal,
-  parseWinLoss,
 } from "@/lib/activities";
+import { getAllGames, getRankedGames, resolveMatchSessions } from "@/lib/matchParser";
 import type { ActivityGlyphKind } from "./ActivityGlyph";
 import type {
   CoachComment,
@@ -263,7 +263,7 @@ function calisthenicsFocus(activities: Activity[]): string {
   return focuses.at(-1) ?? "No session yet";
 }
 
-function buildCommitments(activities: Activity[]): CommitmentModel[] {
+function buildCommitments(activities: Activity[], matchHistory: unknown): CommitmentModel[] {
   const thisWeek = getThisWeekActivities(activities);
   const rides = thisWeek.filter((activity) => getTrainingCategory(activity) === "ride");
   const foundation = thisWeek.filter((activity) => getTrainingCategory(activity) === "foundation");
@@ -278,16 +278,18 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
   let rankedLosses = 0;
   let allWins = 0;
   let allLosses = 0;
-  for (const activity of badminton) {
-    const record = parseWinLoss(activity.description);
-    if (!record) continue;
-    const category = getTrainingCategory(activity);
-    allWins += record.all.wins;
-    allLosses += record.all.losses;
-    if (category === "badminton_ranked" || category === "badminton_league") {
-      rankedWins += record.ranked.wins;
-      rankedLosses += record.ranked.losses;
-    }
+  const today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const weekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  for (const session of resolveMatchSessions(activities, matchHistory)) {
+    if (session.date < weekStart) continue;
+    const all = getAllGames(session.parsed);
+    const ranked = getRankedGames(session.parsed);
+    allWins += all.filter((game) => game.result === "W").length;
+    allLosses += all.filter((game) => game.result === "L").length;
+    rankedWins += ranked.filter((game) => game.result === "W").length;
+    rankedLosses += ranked.filter((game) => game.result === "L").length;
   }
 
   return [
@@ -468,6 +470,7 @@ export function buildWarmHomeModel(
   ledger: any,
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
+  matchHistory?: unknown,
 ): WarmHomeModel {
   const syncHealthy = syncStatus.status === "success" || syncStatus.status === "none";
   const start = new Date(`${contract.week.start_date}T00:00:00`);
@@ -488,7 +491,7 @@ export function buildWarmHomeModel(
     weekFocus: contract.week.focus,
     engine: buildEngine(activities, contract),
     coachRead: contract.coach_read,
-    commitments: buildCommitments(activities),
+    commitments: buildCommitments(activities, matchHistory),
     planDays: buildPlanDays(contract),
     quest: (() => {
       const mainQuest = ledger.quests?.main_quest ?? ledger.main_quest ?? null;

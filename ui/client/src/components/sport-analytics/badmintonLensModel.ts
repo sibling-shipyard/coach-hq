@@ -1,6 +1,6 @@
 /**
  * badmintonLensModel.ts — Data model for the Badminton Play LENS.
- * Everything here is derived from logged activities + parsed match descriptions.
+ * Everything here is derived from logged activities + structured match history.
  * No fabricated numbers: widgets with insufficient sample size report an
  * empty/opt-in state rather than guessing.
  */
@@ -9,7 +9,7 @@ import { zoneRamp } from "@/lib/wiTokens";
 import {
   getAllGames,
   getRankedGames,
-  parseMatch,
+  resolveMatchSessions,
   type ParsedGame,
   type ParsedMatch,
 } from "@/lib/matchParser";
@@ -29,26 +29,21 @@ const MIN_OPPONENT_GAMES = 3;
 const MIN_MONTH_SESSIONS = 3;
 
 export interface BadmintonSession {
-  activity: Activity;
+  activity: Activity | null;
   parsed: ParsedMatch;
   dateKey: string;
   timestamp: number;
 }
 
-function buildSessions(activities: Activity[]): BadmintonSession[] {
-  const result: BadmintonSession[] = [];
-  for (const activity of activities) {
-    const category = getTrainingCategory(activity);
-    if (!ALL_CATEGORIES.has(category)) continue;
-    const parsed = parseMatch(activity);
-    if (!parsed || (parsed.games.length === 0 && parsed.friendlies.length === 0)) continue;
-    result.push({
+function buildSessions(activities: Activity[], matchHistory: unknown): BadmintonSession[] {
+  const result = resolveMatchSessions(activities, matchHistory).map(
+    ({ activity, date, parsed }) => ({
       activity,
       parsed,
-      dateKey: activity.start_date_local.slice(0, 10),
-      timestamp: parseLocal(activity.start_date_local).getTime(),
-    });
-  }
+      dateKey: date,
+      timestamp: parseLocal(activity?.start_date_local ?? `${date}T12:00:00`).getTime(),
+    }),
+  );
   result.sort((a, b) => a.timestamp - b.timestamp);
   return result;
 }
@@ -165,11 +160,11 @@ function buildWinRate(
     const games = gamesForMode(session, mode);
     const wins = games.filter((g) => g.result === "W").length;
     const losses = games.filter((g) => g.result === "L").length;
-    const date = parseLocal(session.activity.start_date_local);
+    const date = new Date(session.timestamp);
     return {
       timestamp: session.timestamp,
       label: date.toLocaleDateString("en-GB", { day: "numeric", month: "short" }).toUpperCase(),
-      activityId: session.activity.id,
+      activityId: session.activity?.id ?? session.dateKey,
       wins,
       losses,
       rolling: null,
@@ -352,7 +347,7 @@ function buildBestMonth(sessions: BadmintonSession[], mode: BadmintonMode): Best
     { sessions: number; wins: number; losses: number; label: string }
   >();
   for (const session of sessions) {
-    const date = parseLocal(session.activity.start_date_local);
+    const date = new Date(session.timestamp);
     const key = `${date.getFullYear()}-${date.getMonth()}`;
     const games = gamesForMode(session, mode);
     if (games.length === 0) continue;
@@ -608,7 +603,7 @@ function buildEffort(sessions: BadmintonSession[]): EffortSnapshot {
   const totals = [0, 0, 0, 0, 0];
   let anyZones = false;
   for (const session of sessions) {
-    const zones = session.activity.hr_zones;
+    const zones = session.activity?.hr_zones;
     if (!zones) continue;
     anyZones = true;
     for (let z = 1; z <= 5; z++) {
@@ -774,9 +769,10 @@ export interface BadmintonLensSnapshot {
 export function buildBadmintonLensModel(
   activities: Activity[],
   mode: BadmintonMode,
+  matchHistory?: unknown,
   now: number = Date.now(),
 ): BadmintonLensSnapshot {
-  const sessions = buildSessions(activities);
+  const sessions = buildSessions(activities, matchHistory);
   const shape = buildSessionShape(sessions, mode, now);
 
   return {

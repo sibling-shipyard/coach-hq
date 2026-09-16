@@ -19,6 +19,7 @@ import type {
 
 export interface DashboardSnapshotInput {
   activities?: Activity[];
+  match_history?: unknown;
   ledger?: {
     seasons: SeasonsJson;
     quests: QuestsJson;
@@ -186,5 +187,6 @@ export function generateWidgetSnapshotsFromDashboardSnapshot(
     contract,
     "live",
     projectLatestCoachMessage(latestCoachMessageFile),
+    aggregate.match_history,
   );
 }

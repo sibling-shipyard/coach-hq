@@ -34,15 +34,17 @@ drifting. `generated_at` in `widget_snapshots.json` must stay a frozen literal, 
 
 ## Layer 2 — generated, raw (gitignored)
 
-- `generate-repo-data.mjs` writes `repo-data/activities.json`, `challenge_v2.json`,
+- `generate-repo-data.mjs` writes `repo-data/activities.json`, `match_history.json`, `challenge_v2.json`,
   `workouts.json`, `sync_status.json`, `sleep_log.json`, `quest_history.json`, and
   `current_week.json`, plus the frozen `latest_message.json` sidecar used by the widget
   snapshot route — the raw repo shape the local UI expects.
 
 This layer exists because most of the app — Home (`/`), Workouts, the sport-analytics pages,
 Coach Chat — doesn't read pre-baked snapshots at all. It reads raw activities/challenge/sync
-data and **computes** the numbers itself (`buildWarmHomeSnapshots`, `buildWarmHomeModel`, the
-sport-analytics lens models). A lot of that computation keys off the real wall-clock
+  data and **computes** the numbers itself (`buildWarmHomeSnapshots`, `buildWarmHomeModel`, the
+  sport-analytics lens models). The generated match records carry the same `history_file` as
+  their activities, so local badminton analytics exercises the production join. A lot of that
+  computation keys off the real wall-clock
 `new Date()` — training streaks, "this week" filters, "current month" analytics — so a
 hand-typed fixture with frozen dates would look right the day it's written and go stale every
 day after. `generate-repo-data.mjs` builds every date relative to whenever it runs, so it has

@@ -191,6 +191,75 @@ describe("generateWidgetSnapshotsFromDashboardSnapshot missing coach_comments", 
       }),
     ).not.toThrow();
   });
+
+  it("passes structured same-day match history through to Home commitments", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-17T12:00:00"));
+    const activities = [
+      {
+        id: 1,
+        history_file: "first.json",
+        name: "Badminton: Ranked #1",
+        category: "badminton_ranked",
+        sport_type: "Badminton",
+        start_date_local: "2026-09-16T09:00:00",
+        elapsed_time: 3600,
+      },
+      {
+        id: 2,
+        history_file: "second.json",
+        name: "Badminton: Friendly",
+        category: "badminton_friendly",
+        sport_type: "Badminton",
+        start_date_local: "2026-09-16T18:00:00",
+        elapsed_time: 3600,
+      },
+    ] as any;
+    const snapshots = generateWidgetSnapshotsFromDashboardSnapshot({
+      ledger: minimalLedger,
+      activities,
+      match_history: {
+        version: 1,
+        sessions: [
+          {
+            date: "2026-09-16",
+            historyFile: "first.json",
+            games: [
+              {
+                result: "W",
+                scoreFor: 21,
+                scoreAgainst: 18,
+                partner: null,
+                opponents: ["Alex"],
+                format: "singles",
+                category: "ranked",
+              },
+            ],
+          },
+          {
+            date: "2026-09-16",
+            historyFile: "second.json",
+            games: [
+              {
+                result: "L",
+                scoreFor: 15,
+                scoreAgainst: 21,
+                partner: null,
+                opponents: ["Alex"],
+                format: "singles",
+                category: "friendly",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(snapshots?.home.commitments.find((item) => item.id === "badminton")).toMatchObject({
+      allRecord: "1W-1L",
+      rankedRecord: "1W-0L",
+    });
+  });
 });
 
 // COACH-HQ-IOS-4 / #308: split-ledger progressions often have short_target and no target.

@@ -768,8 +768,9 @@ export function buildWarmHomeSnapshots(
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
+  matchHistory?: unknown,
 ): WarmHomeSnapshots {
-  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
+  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract, matchHistory);
   const activityEvidence = buildActivityEvidenceSnapshots(activities);
   const engine = buildEngineSnapshot(activities, model.engine);
   const quest = buildQuestSnapshot(ledger, model.quest);
@@ -785,7 +786,7 @@ export function buildWarmHomeSnapshots(
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
     phase: buildPhaseSnapshot(ledger, dataMode),
-    amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
+    amIImproving: buildBadmintonLensModel(activities, "ranked", matchHistory).amIImproving,
     activityEvidence,
     sync: {
       label: model.syncLabel,
@@ -827,8 +828,16 @@ export function buildWidgetSnapshotsFile(
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
   coachMessage?: CoachMessageSnapshot,
+  matchHistory?: unknown,
 ): WidgetSnapshotsFile {
-  const computedHome = buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode);
+  const computedHome = buildWarmHomeSnapshots(
+    activities,
+    ledger,
+    syncStatus,
+    contract,
+    dataMode,
+    matchHistory,
+  );
   const home: WarmHomeSnapshots = coachMessage ? { ...computedHome, coachMessage } : computedHome;
 
   return {

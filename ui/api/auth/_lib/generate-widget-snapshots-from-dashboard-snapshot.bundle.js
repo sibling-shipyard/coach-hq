@@ -7,6 +7,7 @@ var tokens_default = {
     ink: "#2b2d29",
     inkMuted: "#75746b",
     inkFaint: "#98998f",
+    inkFaintText: "#635f55",
     accent: "#7f3728",
     accentDark: "#652b20",
     alarmBg: "#e4e4ec",
@@ -16,6 +17,42 @@ var tokens_default = {
     border: "rgba(84, 76, 65, 0.16)",
     borderDashed: "rgba(84, 76, 65, 0.35)",
     headerRule: "#d8d2c6"
+  },
+  web: {
+    textSecondary: "#6e7068",
+    cyclingInk: "#79501f",
+    ruleSoft: "#efe9dc",
+    alarmInkStrong: "#343c5c",
+    alarmInkMuted: "#8a90ad",
+    ruleDashedSoft: "#e2dcd0",
+    textFaintWarm: "#b9b3a5",
+    plannedMissed: "#b3aed0",
+    textSoft: "#8a8b81",
+    phasePending: "#c9c2b2",
+    questSide: "#7c6f9e",
+    chatSidebarBorder: "#e2dbcd",
+    chatSidebarSurface: "#f5f0e6",
+    chatInkStrong: "#1f211e",
+    chatTextDisabled: "#a8a596",
+    chatTextPlaceholder: "#b3b0a1",
+    chatSelection: "#efe9dd",
+    chatDay: "#a8956a",
+    chatGradientEnd: "#faf6ee",
+    chatPaneRule: "#eee6d8",
+    chatMobileRule: "#e6ddce",
+    chatBadgeBorder: "#e6dcc9",
+    chatAthleteText: "#f6f2e8",
+    chatBubbleBorder: "#ece2cf",
+    chatChipBorder: "#e0d8c8",
+    chatSignature: "#b09a6a",
+    chatInputBorder: "#ddd4c3",
+    chatFootnote: "#b8b5a6",
+    chatHover: "#ece5d8",
+    chatMutedFallback: "#6b7280",
+    statusSuccess: "#6d7d4e",
+    matchRanked: "#315a4a",
+    matchLeague: "#a8702c",
+    matchFriendly: "#adc2b7"
   },
   shadows: {
     card: "0 8px 20px rgba(57, 52, 42, 0.08)",
@@ -219,28 +256,59 @@ function getThisWeekActivities(activities) {
   monday.setHours(0, 0, 0, 0);
   return activities.filter((a) => parseLocal(a.start_date_local) >= monday);
 }
-function parseWinLoss(description) {
-  if (!description) return null;
-  const summaryMatch = description.match(/(\d+)W[–-](\d+)L/);
-  if (!summaryMatch) return null;
-  const rankedWins = parseInt(summaryMatch[1]);
-  const rankedLosses = parseInt(summaryMatch[2]);
-  const lines = description.split("\n");
-  let allWins = 0;
-  let allLosses = 0;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^W \d+[–-]\d+/.test(trimmed)) allWins++;
-    else if (/^L \d+[–-]\d+/.test(trimmed)) allLosses++;
+
+// client/src/components/home-warm/trainingMappings.ts
+function trainingCategoryToSessionDiscipline(category) {
+  if (category.startsWith("badminton")) return "badminton";
+  if (category === "calisthenics") return "calisthenics";
+  if (category === "ride") return "cycling";
+  if (category === "foundation") return "foundation";
+  if (category === "recovery" || category === "realign") return "recovery";
+  if (category === "run") return "run";
+  if (category === "strength") return "strength";
+  if (category === "weight_training") return "weight_training";
+  if (category === "hike") return "hike";
+  if (category === "walk") return "walk";
+  if (category === "cricket") return "cricket";
+  if (category === "football") return "football";
+  if (category === "workout") return "workout";
+  if (category === "swim") return "swim";
+  return "other";
+}
+function trainingCategoryToWarmSport(category) {
+  if (category.startsWith("badminton")) return "badminton";
+  if (category === "calisthenics") return "calisthenics";
+  if (category === "foundation" || category === "recovery" || category === "realign") {
+    return "foundation";
   }
-  if (allWins + allLosses === 0) {
-    allWins = rankedWins;
-    allLosses = rankedLosses;
-  }
-  return {
-    ranked: { wins: rankedWins, losses: rankedLosses },
-    all: { wins: allWins, losses: allLosses }
-  };
+  if (category === "ride") return "cycling";
+  if (category === "run") return "run";
+  if (category === "strength") return "strength";
+  if (category === "weight_training") return "weight_training";
+  if (category === "hike") return "hike";
+  if (category === "walk") return "walk";
+  if (category === "cricket") return "cricket";
+  if (category === "football") return "football";
+  if (category === "workout") return "workout";
+  if (category === "swim") return "swim";
+  return "other";
+}
+function sessionDisciplineToSnapshotSport(discipline) {
+  if (discipline === "cycling") return "cycling";
+  if (discipline === "badminton") return "badminton";
+  if (discipline === "calisthenics") return "calisthenics";
+  if (discipline === "foundation") return "foundation";
+  if (discipline === "recovery") return "recovery";
+  if (discipline === "run") return "run";
+  if (discipline === "strength") return "strength";
+  if (discipline === "weight_training") return "weight_training";
+  if (discipline === "hike") return "hike";
+  if (discipline === "walk") return "walk";
+  if (discipline === "cricket") return "cricket";
+  if (discipline === "football") return "football";
+  if (discipline === "workout") return "workout";
+  if (discipline === "swim") return "swim";
+  return "other";
 }
 
 // client/src/components/home-warm/liveWeekContract.ts
@@ -258,23 +326,6 @@ function localDateKey(date) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0")
   ].join("-");
-}
-function disciplineFor(category) {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
 }
 function intentFor(categories) {
   if (categories.length === 0) return "open";
@@ -300,7 +351,7 @@ function recordedDays(activities, monday) {
         const category = getTrainingCategory(activity);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: trainingCategoryToSessionDiscipline(category),
           kind: category,
           title: activity.name,
           priority: "support",
@@ -333,7 +384,9 @@ function buildLiveWeekContract(activities, _legacyChallenge, now = /* @__PURE__ 
     0
   );
   const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity)))
+    weekActivities.map(
+      (activity) => trainingCategoryToSessionDiscipline(getTrainingCategory(activity))
+    )
   ).size;
   const latestTimestamp = weekActivities.map((activity) => activity.start_date_local).sort().at(-1) ?? `${startDate}T00:00:00`;
   return {
@@ -362,114 +415,87 @@ function buildLiveWeekContract(activities, _legacyChallenge, now = /* @__PURE__ 
 }
 
 // client/src/lib/matchParser.ts
-var UNICODE_DECORATIONS = /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
-function normalizeName(name) {
-  return name.replace(UNICODE_DECORATIONS, "").trim();
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-var WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
-var GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
-function parseGameLine(line, gameNumber, isFriendly) {
-  const m = line.trim().match(GAME_LINE_RE);
-  if (!m) return null;
-  const result = m[1].toUpperCase();
-  const s1 = parseInt(m[2], 10);
-  const s2 = parseInt(m[3], 10);
-  const partnerRaw = m[4]?.trim();
-  const partner = partnerRaw ? normalizeName(partnerRaw) : null;
-  const format = partner ? "doubles" : "singles";
-  const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
-  const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
-  const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-  const margin = myScore - oppScore;
+function parseGame(value, gameNumber) {
+  if (!isRecord(value)) return null;
+  const { scoreFor, scoreAgainst, result, partner, opponents, category, format } = value;
+  if (result !== "W" && result !== "L" || typeof scoreFor !== "number" || typeof scoreAgainst !== "number" || !Number.isFinite(scoreFor) || !Number.isFinite(scoreAgainst) || !Array.isArray(opponents))
+    return null;
+  const isFriendly = category === "friendly";
   return {
     result,
-    score: `${s1}-${s2}`,
-    myScore,
-    oppScore,
-    margin,
-    partner,
-    opponents,
+    score: `${scoreFor}-${scoreAgainst}`,
+    myScore: scoreFor,
+    oppScore: scoreAgainst,
+    margin: scoreFor - scoreAgainst,
+    partner: typeof partner === "string" && partner.trim() ? partner.trim() : null,
+    opponents: opponents.filter((name) => typeof name === "string" && !!name.trim()).map((name) => name.trim()),
     gameNumber,
     isFriendly,
-    format
+    format: format === "singles" || format === "doubles" ? format : partner ? "doubles" : "singles"
   };
 }
-function parseDescription(description) {
-  if (!description) return null;
-  const lines = description.split("\n").map((l) => l.trim());
-  let summaryIdx = -1;
-  let summaryWins = 0;
-  let summaryLosses = 0;
-  let summaryPct = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(WL_SUMMARY_RE);
-    if (m) {
-      summaryIdx = i;
-      summaryWins = parseInt(m[1], 10);
-      summaryLosses = parseInt(m[2], 10);
-      summaryPct = parseInt(m[3], 10);
-      break;
-    }
-  }
-  if (summaryIdx === -1) return null;
-  const commentLines = lines.slice(0, summaryIdx).filter((l) => l.length > 0);
-  const comment = commentLines.length > 0 ? commentLines.join("\n") : null;
-  let gamesStartIdx = -1;
-  for (let i = summaryIdx + 1; i < lines.length; i++) {
-    if (/^Games:/i.test(lines[i])) {
-      gamesStartIdx = i + 1;
-      break;
-    }
-  }
-  if (gamesStartIdx === -1) {
-    return {
-      wins: summaryWins,
-      losses: summaryLosses,
-      winPct: summaryPct,
-      comment,
-      games: [],
-      friendlies: []
-    };
-  }
-  const games = [];
-  const friendlies = [];
-  let inFriendlies = false;
-  let gameNumber = 1;
-  for (let i = gamesStartIdx; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    if (/^Friendlies:/i.test(line)) {
-      inFriendlies = true;
-      continue;
-    }
-    const game = parseGameLine(line, gameNumber, inFriendlies);
-    if (game) {
-      if (inFriendlies) {
-        friendlies.push(game);
-      } else {
-        games.push(game);
-      }
-      gameNumber++;
-    }
-  }
-  const allGames = [...games, ...friendlies];
-  const actualWins = allGames.filter((g) => g.result === "W").length;
-  const actualLosses = allGames.filter((g) => g.result === "L").length;
-  const total = actualWins + actualLosses;
+function parseMatch(value) {
+  if (!Array.isArray(value.games)) return null;
+  const parsed = value.games.map((game, index) => parseGame(game, index + 1)).filter((game) => game !== null);
+  if (parsed.length === 0) return null;
+  const wins = parsed.filter((game) => game.result === "W").length;
+  const games = parsed.filter((game) => !game.isFriendly);
+  const friendlies = parsed.filter((game) => game.isFriendly);
   return {
-    wins: allGames.length > 0 ? actualWins : summaryWins,
-    losses: allGames.length > 0 ? actualLosses : summaryLosses,
-    winPct: total > 0 ? Math.round(actualWins / total * 100) : summaryPct,
-    comment,
+    wins,
+    losses: parsed.length - wins,
+    winPct: Math.round(wins / parsed.length * 100),
+    comment: typeof value.notes === "string" && value.notes.trim() ? value.notes.trim() : null,
     games,
     friendlies
   };
 }
-function parseMatch(activity) {
-  return parseDescription(activity.description);
+function resolveMatchSessions(activities, history) {
+  const rawSessions = isRecord(history) && Array.isArray(history.sessions) ? history.sessions : [];
+  const entries = rawSessions.flatMap((value) => {
+    if (!isRecord(value) || typeof value.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value.date))
+      return [];
+    const parsed = parseMatch(value);
+    return parsed ? [
+      {
+        date: value.date,
+        historyFile: typeof value.historyFile === "string" && value.historyFile ? value.historyFile : null,
+        legacy: value.historyFile === void 0 || value.historyFile === null,
+        parsed
+      }
+    ] : [];
+  });
+  const badminton = activities.filter(
+    (activity) => getTrainingCategory(activity).startsWith("badminton")
+  );
+  const byFile = new Map(
+    badminton.filter((activity) => activity.history_file).map((activity) => [activity.history_file, activity])
+  );
+  const claimed = new Set(
+    entries.map((entry) => entry.historyFile).filter((file) => file !== null)
+  );
+  const unclaimedByDate = /* @__PURE__ */ new Map();
+  for (const activity of badminton) {
+    if (activity.history_file && claimed.has(activity.history_file)) continue;
+    const date = activity.start_date_local.slice(0, 10);
+    unclaimedByDate.set(date, [...unclaimedByDate.get(date) ?? [], activity]);
+  }
+  const legacyCounts = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (entry.legacy) legacyCounts.set(entry.date, (legacyCounts.get(entry.date) ?? 0) + 1);
+  }
+  return entries.map((entry) => ({
+    date: entry.date,
+    historyFile: entry.historyFile,
+    parsed: entry.parsed,
+    activity: entry.historyFile ? byFile.get(entry.historyFile) ?? null : entry.legacy && legacyCounts.get(entry.date) === 1 && unclaimedByDate.get(entry.date)?.length === 1 ? unclaimedByDate.get(entry.date)[0] : null
+  }));
 }
 function getAllGames(match) {
-  return [...match.games, ...match.friendlies];
+  return [...match.games, ...match.friendlies].sort((a, b) => a.gameNumber - b.gameNumber);
 }
 function getRankedGames(match) {
   return match.games;
@@ -487,20 +513,15 @@ var FIFTY_TWO_WEEKS_MS = 52 * 7 * 24 * 60 * 60 * 1e3;
 var MIN_POSITION_SAMPLES = 5;
 var MIN_OPPONENT_GAMES = 3;
 var MIN_MONTH_SESSIONS = 3;
-function buildSessions(activities) {
-  const result = [];
-  for (const activity of activities) {
-    const category = getTrainingCategory(activity);
-    if (!ALL_CATEGORIES.has(category)) continue;
-    const parsed = parseMatch(activity);
-    if (!parsed || parsed.games.length === 0 && parsed.friendlies.length === 0) continue;
-    result.push({
+function buildSessions(activities, matchHistory) {
+  const result = resolveMatchSessions(activities, matchHistory).map(
+    ({ activity, date, parsed }) => ({
       activity,
       parsed,
-      dateKey: activity.start_date_local.slice(0, 10),
-      timestamp: parseLocal(activity.start_date_local).getTime()
-    });
-  }
+      dateKey: date,
+      timestamp: parseLocal(activity?.start_date_local ?? `${date}T12:00:00`).getTime()
+    })
+  );
   result.sort((a, b) => a.timestamp - b.timestamp);
   return result;
 }
@@ -548,11 +569,11 @@ function buildWinRate(sessions, mode, now) {
     const games = gamesForMode(session, mode);
     const wins = games.filter((g) => g.result === "W").length;
     const losses = games.filter((g) => g.result === "L").length;
-    const date = parseLocal(session.activity.start_date_local);
+    const date = new Date(session.timestamp);
     return {
       timestamp: session.timestamp,
       label: date.toLocaleDateString("en-GB", { day: "numeric", month: "short" }).toUpperCase(),
-      activityId: session.activity.id,
+      activityId: session.activity?.id ?? session.dateKey,
       wins,
       losses,
       rolling: null
@@ -670,7 +691,7 @@ function buildSessionShape(sessions, mode, now) {
 function buildBestMonth(sessions, mode) {
   const byMonth = /* @__PURE__ */ new Map();
   for (const session of sessions) {
-    const date = parseLocal(session.activity.start_date_local);
+    const date = new Date(session.timestamp);
     const key = `${date.getFullYear()}-${date.getMonth()}`;
     const games = gamesForMode(session, mode);
     if (games.length === 0) continue;
@@ -843,7 +864,7 @@ function buildEffort(sessions) {
   const totals = [0, 0, 0, 0, 0];
   let anyZones = false;
   for (const session of sessions) {
-    const zones = session.activity.hr_zones;
+    const zones = session.activity?.hr_zones;
     if (!zones) continue;
     anyZones = true;
     for (let z = 1; z <= 5; z++) {
@@ -861,8 +882,8 @@ function buildEffort(sessions) {
     }))
   };
 }
-function buildBadmintonLensModel(activities, mode, now = Date.now()) {
-  const sessions = buildSessions(activities);
+function buildBadmintonLensModel(activities, mode, matchHistory, now = Date.now()) {
+  const sessions = buildSessions(activities, matchHistory);
   const shape = buildSessionShape(sessions, mode, now);
   return {
     header: buildHeaderStats(activities, sessions),
@@ -875,8 +896,8 @@ function buildBadmintonLensModel(activities, mode, now = Date.now()) {
   };
 }
 
-// client/src/components/home-warm/formatUtils.ts
-function formatMinutesLabel(value) {
+// client/src/components/widgets/formatUtils.ts
+function formatMinutesInstrumentLabel(value) {
   const minutes = Math.round(value);
   return minutes >= 60 ? `${Math.floor(minutes / 60)}H${String(minutes % 60).padStart(2, "0")}` : `${minutes} MIN`;
 }
@@ -1002,7 +1023,7 @@ function calisthenicsFocus(activities) {
   }).filter((value) => Boolean(value));
   return focuses.at(-1) ?? "No session yet";
 }
-function buildCommitments(activities) {
+function buildCommitments(activities, matchHistory) {
   const thisWeek = getThisWeekActivities(activities);
   const rides = thisWeek.filter((activity) => getTrainingCategory(activity) === "ride");
   const foundation = thisWeek.filter((activity) => getTrainingCategory(activity) === "foundation");
@@ -1016,16 +1037,18 @@ function buildCommitments(activities) {
   let rankedLosses = 0;
   let allWins = 0;
   let allLosses = 0;
-  for (const activity of badminton) {
-    const record = parseWinLoss(activity.description);
-    if (!record) continue;
-    const category = getTrainingCategory(activity);
-    allWins += record.all.wins;
-    allLosses += record.all.losses;
-    if (category === "badminton_ranked" || category === "badminton_league") {
-      rankedWins += record.ranked.wins;
-      rankedLosses += record.ranked.losses;
-    }
+  const today = /* @__PURE__ */ new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+  const weekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  for (const session of resolveMatchSessions(activities, matchHistory)) {
+    if (session.date < weekStart) continue;
+    const all = getAllGames(session.parsed);
+    const ranked = getRankedGames(session.parsed);
+    allWins += all.filter((game) => game.result === "W").length;
+    allLosses += all.filter((game) => game.result === "L").length;
+    rankedWins += ranked.filter((game) => game.result === "W").length;
+    rankedLosses += ranked.filter((game) => game.result === "L").length;
   }
   return [
     {
@@ -1036,8 +1059,7 @@ function buildCommitments(activities) {
       unit: rides.length === 1 ? "ride" : "rides",
       secondary: formatDistanceKm(
         rides.reduce((sum, activity) => sum + (activity.distance ?? 0), 0)
-      ),
-      accent: "#9c5d2e"
+      )
     },
     {
       id: "foundation",
@@ -1047,8 +1069,7 @@ function buildCommitments(activities) {
         new Set(foundation.map((activity) => activity.start_date_local.slice(0, 10))).size
       ),
       unit: "active days",
-      secondary: foundation.length > 0 ? "rhythm intact" : "start gently",
-      accent: "#496d64"
+      secondary: foundation.length > 0 ? "rhythm intact" : "start gently"
     },
     {
       id: "badminton",
@@ -1059,8 +1080,7 @@ function buildCommitments(activities) {
       secondary: `${allWins}W-${allLosses}L`,
       allRecord: `${allWins}W-${allLosses}L`,
       rankedRecord: `${rankedWins}W-${rankedLosses}L`,
-      hasRankedRecord: rankedWins + rankedLosses > 0,
-      accent: "#2f7058"
+      hasRankedRecord: rankedWins + rankedLosses > 0
     },
     {
       id: "calisthenics",
@@ -1068,8 +1088,7 @@ function buildCommitments(activities) {
       glyph: "calisthenics",
       value: String(calisthenics.length),
       unit: calisthenics.length === 1 ? "session" : "sessions",
-      secondary: calisthenicsFocus(calisthenics),
-      accent: "#76556f"
+      secondary: calisthenicsFocus(calisthenics)
     }
   ];
 }
@@ -1137,7 +1156,19 @@ function buildQuest(mainQuest) {
     floor,
     loaded,
     skill,
-    percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
+    percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0,
+    hasQuest: true
+  };
+}
+function buildEmptyQuest() {
+  return {
+    name: "",
+    completed: 0,
+    floor: 0,
+    loaded: 0,
+    skill: 0,
+    percent: 0,
+    hasQuest: false
   };
 }
 function buildCountTargetQuest(mainQuest, activities, ledger) {
@@ -1153,10 +1184,11 @@ function buildCountTargetQuest(mainQuest, activities, ledger) {
     floor,
     loaded: 0,
     skill: 0,
-    percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
+    percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0,
+    hasQuest: true
   };
 }
-function buildWarmHomeModel(activities, ledger, syncStatus, contract) {
+function buildWarmHomeModel(activities, ledger, syncStatus, contract, matchHistory) {
   const syncHealthy = syncStatus.status === "success" || syncStatus.status === "none";
   const start = /* @__PURE__ */ new Date(`${contract.week.start_date}T00:00:00`);
   const end = /* @__PURE__ */ new Date(`${contract.week.end_date}T00:00:00`);
@@ -1175,9 +1207,13 @@ function buildWarmHomeModel(activities, ledger, syncStatus, contract) {
     weekFocus: contract.week.focus,
     engine: buildEngine(activities, contract),
     coachRead: contract.coach_read,
-    commitments: buildCommitments(activities),
+    commitments: buildCommitments(activities, matchHistory),
     planDays: buildPlanDays(contract),
-    quest: (ledger.quests?.main_quest ?? ledger.main_quest).type === "count_target" ? buildCountTargetQuest(ledger.quests?.main_quest ?? ledger.main_quest, activities, ledger) : buildQuest(ledger.quests?.main_quest ?? ledger.main_quest)
+    quest: (() => {
+      const mainQuest = ledger.quests?.main_quest ?? ledger.main_quest ?? null;
+      if (mainQuest === null) return buildEmptyQuest();
+      return mainQuest.type === "count_target" ? buildCountTargetQuest(mainQuest, activities, ledger) : buildQuest(mainQuest);
+    })()
   };
 }
 
@@ -1196,41 +1232,6 @@ function isoWeek(date = /* @__PURE__ */ new Date()) {
   utc.setUTCDate(utc.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS3 + 1) / 7);
-}
-function categoryToSport(category) {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "foundation" || category === "recovery" || category === "realign") {
-    return "foundation";
-  }
-  if (category === "ride") return "cycling";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
-}
-function disciplineToSport(discipline) {
-  if (discipline === "cycling") return "cycling";
-  if (discipline === "badminton") return "badminton";
-  if (discipline === "calisthenics") return "calisthenics";
-  if (discipline === "foundation") return "foundation";
-  if (discipline === "recovery") return "recovery";
-  if (discipline === "run") return "run";
-  if (discipline === "strength") return "strength";
-  if (discipline === "weight_training") return "weight_training";
-  if (discipline === "hike") return "hike";
-  if (discipline === "walk") return "walk";
-  if (discipline === "cricket") return "cricket";
-  if (discipline === "football") return "football";
-  if (discipline === "workout") return "workout";
-  if (discipline === "swim") return "swim";
-  return "other";
 }
 function formatSessionTitle(name) {
   return name.replace(/:\s*/, " \xB7 ");
@@ -1253,7 +1254,7 @@ function buildActivityEvidenceSnapshots(activities) {
         month: "short"
       }).toUpperCase(),
       title: formatSessionTitle(activity.name),
-      sport: categoryToSport(category),
+      sport: trainingCategoryToWarmSport(category),
       ranked: category === "badminton_ranked",
       durationMinutes: Math.max(0, activity.elapsed_time ?? 0) / 60,
       calories: calories > 0 ? Math.round(calories) : null,
@@ -1265,8 +1266,8 @@ function buildActivityEvidenceSnapshots(activities) {
     };
   });
 }
-function formatDuration(activity) {
-  const duration = formatMinutesLabel(Math.max(0, activity.elapsed_time ?? 0) / 60);
+function formatActivityEvidenceDetail(activity) {
+  const duration = formatMinutesInstrumentLabel(Math.max(0, activity.elapsed_time ?? 0) / 60);
   return activity.average_heartrate ? `${duration} \xB7 ${Math.round(activity.average_heartrate)} BPM` : duration;
 }
 function buildEngineSnapshot(activities, engine) {
@@ -1298,7 +1299,7 @@ function buildEngineSnapshot(activities, engine) {
   ];
   const mix = mixDefinition.map((item) => ({
     ...item,
-    hours: thisWeek.filter((activity) => categoryToSport(getTrainingCategory(activity)) === item.id).reduce((sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600, 0)
+    hours: thisWeek.filter((activity) => trainingCategoryToWarmSport(getTrainingCategory(activity)) === item.id).reduce((sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600, 0)
   }));
   const totalHours = thisWeek.reduce(
     (sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600,
@@ -1322,9 +1323,9 @@ function buildEngineSnapshot(activities, engine) {
   ).slice(-5).map((activity) => ({
     day: parseLocal(activity.start_date_local).toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase(),
     title: formatSessionTitle(activity.name),
-    detail: formatDuration(activity),
+    detail: formatActivityEvidenceDetail(activity),
     load: getActivityZoneLoad(activity) === null ? null : Math.round(getActivityZoneLoad(activity)),
-    sport: categoryToSport(getTrainingCategory(activity))
+    sport: trainingCategoryToWarmSport(getTrainingCategory(activity))
   }));
   if (doseRows.length < 5) {
     doseRows.push({
@@ -1365,7 +1366,7 @@ function eligibleDaysSince(startDate, endDate, today) {
   return Math.floor((effectiveEnd.getTime() - start.getTime()) / DAY_MS3) + 1;
 }
 function buildQuestSnapshot(ledger, quest) {
-  const palette = ["#7c6f9e", "#a8702c"];
+  const palette = [tokens_default.web.questSide, sportHex("cycling")];
   const today = /* @__PURE__ */ new Date();
   const isSplit = ledger && "seasons" in ledger;
   const questsArray = isSplit ? ledger.quests.quests : ledger.quests;
@@ -1406,7 +1407,8 @@ function buildQuestSnapshot(ledger, quest) {
     target: quest.floor,
     loaded: Number(quest.loaded.toFixed(1)),
     daysLeft: Math.max(0, 6 - mondayIndex),
-    sideQuests
+    sideQuests,
+    hasQuest: quest.hasQuest
   };
 }
 function winPercent(record) {
@@ -1483,7 +1485,7 @@ function buildWeeklyPlanSnapshot(model, engine, dataMode, activityEvidence) {
         day: day.day,
         dayShort: day.day.slice(0, 1),
         glyph: session?.glyph ?? null,
-        sport: session ? disciplineToSport(session.discipline) : "recovery",
+        sport: session ? sessionDisciplineToSnapshotSport(session.discipline) : "recovery",
         title: session?.title ?? "Rest",
         loadDelta: dataMode === "live" && hasCompleteLoad ? Math.round(observedLoads.reduce((sum, load) => sum + load, 0)) : null,
         isRecorded: dataMode === "live" && dayActivities.length > 0,
@@ -1537,7 +1539,7 @@ function buildCaloriesSnapshot(activities, dataMode) {
   };
 }
 function dominantActivityState(categories) {
-  const states = categories.map(categoryToSport);
+  const states = categories.map(trainingCategoryToWarmSport);
   if (states.includes("badminton")) return "badminton";
   if (states.includes("calisthenics")) return "calisthenics";
   if (states.includes("run")) return "run";
@@ -1660,7 +1662,7 @@ function buildRecentSessions(activityEvidence) {
     id: activity.id,
     dateLabel: activity.dateLabel.replace(/^\w+\s/, ""),
     title: activity.title,
-    detail: activity.averageHeartRate === null ? formatMinutesLabel(activity.durationMinutes) : `${formatMinutesLabel(activity.durationMinutes)} \xB7 ${activity.averageHeartRate} BPM`,
+    detail: activity.averageHeartRate === null ? formatMinutesInstrumentLabel(activity.durationMinutes) : `${formatMinutesInstrumentLabel(activity.durationMinutes)} \xB7 ${activity.averageHeartRate} BPM`,
     load: activity.load,
     sport: activity.sport,
     evidence: activity
@@ -1743,8 +1745,8 @@ function buildCoachReadSnapshot(model, engine, quest, dataMode) {
     ]
   };
 }
-function buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode = "live") {
-  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
+function buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode = "live", matchHistory) {
+  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract, matchHistory);
   const activityEvidence = buildActivityEvidenceSnapshots(activities);
   const engine = buildEngineSnapshot(activities, model.engine);
   const quest = buildQuestSnapshot(ledger, model.quest);
@@ -1759,7 +1761,7 @@ function buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMo
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
     phase: buildPhaseSnapshot(ledger, dataMode),
-    amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
+    amIImproving: buildBadmintonLensModel(activities, "ranked", matchHistory).amIImproving,
     activityEvidence,
     sync: {
       label: model.syncLabel,
@@ -1786,11 +1788,19 @@ function questSnapshotS(quest) {
     name: quest.name,
     completed: quest.completed,
     target: quest.target,
-    progressPercent
+    progressPercent,
+    hasQuest: quest.hasQuest
   };
 }
-function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, dataMode = "live", coachMessage) {
-  const computedHome = buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode);
+function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, dataMode = "live", coachMessage, matchHistory) {
+  const computedHome = buildWarmHomeSnapshots(
+    activities,
+    ledger,
+    syncStatus,
+    contract,
+    dataMode,
+    matchHistory
+  );
   const home = coachMessage ? { ...computedHome, coachMessage } : computedHome;
   return {
     schema_version: 1,
@@ -1828,7 +1838,7 @@ function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, data
 var HEALTHKIT_ACTIVITY_ID = /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 var STRAVA_ACTIVITY_ID = /^strava:[0-9]{1,32}$/;
 var THREAD_SEED_ID = /^t-[0-9]+$/;
-function isRecord(value) {
+function isRecord2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function hasExactKeys(value, keys) {
@@ -1837,8 +1847,8 @@ function hasExactKeys(value, keys) {
   return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
 function isLatestCoachMessageFile(value) {
-  if (!isRecord(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
-  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message))
+  if (!isRecord2(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
+  if (value.schema_version !== 1 || value.message === null || !isRecord2(value.message))
     return false;
   const message = value.message;
   if (!hasExactKeys(message, ["activity_ids", "body", "conversation_seed_id", "created_at", "id"]))
@@ -1890,6 +1900,9 @@ function needsLiveRecomputation(week) {
   }
   return false;
 }
+function normalizeStoredCurrentWeek(week) {
+  return { ...week, coach_comments: week.coach_comments ?? [] };
+}
 function generateWidgetSnapshotsFromDashboardSnapshot(aggregate, latestCoachMessageFile) {
   const ledger = aggregate.ledger;
   if (!ledger) return null;
@@ -1899,14 +1912,15 @@ function generateWidgetSnapshotsFromDashboardSnapshot(aggregate, latestCoachMess
     timestamp: null,
     warnings: []
   };
-  const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities) : aggregate.current_week;
+  const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities) : normalizeStoredCurrentWeek(aggregate.current_week);
   return buildWidgetSnapshotsFile(
     activities,
     ledger,
     syncStatus,
     contract,
     "live",
-    projectLatestCoachMessage(latestCoachMessageFile)
+    projectLatestCoachMessage(latestCoachMessageFile),
+    aggregate.match_history
   );
 }
 export {

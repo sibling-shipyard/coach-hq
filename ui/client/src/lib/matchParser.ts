@@ -1,24 +1,5 @@
-/**
- * matchParser.ts — Parse formatted badminton match descriptions from activity JSON.
- *
- * Reads the display-layer description written by iOS DescriptionParser (ADR 0013).
- * Doubles: `W 21-18 w/ Partner vs Opp1 + Opp2`
- * Singles:  `W 21-18 vs Opponent`
- *
- * W/L on each line determines myScore vs oppScore: W → max, L → min.
- */
-
-import type { Activity } from "./activities";
-
-/** Unicode prefixes/suffixes to strip (e.g., eBadders crowns) */
-const UNICODE_DECORATIONS =
-  /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
-
-function normalizeName(name: string): string {
-  return name.replace(UNICODE_DECORATIONS, "").trim();
-}
-
-// ─── Types ──────────────────────────────────────────────────────────────────
+/** Read the structured match history written by iOS (ADR 0013, ADR 0050). */
+import { type Activity, getTrainingCategory } from "./activities";
 
 export interface ParsedGame {
   result: "W" | "L";
@@ -42,138 +23,134 @@ export interface ParsedMatch {
   friendlies: ParsedGame[];
 }
 
-// ─── Description Parser ─────────────────────────────────────────────────────
+export interface ResolvedMatch {
+  date: string;
+  historyFile: string | null;
+  activity: Activity | null;
+  parsed: ParsedMatch;
+}
 
-const WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
-const GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): ParsedGame | null {
-  const m = line.trim().match(GAME_LINE_RE);
-  if (!m) return null;
+function parseGame(value: unknown, gameNumber: number): ParsedGame | null {
+  if (!isRecord(value)) return null;
+  const { scoreFor, scoreAgainst, result, partner, opponents, category, format } = value;
+  if (
+    (result !== "W" && result !== "L") ||
+    typeof scoreFor !== "number" ||
+    typeof scoreAgainst !== "number" ||
+    !Number.isFinite(scoreFor) ||
+    !Number.isFinite(scoreAgainst) ||
+    !Array.isArray(opponents)
+  )
+    return null;
 
-  const result = m[1].toUpperCase() as "W" | "L";
-  const s1 = parseInt(m[2], 10);
-  const s2 = parseInt(m[3], 10);
-  const partnerRaw = m[4]?.trim();
-  const partner = partnerRaw ? normalizeName(partnerRaw) : null;
-  const format = partner ? "doubles" : "singles";
-  const opponents = m[5]
-    .split(/\s*\+\s*/)
-    .map((s) => normalizeName(s.trim()))
-    .filter(Boolean);
-
-  const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
-  const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-  const margin = myScore - oppScore;
-
+  const isFriendly = category === "friendly";
   return {
     result,
-    score: `${s1}-${s2}`,
-    myScore,
-    oppScore,
-    margin,
-    partner,
-    opponents,
+    score: `${scoreFor}-${scoreAgainst}`,
+    myScore: scoreFor,
+    oppScore: scoreAgainst,
+    margin: scoreFor - scoreAgainst,
+    partner: typeof partner === "string" && partner.trim() ? partner.trim() : null,
+    opponents: opponents
+      .filter((name): name is string => typeof name === "string" && !!name.trim())
+      .map((name) => name.trim()),
     gameNumber,
     isFriendly,
-    format,
+    format: format === "singles" || format === "doubles" ? format : partner ? "doubles" : "singles",
   };
 }
 
-export function parseDescription(description: string | null): ParsedMatch | null {
-  if (!description) return null;
-
-  const lines = description.split("\n").map((l) => l.trim());
-
-  let summaryIdx = -1;
-  let summaryWins = 0;
-  let summaryLosses = 0;
-  let summaryPct = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(WL_SUMMARY_RE);
-    if (m) {
-      summaryIdx = i;
-      summaryWins = parseInt(m[1], 10);
-      summaryLosses = parseInt(m[2], 10);
-      summaryPct = parseInt(m[3], 10);
-      break;
-    }
-  }
-
-  if (summaryIdx === -1) return null;
-
-  const commentLines = lines.slice(0, summaryIdx).filter((l) => l.length > 0);
-  const comment = commentLines.length > 0 ? commentLines.join("\n") : null;
-
-  let gamesStartIdx = -1;
-  for (let i = summaryIdx + 1; i < lines.length; i++) {
-    if (/^Games:/i.test(lines[i])) {
-      gamesStartIdx = i + 1;
-      break;
-    }
-  }
-
-  if (gamesStartIdx === -1) {
-    return {
-      wins: summaryWins,
-      losses: summaryLosses,
-      winPct: summaryPct,
-      comment,
-      games: [],
-      friendlies: [],
-    };
-  }
-
-  const games: ParsedGame[] = [];
-  const friendlies: ParsedGame[] = [];
-  let inFriendlies = false;
-  let gameNumber = 1;
-
-  for (let i = gamesStartIdx; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-
-    if (/^Friendlies:/i.test(line)) {
-      inFriendlies = true;
-      continue;
-    }
-
-    const game = parseGameLine(line, gameNumber, inFriendlies);
-    if (game) {
-      if (inFriendlies) {
-        friendlies.push(game);
-      } else {
-        games.push(game);
-      }
-      gameNumber++;
-    }
-  }
-
-  const allGames = [...games, ...friendlies];
-  const actualWins = allGames.filter((g) => g.result === "W").length;
-  const actualLosses = allGames.filter((g) => g.result === "L").length;
-  const total = actualWins + actualLosses;
-
+function parseMatch(value: Record<string, unknown>): ParsedMatch | null {
+  if (!Array.isArray(value.games)) return null;
+  const parsed = value.games
+    .map((game, index) => parseGame(game, index + 1))
+    .filter((game): game is ParsedGame => game !== null);
+  if (parsed.length === 0) return null;
+  const wins = parsed.filter((game) => game.result === "W").length;
+  const games = parsed.filter((game) => !game.isFriendly);
+  const friendlies = parsed.filter((game) => game.isFriendly);
   return {
-    wins: allGames.length > 0 ? actualWins : summaryWins,
-    losses: allGames.length > 0 ? actualLosses : summaryLosses,
-    winPct: total > 0 ? Math.round((actualWins / total) * 100) : summaryPct,
-    comment,
+    wins,
+    losses: parsed.length - wins,
+    winPct: Math.round((wins / parsed.length) * 100),
+    comment: typeof value.notes === "string" && value.notes.trim() ? value.notes.trim() : null,
     games,
     friendlies,
   };
 }
 
-export function parseMatch(activity: Activity): ParsedMatch | null {
-  return parseDescription(activity.description);
+/**
+ * Keyed records join only their exact hist basename. A date-only record gets
+ * activity metadata only when exactly one unkeyed record and one unclaimed
+ * badminton activity share that date. Ambiguous records keep their games.
+ */
+export function resolveMatchSessions(activities: Activity[], history: unknown): ResolvedMatch[] {
+  const rawSessions = isRecord(history) && Array.isArray(history.sessions) ? history.sessions : [];
+  const entries = rawSessions.flatMap((value) => {
+    if (
+      !isRecord(value) ||
+      typeof value.date !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(value.date)
+    )
+      return [];
+    const parsed = parseMatch(value);
+    return parsed
+      ? [
+          {
+            date: value.date,
+            historyFile:
+              typeof value.historyFile === "string" && value.historyFile ? value.historyFile : null,
+            legacy: value.historyFile === undefined || value.historyFile === null,
+            parsed,
+          },
+        ]
+      : [];
+  });
+
+  const badminton = activities.filter((activity) =>
+    getTrainingCategory(activity).startsWith("badminton"),
+  );
+  const byFile = new Map(
+    badminton
+      .filter((activity) => activity.history_file)
+      .map((activity) => [activity.history_file, activity]),
+  );
+  const claimed = new Set(
+    entries.map((entry) => entry.historyFile).filter((file): file is string => file !== null),
+  );
+  const unclaimedByDate = new Map<string, Activity[]>();
+  for (const activity of badminton) {
+    if (activity.history_file && claimed.has(activity.history_file)) continue;
+    const date = activity.start_date_local.slice(0, 10);
+    unclaimedByDate.set(date, [...(unclaimedByDate.get(date) ?? []), activity]);
+  }
+  const legacyCounts = new Map<string, number>();
+  for (const entry of entries) {
+    if (entry.legacy) legacyCounts.set(entry.date, (legacyCounts.get(entry.date) ?? 0) + 1);
+  }
+
+  return entries.map((entry) => ({
+    date: entry.date,
+    historyFile: entry.historyFile,
+    parsed: entry.parsed,
+    activity: entry.historyFile
+      ? (byFile.get(entry.historyFile) ?? null)
+      : entry.legacy &&
+          legacyCounts.get(entry.date) === 1 &&
+          unclaimedByDate.get(entry.date)?.length === 1
+        ? unclaimedByDate.get(entry.date)![0]
+        : null,
+  }));
 }
 
 export function getAllGames(match: ParsedMatch): ParsedGame[] {
-  return [...match.games, ...match.friendlies];
+  return [...match.games, ...match.friendlies].sort((a, b) => a.gameNumber - b.gameNumber);
 }
 
-/** Get only ranked games (excludes friendlies section) */
 export function getRankedGames(match: ParsedMatch): ParsedGame[] {
   return match.games;
 }
