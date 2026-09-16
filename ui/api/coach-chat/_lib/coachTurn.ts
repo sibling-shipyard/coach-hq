@@ -9,10 +9,12 @@ import {
   getHeadShaOrNull,
   invalidateCoachContext,
   isFirstSessionRitualDone,
+  listDirectory,
   loadCoachContext,
   resolveCoachChatBranch,
 } from "./decide/coachChatFiles.js";
 import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./decide/coachDay.js";
+import { loadTodayActivityNotes } from "./decide/todayActivityNotes.js";
 import {
   appendConversationTurn,
   loadChatHistory,
@@ -115,7 +117,11 @@ import {
 import { buildCurrentWeekWrite } from "./decide/turnWrites/weekWrite.js";
 import { exerciseTypeFieldViolation, computeUnackedInjuryFlags } from "./decide/workoutSchema.js";
 
-import { parseActivityIds, type ActivitySyncRequest } from "./decide/activitySync.js";
+import {
+  ACTIVITIES_HIST_DIR,
+  parseActivityIds,
+  type ActivitySyncRequest,
+} from "./decide/activitySync.js";
 
 interface PostBody {
   threadId?: string;
@@ -381,6 +387,43 @@ export async function loadTurnState(
       .map((flag) => flag.id)
       .filter((id): id is string => Boolean(id)),
   );
+  // #1147: strict no-op unless priorMessages actually carries a synced_activity_list attachment
+  // with a today-dated row - loadTodayActivityNotes returns [] before ever calling
+  // listActivityFiles in that case, so an ordinary (non-sync) thread costs nothing extra here.
+  // Re-read fresh every turn, on purpose - never cached across the conversation - so a note the
+  // athlete writes mid-thread shows up starting the very next reply.
+  //
+  // Both deps below are soft reads (ADR 0032, #1078): a GitHub fault or a bad response here has
+  // nothing to do with whether an activity note exists, so it must fail open - degrade to "no
+  // note" - rather than break the whole reply turn. Same contract as getHeadShaOrNull and every
+  // other soft read in this file (404 quiet; any other fault captures once then degrades).
+  // Inlined at each site, same discipline as the TEMPLATES_MANIFEST/CURRENT_WEEK soft reads below
+  // - do not add a shared getFileRawOrNull/listDirectoryOrNull.
+  const todayActivityNotes = await loadTodayActivityNotes(request.priorMessages, today, {
+    listActivityFiles: async () => {
+      try {
+        const listing = await listDirectory(repo, ACTIVITIES_HIST_DIR, token);
+        return (listing ?? [])
+          .filter((entry) => entry.type === "file")
+          .map((entry) => ({ name: entry.name, path: entry.path }));
+      } catch (err: unknown) {
+        // listDirectory already resolves a 404 to null internally - anything that reaches this
+        // catch is a real fault (5xx, network, auth), never a missing-directory quiet case.
+        await captureServerException(err);
+        return [];
+      }
+    },
+    readFile: async (path) => {
+      try {
+        return await getFileRaw(repo, path, token);
+      } catch (err: unknown) {
+        const status = (err as { status?: number }).status;
+        if (status === 404) return null;
+        await captureServerException(err);
+        return null;
+      }
+    },
+  });
 
   return {
     ...request,
@@ -399,6 +442,7 @@ export async function loadTurnState(
       coachLog,
       athleteInsights,
       today,
+      todayActivityNotes,
     }),
     questContext: renderQuestContext({
       seasons,
