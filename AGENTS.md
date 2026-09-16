@@ -133,7 +133,8 @@ then tab `a.`). Athlete may reference `1a` — match that item exactly.
 **P2** — flagging it, athlete's call: follow-up ticket, one line, don't build unless asked.
 (`P3` still exists for issue bodies — see `.github/agents/issue-template.md`. A review never emits one.)
 
-**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement — except a `nit:`: a bookkeeping doc edit or a trivial rename that needs no decision is done, not ticketed. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
+**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement — except a `nit:`: a bookkeeping doc edit or a trivial rename that needs no decision is done, not ticketed — but still needs `Refs: #901`, the
+standing nit-issue, to satisfy the PR issue-link contract (`.github/CONVENTIONS.md`). If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
 
 **Execution loop (tasks, not chat):**
 1. Plan (~10–20 lines): goal, end state, how we validate.
