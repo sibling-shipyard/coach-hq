@@ -37,6 +37,8 @@ describe("Activity allowlist", () => {
     }
 
     for (const key of tsKeys) {
+      // The snapshot builder derives this from the hist filename after projection.
+      if (key === "history_file") continue;
       expect(ACTIVITY_ALLOWLIST).toContain(key);
     }
   });
