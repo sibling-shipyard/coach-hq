@@ -31,6 +31,23 @@
  *   npm run test:simulation-suite -- --force              # ignore coverage-index.json, run every
  *                                                          # case regardless of what changed since
  *                                                          # its last pass (a full pre-release run)
+ *   npm run test:simulation-suite -- --repo akash         # override every scenario's own
+ *                                                          # athlete/repo/localPath and run the
+ *                                                          # suite once against that real repo
+ *                                                          # instead of each scenario's hardcoded
+ *                                                          # target
+ *   npm run test:simulation-suite -- --all-repos          # run the whole suite once per real
+ *                                                          # athlete repo in lib/athleteRepos.ts's
+ *                                                          # ATHLETE_REPOS (5 passes today),
+ *                                                          # overriding every scenario's target on
+ *                                                          # each pass - replaces the old ad hoc
+ *                                                          # "run run-manual-coach-chat-test.ts by
+ *                                                          # hand against all 5 repos" pattern with
+ *                                                          # one that still scores and records each
+ *                                                          # pass. --repo and --all-repos are
+ *                                                          # mutually exclusive; --only still
+ *                                                          # narrows to one scenario id within
+ *                                                          # whichever repo(s) are selected.
  *
  * Selective re-run: before actually running a case, this checks coverage-index.json for an
  * existing `status: "pass"` entry and, if one exists, runs `git diff --quiet <last_pass_sha> HEAD
@@ -51,8 +68,8 @@ import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
 import { formatCostUsd } from "./lib/llmPricing.js";
-import { readCoverageIndex, writeCoverageEntry } from "./lib/coverageIndex.js";
-import { ATHLETE_REPOS } from "./lib/athleteRepos.js";
+import { readCoverageIndex, writeCoverageEntry, coverageKey } from "./lib/coverageIndex.js";
+import { ATHLETE_REPOS, resolveAthleteOverride, type AthleteOverride } from "./lib/athleteRepos.js";
 import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
 import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
 
@@ -98,6 +115,16 @@ interface Scenario {
    * motivated this.
    */
   preconditions?: Preconditions;
+  /**
+   * A3: --repo/--all-repos override every scenario's athlete/repo/localPath by default - but
+   * fsp-basic's hardcoded target (coach-skanda-testing) isn't an arbitrary choice, it's the one
+   * repo that's never completed the First Session Protocol, which is exactly what this scenario
+   * tests. Forcing it onto a real, already-onboarded athlete repo wouldn't just give a
+   * meaningless result - it would send scripted "first session" conversation content into a
+   * real athlete's actual coaching history. Set this on any scenario whose hardcoded target is
+   * load-bearing the same way, not just a convenient default.
+   */
+  excludeFromRepoOverride?: boolean;
   expect: TurnExpect[];
 }
 
@@ -131,6 +158,10 @@ const SCENARIOS: Scenario[] = [
       "Full six-turn First Session Protocol - profile, goal, injury, training freq, wrap-up.",
     repo: "skanda-testing/coach-skanda-testing",
     localPath: "/home/skanda_suresh/Projects/coach-skanda-testing",
+    // A3: coach-skanda-testing is load-bearing here, not a convenient default - it's the one
+    // repo reset to a blank pre-FSP state, which is what this scenario needs to test the First
+    // Session Protocol path at all.
+    excludeFromRepoOverride: true,
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/coach/profile.json"] },
       { turnIndex: 3, filesChangedInclude: ["user_data/coach/injuries.json"] },
@@ -436,6 +467,18 @@ function parseArgs(argv: string[]) {
     const idx = argv.indexOf(flag);
     return idx !== -1 ? argv[idx + 1] : undefined;
   };
+  const repo = get("--repo");
+  const allRepos = argv.includes("--all-repos");
+  if (repo && allRepos) {
+    console.error("run-simulation-suite: --repo and --all-repos are mutually exclusive.");
+    process.exit(1);
+  }
+  if (repo && !ATHLETE_REPOS[repo]) {
+    console.error(
+      `run-simulation-suite: unknown --repo shortcut "${repo}" - expected one of: ${Object.keys(ATHLETE_REPOS).join(", ")}`,
+    );
+    process.exit(1);
+  }
   return {
     list: argv.includes("--list"),
     only: get("--only"),
@@ -451,6 +494,12 @@ function parseArgs(argv: string[]) {
     // already-reset one. Applies to every scenario the invocation selects (--only narrows to one
     // in practice) - there was no need for a per-scenario field in the SCENARIOS library above.
     branch: get("--branch"),
+    // #1105 A3: forces every scenario's own athlete/repo/localPath to one real repo for this
+    // invocation - see resolveAthleteOverride in lib/athleteRepos.ts for the shortcut lookup.
+    repo,
+    // #1105 A3: runs the whole suite once per real athlete repo in ATHLETE_REPOS instead of once
+    // against whatever each scenario hardcodes - see the repo-pass loop in main() below.
+    allRepos,
   };
 }
 
@@ -632,217 +681,301 @@ async function main() {
   const hqSha = currentHqSha();
   const today = new Date().toISOString().slice(0, 10);
 
+  // #1105 A3: one "repo pass" per real athlete repo this invocation runs the suite against.
+  // undefined means "no override - each scenario keeps its own hardcoded athlete/repo/localPath",
+  // which is today's behavior and what --list/plain runs/--only alone still do. --repo runs a
+  // single pass against one forced repo; --all-repos runs one pass per entry in ATHLETE_REPOS.
+  let repoPasses: (AthleteOverride | undefined)[] = args.allRepos
+    ? Object.keys(ATHLETE_REPOS).map((shortcut) => resolveAthleteOverride(shortcut))
+    : args.repo
+      ? [resolveAthleteOverride(args.repo)]
+      : [undefined];
+
+  // #1105 A3 follow-up: a real athlete repo in ATHLETE_REPOS isn't guaranteed to be cloned on
+  // this machine - not every machine running this suite has all 5 checked out locally.
+  // buildRepoDataProfile/the post-turn diff verification below both need a real local clone
+  // (fs.readFileSync, git -C <path> fetch/diff); without this check, a missing clone's scenario
+  // still runs, the turn itself succeeds via the GitHub API, and only the post-turn `git -C
+  // <missing-path> fetch` throws - caught by the try/catch around the child-process invocation,
+  // but reported as a hard failure rather than what it actually is (this repo just isn't
+  // available on this machine). --all-repos runs on whichever repos ARE present and warns about
+  // the rest; --repo <shortcut> for a repo that isn't cloned locally is a clear config error, not
+  // something to silently skip - the operator explicitly asked for that one.
+  if (args.allRepos) {
+    const missing = repoPasses.filter(
+      (pass) => pass && !fs.existsSync(pass.localPath),
+    ) as AthleteOverride[];
+    if (missing.length > 0) {
+      console.log(
+        `[all-repos] not cloned locally, skipping: ${missing.map((p) => `${p.athlete} (${p.localPath})`).join(", ")}.`,
+      );
+    }
+    repoPasses = repoPasses.filter((pass) => !pass || fs.existsSync(pass.localPath));
+    if (repoPasses.length === 0) {
+      console.error(
+        "run-simulation-suite: --all-repos found no locally-cloned repo to run against.",
+      );
+      process.exit(1);
+    }
+  } else if (args.repo) {
+    const [pass] = repoPasses;
+    if (pass && !fs.existsSync(pass.localPath)) {
+      console.error(
+        `run-simulation-suite: --repo ${args.repo} isn't cloned locally at ${pass.localPath}.`,
+      );
+      process.exit(1);
+    }
+  }
+
   let anyFailed = false;
   // A2b cost note: every seed message is a real, billed model call on top of the scenario's own
   // turns - tracked separately here and printed separately at the end, so it's visible rather
   // than hidden inside the per-scenario cost numbers above.
   let totalSeedCostUsd = 0;
   let totalSeedMessages = 0;
-  for (const scenario of scenarios) {
-    const key = `manual:${scenario.id}`;
-    const existing = coverageIndex[key] as CoverageEntry | undefined;
-    if (!args.force && existing?.status === "pass" && existing.last_pass_sha) {
-      const watched = existing.watched_paths ?? WATCHED_PATHS;
-      if (!watchedPathsChanged(existing.last_pass_sha, watched)) {
+  for (const overridePass of repoPasses) {
+    for (const scenario of scenarios) {
+      // Every athlete/repo/localPath lookup below reads off this effective scenario, not the
+      // library entry directly, so a --repo/--all-repos override reaches every code path (precondition
+      // checks, seeding, the real invocation) the same way the scenario's own hardcoded target would.
+      // fsp-basic's hardcoded target is load-bearing (see excludeFromRepoOverride's own doc
+      // comment) - an active repo override has nothing honest to run it against, so skip this
+      // pass/scenario combination entirely rather than force it onto the wrong repo.
+      if (overridePass && scenario.excludeFromRepoOverride) {
         console.log(
-          `[skip] ${scenario.id}: no diff between ${existing.last_pass_sha.slice(0, 7)} and HEAD` +
-            ` across ${watched.length} watched path(s) (${watched.join(", ")}); last passed` +
-            ` ${existing.last_run_date}. Use --force to run anyway.`,
+          `[skip] ${scenario.id} [${overridePass.athlete}]: excluded from --repo/--all-repos - ` +
+            `its hardcoded target is load-bearing, not a convenient default.`,
         );
         continue;
       }
-    }
-
-    // A2b: the branch the scenario itself runs against. Left as args.branch (possibly undefined,
-    // in which case run-manual-coach-chat-test.ts auto-names one) unless this scenario needs
-    // seeding first - seeding and the scenario's real turns must land on the SAME scratch branch,
-    // so as soon as a seed is about to run, this is pinned to one explicit name shared by both.
-    let scenarioBranch = args.branch;
-
-    if (scenario.preconditions) {
-      const localPath = resolveLocalPath(scenario);
-      // No local clone to check against - can't verify the precondition either way, so fall
-      // through to running it rather than silently skipping something we have no evidence about.
-      if (localPath && fs.existsSync(localPath)) {
-        const profile = buildRepoDataProfile(localPath);
-        const { met, reason, seedMessages } = checkPreconditions(profile, scenario.preconditions);
-        if (!met && (!seedMessages || seedMessages.length === 0)) {
-          // No seed recipe for this field - the only honest fallback left is A2's original skip
-          // (real usage history can't be faked, or a different one of the 5 real repos already
-          // satisfies it naturally and should be used instead of seeding this one).
-          console.log(`[skip] ${scenario.id}: precondition unmet - ${reason}`);
-          if (!args.dryRun) {
-            writeCoverageEntry(coveragePath, key, {
-              type: "manual",
-              last_pass_sha: existing?.last_pass_sha ?? null,
-              last_run_date: today,
-              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
-              status: "skipped-precondition",
-              reason,
-            });
+      const effectiveScenario: Scenario = overridePass
+        ? {
+            ...scenario,
+            athlete: overridePass.athlete,
+            repo: overridePass.repo,
+            localPath: overridePass.localPath,
           }
+        : scenario;
+      // Only a plain, unoverridden run (overridePass undefined) keeps today's bare key - it's
+      // the only mode where a scenario still runs against its own hardcoded default repo, so it's
+      // the only mode where an existing on-disk entry is describing the same thing this run would
+      // produce. --repo and --all-repos both deviate from that default, so both disambiguate by
+      // the override's athlete shortcut - conflating "ran against the scenario's own repo" and
+      // "ran against an arbitrary --repo override" under one key was the actual bug here (a plain
+      // --repo run used to silently share the unoverridden key, corrupting it for later runs).
+      const key = coverageKey(scenario.id, overridePass?.athlete);
+      // #1105 A3: only non-empty when a repo override is in play, so plain runs' output stays
+      // exactly as it reads today.
+      const repoTag = overridePass ? ` [${overridePass.athlete}]` : "";
+      const existing = coverageIndex[key] as CoverageEntry | undefined;
+      if (!args.force && existing?.status === "pass" && existing.last_pass_sha) {
+        const watched = existing.watched_paths ?? WATCHED_PATHS;
+        if (!watchedPathsChanged(existing.last_pass_sha, watched)) {
+          console.log(
+            `[skip] ${scenario.id}${repoTag}: no diff between ${existing.last_pass_sha.slice(0, 7)} and HEAD` +
+              ` across ${watched.length} watched path(s) (${watched.join(", ")}); last passed` +
+              ` ${existing.last_run_date}. Use --force to run anyway.`,
+          );
           continue;
         }
-        if (!met && seedMessages && seedMessages.length > 0) {
-          if (args.dryRun) {
-            console.log(
-              `[dry-run] ${scenario.id}: precondition unmet - ${reason}. Would send ${seedMessages.length} real seed message(s) then re-check, rather than spend anything for real.`,
-            );
+      }
+
+      // A2b: the branch the scenario itself runs against. Left as args.branch (possibly undefined,
+      // in which case run-manual-coach-chat-test.ts auto-names one) unless this scenario needs
+      // seeding first - seeding and the scenario's real turns must land on the SAME scratch branch,
+      // so as soon as a seed is about to run, this is pinned to one explicit name shared by both.
+      let scenarioBranch = args.branch;
+
+      if (effectiveScenario.preconditions) {
+        const localPath = resolveLocalPath(effectiveScenario);
+        // No local clone to check against - can't verify the precondition either way, so fall
+        // through to running it rather than silently skipping something we have no evidence about.
+        if (localPath && fs.existsSync(localPath)) {
+          const profile = buildRepoDataProfile(localPath);
+          const { met, reason, seedMessages } = checkPreconditions(
+            profile,
+            effectiveScenario.preconditions,
+          );
+          if (!met && (!seedMessages || seedMessages.length === 0)) {
+            // No seed recipe for this field - the only honest fallback left is A2's original skip
+            // (real usage history can't be faked, or a different one of the 5 real repos already
+            // satisfies it naturally and should be used instead of seeding this one).
+            console.log(`[skip] ${scenario.id}${repoTag}: precondition unmet - ${reason}`);
+            if (!args.dryRun) {
+              writeCoverageEntry(coveragePath, key, {
+                type: "manual",
+                last_pass_sha: existing?.last_pass_sha ?? null,
+                last_run_date: today,
+                watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+                status: "skipped-precondition",
+                reason,
+              });
+            }
             continue;
           }
+          if (!met && seedMessages && seedMessages.length > 0) {
+            if (args.dryRun) {
+              console.log(
+                `[dry-run] ${scenario.id}${repoTag}: precondition unmet - ${reason}. Would send ${seedMessages.length} real seed message(s) then re-check, rather than spend anything for real.`,
+              );
+              continue;
+            }
 
-          scenarioBranch = scenarioBranch ?? `test/manual-seed-${scenario.id}-${Date.now()}`;
-          console.log(
-            `[seed] ${scenario.id}: precondition unmet - ${reason}. Sending ${seedMessages.length} ` +
-              `real seed message(s) on ${scenarioBranch} before re-checking.`,
-          );
-          const seedResult = sendSeedMessages(scenario, seedMessages, scenarioBranch);
-          totalSeedCostUsd += seedResult.costUsd;
-          totalSeedMessages += seedMessages.length;
-          console.log(
-            `[seed] ${scenario.id}: seed run cost ${formatCostUsd(seedResult.costUsd)} for ` +
-              `${seedMessages.length} real message(s) - billed separately from this scenario's own turns.`,
-          );
-
-          // buildRepoDataProfile reads whatever's on disk at localPath - the seed's commits
-          // landed on scenarioBranch via the GitHub API, not on whatever branch this clone
-          // happened to have checked out, so pull it down for real before re-checking. This
-          // clone is shared across every scenario that targets the same repo (several SCENARIOS
-          // entries reuse one athlete's localPath), so the checkout below must be temporary -
-          // captured and restored right after the read, not left on scenarioBranch for the rest
-          // of the run.
-          const originalRef = execFileSync(
-            "git",
-            ["-C", localPath, "rev-parse", "--abbrev-ref", "HEAD"],
-            { encoding: "utf8" },
-          ).trim();
-          let checkedOutForSeed = false;
-          try {
-            execFileSync("git", ["-C", localPath, "fetch", "origin", scenarioBranch], {
-              stdio: "pipe",
-            });
-            execFileSync(
-              "git",
-              ["-C", localPath, "checkout", "-B", scenarioBranch, `origin/${scenarioBranch}`],
-              { stdio: "pipe" },
-            );
-            checkedOutForSeed = true;
-          } catch (err) {
+            scenarioBranch = scenarioBranch ?? `test/manual-seed-${scenario.id}-${Date.now()}`;
             console.log(
-              `[seed] ${scenario.id}: couldn't check out ${scenarioBranch} locally to re-check ` +
-                `(${err instanceof Error ? err.message : String(err)}) - treating the ` +
-                `precondition as still unmet.`,
+              `[seed] ${scenario.id}${repoTag}: precondition unmet - ${reason}. Sending ${seedMessages.length} ` +
+                `real seed message(s) on ${scenarioBranch} before re-checking.`,
             );
-          }
+            const seedResult = sendSeedMessages(effectiveScenario, seedMessages, scenarioBranch);
+            totalSeedCostUsd += seedResult.costUsd;
+            totalSeedMessages += seedMessages.length;
+            console.log(
+              `[seed] ${scenario.id}${repoTag}: seed run cost ${formatCostUsd(seedResult.costUsd)} for ` +
+                `${seedMessages.length} real message(s) - billed separately from this scenario's own turns.`,
+            );
 
-          const reprofile = buildRepoDataProfile(localPath);
-
-          if (checkedOutForSeed) {
+            // buildRepoDataProfile reads whatever's on disk at localPath - the seed's commits
+            // landed on scenarioBranch via the GitHub API, not on whatever branch this clone
+            // happened to have checked out, so pull it down for real before re-checking. This
+            // clone is shared across every scenario that targets the same repo (several SCENARIOS
+            // entries reuse one athlete's localPath), so the checkout below must be temporary -
+            // captured and restored right after the read, not left on scenarioBranch for the rest
+            // of the run.
+            const originalRef = execFileSync(
+              "git",
+              ["-C", localPath, "rev-parse", "--abbrev-ref", "HEAD"],
+              { encoding: "utf8" },
+            ).trim();
+            let checkedOutForSeed = false;
             try {
-              execFileSync("git", ["-C", localPath, "checkout", originalRef], { stdio: "pipe" });
+              execFileSync("git", ["-C", localPath, "fetch", "origin", scenarioBranch], {
+                stdio: "pipe",
+              });
+              execFileSync(
+                "git",
+                ["-C", localPath, "checkout", "-B", scenarioBranch, `origin/${scenarioBranch}`],
+                { stdio: "pipe" },
+              );
+              checkedOutForSeed = true;
             } catch (err) {
               console.log(
-                `[seed] ${scenario.id}: couldn't restore ${localPath} to ${originalRef} after ` +
-                  `re-checking (${err instanceof Error ? err.message : String(err)}) - this ` +
-                  `clone may be left on ${scenarioBranch} for later scenarios that share it.`,
+                `[seed] ${scenario.id}${repoTag}: couldn't check out ${scenarioBranch} locally to re-check ` +
+                  `(${err instanceof Error ? err.message : String(err)}) - treating the ` +
+                  `precondition as still unmet.`,
               );
             }
-          }
 
-          const recheck = checkPreconditions(reprofile, scenario.preconditions);
-          if (!recheck.met) {
-            // The seed message is a real model call and can fail the same narration-vs-action way
-            // any other turn can - proceeding anyway would silently recreate the exact bug this
-            // whole track exists to fix, one layer deeper. Distinct status from
-            // "skipped-precondition": real cost was spent here, so this counts against the run.
+            const reprofile = buildRepoDataProfile(localPath);
+
+            if (checkedOutForSeed) {
+              try {
+                execFileSync("git", ["-C", localPath, "checkout", originalRef], { stdio: "pipe" });
+              } catch (err) {
+                console.log(
+                  `[seed] ${scenario.id}${repoTag}: couldn't restore ${localPath} to ${originalRef} ` +
+                    `after re-checking (${err instanceof Error ? err.message : String(err)}) - this ` +
+                    `clone may be left on ${scenarioBranch} for later scenarios that share it.`,
+                );
+              }
+            }
+
+            const recheck = checkPreconditions(reprofile, effectiveScenario.preconditions);
+            if (!recheck.met) {
+              // The seed message is a real model call and can fail the same narration-vs-action way
+              // any other turn can - proceeding anyway would silently recreate the exact bug this
+              // whole track exists to fix, one layer deeper. Distinct status from
+              // "skipped-precondition": real cost was spent here, so this counts against the run.
+              console.log(
+                `[seed-failed] ${scenario.id}${repoTag}: still unmet after seeding - ${recheck.reason}`,
+              );
+              anyFailed = true;
+              writeCoverageEntry(coveragePath, key, {
+                type: "manual",
+                last_pass_sha: existing?.last_pass_sha ?? null,
+                last_run_date: today,
+                watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
+                status: "seed-failed",
+                reason: recheck.reason,
+                last_cost_usd: seedResult.costUsd,
+              });
+              continue;
+            }
             console.log(
-              `[seed-failed] ${scenario.id}: still unmet after seeding - ${recheck.reason}`,
+              `[seed] ${scenario.id}${repoTag}: precondition met after seeding - running the scenario's real turns.`,
             );
-            anyFailed = true;
-            writeCoverageEntry(coveragePath, key, {
-              type: "manual",
-              last_pass_sha: existing?.last_pass_sha ?? null,
-              last_run_date: today,
-              watched_paths: existing?.watched_paths ?? WATCHED_PATHS,
-              status: "seed-failed",
-              reason: recheck.reason,
-              last_cost_usd: seedResult.costUsd,
-            });
-            continue;
           }
-          console.log(
-            `[seed] ${scenario.id}: precondition met after seeding - running the scenario's real turns.`,
-          );
         }
       }
-    }
 
-    const turnsPath = path.join(examplesDir, scenario.file);
-    const scriptArgs = [
-      "tsx",
-      "--tsconfig",
-      "tsconfig.json",
-      "scripts/run-manual-coach-chat-test.ts",
-      ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
-      ...(scenario.repo ? ["--repo", scenario.repo] : []),
-      ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
-      ...(scenarioBranch ? ["--branch", scenarioBranch] : []),
-      "--turns",
-      turnsPath,
-    ];
+      const turnsPath = path.join(examplesDir, scenario.file);
+      const scriptArgs = [
+        "tsx",
+        "--tsconfig",
+        "tsconfig.json",
+        "scripts/run-manual-coach-chat-test.ts",
+        ...(effectiveScenario.athlete ? ["--athlete", effectiveScenario.athlete] : []),
+        ...(effectiveScenario.repo ? ["--repo", effectiveScenario.repo] : []),
+        ...(effectiveScenario.localPath ? ["--local-path", effectiveScenario.localPath] : []),
+        ...(scenarioBranch ? ["--branch", scenarioBranch] : []),
+        "--turns",
+        turnsPath,
+      ];
+      if (args.dryRun) {
+        console.log(`[dry-run] ${scenario.id}${repoTag}: would run - npx ${scriptArgs.join(" ")}`);
+        continue;
+      }
 
-    if (args.dryRun) {
-      console.log(`[dry-run] ${scenario.id}: would run - npx ${scriptArgs.join(" ")}`);
-      continue;
-    }
+      console.log(
+        `\n=== ${scenario.id}${repoTag} (running - ${existing ? "diff since last pass" : "no prior pass"}) ===`,
+      );
+      const repoSlug = slugify(
+        effectiveScenario.repo ?? effectiveScenario.athlete ?? scenario.id,
+        "-",
+      );
+      const startMs = Date.now();
+      try {
+        execFileSync("npx", scriptArgs, { cwd: uiRoot, stdio: "inherit" });
+      } catch {
+        // run-manual-coach-chat-test.ts exits non-zero on any ERROR/unconfirmed-audit turn - that's
+        // not fatal to scoring here, the log it already wrote is what scoring reads next.
+      }
 
-    console.log(
-      `\n=== ${scenario.id} (running - ${existing ? "diff since last pass" : "no prior pass"}) ===`,
-    );
-    const repoSlug = slugify(scenario.repo ?? scenario.athlete ?? scenario.id, "-");
-    const startMs = Date.now();
-    try {
-      execFileSync("npx", scriptArgs, { cwd: uiRoot, stdio: "inherit" });
-    } catch {
-      // run-manual-coach-chat-test.ts exits non-zero on any ERROR/unconfirmed-audit turn - that's
-      // not fatal to scoring here, the log it already wrote is what scoring reads next.
-    }
+      const logPath = findLatestManualLog(repoSlug, startMs);
+      if (!logPath) {
+        console.log(`${scenario.id}${repoTag}: no run log found - treating as a hard failure.`);
+        anyFailed = true;
+        writeCoverageEntry(coveragePath, key, {
+          type: "manual",
+          last_pass_sha: existing?.last_pass_sha ?? null,
+          last_run_date: today,
+          watched_paths: WATCHED_PATHS,
+          status: "fail",
+        });
+        continue;
+      }
 
-    const logPath = findLatestManualLog(repoSlug, startMs);
-    if (!logPath) {
-      console.log(`${scenario.id}: no run log found - treating as a hard failure.`);
-      anyFailed = true;
+      const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
+      const { pass, failures } = scoreScenario(scenario, entries);
+      const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
+      console.log(
+        `${scenario.id}${repoTag}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: ${formatCostUsd(scenarioCostUsd)})`,
+      );
+      for (const f of failures) console.log(`  - ${f}`);
+      if (!pass) anyFailed = true;
+
+      // #1076: write this scenario's entry now, re-reading the file fresh first, instead of
+      // accumulating into the in-memory coverageIndex and writing it all back at the very end -
+      // see coverageIndex.ts for why (concurrent runs were clobbering each other's writes).
       writeCoverageEntry(coveragePath, key, {
         type: "manual",
-        last_pass_sha: existing?.last_pass_sha ?? null,
+        last_pass_sha: pass ? hqSha : (existing?.last_pass_sha ?? null),
         last_run_date: today,
         watched_paths: WATCHED_PATHS,
-        status: "fail",
+        status: pass ? "pass" : "fail",
+        last_cost_usd: scenarioCostUsd,
       });
-      continue;
     }
-
-    const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
-    const { pass, failures } = scoreScenario(scenario, entries);
-    const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
-    console.log(
-      `${scenario.id}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: ${formatCostUsd(scenarioCostUsd)})`,
-    );
-    for (const f of failures) console.log(`  - ${f}`);
-    if (!pass) anyFailed = true;
-
-    // #1076: write this scenario's entry now, re-reading the file fresh first, instead of
-    // accumulating into the in-memory coverageIndex and writing it all back at the very end -
-    // see coverageIndex.ts for why (concurrent runs were clobbering each other's writes).
-    writeCoverageEntry(coveragePath, key, {
-      type: "manual",
-      last_pass_sha: pass ? hqSha : (existing?.last_pass_sha ?? null),
-      last_run_date: today,
-      watched_paths: WATCHED_PATHS,
-      status: pass ? "pass" : "fail",
-      last_cost_usd: scenarioCostUsd,
-    });
-  }
+  } // end of repoPasses loop
 
   if (args.dryRun) return;
 

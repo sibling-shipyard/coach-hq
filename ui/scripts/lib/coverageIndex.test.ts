@@ -2,7 +2,12 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { readCoverageIndex, writeCoverageIndex, writeCoverageEntry } from "./coverageIndex.js";
+import {
+  readCoverageIndex,
+  writeCoverageIndex,
+  writeCoverageEntry,
+  coverageKey,
+} from "./coverageIndex.js";
 
 describe("coverageIndex", () => {
   let dir: string;
@@ -64,5 +69,18 @@ describe("coverageIndex", () => {
       "manual:a": { status: "pass" },
       "manual:b": { status: "fail" },
     });
+  });
+});
+
+// #1105 A3: coverageKey is the one place --all-repos disambiguates a coverage-index.json entry
+// by repo - a plain run and a --repo run must still produce exactly today's key, or every entry
+// already on disk would silently orphan.
+describe("coverageKey", () => {
+  it("returns the plain key with no athlete shortcut, matching every entry already on disk today", () => {
+    expect(coverageKey("daily-basic")).toBe("manual:daily-basic");
+  });
+
+  it("appends the athlete shortcut when one is given, for --all-repos's disambiguated entries", () => {
+    expect(coverageKey("daily-basic", "akash")).toBe("manual:daily-basic:akash");
   });
 });
