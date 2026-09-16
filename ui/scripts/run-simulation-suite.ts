@@ -358,7 +358,9 @@ const SCENARIOS: Scenario[] = [
     // happens to already be there.
     preconditions: {
       hasTemplate: {
-        seedMessages: ["Can you build me a full-body strength routine, no equipment, for twice a week?"],
+        seedMessages: [
+          "Can you build me a full-body strength routine, no equipment, for twice a week?",
+        ],
       },
     },
     expect: [
