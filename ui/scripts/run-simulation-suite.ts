@@ -145,8 +145,15 @@ const SCENARIOS: Scenario[] = [
     // ("manual-coach-chat-skanda-2003-coach-skanda-2003-log-...ison"), a real bug caught by a
     // live run against a real repo, not by reading the code.
     repo: "skanda-2003/coach-skanda-2003",
+    // #1105 B1: turn 1 also asserts coach_log.json (coach_note's write target) - coach_note fires
+    // on nearly every ordinary turn (C2), and this is the first non-greet turn in the scenario, so
+    // it closes the one acknowledged gap in the coverage matrix (coach-chat-test-scenarios.md) -
+    // every other action field already has a real-write assertion somewhere in this file.
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["user_data/coach/profile.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/coach/profile.json", "user_data/coach/coach_log.json"],
+      },
       { turnIndex: 2, filesChangedInclude: ["user_data/coach/injuries.json"] },
       { turnIndex: 3 },
       { turnIndex: 4 },

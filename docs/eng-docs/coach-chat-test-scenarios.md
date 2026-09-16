@@ -145,11 +145,9 @@ signal that tells them apart: "permanent, going forward, every time" (`template_
 permanent` scenario both use that framing explicitly, the same way transcript `05` already
 disambiguates `template_edit` from `week_update` on the time-scope axis.
 
-**`coach_note`'s own file write has no dedicated simulation assertion**, and this is not being
-closed as a gap. It fires on nearly every turn in every scenario in this library, so it's
-exercised constantly in practice. No scenario's `expect` block happens to check `coach_log.json`
-specifically, but that's a narrower gap than the others were, not an unproven write path. Any
-future scenario touching an ordinary turn already exercises this.
+**`coach_note`'s own file write has a dedicated simulation assertion.** `daily-basic`'s turn 1
+checks `coach_log.json` alongside `profile.json`, closing the one gap this doc used to flag here -
+every action field now has at least one scenario asserting its real write.
 
 This doc is the catalog of record going forward, replacing the ad hoc numbering that grew up
 around individual issue fixes - update it on the next add/remove/renumber, don't let it drift
