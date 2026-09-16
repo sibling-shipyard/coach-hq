@@ -61,9 +61,10 @@ struct CoachHQApp: App {
             Group {
                 switch router.state {
                 case .bootstrapping:
-                    // Blank background while the stored token is verified — prevents the
-                    // empty home skeleton from flashing before routing settles.
-                    WarmInstrument.desk.ignoresSafeArea()
+                    // Same centered Wave as Home's first paint — blank desk was a flash.
+                    WarmPageWait()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(WarmInstrument.desk.ignoresSafeArea())
                 case .active:
                     MainTabView()
                         .environmentObject(router.authManager)

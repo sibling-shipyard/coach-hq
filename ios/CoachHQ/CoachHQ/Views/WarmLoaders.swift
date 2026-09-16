@@ -15,6 +15,10 @@ enum WavePhysics {
     /// Skip the end bars so the circle never kisses the canvas edge.
     static let travelInset = 1
     static let loopDuration: TimeInterval = 5.2
+    /// Four hops per out-and-back loop (`bounceCount` each way).
+    static var hopDuration: TimeInterval { loopDuration / (bounceCount * 2) }
+    /// Wave out / content in. Ease only — never a spring on the wait swap.
+    static let handoffDuration: TimeInterval = 0.22
     /// Frozen Reduce Motion pose — outbound, mid-hop.
     static let reducedMotionT = 0.125
 
@@ -35,6 +39,30 @@ enum WavePhysics {
     struct Bar: Equatable {
         var height: CGFloat
         var wave: CGFloat
+    }
+
+    /// Survives bootstrap → Home remount. A gap longer than a couple frames is a new wait.
+    enum Clock {
+        static var origin: Date?
+        static var lastFrame: Date?
+        static let resumeWindow: TimeInterval = 0.35
+
+        static func reset() {
+            origin = nil
+            lastFrame = nil
+        }
+
+        static func phase(at date: Date) -> Double {
+            if let origin, let lastFrame, date.timeIntervalSince(lastFrame) < resumeWindow {
+                self.lastFrame = date
+                return date.timeIntervalSince(origin)
+                    .truncatingRemainder(dividingBy: WavePhysics.loopDuration)
+                    / WavePhysics.loopDuration
+            }
+            origin = date
+            lastFrame = date
+            return 0
+        }
     }
 
     static func frame(at t: Double) -> Frame {
@@ -65,6 +93,8 @@ enum WavePhysics {
 }
 
 /// Page wait — pebble hopping the bars. Ink on desk, never terracotta.
+/// Clock starts at `t = 0` (left-end hop apex). A remount within ~350ms
+/// (bootstrap → Home) continues the same hop instead of restarting.
 struct WarmWaveLoader: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -72,9 +102,7 @@ struct WarmWaveLoader: View {
         TimelineView(.animation(paused: reduceMotion)) { context in
             let t = reduceMotion
                 ? WavePhysics.reducedMotionT
-                : context.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: WavePhysics.loopDuration)
-                    / WavePhysics.loopDuration
+                : WavePhysics.Clock.phase(at: context.date)
             Canvas { gfx, size in
                 draw(WavePhysics.frame(at: t), into: gfx, size: size)
             }
@@ -151,21 +179,109 @@ struct WarmSignalLoader: View {
 }
 
 /// Centred page wait with optional caption. Replaces a full-screen `ProgressView`.
+/// Fills the parent; the stamp is optically centered on the desk. Caption sits
+/// under the stamp and does not shift it.
 struct WarmPageWait: View {
     var caption: String? = nil
 
     var body: some View {
-        VStack(spacing: 12) {
+        ZStack {
             WarmWaveLoader()
             if let caption {
                 Text(caption)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(WarmInstrument.inkFaint)
+                    .offset(y: WavePhysics.canvasHeight / 2 + 12)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(caption ?? "Loading")
+    }
+}
+
+/// Pure hold gate for page Wave. Signal / pull-to-refresh / `showSpinner: false` skip this.
+enum WarmPageWaitHold {
+    static var hopDuration: TimeInterval { WavePhysics.hopDuration }
+    static var fadeDuration: TimeInterval { WavePhysics.handoffDuration }
+
+    /// Once `shownAt` is set, keep covering until `isWaiting` is false *and* one hop has elapsed.
+    static func shouldCover(isWaiting: Bool, shownAt: Date?, now: Date) -> Bool {
+        if isWaiting { return true }
+        guard let shownAt else { return false }
+        return now.timeIntervalSince(shownAt) < hopDuration
+    }
+
+    static func remainingHold(shownAt: Date, now: Date = Date()) -> TimeInterval {
+        max(0, hopDuration - now.timeIntervalSince(shownAt))
+    }
+}
+
+/// Full-bleed desk overlay. Holds one hop after `isWaiting` becomes false, then eases out.
+struct WarmPageWaitCover: View {
+    var isWaiting: Bool
+    /// Cold-launch Home: show Wave even when cache is already ready on first paint.
+    var holdOnAppear: Bool = false
+    var caption: String? = nil
+
+    @State private var shownAt: Date?
+    @State private var covering = false
+    @State private var didAppear = false
+    @State private var releaseID = 0
+
+    var body: some View {
+        ZStack {
+            if covering {
+                WarmPageWait(caption: caption)
+                    .background(WarmInstrument.desk)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(covering)
+        .animation(.easeInOut(duration: WarmPageWaitHold.fadeDuration), value: covering)
+        .onAppear { handleAppear() }
+        .onChange(of: isWaiting) { _, waiting in
+            applyWaiting(waiting)
+        }
+        .task(id: releaseID) {
+            guard releaseID > 0, covering, !isWaiting, let shownAt else { return }
+            let remaining = WarmPageWaitHold.remainingHold(shownAt: shownAt)
+            if remaining > 0 {
+                try? await Task.sleep(for: .seconds(remaining))
+            }
+            guard !Task.isCancelled else { return }
+            covering = false
+        }
+    }
+
+    private func handleAppear() {
+        if didAppear { return }
+        didAppear = true
+        if isWaiting || holdOnAppear {
+            beginCover()
+            if !isWaiting { scheduleRelease() }
+        }
+    }
+
+    private func applyWaiting(_ waiting: Bool) {
+        if waiting {
+            beginCover()
+            releaseID += 1
+        } else if covering {
+            scheduleRelease()
+        }
+    }
+
+    private func beginCover() {
+        if !covering {
+            shownAt = Date()
+            covering = true
+        }
+    }
+
+    private func scheduleRelease() {
+        releaseID += 1
     }
 }
 

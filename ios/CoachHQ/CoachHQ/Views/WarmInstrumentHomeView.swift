@@ -64,19 +64,18 @@ struct WarmInstrumentHomeView: View {
 
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
-                    } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        WarmPageWait()
-                            .frame(minHeight: 360)
-                    } else if authManager.selectedRepo == nil {
+                    } else if authManager.selectedRepo == nil,
+                              authManager.isSessionReady,
+                              store.isConfigured,
+                              !store.isLoading {
                         repoNotConfiguredState
-                    } else {
+                    } else if authManager.isSessionReady, store.isConfigured, !store.isLoading {
                         emptyState
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
@@ -141,6 +140,9 @@ struct WarmInstrumentHomeView: View {
                 guard store.isConfigured else { return }
                 Task { await store.refresh(showSpinner: false) }
             }
+            .overlay {
+                WarmPageWaitCover(isWaiting: homePageWaiting, holdOnAppear: true)
+            }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {
                     doneButton
@@ -150,6 +152,12 @@ struct WarmInstrumentHomeView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+    }
+
+    /// First paint without snapshots. Pull-to-refresh keeps snapshots and is not a page wait.
+    private var homePageWaiting: Bool {
+        store.snapshots == nil
+            && (!authManager.isSessionReady || !store.isConfigured || store.isLoading)
     }
 
     // MARK: - Widget column

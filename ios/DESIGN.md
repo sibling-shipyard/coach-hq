@@ -101,6 +101,8 @@ Two waits, ink on desk, never terracotta (ADR 0041). Reduce Motion freezes both.
 
 Leave: pull-to-refresh, WidgetKit `.redacted`, onboarding `.skeleton()` (reveal, not wait).
 
+Page Wave sits **screen-centered on the desk** (full-bleed overlay, never a `ScrollView` child) and stays up for **one hop** (~1.3s) even when cache is already warm, then eases out (~220ms). Pull-to-refresh, background `showSpinner: false`, and Signal (`WarmSignalLoader`, busy `WarmPrimary`) are not held.
+
 ## Buttons
 
 One primary, one secondary. Signal in a fixed slot beside the label; the pair is centred. Never overlay a spinner on the words.

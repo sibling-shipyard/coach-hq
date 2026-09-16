@@ -139,14 +139,13 @@ struct CoachChatView: View {
 
     var body: some View {
         Group {
-            if threadsLoading {
-                loadingView
-            } else {
-                continuousLandingView
-            }
+            continuousLandingView
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .overlay {
+            WarmPageWaitCover(isWaiting: threadsLoading, caption: "Loading Coach…")
+        }
         .toast($toast)
         .background(ChatVisibilityProbe { visible in
             Task { @MainActor in
@@ -346,10 +345,6 @@ struct CoachChatView: View {
         .padding(.top, 8)
         .padding(.bottom, keyboardVisible ? 8 : WarmMainDockLayout.dockHeight + 4)
         .background(WarmInstrument.chatSurface)
-    }
-
-    private var loadingView: some View {
-        WarmPageWait(caption: "Loading Coach…")
     }
 
     // MARK: - Messages

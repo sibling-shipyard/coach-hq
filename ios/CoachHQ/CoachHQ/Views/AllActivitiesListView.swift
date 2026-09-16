@@ -32,23 +32,20 @@ struct AllActivitiesListView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                if allActivitiesStore.isLoadingInitial && allActivitiesStore.loadedEntries.isEmpty {
-                    fallbackHeader
-                    loadingState
-                        .padding(.horizontal, 16)
-                        .padding(.top, 24)
-                } else if let loadError = allActivitiesStore.loadError,
-                          allActivitiesStore.loadedEntries.isEmpty {
+                if let loadError = allActivitiesStore.loadError,
+                          allActivitiesStore.loadedEntries.isEmpty,
+                          !allActivitiesStore.isLoadingInitial {
                     fallbackHeader
                     errorState(loadError)
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else if allActivitiesStore.loadedEntries.isEmpty {
+                } else if allActivitiesStore.loadedEntries.isEmpty,
+                          !allActivitiesStore.isLoadingInitial {
                     fallbackHeader
                     emptyState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else {
+                } else if !allActivitiesStore.loadedEntries.isEmpty {
                     ActivityLedgerView(
                         entries: allActivitiesStore.loadedEntries,
                         onSelect: onSelectEntry,
@@ -62,6 +59,11 @@ struct AllActivitiesListView: View {
             .scrollClipDisabled()
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .overlay {
+            WarmPageWaitCover(
+                isWaiting: allActivitiesStore.isLoadingInitial && allActivitiesStore.loadedEntries.isEmpty
+            )
+        }
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar(true)
         .edgeBackSwipe(enabled: true) { dismiss() }
@@ -119,7 +121,7 @@ struct AllActivitiesListView: View {
         }
     }
 
-    // MARK: - Empty / error / loading states
+    // MARK: - Empty / error
 
     private var emptyState: some View {
         WarmCard {
@@ -131,11 +133,6 @@ struct AllActivitiesListView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-    }
-
-    private var loadingState: some View {
-        WarmPageWait()
-            .frame(minHeight: 220)
     }
 
     private func errorState(_ message: String) -> some View {

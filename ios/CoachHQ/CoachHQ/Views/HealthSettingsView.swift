@@ -34,7 +34,7 @@ struct HealthSettingsView: View {
 
                     switch loadState {
                     case .loading:
-                        loadingState
+                        EmptyView()
                     case .failed:
                         failedState
                     case .loaded(let rows) where rows.isEmpty:
@@ -58,6 +58,15 @@ struct HealthSettingsView: View {
             }
             .refreshable { await load() }
             .toast($toast)
+            .overlay {
+                WarmPageWaitCover(
+                    isWaiting: {
+                        if case .loading = loadState { return true }
+                        return false
+                    }(),
+                    caption: "Reading Apple Health…"
+                )
+            }
         }
         .task { await load() }
     }
@@ -127,11 +136,6 @@ struct HealthSettingsView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
         }
-    }
-
-    private var loadingState: some View {
-        WarmPageWait(caption: "Reading Apple Health…")
-            .frame(minHeight: 220)
     }
 
     private var emptyState: some View {

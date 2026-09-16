@@ -61,4 +61,4 @@ File overlap is PR 1 vs everyone. After PR 1 merges, 2–6 are disjoint and may 
 - Shared-element open from pulled card into Detail.
 - You Health / Rage sheets; Detail PRE chip; TextLoader for streamed Coach tokens.
 - Restyling pull-to-refresh or WidgetKit placeholders.
-- Shared Warm control kit (primary, secondary, chip, empty) — #1161, after this stack.
+- Shared Warm chip / empty kit — #1161, after this stack.
