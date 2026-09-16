@@ -13,6 +13,7 @@
 import {
   activityMatches,
   candidateFile,
+  isObject,
   requestedIdParts,
   type ActivityFileEntry,
 } from "../../../_lib/activityLookup.js";
@@ -35,10 +36,6 @@ export interface TodayActivityNote {
 export interface TodayActivityNoteDeps {
   listActivityFiles: () => Promise<ActivityFileEntry[]>;
   readFile: (path: string) => Promise<string | null>;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseJson(raw: string | null): unknown {
