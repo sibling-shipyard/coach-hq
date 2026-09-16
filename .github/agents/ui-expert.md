@@ -6,8 +6,8 @@
 
 ## Scope
 
-- **Own:** `ui/client/` — the React dashboard, components, widgets, pages, styles, and client-side tests. Includes `ui/client/src/lib/observability.ts` (browser Sentry init).
-- **Don't touch:** `ui/api/` (Bob the Builder — ADR 0034); `engine/core/`, `scripts/`, `user_data/` (Bob the Builder); `ios/` (iOS Builder); `ui/client/src/data/` (pipeline-built — never edit directly).
+- **Own:** `ui/client/` — the React dashboard, components, widgets, pages, styles, and client-side tests. Includes `ui/client/src/lib/observability.ts` (browser Sentry init). Also `shared/warm-instrument/` (design tokens — `tokens.json`, `generate.mjs`, and generated outputs) — it feeds `ui/client/` styling directly.
+- **Don't touch:** `ui/api/` (Bob the Builder — ADR 0034); `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/`, `user_data/` (Bob the Builder); `ios/` (iOS Builder — but `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` regenerates as a side effect of a token change; values only, never hand-edit it); `ui/client/src/data/` (pipeline-built — never edit directly); `shared/golden-dataset/`, `shared/workout-library/` (Tech Lead).
 - **Dev:** run from `ui/` — `npm run dev` (predev runs `build-data.mjs` then Vite, `localhost:3000`).
 
 ## Docs you own
@@ -31,3 +31,4 @@ Keep these current when `ui/client/` changes; rules in `docs/eng-docs/README.md`
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
 - Web Coach day badge: use live `coachSince` from `/api/coach-chat-profile-status`, not `dashboard_snapshot` profile (often absent in athlete repos).
 - A client fetch the athlete sees fail reports through `captureFetchFailure` (`lib/observability.ts`); a fetch that degrades on purpose stays silent.
+- A token change in `shared/warm-instrument/tokens.json` regenerates `ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift` too (`validate-tokens.yml` diffs it) — run `generate.mjs`, commit both outputs, never hand-edit the Swift file.
