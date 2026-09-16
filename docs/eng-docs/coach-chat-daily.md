@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
 
 ## Context
 
@@ -326,8 +326,9 @@ on the same thread self-correct via the staleness toast instead of silently dive
 
 ## Deferred
 
-- P2: no token-level streaming — replies arrive whole, not word-by-word. Tracked in issue #270
-  (the structured-JSON response schema is the real complication, not just wiring SSE).
+- P2: no token-level streaming — replies arrive whole, not word-by-word. #870 must stream plain
+  reply text separately from validated structured actions and terminal state behind `LlmAdapter`
+  for Gemini/OpenRouter, with web/iOS cancellation, retry, and disconnect/reconciliation proof.
 - P2: inline chips/highlights ("engine load" pills) have no backend data — Gemini's response
   schema has no field for them. Unbuilt, needs product design.
 - P2: no server-side reuse/dedup when two tabs/devices greet at almost the same instant on an

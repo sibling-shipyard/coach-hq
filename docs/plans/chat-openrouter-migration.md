@@ -1,6 +1,6 @@
 # OpenRouter migration
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-11 · Issue: #713
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-15 · Issue: #713
 
 ## Context
 
@@ -171,5 +171,8 @@ investigation concluded stay on direct `gemini-pro-latest` for now.
 
 - Choosing a non-Gemini production model on measured quality — `chat-coach-bench.md`, P1.
 - Leaving `gemini-pro-latest` on the **chat** path (#668). It needs the bench; the pilot does not.
-- Streaming responses (#270), history compaction (#572), model routing and shadow comparisons.
+- Reply-text streaming (#870: plain reply text separately from validated structured actions and
+  terminal state behind `LlmAdapter` for Gemini/OpenRouter; web/iOS cancellation, retry, and
+  disconnect/reconciliation proof required), history compaction (#572), model routing and shadow
+  comparisons.
 - Cache tuning and sticky session ids until production usage shows a cost or latency problem.
