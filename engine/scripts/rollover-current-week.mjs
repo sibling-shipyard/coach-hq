@@ -19,35 +19,14 @@ import { fileURLToPath } from "node:url";
 
 import { ledgerDir, repoRoot } from "../lib/repo-layout.mjs";
 import { parseCurrentWeek } from "../lib/current-week.mts";
+import { buildRolloverPlaceholder, needsRollover } from "../lib/currentWeekRollover.mts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
 
-// Self-contained copies, same reasoning as coachWeekFiles.ts's own local date helpers - engine/
-// doesn't export these from current-week.mts, and this script has no other dependency on that
-// file's internals.
-function addDays(dateString, days) {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function mondayOnOrBefore(dateString) {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  const day = date.getUTCDay() || 7; // Sunday is 0 -> treat as 7
-  return addDays(dateString, 1 - day);
-}
-
-function getIsoWeekId(dateString) {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - day);
-  const isoYear = date.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const daysSinceYearStart = Math.floor((date.getTime() - yearStart.getTime()) / 86_400_000) + 1;
-  const week = Math.ceil(daysSinceYearStart / 7);
-  return `${isoYear}-W${String(week).padStart(2, "0")}`;
-}
+// Re-exported for this script's own test file - the decision logic itself now lives in
+// currentWeekRollover.mts, shared with (eventually) the coach-chat Vercel function.
+export { buildRolloverPlaceholder, needsRollover };
 
 function todayInTimeZone(timeZone, now) {
   try {
@@ -55,48 +34,6 @@ function todayInTimeZone(timeZone, now) {
   } catch {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC" }).format(now);
   }
-}
-
-/**
- * A live week rolls over once it's past its one-day grace period (parseCurrentWeek's own
- * "stale" availability). A placeholder week's availability is always "placeholder" regardless of
- * its dates, never "stale" - so a placeholder rolls over on a direct date check instead: once
- * today falls past its own end_date.
- */
-export function needsRollover(runtime, todayDateStr) {
-  const data = runtime.data;
-  if (!data) return false;
-  if (data.data_status === "live" && runtime.availability.status === "stale") return true;
-  if (data.data_status === "placeholder" && todayDateStr > data.week.end_date) return true;
-  return false;
-}
-
-export function buildRolloverPlaceholder(timezone, todayDateStr, now) {
-  const startDate = mondayOnOrBefore(todayDateStr);
-  const endDate = addDays(startDate, 6);
-  const days = Array.from({ length: 7 }, (_, i) => ({
-    date: addDays(startDate, i),
-    intent: null,
-    coach_note: null,
-    sessions: [],
-  }));
-  return {
-    schema_version: 1,
-    data_status: "placeholder",
-    timezone,
-    week: {
-      id: getIsoWeekId(startDate),
-      start_date: startDate,
-      end_date: endDate,
-      focus: null,
-      guardrails: [],
-    },
-    coach_read: null,
-    days,
-    updated_at: now.toISOString(),
-    updated_by: "rollover",
-    trace_id: "rollover",
-  };
 }
 
 export function main(repoRootPath = REPO_ROOT, now = new Date()) {
