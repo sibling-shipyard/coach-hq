@@ -1,6 +1,6 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-14
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-16
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
@@ -80,6 +80,9 @@ activity JSON's `description` field. `DescriptionParser` decides what the text i
   gate and today it is badminton alone. The editor is open to every sport, so the gate is passed
   explicitly into `DescriptionParser.parseRawDescription(_:allowMatchParsing:)` — on any other
   sport the same text is a note, because match history is canonical for the win rate.
+- Each saved match carries `historyFile`, the exact committed hist filename (ADR 0049). A resave
+  replaces only that file's match. Older entries without a file key remain readable and are not
+  overwritten merely because they share a date.
 - Anything else is a plain free-text note. It is stored verbatim and writes no match history.
 - Either way the text reaches Coach through the existing `description` projection.
 
