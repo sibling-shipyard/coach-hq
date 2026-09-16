@@ -392,14 +392,37 @@ export async function loadTurnState(
   // listActivityFiles in that case, so an ordinary (non-sync) thread costs nothing extra here.
   // Re-read fresh every turn, on purpose - never cached across the conversation - so a note the
   // athlete writes mid-thread shows up starting the very next reply.
+  //
+  // Both deps below are soft reads (ADR 0032, #1078): a GitHub fault or a bad response here has
+  // nothing to do with whether an activity note exists, so it must fail open - degrade to "no
+  // note" - rather than break the whole reply turn. Same contract as getHeadShaOrNull and every
+  // other soft read in this file (404 quiet; any other fault captures once then degrades).
+  // Inlined at each site, same discipline as the TEMPLATES_MANIFEST/CURRENT_WEEK soft reads below
+  // - do not add a shared getFileRawOrNull/listDirectoryOrNull.
   const todayActivityNotes = await loadTodayActivityNotes(request.priorMessages, today, {
     listActivityFiles: async () => {
-      const listing = await listDirectory(repo, ACTIVITIES_HIST_DIR, token);
-      return (listing ?? [])
-        .filter((entry) => entry.type === "file")
-        .map((entry) => ({ name: entry.name, path: entry.path }));
+      try {
+        const listing = await listDirectory(repo, ACTIVITIES_HIST_DIR, token);
+        return (listing ?? [])
+          .filter((entry) => entry.type === "file")
+          .map((entry) => ({ name: entry.name, path: entry.path }));
+      } catch (err: unknown) {
+        // listDirectory already resolves a 404 to null internally - anything that reaches this
+        // catch is a real fault (5xx, network, auth), never a missing-directory quiet case.
+        await captureServerException(err);
+        return [];
+      }
     },
-    readFile: (path) => getFileRaw(repo, path, token),
+    readFile: async (path) => {
+      try {
+        return await getFileRaw(repo, path, token);
+      } catch (err: unknown) {
+        const status = (err as { status?: number }).status;
+        if (status === 404) return null;
+        await captureServerException(err);
+        return null;
+      }
+    },
   });
 
   return {
