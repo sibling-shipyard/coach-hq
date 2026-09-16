@@ -68,6 +68,12 @@ class TestBuildEvent(unittest.TestCase):
         self.assertNotIn("athlete_id", event["tags"])
         self.assertNotIn("user", event)
 
+    def test_rollover_event_keeps_the_operation_distinct(self):
+        event = event_for({**FAILED_RUN_ENV, "SYNC_OPERATION": "rollover"})
+        self.assertEqual(event["transaction"], "rollover.workflow")
+        self.assertEqual(event["tags"]["operation"], "rollover")
+        self.assertEqual(event["exception"]["values"][0]["type"], "RolloverWorkflowFailure")
+
     def test_sends_no_credential_from_the_surrounding_environment(self):
         # ADR 0032's scrub rule. The event is built field by field, so a token in the job's
         # environment has no path into it - this is the guard that keeps it that way.
