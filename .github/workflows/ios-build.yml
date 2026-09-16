@@ -13,13 +13,45 @@ on:
     branches: [main]
     paths:
       - 'ios/**'
+      - '.github/workflows/ios-build.yml'
+      - 'kdb/scripts/stack_ci_gate.py'
   pull_request:
     paths:
       - 'ios/**'
+      - '.github/workflows/ios-build.yml'
+      - 'kdb/scripts/stack_ci_gate.py'
   workflow_dispatch: {}
 
+concurrency:
+  group: ios-build-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  stack-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      run_ios: ${{ steps.gate.outputs.run_ios }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Self-test stack gate
+        run: python3 kdb/scripts/stack_ci_gate.py --self-test
+      - id: gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 kdb/scripts/stack_ci_gate.py --head-ref "${{ github.head_ref }}" --paths 'ios/**' --output-env run_ios
+
   build:
+    needs: stack-gate
+    if: >-
+      always() &&
+      (github.event_name != 'pull_request' ||
+       (needs.stack-gate.result == 'success' && needs.stack-gate.outputs.run_ios == 'true'))
     runs-on: macos-26
     defaults:
       run:

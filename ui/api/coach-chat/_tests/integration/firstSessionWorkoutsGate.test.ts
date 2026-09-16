@@ -4,16 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // real athlete repo): generateFirstSessionWorkoutsAfterCompletion must never fire for an
 // already-established athlete, only on the genuine false->true profileComplete transition.
 
-const { commitFilesAtomic, captureServerException } = vi.hoisted(() => ({
+const { commitFilesAtomic, captureServerException, captureServerMessage } = vi.hoisted(() => ({
   commitFilesAtomic: vi.fn(async (_writes: { path: string; content?: string }[]) => ({
     commitSha: "commit-sha",
   })),
   captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+  captureServerMessage: vi.fn(async (_message: string, _options?: unknown) => ({ sent: true })),
 }));
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
-  return { ...original, captureServerException };
+  return { ...original, captureServerException, captureServerMessage };
 });
 
 // A manifest that does NOT list the benchmark id - the exact real-world state of every
@@ -84,6 +85,7 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
   beforeEach(() => {
     commitFilesAtomic.mockClear();
     captureServerException.mockClear();
+    captureServerMessage.mockClear();
     getFileRaw.mockClear();
     buildBenchmarkSpec.mockReset();
     buildBenchmarkSpec.mockImplementation(originalHolder.fn!);
@@ -301,6 +303,14 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
         expect.anything(),
         expect.stringContaining("_manifest.json"),
         expect.anything(),
+      );
+      expect(captureServerMessage).toHaveBeenCalledTimes(1);
+      expect(captureServerMessage).toHaveBeenCalledWith(
+        expect.stringContaining("gave up after 3 failed attempts"),
+        expect.objectContaining({
+          level: "error",
+          tags: expect.objectContaining({ outcome: "gave_up", attempts: 3 }),
+        }),
       );
       const writes = commitFilesAtomic.mock.calls[0][0];
       const parsed = JSON.parse(writes[0].content!);

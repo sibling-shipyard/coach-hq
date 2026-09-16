@@ -180,19 +180,37 @@ class GitHubAuthManager: ObservableObject {
     }
 
     /// Whether `coach-<login>` exists on GitHub (repo created, install may still be pending).
-    func coachRepoExists(for login: String) async -> Bool {
-        guard let token = await validToken() else { return false }
+    /// `nil` = check failed (network/token issue), not confirmed absence — same contract as
+    /// `coachAppInstalled`.
+    func coachRepoExists(for login: String) async -> Bool? {
+        guard let token = await validToken() else { return nil }
         let repoFull = "\(login)/coach-\(login)"
-        guard let url = URL(string: "https://api.github.com/repos/\(repoFull)") else { return false }
+        guard let url = URL(string: "https://api.github.com/repos/\(repoFull)") else { return nil }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 
+        let operationID = UUID()
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
+            let (_, response) = try await performDataRequest(request)
+            guard let http = response as? HTTPURLResponse else { return nil }
+            if http.statusCode == 200 { return true }
+            if http.statusCode == 404 { return false }
+            DiagnosticsManager.capture(
+                message: "coachRepoExists: repos API failed",
+                severity: .fault,
+                operation: "github.auth.coach_repo_exists",
+                operationID: operationID,
+                metadata: ["http_status": String(http.statusCode)]
+            )
+            return nil
         } catch {
-            return false
+            DiagnosticsManager.capture(
+                error: error,
+                operation: "github.auth.coach_repo_exists",
+                operationID: operationID
+            )
+            return nil // network failure — unknown state, not confirmed absence
         }
     }
 
@@ -427,6 +445,13 @@ class GitHubAuthManager: ObservableObject {
         if status == errSecItemNotFound { return nil } // genuinely no item saved - expected, not an error
         guard status == errSecSuccess else {
             print("[GitHubAuthManager] Keychain read failed unexpectedly: \(status) for key \(key)")
+            DiagnosticsManager.capture(
+                message: "Keychain token read failed",
+                severity: .fault,
+                operation: "github.auth.keychain",
+                operationID: UUID(),
+                metadata: ["os_status": String(status), "step": "read"]
+            )
             return nil
         }
         guard let data = result as? Data else { return nil }
