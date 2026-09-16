@@ -264,7 +264,7 @@ activity files are not enriched.
 The dashboard snapshot copies canonical `match_history.json` and adds `history_file` to each
 projected activity. Web and widget readers use structured games, joining keyed matches by that
 exact filename. Python analytics uses the same key; old date-only entries borrow activity
-metadata only when the date has one unclaimed match and one unclaimed activity (ADR 0049).
+metadata only when the date has one unclaimed match and one unclaimed activity (ADR 0050).
 
 A run that **fails** rebuilds none of those, so `home.sync.timestamp` never advances and
 `refreshAfterSync(since:)` polls until it gives up. Such a run commits `gen/sync_failure.json`

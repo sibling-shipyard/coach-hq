@@ -1,4 +1,4 @@
-/** Read the structured match history written by iOS (ADR 0013, ADR 0049). */
+/** Read the structured match history written by iOS (ADR 0013, ADR 0050). */
 import { type Activity, getTrainingCategory } from "./activities";
 
 export interface ParsedGame {
