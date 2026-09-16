@@ -1,5 +1,12 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { captureGeminiFailure } from "../../_lib/sentry.js";
+import {
+  activityMatches,
+  candidateFile,
+  isObject,
+  requestedIdParts,
+  type ActivityFileEntry,
+} from "../../_lib/activityLookup.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import type { LlmAdapter, LlmJsonSchema } from "../../_lib/llmClient.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
@@ -75,10 +82,7 @@ export interface LatestCoachMessageFile {
   message: LatestCoachMessage | null;
 }
 
-export interface ActivityFileEntry {
-  name: string;
-  path: string;
-}
+export type { ActivityFileEntry };
 
 export interface ProactiveContext {
   activity_batch: Array<{
@@ -332,10 +336,6 @@ export interface CoachMessageResult {
   shouldNotify: boolean;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 export function parseActivityHistoryTree(payload: unknown): ActivityFileEntry[] {
   if (!isObject(payload)) {
     throw new CoachMessageError("GitHub activity tree is malformed", 502);
@@ -558,33 +558,6 @@ export function parseLatestMessageFile(raw: string | null): LatestCoachMessageFi
     throw new CoachMessageError("latest_message.json contains an invalid message", 500);
   }
   return { schema_version: 1, message };
-}
-
-function requestedIdParts(activityId: string): {
-  source: string;
-  localId: string;
-} {
-  const separator = activityId.indexOf(":");
-  return {
-    source: activityId.slice(0, separator),
-    localId: activityId.slice(separator + 1),
-  };
-}
-
-function candidateFile(entry: ActivityFileEntry, localId: string): boolean {
-  return (
-    entry.path.startsWith("user_data/activities/hist/") && entry.name.endsWith(`_${localId}.json`)
-  );
-}
-
-function activityMatches(
-  value: unknown,
-  source: string,
-  localId: string,
-): value is Record<string, unknown> {
-  if (!isObject(value) || value.source !== source) return false;
-  const storedId = value.id ?? value.id_str;
-  return String(storedId) === localId;
 }
 
 function projectHrZones(value: unknown): Record<string, unknown> | null {
