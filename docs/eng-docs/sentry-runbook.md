@@ -336,6 +336,14 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
   first — until then they reach neither this boundary nor the envelope.
 - **Per-widget React error boundaries** and explicit iOS `enableCrashHandler` /
   `enableAutoSessionTracking` — deferred architecture / SDK-default clarity, not capture gaps.
+- **`rollover.user.yml`'s own run failures.** Unlike `sync.user.yml`, it has no `notify_sync_failure.py`
+  step, no stamped `SENTRY_DSN`, and writes no `gen/sync_failure.json` — a failed nightly rollover
+  is visible only in the repo's Actions tab.
+- **A listed hist file's `.notFound` during iOS dedup (ADR 0035's fail-closed read).**
+  `GitHubAPIClient.shouldCapture` and `HealthKitSyncManager`'s outer catch both exclude
+  `GitHubAPIError.notFound` — tuned for the common benign case (no hist directory yet), which also
+  swallows the newer case where a *listed* file 404s and the whole sync must fail. A genuine
+  network failure on the same read path is still captured.
 
 And this is error monitoring, not product analytics. It says what broke, never what athletes do —
 a different tool and a different question. See `ops-observability.md` § What this does not cover.
