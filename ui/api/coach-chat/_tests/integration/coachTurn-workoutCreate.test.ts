@@ -122,6 +122,55 @@ describe("coach turn stages - workout_create/workout_remove (A2)", () => {
     expect(JSON.parse(content).template_ids).toEqual(["existing_routine", "upper_body_pump"]);
   });
 
+  // Mirrors the reps-type test above but with a timed exercise, so exercise-type handling
+  // (exerciseTypeFieldViolation's duration_secs/reps split in workoutSchema.ts) is exercised
+  // through this real commit pipeline, not just at the unit level.
+  it("commits a workout_create with a timed-type exercise, alongside the manifest update", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        reply: {
+          reply: "Here's a core session.",
+          workout_create: {
+            title: "Plank Focus",
+            workout_type: "calisthenics",
+            phases: [
+              {
+                name: "Main",
+                exercises: [
+                  {
+                    name: "Plank hold",
+                    type: "timed",
+                    duration_secs: 45,
+                    sets: 3,
+                    form_cue: "Keep hips level with shoulders.",
+                    why: "Core stability.",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }) as never,
+    );
+
+    expect(turn.droppedActions).toEqual([]);
+    expect(turn.optionalWrites.map((write) => write.path)).toEqual(
+      expect.arrayContaining([
+        "user_data/activities/workout_plans/templates/plank_focus.json",
+        "user_data/activities/workout_plans/templates/_manifest.json",
+      ]),
+    );
+    const manifestWrite = turn.optionalWrites.find((write) =>
+      write.path.endsWith("_manifest.json"),
+    );
+    const manifestContent = await (
+      manifestWrite as { resolve?: () => Promise<string> }
+    ).resolve?.();
+    // Static FileWrite, not resolved - content is just there directly.
+    const content = manifestContent ?? (manifestWrite as unknown as { content: string }).content;
+    expect(JSON.parse(content).template_ids).toEqual(["existing_routine", "plank_focus"]);
+  });
+
   it("commits a workout_remove on an ordinary turn, deleting the file and the manifest entry", async () => {
     const turn = await buildTurnWrites(
       baseTurn({

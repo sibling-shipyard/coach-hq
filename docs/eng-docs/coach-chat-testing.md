@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
 
 ## Context
 
@@ -253,9 +253,11 @@ AGENTS.md's stale-`node_modules` note; `rm -rf node_modules && npm ci` fixes it.
 worktree when done (`git worktree remove /tmp/wt-<brief> --force`).
 
 **Picking a repo.** Any athlete repo already cloned locally works - check
-`/home/skanda_suresh/Projects/coach-<name>` for what exists. `--athlete skanda`/`--athlete akash`
-are pre-registered shortcuts in `run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map; anything
-else needs `--repo <owner>/<name> --local-path <clone path>` spelled out. `coach-skanda-testing`
+`/home/skanda_suresh/Projects/coach-<name>` for what exists. `--athlete skanda`, `--athlete
+akash`, `--athlete date2022`, `--athlete prateek`, and `--athlete shreyas` are the 5 real athlete
+repos pre-registered as shortcuts in `run-manual-coach-chat-test.ts`'s `ATHLETE_REPOS` map;
+anything else needs `--repo <owner>/<name> --local-path <clone path>` spelled out.
+`coach-skanda-testing`
 (`skanda-testing/coach-skanda-testing`) is the **one** repo explicitly authorized to reset/wipe
 freely - every other real athlete repo has real personal data and should only ever get new scratch
 branches, never a reset or a touch to `main`.

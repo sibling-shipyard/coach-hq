@@ -22,6 +22,7 @@ import {
   type CurrentWeekSessionDiscipline,
   type CurrentWeekSessionPriority,
 } from "../current-week.bundle.js";
+import { needsRollover, buildRolloverPlaceholder } from "../current-week-rollover.bundle.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 
@@ -110,6 +111,24 @@ export function assertCurrentWeekCommitReady(content: string, now = new Date()):
   }
   return content;
 }
+
+/**
+ * ADR 0049: lazy same-turn rollover check. Wraps needsRollover (engine/lib/currentWeekRollover.mts,
+ * #1105 track C1) with this file's own read discipline - a missing or malformed file parses to a
+ * null CurrentWeekRuntime the exact same way assertCurrentWeekCommitReady's JSON.parse would, and
+ * needsRollover already treats a null runtime.data as "nothing to roll over," so an unreadable
+ * file just means no rollover this turn, never a thrown error.
+ */
+export function currentWeekNeedsRollover(
+  content: string | null,
+  todayDateStr: string,
+  now: Date,
+): boolean {
+  const runtime = parseCurrentWeek(parseJsonOrNull(content), now);
+  return needsRollover(runtime, todayDateStr);
+}
+
+export { buildRolloverPlaceholder };
 
 // engine/lib/current-week.mts doesn't export its own date helpers (addDays/getIsoWeekId are
 // private to the validator) - small local copies, same logic, so this file stays self-contained
