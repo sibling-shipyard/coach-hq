@@ -101,7 +101,7 @@ Two waits, ink on desk, never terracotta (ADR 0041). Reduce Motion freezes both.
 
 Leave: pull-to-refresh, WidgetKit `.redacted`, onboarding `.skeleton()` (reveal, not wait).
 
-Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Delete that plan on the last PR.
+Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
 
 ---
 
