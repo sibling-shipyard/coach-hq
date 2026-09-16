@@ -50,7 +50,7 @@ M1's plugin output must persist before M2's badminton analytics contract is judg
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | 1 | M0 | P1 · Run engine script suites and UI build in CI/local gate. | plan PR | `checks.conf`, `platform-tests.yml`, `ui-tests.yml` | Tech Lead | 6 | Existing 38 Node and 33 Python tests plus UI build run. |
-| 2 | M1 | P1 · Build snapshot after week updates and trigger on profile/workout writes. | PR 1 | `sync.user.yml`, `engine/scripts/sync-workflow.test.mjs` | Bob | 6 | Both workflow paths have week parity; file-only pushes rebuild. |
+| 2 | M1 | P1 · Build snapshot after week updates and trigger on profile/workout writes. | PR 1 | `sync.user.yml`, `engine/scripts/sync-workflow.test.mjs`, `ios-sync.md`, this plan | Bob + Tech Lead docs | 6 | Both workflow paths have week parity; file-only pushes rebuild. |
 | 3 | M1 | P1 · Run rollover daily without committing on a no-op day. | PR 2 | scheduled workflow, engine tests | Bob | 6 | Aged week advances; current week causes no commit. |
 | 4 | M1 | P1 · Carve the new scheduled workflow into the skeleton template. | PR 3 | `carve-skeleton.mjs`, platform tests | Tech Lead | 5, 6 | Skeleton stamp includes the rollover workflow; carve test asserts it lands in output. |
 | 5 | M1 | P1 · Commit plugin analytics and remove obsolete output. | PR 4 | `sync.user.yml`, engine tests | Bob | 6 | Enabled, disabled, and empty-session trees are correct. |
