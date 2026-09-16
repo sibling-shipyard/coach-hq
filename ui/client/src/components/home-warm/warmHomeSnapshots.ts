@@ -828,8 +828,16 @@ export function buildWidgetSnapshotsFile(
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
   coachMessage?: CoachMessageSnapshot,
+  matchHistory?: unknown,
 ): WidgetSnapshotsFile {
-  const computedHome = buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode);
+  const computedHome = buildWarmHomeSnapshots(
+    activities,
+    ledger,
+    syncStatus,
+    contract,
+    dataMode,
+    matchHistory,
+  );
   const home: WarmHomeSnapshots = coachMessage ? { ...computedHome, coachMessage } : computedHome;
 
   return {
