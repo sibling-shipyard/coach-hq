@@ -293,7 +293,7 @@ that data.
   absent/malformed), Fitness Baseline, Active Injury Flags, Coaching Priorities, Learned
   Patterns, Today's Activity Notes. The last is read fresh outside the cached nine-file batch
   above, omitted when there's no same-day synced activity or its note is empty - see
-  [`chat-coach-message.md`](chat-coach-message.md#reply-turn-notes-gap-and-the-fix).
+  [`coach-chat-message.md`](coach-chat-message.md#reply-turn-notes-gap-and-the-fix).
 - **`renderQuestContext()`** — Current Season, Main Quest, Side Quests (progress computed
   per-quest, scoped to the current season and, for `weekly_frequency` quests, the current ISO
   week), Weekly Targets, Milestones (from `progressions.json`).
