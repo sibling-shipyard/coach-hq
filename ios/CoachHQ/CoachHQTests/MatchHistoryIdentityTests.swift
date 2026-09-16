@@ -43,19 +43,24 @@ final class MatchHistoryIdentityTests: XCTestCase {
         XCTAssertEqual(try roundTrip(history), history)
     }
 
-    func testSoleLegacyDateRowUpgradesAndRetainsLegacyActivityID() throws {
-        var legacy = try session("13-21")
-        legacy.activityId = 42
-        var history = MatchHistory(version: 1, sessions: [legacy])
+    func testSoleLegacyRowSurvivesAnotherSameDayMatchSaveAndResave() throws {
+        var legacyMorning = try session("13-21")
+        legacyMorning.activityId = 42
+        var history = MatchHistory(version: 1, sessions: [legacyMorning])
+        let eveningFile = "hk_2026-09-16_evening.json"
 
-        history.upsert(try session("21-18"), historyFile: "2026-09-16_080000_42.json")
+        history.upsert(try session("21-18"), historyFile: eveningFile)
 
-        XCTAssertEqual(history.sessions.count, 1)
-        XCTAssertEqual(history.sessions[0].historyFile, "2026-09-16_080000_42.json")
-        XCTAssertEqual(history.sessions[0].activityId, 42)
-        XCTAssertEqual(history.sessions[0].summary.wins, 1)
-        history.upsert(try session("21-15"), historyFile: "2026-09-16_080000_42.json")
-        XCTAssertEqual(history.sessions[0].activityId, 42)
+        XCTAssertEqual(history.sessions.count, 2)
+        XCTAssertEqual(history.sessions.filter { $0.historyFile == nil }, [legacyMorning])
+        XCTAssertEqual(history.sessions.first { $0.historyFile == eveningFile }?.summary.wins, 1)
+        XCTAssertNil(history.sessions.first { $0.historyFile == eveningFile }?.activityId)
+
+        history.upsert(try session("21-15"), historyFile: eveningFile)
+
+        XCTAssertEqual(history.sessions.count, 2)
+        XCTAssertEqual(history.sessions.filter { $0.historyFile == nil }, [legacyMorning])
+        XCTAssertEqual(history.sessions.first { $0.historyFile == eveningFile }?.games.first?.scoreAgainst, 15)
     }
 
     func testSeveralLegacyRowsOnSameDateArePreserved() throws {

@@ -99,13 +99,9 @@ struct MatchHistory: Codable, Equatable {
     mutating func upsert(_ session: MatchSession, historyFile: String) {
         var keyedSession = session
         keyedSession.historyFile = historyFile
-        let sameDate = sessions.indices.filter { sessions[$0].date == session.date }
-        let exactMatch = sessions.firstIndex { $0.historyFile == historyFile }
-        // A date-only row can be upgraded only when no other row shares its date.
-        // With several same-day rows, preserve them rather than guessing an identity.
-        let legacyMatch = sameDate.count == 1 && sessions[sameDate[0]].historyFile == nil
-            ? sameDate[0] : nil
-        if let index = exactMatch ?? legacyMatch {
+        // A date cannot prove which committed hist file an unkeyed row names.
+        // Preserve unkeyed rows until their committed history file is known.
+        if let index = sessions.firstIndex(where: { $0.historyFile == historyFile }) {
             keyedSession.activityId = keyedSession.activityId ?? sessions[index].activityId
             sessions[index] = keyedSession
         } else {
