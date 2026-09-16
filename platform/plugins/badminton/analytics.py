@@ -35,8 +35,8 @@ ROOT_MATCH_DATA_PATH = REPO_DIR / "badminton_match_data.json"
 OUTPUT_PATH = gen_dir(REPO_DIR) / "badminton_analytics_snapshot.json"
 
 
-def load_match_history() -> dict[str, dict]:
-    """Load match history from canonical match_history.json or legacy fallbacks, keyed by YYYY-MM-DD."""
+def load_match_history() -> list[dict]:
+    """Load canonical or legacy match records without collapsing same-day sessions."""
     history_file = None
     if CANONICAL_MATCH_HISTORY_PATH.exists():
         history_file = CANONICAL_MATCH_HISTORY_PATH
@@ -46,25 +46,17 @@ def load_match_history() -> dict[str, dict]:
         history_file = LEGACY_MATCH_DATA_PATH
 
     if not history_file:
-        return {}
+        return []
 
     try:
         raw_data = json.loads(history_file.read_text())
     except (json.JSONDecodeError, OSError):
-        return {}
+        return []
 
-    by_date = {}
-    if isinstance(raw_data, dict) and "sessions" in raw_data:
-        for s in raw_data["sessions"]:
-            date = s.get("date")
-            if date:
-                by_date[date] = s
-    elif isinstance(raw_data, list):
-        for s in raw_data:
-            date = s.get("date")
-            if date:
-                by_date[date] = s
-    return by_date
+    entries = raw_data.get("sessions", []) if isinstance(raw_data, dict) else raw_data
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if isinstance(entry, dict) and entry.get("date")]
 
 
 def load_badminton_activities() -> list[dict]:
@@ -83,6 +75,7 @@ def load_badminton_activities() -> list[dict]:
         if category not in BADMINTON_CATEGORIES:
             continue
 
+        data["_history_file"] = fpath.name
         data["_category"] = category
         data["_date"] = (data.get("start_date_local") or "")[:10]
         activities.append(data)
@@ -91,23 +84,47 @@ def load_badminton_activities() -> list[dict]:
 
 
 def build_sessions(
-    activities: list[dict], match_history_map: dict[str, dict]
+    activities: list[dict], match_history: list[dict]
 ) -> list[dict]:
-    """Build session records with ranked/all game lists from structured match_history.json.
+    """Build one session per structured match record; skip records without games.
 
-    Dates without structured games (canonical or legacy matches) are skipped.
+    Keyed records join only their exact hist basename. Date-only records get
+    metadata only when one legacy record and one unclaimed activity share a date.
+    Ambiguous or missing associations retain the games with default metadata.
     """
     sessions = []
-    activities_by_date = {act["_date"]: act for act in activities}
-    all_dates = sorted(set(activities_by_date.keys()) | set(match_history_map.keys()))
+    activities_by_file = {
+        act["_history_file"]: act for act in activities if act.get("_history_file")
+    }
+    claimed_files = {entry["historyFile"] for entry in match_history if entry.get("historyFile")}
+    unclaimed_by_date = defaultdict(list)
+    for act in activities:
+        if act.get("_history_file") not in claimed_files:
+            unclaimed_by_date[act["_date"]].append(act)
+    legacy_count = defaultdict(int)
+    for entry in match_history:
+        if not entry.get("historyFile"):
+            legacy_count[entry["date"]] += 1
 
-    for date in all_dates:
-        act = activities_by_date.get(date, {})
+    matches = []
+    for entry in match_history:
+        date = entry["date"]
+        history_file = entry.get("historyFile")
+        act = {}
+        if history_file:
+            act = activities_by_file.get(history_file, {})
+        elif legacy_count[date] == 1 and len(unclaimed_by_date[date]) == 1:
+            act = unclaimed_by_date[date][0]
+        matches.append((entry, act))
+
+    # Use activity time within a day; unassociated records retain source order.
+    matches.sort(key=lambda pair: (pair[0]["date"], pair[1].get("start_date_local") or ""))
+    for match_entry, act in matches:
+        date = match_entry["date"]
         category = act.get("_category", "Badminton")
         avg_hr = act.get("average_heartrate")
         act_name = act.get("name", "Badminton Session")
 
-        match_entry = match_history_map.get(date)
         ranked_games = []
         friendly_games = []
 
