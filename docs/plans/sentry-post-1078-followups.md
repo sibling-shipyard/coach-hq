@@ -4,12 +4,12 @@
 
 **Goal:** Close the leftover silent/soft paths after #1078, settle Python Sentry scope, and fix the few **product** bugs the same audit hit (not just more capture).
 
-**End state:** Soft GitHub file reads never look like “missing file” on a 5xx; remaining P1 capture/tag gaps closed; Python scope ADR exists; PY7 DSN audit noted; plan deleted on finish.
+**End state:** Soft GitHub file reads never look like “missing file” on a 5xx; remaining P1 capture/tag gaps closed; Python scope ADR exists; plan deleted on finish.
 
 ```mermaid
 flowchart LR
   M1["M1 Soft-null + give-up tag"] --> M2["M2 Client + iOS polish"]
-  M1 --> M3["M3 Python ADR + docs + PY7"]
+  M1 --> M3["M3 Python ADR + doc fix"]
   M2 --> M4["M4 Finish: delete plan"]
   M3 --> M4
 ```
@@ -39,10 +39,9 @@ These showed up while hunting coverage. **In stack** = product correctness that 
 ## REC defaults
 
 1. Soft reads at the three `coachTurn.ts` sites mirror `getHeadShaOrNull` in place (404 quiet / else capture once / null). **Do not** add `getFileRawOrNull`.
-2. Collapse iOS activity-sync to **one** operation (prefer `healthkit.activity_sync.post` + metadata, skip second `coach.chat.request` for that verb — or the reverse; pick one in PR3).
-3. `coachRepoExists` matches `coachAppInstalled`: return `Bool?`, `nil` = unknown (with capture), not “confirmed absent.”
-4. Python ADR **before** any PY1–5 raises-for-Sentry work. Prefer extend Sync envelope after raises (no new `sentry_sdk` package yet).
-5. Source maps / dSYMs stay parked.
+2. `coachRepoExists` matches `coachAppInstalled`: return `Bool?`, `nil` = unknown (with capture), not “confirmed absent.”
+3. Python ADR **before** any PY1–5 raises-for-Sentry work. Prefer extend Sync envelope after raises (no new `sentry_sdk` package yet).
+4. Source maps / dSYMs stay parked.
 
 ## PR stack
 
@@ -50,8 +49,8 @@ These showed up while hunting coverage. **In stack** = product correctness that 
 |---|---|---|---|---|---|---|---|
 | 1 | M1 | Three soft `getFileRaw` sites mirror `getHeadShaOrNull`; give-up at `coachTurn.ts:2242-2257` one capture/tag (`outcome: gave_up` or equivalent) | `main` | `coachTurn.ts`, tests, runbook one-liner if needed | Bob | — | |
 | 2 | M2 | `schemaUnsupported` → one client capture | PR1 | `useRepoData.ts` (+ test) | UI | 3 | |
-| 3 | M2 | iOS: one activity-sync op; tag `droppedActions`; Keychain read; `coachRepoExists` → `Bool?` like `coachAppInstalled` | PR1 | GitHubAuthManager, CoachChatView, HealthKit/CoachChatAPI, Setup call sites (+ tests) | iOS | 2 | |
-| 4 | M3 | Python Sentry-scope ADR + `skeleton-layout.md` fail-closed fix; PY7 ops note in runbook | PR1 tip or `main` if no file overlap | `kdb/decisions/00XX-*.md`, `skeleton-layout.md`, runbook | Tech Lead | 2, 3 if disjoint | |
+| 3 | M2 | iOS: tag `droppedActions` with `operation`; Keychain read captures; `coachRepoExists` → `Bool?` like `coachAppInstalled` | PR1 | GitHubAuthManager, CoachChatView, Setup call sites (+ tests) | iOS | 2 | |
+| 4 | M3 | Python Sentry-scope ADR + one-line `skeleton-layout.md` wording fix (carve already fails closed) | PR1 tip or `main` if no file overlap | `kdb/decisions/00XX-*.md`, `skeleton-layout.md` | Tech Lead | 2, 3 if disjoint | |
 | 5 | M4 | Finishing: delete this plan; any runbook Coverage boundary tweaks | tip | `docs/plans/sentry-post-1078-followups.md`, runbook | Tech Lead | after 1–4 | |
 
 ## Validate
@@ -60,13 +59,18 @@ These showed up while hunting coverage. **In stack** = product correctness that 
 |---|---|
 | PR1 | Unit: non-404 from soft read → one exception, still returns null; 404 quiet; give-up path emits one tagged event |
 | PR2 | schema bump card path → `captureFetchFailure` / equivalent once |
-| PR3 | XCTest: activity-sync one event; `coachRepoExists` nil on network (not false); Keychain read unexpected captures |
-| PR4 | `validate_kdb.py` on ADR; carve doc matches `stampSyncDsn` throw |
+| PR3 | XCTest: `coachRepoExists` nil on network (not false); `droppedActions` capture carries `operation`; Keychain read unexpected captures |
+| PR4 | `validate_kdb.py` on ADR; `skeleton-layout.md` wording matches `stampSyncDsn`'s throw |
 | Program | Audit P1 leftovers closed or allow-listed; no mega-PR |
 
 ## Out of scope
 
 New `getFileRawOrNull` helper, successful-turn chat text, replay/screenshots, maps/dSYMs, soul-cache warn spam, narrowing outbound ignore (unless free), PY1–5 raises (post-ADR follow-up), dual widget-snapshots dedupe, activity-sync toast UX, re-investigating B8 retry captures (already correct).
+
+**Also not needed — verified already correct/shipped, don't rebuild:**
+- iOS activity-sync "one operation" — already deduplicated. `CoachChatAPIClient.withRetry` (`CoachChatAPIClient.swift:78-98`) fires one terminal capture on exhaustion under `"Reviewing synced activities"`; `HealthKitSyncManager`'s catch-all (`HealthKitSyncManager.swift:1021-1033`) explicitly skips `GitHubAPIError` so it never double-counts that same failure.
+- PY7 athlete Sync DSN audit note — already in `docs/eng-docs/sentry-runbook.md:34-37`.
+- `skeleton-layout.md` carve behavior — `carve-skeleton.mjs`'s `stampSyncDsn` (lines 504-525) already `throw`s when `SENTRY_DSN` is unset. Only the doc's wording ("the script warns") needs correcting to match.
 
 ## Cut next
 
