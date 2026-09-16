@@ -801,6 +801,25 @@ struct CoachChatView: View {
         sending = true
         defer { sending = false }
 
+        // #765: a bare `Task { }` gave iOS no reason to keep the app alive past a few seconds
+        // once the athlete switched away mid-send, so the in-flight request got killed and
+        // surfaced as a network cancellation. Reserve background execution time for the request
+        // itself (not the surrounding UI work) so a brief app-switch doesn't kill it. This buys
+        // time only - it doesn't touch `retryNetworkFailures: false` below, which stays off on
+        // purpose because a network failure here may mean the message already committed
+        // server-side (retrying blind risks a double-send).
+        var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "coach-chat-send") {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+        defer {
+            if backgroundTaskID != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+
         do {
             let result = try await apiClient.sendMessage(
                 threadId: targetId,
