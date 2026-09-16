@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { loadLedger, buildDashboardSnapshot } from "./build-dashboard-snapshot.mjs";
 
 function repoWith(files) {
@@ -63,4 +65,49 @@ test("templates and sessions exclude non-workout files without phases", (t) => {
   assert.equal(snapshot.workouts.templates[0].id, "valid-workout");
   assert.equal(snapshot.workouts.sessions.length, 1);
   assert.equal(snapshot.workouts.sessions[0].id, "valid-session");
+});
+
+test("snapshot carries distinct same-day matches and their exact history basenames", (t) => {
+  const root = repoWith({});
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const activitiesDir = path.join(root, "user_data", "activities");
+  const histDir = path.join(activitiesDir, "hist");
+  fs.mkdirSync(histDir, { recursive: true });
+
+  const files = ["hk_first-session.json", "hk_second-session.json"];
+  for (const [index, file] of files.entries()) {
+    fs.writeFileSync(path.join(histDir, file), JSON.stringify({
+      id: index + 1,
+      category: "badminton",
+      start_date_local: `2026-09-16T${10 + index}:00:00`,
+      description: "Display text is not match data",
+    }));
+  }
+  const sessions = files.map((historyFile, index) => ({
+    date: "2026-09-16",
+    historyFile,
+    summary: { wins: index + 1, losses: 0, winPct: 100 },
+    games: [{ result: "W", scoreFor: 21, scoreAgainst: 10 + index }],
+  }));
+  const legacy = { date: "2026-09-16", summary: { wins: 1, losses: 0, winPct: 100 }, games: [] };
+  const matchHistory = { version: 1, sessions: [...sessions, legacy] };
+  fs.writeFileSync(path.join(activitiesDir, "match_history.json"), JSON.stringify(matchHistory));
+
+  execFileSync(process.execPath, [
+    fileURLToPath(new URL("./build-dashboard-snapshot.mjs", import.meta.url)),
+    "--dashboard-snapshot", "--repo-root", root,
+  ]);
+  const snapshot = JSON.parse(fs.readFileSync(path.join(root, "gen", "dashboard_snapshot.json"), "utf-8"));
+  assert.deepEqual(snapshot.match_history, matchHistory);
+  assert.deepEqual(new Set(snapshot.activities.map((activity) => activity.history_file)), new Set(files));
+  assert.deepEqual(
+    Object.fromEntries(snapshot.activities.map((activity) => [activity.history_file, activity.id])),
+    { [files[0]]: 1, [files[1]]: 2 },
+  );
+});
+
+test("snapshot emits an empty valid match history when the file is absent", (t) => {
+  const root = repoWith({});
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(buildDashboardSnapshot(root).match_history, { version: 1, sessions: [] });
 });

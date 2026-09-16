@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  activitiesDir,
   dashboardSnapshotPath,
   histDir,
   ledgerDir,
@@ -70,7 +71,8 @@ export function loadActivities(repoRootPath) {
   const activities = [];
   for (const file of fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"))) {
     try {
-      activities.push(projectActivity(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"))));
+      const activity = projectActivity(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8")));
+      activities.push({ ...activity, history_file: file });
     } catch (e) {
       console.warn(`⚠ Skipping ${file}: ${e.message}`);
     }
@@ -111,6 +113,11 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
   }
 
   Object.assign(result, loadLedger(repoRootPath));
+
+  const matchHistorySrc = path.join(activitiesDir(repoRootPath), "match_history.json");
+  result.match_history = fs.existsSync(matchHistorySrc)
+    ? JSON.parse(fs.readFileSync(matchHistorySrc, "utf-8"))
+    : { version: 1, sessions: [] };
 
   const currentWeekSrc = path.join(ledgerDir(repoRootPath), "current_week.json");
   if (fs.existsSync(currentWeekSrc)) {
