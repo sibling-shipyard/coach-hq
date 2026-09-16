@@ -1,8 +1,8 @@
 # Golden dataset
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14 · ADR: 0007
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · ADR: 0007
 
-Sample data for `/gallery`, `/welcome` and SwiftUI previews. Two layers, split by whether the
+Sample data for local Home, `/gallery`, `/welcome` and SwiftUI previews. Two layers, split by whether the
 consumer cares what "today" is. The decision and its rejected alternatives are ADR 0007; this
 doc is the build detail behind it.
 
@@ -30,6 +30,8 @@ realistic-looking comments, a shape no real athlete's data can produce anymore.
 The generated layer is rebuilt by `generate-repo-data.mjs` on every `npm run dev` and
 `npm run build`. Every date is relative to `Date.now()`, and the randomness is seeded from the
 calendar date, so two people running dev on the same day get identical data.
+It generates structured `match_history.json` alongside badminton activities, with matching
+`history_file` keys. `ui/scripts/build-data.mjs` includes both in the local dashboard snapshot.
 
 ## The generator must produce bad weeks, not just good ones
 
