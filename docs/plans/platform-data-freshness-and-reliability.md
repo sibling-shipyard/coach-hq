@@ -20,7 +20,7 @@ Done when the snapshot matches its committed sources, a failed iOS history read 
 
 ## Priority
 
-No P0 was found. The seven P1 findings drive the PR stack below; three of them split into two PRs each so every PR stays inside one agent's file scope (`AGENTS.md` Boundaries). The three P2 findings stay deferred pending an athlete decision or measurement. M0–M2 are delivery milestones, not severity labels.
+No P0 was found. The seven P1 findings drive the PR stack below; three split into two PRs to keep code ownership clear. PR 7 pairs an iOS code change with a Tech Lead-authored ADR. The three P2 findings stay deferred. M0–M2 are delivery milestones, not severity labels.
 
 ## Locked decisions
 
@@ -49,18 +49,18 @@ M1's plugin output must persist before M2's badminton analytics contract is judg
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | M0 | P1 · Run engine script suites and UI build in CI/local gate. | main | `checks.conf`, `platform-tests.yml`, `ui-tests.yml` | Tech Lead | 6 | Existing 38 Node and 33 Python tests plus UI build run. |
-| 2 | M1 | P1 · Build snapshot after week updates and trigger on profile/workout writes. | PR 1 | `sync.user.yml`, `test_sync_workflow.py` | Bob | 6 | Both workflow paths have week parity; file-only pushes rebuild. |
-| 3 | M1 | P1 · Run rollover daily without committing on a no-op day. | PR 2 | scheduled workflow, tests | Bob | 6 | Aged week advances; current week causes no commit. |
-| 4 | M1 | P1 · Carve the new scheduled workflow into the skeleton template. | PR 3 | `carve-skeleton.mjs`, tests | Tech Lead | 5, 6 | Skeleton stamp includes the rollover workflow; carve test asserts it lands in output. |
-| 5 | M1 | P1 · Commit plugin analytics and remove obsolete output. | PR 3 | `sync.user.yml`, plugin fixture tests | Bob | 4, 6 | Enabled, disabled, and empty-session trees are correct. |
-| 6 | M2 | P1 · Stop iOS sync when required hist reads fail. | main | `HealthKitSyncManager.swift`, iOS tests | iOS Builder | 1–5 | Read failure plus Garmin rewrite makes no duplicate. |
-| 7 | M2 | P1 · Add a stable match identity to iOS's structured write. | PR 6 | ADR, `ActivityDetailView.swift`, `DescriptionParser.swift`, iOS tests | iOS Builder | — | New saves carry a stable key alongside the date; two same-day saves stay distinct. |
-| 8 | M2 | P1 · Migrate `analytics.py` to the stable match identity, date-keyed fallback for pre-migration files. | PR 7 | `analytics.py`, tests | Tech Lead | — | Two same-day matches survive analytics; pre-migration date-only entries still resolve. |
-| 9 | M2 | P1 · Make the snapshot builder emit structured badminton matches. | PR 5 & 8 | `sync.user.yml`, snapshot builder, tests | Bob | — | Snapshot carries the stable-keyed match list; two-session fixture round-trips. |
-| 10 | M2 | P1 · Make web badminton read structured matches. | PR 9 | `matchParser.ts`, Home/lens models, tests | UI Expert | — | Web and Python agree on the two-session fixture. |
+| 1 | M0 | P1 · Run engine script suites and UI build in CI/local gate. | plan PR | `checks.conf`, `platform-tests.yml`, `ui-tests.yml` | Tech Lead | 6 | Existing 38 Node and 33 Python tests plus UI build run. |
+| 2 | M1 | P1 · Build snapshot after week updates and trigger on profile/workout writes. | PR 1 | `sync.user.yml`, `engine/scripts/sync-workflow.test.mjs` | Bob | 6 | Both workflow paths have week parity; file-only pushes rebuild. |
+| 3 | M1 | P1 · Run rollover daily without committing on a no-op day. | PR 2 | scheduled workflow, engine tests | Bob | 6 | Aged week advances; current week causes no commit. |
+| 4 | M1 | P1 · Carve the new scheduled workflow into the skeleton template. | PR 3 | `carve-skeleton.mjs`, platform tests | Tech Lead | 5, 6 | Skeleton stamp includes the rollover workflow; carve test asserts it lands in output. |
+| 5 | M1 | P1 · Commit plugin analytics and remove obsolete output. | PR 4 | `sync.user.yml`, engine tests | Bob | 6 | Enabled, disabled, and empty-session trees are correct. |
+| 6 | M2 | P1 · Stop iOS sync when required hist reads fail. | PR 5 | `HealthKitSyncManager.swift`, iOS tests | iOS Builder | 1–5 | Read failure plus Garmin rewrite makes no duplicate. |
+| 7 | M2 | P1 · Add a stable match identity to iOS's structured write. | PR 6 | ADR, `ActivityDetailView.swift`, `DescriptionParser.swift`, iOS tests | iOS Builder + Tech Lead ADR | — | New saves carry a stable key alongside the date; two same-day saves stay distinct. |
+| 8 | M2 | P1 · Migrate `analytics.py` to the stable match identity, date-keyed fallback for pre-migration files. | PR 7 | `analytics.py`, platform tests | Tech Lead | — | Two same-day matches survive analytics; pre-migration date-only entries still resolve. |
+| 9 | M2 | P1 · Make the snapshot builder emit structured badminton matches. | PR 8 | `sync.user.yml`, snapshot builder, engine tests | Bob | — | Snapshot carries the stable-keyed match list; two-session fixture round-trips. |
+| 10 | M2 | P1 · Make web badminton read structured matches. | PR 9 | `matchParser.ts`, Home/lens models, UI tests | UI Expert | — | Web and Python agree on the two-session fixture. |
 
-Overlap determines merge order; independent branches may build in parallel, then rebase into the listed stack. Create scoped issues before implementation. This plan PR references the platform-hardening epic without closing it. Delete the plan in the last PR after moving durable contracts into engineering docs.
+Agents may build disjoint work in parallel, but final PR branches follow the one-parent chain above. After a parent squash-merges, forward-merge `main` into its child and retarget the child PR; do not rebase. Create scoped issues before implementation. This plan PR references the platform-hardening epic without closing it. Delete the plan in the last PR after moving durable contracts into engineering docs.
 
 ## P2 · Deferred and measurement gates
 
