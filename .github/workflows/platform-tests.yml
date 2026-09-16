@@ -13,6 +13,7 @@ on:
       - 'platform/skills/**'
       - 'platform/scripts/checks.conf'
       - 'engine/**'
+      - 'shared/golden-dataset/**'
       - '.github/workflows/platform-tests.yml'
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - 'platform/skills/**'
       - 'platform/scripts/checks.conf'
       - 'engine/**'
+      - 'shared/golden-dataset/**'
       - '.github/workflows/platform-tests.yml'
 
 jobs:
