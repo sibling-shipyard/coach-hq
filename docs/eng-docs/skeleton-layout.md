@@ -65,6 +65,7 @@ coach-skeleton/  (= coach-user after fork)
 │
 ├── .github/workflows/
 │   ├── sync.yml
+│   ├── rollover.yml
 │   ├── validate-data.yml
 │   └── apply-coach-patch.yml
 │
@@ -253,7 +254,7 @@ Read the script when they disagree — it is what runs.
 |---|---|---|
 | `engine/scripts/` (11 carved files) | `engine/scripts/` | `engine/` |
 | `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
-| `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
+| `engine/.github/workflows/` (4 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/SOUL.claude.md` | `SOUL.claude.md` at repo root | `platform/` |
 | `engine/claude/athlete/` | `.claude/`, root `CLAUDE.md` | `engine/` |
@@ -263,11 +264,11 @@ Read the script when they disagree — it is what runs.
 | `user_data/`, `gen/` at HQ | **never copied** | — |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
 
-`sync.user.yml` is the one file the carve rewrites rather than copies: it stamps the operator's
-`SENTRY_DSN` into the workflow so a failed Sync reports itself, with no athlete-set secret
-(`sentry-runbook.md` § Set up once). Carve without that variable and the script fails closed —
-it refuses to carve rather than ship a repo that can't report a failed Sync (`--no-sentry` opts
-out explicitly for local/test carves).
+`sync.user.yml` and `rollover.user.yml` are the two files the carve rewrites rather than copies:
+it stamps the operator's `SENTRY_DSN` into `sync.yml` and `rollover.yml` so failed data workflows
+report themselves, with no athlete-set secret (`sentry-runbook.md` § Set up once). Carve without
+that variable and the script fails closed — it refuses to carve rather than ship a repo that
+can't report a failed data workflow (`--no-sentry` opts out explicitly for local/test carves).
 
 `platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
 The bare `propagated/SOUL.md` name is retired; neither runtime owns it.
