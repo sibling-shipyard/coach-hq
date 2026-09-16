@@ -801,6 +801,28 @@ struct CoachChatView: View {
         sending = true
         defer { sending = false }
 
+        // This only buys execution time - it doesn't touch `retryNetworkFailures: false` below,
+        // which stays off on purpose because a network failure here may mean the message already
+        // committed server-side (retrying blind risks a double-send).
+        var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "coach-chat-send") {
+            // Signal only, not an error - the send may still resolve on its own after this fires.
+            DiagnosticsManager.capture(
+                message: "coach-chat: background task expired mid-send",
+                severity: .warning,
+                operation: "coach.chat.send_background_expired",
+                operationID: UUID()
+            )
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+        defer {
+            if backgroundTaskID != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+
         do {
             let result = try await apiClient.sendMessage(
                 threadId: targetId,
