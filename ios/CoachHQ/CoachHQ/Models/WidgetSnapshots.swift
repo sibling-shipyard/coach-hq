@@ -111,6 +111,124 @@ struct EngineSnapshot: Codable {
     let totalHours: Double
     let method: String
     let doseRows: [DoseRowSnapshot]
+    /// Expected Sunday load for the dashed cap. Absent on today's snapshots.
+    let projectedSundayLoad: Double?
+    /// Band eight weeks ago, for `+N% VS 8W AGO`. Absent on today's snapshots.
+    let band8wAgoLow: Double?
+    let band8wAgoHigh: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case weekLabel, load, signal, verdict, compactVerdict, openVerdict
+        case bandLow, bandHigh, scaleLow, scaleHigh, trend, mix, totalHours, method, doseRows
+        case projectedSundayLoad, band8wAgoLow, band8wAgoHigh
+    }
+
+    init(
+        weekLabel: String,
+        load: Double,
+        signal: String,
+        verdict: String,
+        compactVerdict: String?,
+        openVerdict: String?,
+        bandLow: Double?,
+        bandHigh: Double?,
+        scaleLow: Double,
+        scaleHigh: Double,
+        trend: [TrendPointSnapshot],
+        mix: [LoadMixSnapshot],
+        totalHours: Double,
+        method: String,
+        doseRows: [DoseRowSnapshot],
+        projectedSundayLoad: Double? = nil,
+        band8wAgoLow: Double? = nil,
+        band8wAgoHigh: Double? = nil
+    ) {
+        self.weekLabel = weekLabel
+        self.load = load
+        self.signal = signal
+        self.verdict = verdict
+        self.compactVerdict = compactVerdict
+        self.openVerdict = openVerdict
+        self.bandLow = bandLow
+        self.bandHigh = bandHigh
+        self.scaleLow = scaleLow
+        self.scaleHigh = scaleHigh
+        self.trend = trend
+        self.mix = mix
+        self.totalHours = totalHours
+        self.method = method
+        self.doseRows = doseRows
+        self.projectedSundayLoad = projectedSundayLoad
+        self.band8wAgoLow = band8wAgoLow
+        self.band8wAgoHigh = band8wAgoHigh
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weekLabel = try container.decode(String.self, forKey: .weekLabel)
+        load = try container.decode(Double.self, forKey: .load)
+        signal = try container.decode(String.self, forKey: .signal)
+        verdict = try container.decode(String.self, forKey: .verdict)
+        compactVerdict = try container.decodeIfPresent(String.self, forKey: .compactVerdict)
+        openVerdict = try container.decodeIfPresent(String.self, forKey: .openVerdict)
+        bandLow = try container.decodeIfPresent(Double.self, forKey: .bandLow)
+        bandHigh = try container.decodeIfPresent(Double.self, forKey: .bandHigh)
+        scaleLow = try container.decode(Double.self, forKey: .scaleLow)
+        scaleHigh = try container.decode(Double.self, forKey: .scaleHigh)
+        trend = try container.decode([TrendPointSnapshot].self, forKey: .trend)
+        mix = try container.decode([LoadMixSnapshot].self, forKey: .mix)
+        totalHours = try container.decode(Double.self, forKey: .totalHours)
+        method = try container.decode(String.self, forKey: .method)
+        doseRows = try container.decode([DoseRowSnapshot].self, forKey: .doseRows)
+        projectedSundayLoad = try container.decodeIfPresent(Double.self, forKey: .projectedSundayLoad)
+        band8wAgoLow = try container.decodeIfPresent(Double.self, forKey: .band8wAgoLow)
+        band8wAgoHigh = try container.decodeIfPresent(Double.self, forKey: .band8wAgoHigh)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(weekLabel, forKey: .weekLabel)
+        try container.encode(load, forKey: .load)
+        try container.encode(signal, forKey: .signal)
+        try container.encode(verdict, forKey: .verdict)
+        try container.encodeIfPresent(compactVerdict, forKey: .compactVerdict)
+        try container.encodeIfPresent(openVerdict, forKey: .openVerdict)
+        try container.encodeIfPresent(bandLow, forKey: .bandLow)
+        try container.encodeIfPresent(bandHigh, forKey: .bandHigh)
+        try container.encode(scaleLow, forKey: .scaleLow)
+        try container.encode(scaleHigh, forKey: .scaleHigh)
+        try container.encode(trend, forKey: .trend)
+        try container.encode(mix, forKey: .mix)
+        try container.encode(totalHours, forKey: .totalHours)
+        try container.encode(method, forKey: .method)
+        try container.encode(doseRows, forKey: .doseRows)
+        try container.encodeIfPresent(projectedSundayLoad, forKey: .projectedSundayLoad)
+        try container.encodeIfPresent(band8wAgoLow, forKey: .band8wAgoLow)
+        try container.encodeIfPresent(band8wAgoHigh, forKey: .band8wAgoHigh)
+    }
+
+    var withEmptyDose: EngineSnapshot {
+        EngineSnapshot(
+            weekLabel: weekLabel,
+            load: load,
+            signal: signal,
+            verdict: verdict,
+            compactVerdict: compactVerdict,
+            openVerdict: openVerdict,
+            bandLow: bandLow,
+            bandHigh: bandHigh,
+            scaleLow: scaleLow,
+            scaleHigh: scaleHigh,
+            trend: trend,
+            mix: mix,
+            totalHours: totalHours,
+            method: method,
+            doseRows: [],
+            projectedSundayLoad: projectedSundayLoad,
+            band8wAgoLow: band8wAgoLow,
+            band8wAgoHigh: band8wAgoHigh
+        )
+    }
 }
 
 /// WidgetKit / glance size — number + band strip only.

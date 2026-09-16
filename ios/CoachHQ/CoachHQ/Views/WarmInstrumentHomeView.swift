@@ -88,8 +88,9 @@ struct WarmInstrumentHomeView: View {
                 case .engine:
                     if let snapshots = store.snapshots {
                         EngineDetailView(
-                            engine: snapshots.sizes.engine.M,
-                            coachRead: snapshots.home.coachRead
+                            engine: snapshots.home.engine,
+                            coachMessage: snapshots.home.coachMessage,
+                            onOpenCoach: { openCoachMessage($0, playHaptic: false) }
                         )
                     }
                 case .activities:
@@ -279,7 +280,7 @@ struct WarmInstrumentHomeView: View {
         return "\(n) \(word) synced — Coach is on it"
     }
 
-    private func openCoachMessage(_ message: CoachMessageSnapshot) {
+    private func openCoachMessage(_ message: CoachMessageSnapshot, playHaptic: Bool = true) {
         guard let repoFullName = authManager.repoFullName,
               let route = CoachMessageRoute(
                 repoFullName: repoFullName,
@@ -287,7 +288,7 @@ struct WarmInstrumentHomeView: View {
                 body: message.body,
                 createdAt: message.createdAt
               ) else { return }
-        Haptics.tap()
+        if playHaptic { Haptics.tap() }
         route.persist()
         NotificationCenter.default.post(name: .navigateToChat, object: route)
     }
@@ -498,231 +499,6 @@ private struct SizePickerBadge: View {
     }
 }
 
-// MARK: - Opened Engine (Phone 2 in Warm Instrument Mobile.dc.html)
-
-struct EngineDetailView: View {
-    let engine: EngineSnapshot
-    let coachRead: CoachReadSnapshot
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                headerBar
-
-                VStack(alignment: .leading, spacing: 18) {
-                    heroCard
-                    doseLedger
-                    coachReadCard
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 18)
-            }
-        }
-        .mainTabScrollBottomClearance()
-        .background(WarmInstrument.paper.ignoresSafeArea())
-        .navigationBarBackButtonHidden(false)
-    }
-
-    private var headerBar: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Engine")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundColor(WarmInstrument.ink)
-            Text(engine.weekLabel.uppercased())
-                .font(WarmInstrument.monoLabel(10))
-                .tracking(1.2)
-                .foregroundColor(WarmInstrument.inkFaint)
-            Spacer()
-            Text(engine.signal.uppercased())
-                .font(WarmInstrument.monoLabel(10))
-                .tracking(1.0)
-                .foregroundColor(WarmInstrument.sportColor(.badminton))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .strokeBorder(WarmInstrument.sportColor(.badminton).opacity(0.4), lineWidth: 1)
-                )
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
-        }
-    }
-
-    private var heroCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(loadLabel)
-                    .font(.system(size: 54, weight: .medium))
-                    .tracking(-2.5)
-                    .foregroundColor(.white)
-                if let low = engine.bandLow, let high = engine.bandHigh {
-                    Text("of \(Int(low))–\(Int(high))\nusual rhythm")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.6))
-                        .lineSpacing(2)
-                }
-                Spacer(minLength: 0)
-                Text(engine.openVerdict ?? engine.compactVerdict ?? engine.verdict)
-                    .font(WarmInstrument.coachVoice(17))
-                    .foregroundColor(.white.opacity(0.95))
-                    .multilineTextAlignment(.trailing)
-            }
-
-            EngineDetailGauge(engine: engine)
-                .frame(height: 52)
-
-            Text(engine.method.uppercased())
-                .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .tracking(0.4)
-                .foregroundColor(.white.opacity(0.5))
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.06), .clear],
-                        startPoint: .topLeading,
-                        endPoint: UnitPoint(x: 0.45, y: 0.45)
-                    )
-                )
-                .background(WarmInstrument.accent)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private var doseLedger: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            MonoLabel("THIS WEEK'S DOSE", size: 10)
-
-            VStack(spacing: 0) {
-                ForEach(Array(engine.doseRows.enumerated()), id: \.element.id) { index, row in
-                    HStack(alignment: .center, spacing: 12) {
-                        Text(row.day.uppercased())
-                            .font(WarmInstrument.monoLabel(10, weight: .regular))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .frame(width: 30, alignment: .leading)
-
-                        if row.isRest == true {
-                            Text(row.title)
-                                .font(.system(size: 13.5, weight: .semibold))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text("—")
-                                .font(WarmInstrument.figures(11))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        } else {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.title)
-                                    .font(.system(size: 13.5, weight: .semibold))
-                                    .foregroundColor(WarmInstrument.ink)
-                                if let detail = row.detail, !detail.isEmpty {
-                                    Text(detail.uppercased())
-                                        .font(WarmInstrument.monoLabel(10, weight: .regular))
-                                        .foregroundColor(WarmInstrument.inkFaint)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            if let load = row.load {
-                                Text("+\(Int(load))")
-                                    .font(WarmInstrument.figures(11, weight: .bold))
-                                    .foregroundColor(WarmInstrument.sportColor(row.sport))
-                            }
-                        }
-                    }
-                    .padding(.vertical, 11)
-
-                    if index < engine.doseRows.count - 1 {
-                        Divider().overlay(WarmInstrument.headerRule)
-                    }
-                }
-            }
-        }
-    }
-
-    private var coachReadCard: some View {
-        CoachReadCard(read: coachRead)
-    }
-
-    private var loadLabel: String { Format.number(engine.load) }
-}
-
-private struct EngineDetailGauge: View {
-    let engine: EngineSnapshot
-
-    var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let range = max(1, engine.scaleHigh - engine.scaleLow)
-            let x: (Double) -> CGFloat = { value in
-                CGFloat((value - engine.scaleLow) / range) * width
-            }
-            let bandLow = engine.bandLow ?? engine.load * 0.8
-            let bandHigh = engine.bandHigh ?? engine.load * 1.2
-            let markerX = x(engine.load)
-            let bandX = x(bandLow)
-            let bandWidth = max(12, x(bandHigh) - bandX)
-
-            ZStack(alignment: .topLeading) {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 28))
-                    path.addLine(to: CGPoint(x: width, y: 28))
-                }
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: bandWidth, height: 16)
-                    .offset(x: bandX, y: 20)
-
-                Path { path in
-                    path.move(to: CGPoint(x: markerX, y: 16))
-                    path.addLine(to: CGPoint(x: markerX + 5, y: 5))
-                    path.addLine(to: CGPoint(x: markerX - 5, y: 5))
-                    path.closeSubpath()
-                }
-                .fill(Color.white)
-
-                Path { path in
-                    path.move(to: CGPoint(x: markerX, y: 16))
-                    path.addLine(to: CGPoint(x: markerX, y: 40))
-                }
-                .stroke(Color.white, lineWidth: 2)
-
-                Text("\(Int(bandLow))")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .position(x: bandX, y: 8)
-
-                Text("\(Int(bandHigh))")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.7))
-                    .position(x: bandX + bandWidth, y: 8)
-
-                Text("\(Int(engine.scaleLow))")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
-                    .position(x: 0, y: 48)
-
-                Text("\(Int(engine.scaleHigh))")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
-                    .position(x: width, y: 48)
-            }
-        }
-    }
-}
-
-#Preview("Engine detail — golden dataset") {
-    NavigationStack {
-        EngineDetailView(engine: GoldenDataset.engine, coachRead: GoldenDataset.home.coachRead)
-    }
-}
-
 #Preview("Warm Instrument Home — golden dataset") {
     let auth = GitHubAuthManager()
     let store = WidgetSnapshotStore()
@@ -730,4 +506,5 @@ private struct EngineDetailGauge: View {
     return WarmInstrumentHomeView()
         .environmentObject(auth)
         .environmentObject(store)
+        .environmentObject(AllActivitiesStore())
 }

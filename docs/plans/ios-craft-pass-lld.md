@@ -193,17 +193,13 @@ Replaced. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
 
 ## 9. Engine
 
-**Already has care.** Home tile: terracotta load, usual band, mix hours, coach-voice verdict (`EngineCard.swift`). Tap haptic (`WarmInstrumentHomeView.swift:176–178`). First-visit overlay copy (`:344–372`). Detail has three beats in the comment (`:492–507`): load hero, dose list, `CoachReadCard`.
+**Already has care.** Home tile: terracotta load, usual band, mix hours, coach-voice verdict (`EngineCard.swift`). Tap haptic (`WarmInstrumentHomeView.swift`). First-visit overlay.
 
-**Drops.** Athlete Engine shot.
+**Push (this slice).** `EngineDetailView` in `EnginePageView.swift`, from the frozen Engine Page v1 spec. Header, terracotta load hero, fresh `coachMessage` receipt, dose card / empty shell, counted sheet. Desk, tab bar hidden, custom back chip. `+load` is ink. Verdict derived on device. `CoachReadCard` stays for other callers.
 
-1. System-ish circular back. `.navigationBarBackButtonHidden(false)` (`:514`). Tab bar still showing. Coach card (`LOG · WED 16 SEPT`) is eaten by the Home pill.
-2. Full-bleed **paper** (`:513`) vs Home **desk** (`:151`).
-3. Dose is a bare list (`:588–636`), load numbers in **sport colour** (+18 green, +45 orange). Ledger card load is ink. Week load is terracotta. Sport-coloured +load is the old language.
-4. No 6-week trend on the push, though Home M draws one (`EngineCard.swift:43–46`). Signal chip is badminton green (`:527–536`). Hero 54pt is not mono (`:548–551`); Home M is 46pt mono.
-5. Empty `doseRows` still shows the kicker (`:588–593`). Always opens size `.M` (`:90–92`). Overlay hardcoded `.white`.
+**Still Home's job.** Engine tile S/M/L, overlay, mix bar, sparkline on the card.
 
-**PR 3 (with Home).** Hide system Back. Own back + edge-swipe + **hide tab bar**. Desk behind; terracotta only on the load hero. Dose as one WarmCard; +load in ink (terracotta only for week-load if shown).
+**Known gaps vs the mock.** No 8-week-ago band or projected Sunday load on today's snapshots — omit `+N%` and the dashed cap. Prior-week `[lo,hi]` rects omitted (trend is load-only). Custom 200px desk-darken pan skipped; system interactive pop + back chip. Receipt `RE:` only if the body names a dose session.
 
 ---
 

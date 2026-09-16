@@ -1,13 +1,8 @@
 import SwiftUI
 
 /// In-app "Coach's read" card — date-stamped commentary + signature. One file per widget, per
-/// ADR 0037. Was dead only because `EngineDetailView` redrew its own bespoke version instead of
-/// calling this one; that view now calls this card instead (see its `coachReadCard` property).
-///
-/// **Visible change where it lands:** `EngineDetailView`'s Coach's Read card gains the date
-/// label and signature line this version always showed, and switches off its own
-/// `coachVoice(16.5)` font onto this card's italic serif — the two had drifted since one was
-/// live and the other wasn't maintained.
+/// ADR 0037. Home and other weekly-read callers use this; the Engine push uses the event
+/// receipt (`CoachMessageSnapshot`), not this card.
 struct CoachReadCard: View {
     let read: CoachReadSnapshot
 
