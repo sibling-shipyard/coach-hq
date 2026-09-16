@@ -150,18 +150,23 @@ Replaced. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
 
 ## 7. Train (list + overview)
 
-**Already has care.** `WarmWorkoutListCard` (`WorkoutListView.swift:342–450`): paper, 3pt type stripe, badge, figures, tags, `CardPressButtonStyle`. `TodayWorkoutHero` (`:500–581`) when a session is runnable. Timer path is already Warm (`WorkoutTimerWarm`, `WorkoutTimerView`, `WorkoutCompleteView`).
+**Bar.** HTML mock `Train Page Final (offline).html`: Day Card, Week Strip L, pills, swipe, haptics. Ecosystem rules stay ours.
 
-**Drops.**
+**Already has care.** Timer path is Warm (`WorkoutTimerWarm`, `WorkoutTimerView`, `WorkoutCompleteView`). Overview Start lives on the dock (`BottomDockState.showStartWorkout`). Library still lists templates.
 
-1. TODAY `.none` (`:267–270`): `No live plan right now.` is a 15pt grey sentence. Rest (`:263–266`) and mention (`:252–262`) are the same: no paper.
-2. TestFlight: TODAY none **and** THIS WEEK from logged hist. Wednesday is a paper chip (`WeekRowView:277–317`) while TODAY denies a plan. Two bands, two voices. Logic is correct (`WorkoutsPageSelector.swift:54–58`). The **voice** is not.
-3. Week rows: 8pt dot + `EEE d` + `42M`. Settings-row next to library cards. Empty days are faint dots and em dashes.
-4. Empty/error (`:161–197`): dumbbell / triangle SF Symbol over the designed list.
-5. Dock clip: last library card (sim) and Kickstart (TestFlight); overview Start pill covers exercise 5 (`WorkoutOverviewView` + `WarmMainDockLayout`).
-6. Hero uses `chevron.right` (`:537`); library uses `→` (`:380`). Overview leftover `chevron.left` (`WorkoutOverviewView.swift:47–54`). Overview background `Theme.mutedBackground` (`:23`) — same hex as desk, but not named desk.
+**PR 2 page.** Header `TRAIN`. Day Card (314pt, five slots). Week Strip L (cubes, pointer vs ring, chevron list that stays open). Library as one paper card, `→` rows. Extra dock pad while the list is open.
 
-**PR 2 first slice.** TODAY rest/mention/none as a quiet **paper card** in list grammar (not a ledger week). Week rows as compact day cards. Bump scroll clearance until the TestFlight clip is gone, including overview Start. One arrow dialect (`→`).
+**Five Day Card voices.** Launch (today + draft). Receipt (logged). Rest. Protocol draft (phase bar). Match draft (dashed “after the match”).
+
+**Select a day.** Cube, week-list row, or Day Card swipe (40pt, Mon–Sun). Pill swap. `.light` on cube and pill. Silent chevron and swipe settle. Today’s draft opens overview (`DETAIL` / card tap). Logged opens Activity detail. Timer Start stays on overview — none on the Day Card.
+
+**Copy we drop.** Page-header date. `OPEN ›` / `ACTIVITY ›`. Footer `PROJECTED ≈N`. `DRAFT MY WEEK`. `START`.
+
+**Honest numbers.** Logged `+N` from hist or Home snapshot. Draft load is `—` (`planned_load` is gone, ADR 0042). HR ribbon from a stored stream only. `TODAY ›` is ink (ADR 0041). System serif italic for coach voice.
+
+**Not this PR.** Week Strip M/S. Home. Empty-week CTA. Seeded HR. Newsreader / Grotesk.
+
+**Drops this PR replaces.** TODAY `.none` grey sentence. Dual TODAY / THIS WEEK voices. Dot week rows. SF-Symbol empty/error. Dock eating Kickstart / the open list. Mixed `›` / chevron dialects.
 
 ---
 
@@ -225,7 +230,7 @@ Replaced. Paths under `ios/CoachHQ/CoachHQ/Views/` unless noted.
 ```mermaid
 flowchart TB
   pr1["PR 1 WarmLoaders.swift: Wave + Signal on every wait in §4"]
-  pr1 --> pr2["PR 2 Train TODAY/week/dock"]
+  pr1 --> pr2["PR 2 Train Day Card + Week Strip L"]
   pr1 --> pr3["PR 3 Home dock/empty + Engine chrome"]
   pr1 --> pr4["PR 4 Chat chrome-on-load, preview shell"]
   pr1 --> pr5["PR 5 Detail Beat 01 / 0m / error ink"]
@@ -245,7 +250,7 @@ iPhone 17 Pro / iOS 26.5 sim (`ios-build.yml` pin) plus TestFlight when a slice 
 1. Cold launch: Home, Chat, Train, Ledger, Health Data show Wave, never `ProgressView`. Reduce Motion: frozen wave.
 2. Inline: Detail save, Load 20 more, Sync, Import, Sign in show Signal beside the label.
 3. Chat: send → thinking bubble with Signal + copy, not Wave, not dots.
-4. Train TestFlight frame: TODAY none + activity week + library read as one page; last card and Start sit above the pill.
+4. Train: swipe, pills, week list, rest, receipt without HR, dock clear with the list open.
 5. Engine: no system Back, desk, tab bar hidden, coach card fully visible.
 6. Dark mode once per slice.
 

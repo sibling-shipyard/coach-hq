@@ -114,6 +114,14 @@ One primary, one secondary. Signal in a fixed slot beside the label; the pair is
 
 Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` for the same job.
 
+## Train
+
+Day Card + Week Strip L + library. Same five slots in every voice (launch, receipt, rest, protocol draft, match draft). Cubes use pointer under today and a ring on any other selected day. Chevron opens THE WEEK and leaves it open.
+
+Haptics: `.light` on cube select and pill swap. Silent chevron and swipe settle. Timer Start lives on workout overview, not the Day Card.
+
+Terracotta is load figures and WarmPrimary only. `TODAY ›` is ink. Draft load is `—` until a real projected number exists. HR ribbon uses a stored stream, or the slot stays empty.
+
 Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
 
 ---

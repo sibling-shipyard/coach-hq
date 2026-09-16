@@ -1,12 +1,11 @@
 import Foundation
 
-/// Pure functions that turn the same data the Workouts tab already fetches (current_week.json,
-/// today's coach session files, the workout templates, and locally-synced activities) into the
-/// three bands the Workouts tab renders: today, this week, library. No new storage, no state
-/// machine — just picking which existing row applies.
+/// Pure functions that turn the same data the Train tab already fetches (`current_week.json`,
+/// coach session files, templates, and hist) into a week of days plus today's runnable band.
+/// No new storage — just picking which existing row applies.
 ///
-/// This is a Swift port of `ui/client/src/lib/workoutsPageSelector.ts`'s reasoning (A5, A5-ios),
-/// not a line-for-line translation — kept in its own file, no shared package across languages.
+/// Swift port of `ui/client/src/lib/workoutsPageSelector.ts`'s reasoning, widened for the
+/// Day Card / Week Strip L page (every session, rest vs match vs protocol).
 enum WorkoutsPageSelector {
 
     enum TodayBand: Equatable {
@@ -18,19 +17,64 @@ enum WorkoutsPageSelector {
         case none
     }
 
-    struct WeekRow: Equatable {
-        let date: String
-        let isFilled: Bool
-        let title: String?
-        let durationMin: Int?
-        let discipline: CurrentWeekSessionDiscipline?
-        let isToday: Bool
+    enum DayKind: Equatable {
+        case past, today, future
     }
 
-    struct Selection {
+    enum SessionStatus: Equatable {
+        case logged, draft
+    }
+
+    struct TrainSession: Equatable, Identifiable {
+        let id: String
+        let title: String
+        let shortTitle: String
+        let sport: WarmSportId
+        let status: SessionStatus
+        let load: Int?
+        let durationMin: Int?
+        let plannedMin: Int?
+        let subline: String
+        let phases: [WorkoutPhase]
+        let coachNote: String?
+        let workout: Workout?
+        let activity: SyncCacheEntry?
+        /// True when the session has a routine to open (template or session file).
+        var isProtocol: Bool { workout != nil }
+        var isMatchDraft: Bool { status == .draft && workout == nil }
+    }
+
+    struct TrainDay: Equatable, Identifiable {
+        let date: String
+        let kind: DayKind
+        let isRest: Bool
+        let sessions: [TrainSession]
+        let observedLoad: Int?
+        let coachNote: String?
+
+        var id: String { date }
+        var isToday: Bool { kind == .today }
+    }
+
+    struct TrainWeek: Equatable {
+        let id: String
+        let number: Int
+        let loggedLoad: Int?
+        let bandVerdict: String?
+        let days: [TrainDay]
+        let isLive: Bool
+    }
+
+    struct Selection: Equatable {
         let today: TodayBand
-        /// nil means the band hides entirely — no live plan and nothing logged this ISO week.
-        let week: [WeekRow]?
+        /// nil means the strip hides — no live plan and nothing logged this ISO week.
+        let week: TrainWeek?
+    }
+
+    struct LoadHints: Equatable {
+        var loadByDate: [String: Int] = [:]
+        var bandLow: Double? = nil
+        var bandHigh: Double? = nil
     }
 
     struct Input {
@@ -39,11 +83,14 @@ enum WorkoutsPageSelector {
         /// Nil whenever `currentWeek` is nil.
         let availability: CurrentWeekAvailability?
         let templates: [Workout]
-        /// Coach session files fetched for `today`, keyed the same way `WorkoutService`
-        /// already keys them (filename with the date prefix dropped).
-        let sessionsForToday: [String: Workout]
-        /// Locally-synced activities (`SyncCache.load()`), used only when the plan isn't live.
+        /// Coach session files fetched for the date the caller last asked for (today on
+        /// first paint, the selected day after a cube tap).
+        let sessionsForDate: [String: Workout]
+        /// Hist rows used to attach receipts — All Activity plus the 7-day sync shelf.
         let loggedActivities: [SyncCacheEntry]
+        /// Observed day loads from Home snapshots when present (ADR 0005). Missing dates
+        /// fall back to zone-weighted load on the attached activity.
+        let loadHints: LoadHints
         /// "Today" — the week's own timezone when live, the athlete's known timezone
         /// otherwise, never the device's local zone. Computed by the caller.
         let today: String
@@ -54,7 +101,7 @@ enum WorkoutsPageSelector {
     static func select(_ input: Input) -> Selection {
         let live = (input.availability?.available ?? false) && input.currentWeek != nil
         guard live, let plan = input.currentWeek else {
-            return Selection(today: .none, week: weekRowsFromActivities(input.loggedActivities, today: input.today))
+            return Selection(today: .none, week: weekFromActivities(input))
         }
 
         let day = plan.days.first { $0.date == input.today }
@@ -62,10 +109,9 @@ enum WorkoutsPageSelector {
             day: day,
             today: input.today,
             templates: input.templates,
-            sessionsForToday: input.sessionsForToday
+            sessionsForDate: input.sessionsForDate
         )
-        let week = plan.days.map { weekRow(for: $0, today: input.today) }
-        return Selection(today: today, week: week)
+        return Selection(today: today, week: weekFromPlan(plan, input: input))
     }
 
     /// Live plus a session with a real routine is runnable (whether or not it's already
@@ -75,7 +121,7 @@ enum WorkoutsPageSelector {
         day: CurrentWeekDay?,
         today: String,
         templates: [Workout],
-        sessionsForToday: [String: Workout]
+        sessionsForDate: [String: Workout]
     ) -> TodayBand {
         guard let session = day?.sessions.first else { return .rest }
 
@@ -83,29 +129,29 @@ enum WorkoutsPageSelector {
            let resolved = resolveRunnable(
                 templateId: templateId,
                 sessionFile: session.sessionFile,
-                today: today,
+                date: today,
                 templates: templates,
-                sessionsForToday: sessionsForToday
+                sessionsForDate: sessionsForDate
            ) {
             return .runnable(workout: resolved.workout, isSession: resolved.isSession, done: session.status == .done)
         }
         return .mention(title: session.title, durationMin: session.plannedDurationMin)
     }
 
-    /// The coach-adjusted session file for today if one exists, otherwise the base template.
+    /// The coach-adjusted session file for `date` if one exists, otherwise the base template.
     private static func resolveRunnable(
         templateId: String,
         sessionFile: String?,
-        today: String,
+        date: String,
         templates: [Workout],
-        sessionsForToday: [String: Workout]
+        sessionsForDate: [String: Workout]
     ) -> (workout: Workout, isSession: Bool)? {
-        let fileId = sessionFile.flatMap { sessionFileId($0, today: today) }
-        if let fileId, let session = sessionsForToday[fileId], session.sessionDate == today {
+        let fileId = sessionFile.flatMap { sessionFileId($0, date: date) }
+        if let fileId, let session = sessionsForDate[fileId], session.sessionDate == date {
             return (session, true)
         }
-        if let session = sessionsForToday.values.first(where: {
-            $0.sessionDate == today && ($0.id == templateId || $0.basedOnTemplate == templateId)
+        if let session = sessionsForDate.values.first(where: {
+            $0.sessionDate == date && ($0.id == templateId || $0.basedOnTemplate == templateId)
         }) {
             return (session, true)
         }
@@ -117,28 +163,77 @@ enum WorkoutsPageSelector {
 
     /// Mirrors `WorkoutService.fetchTodaySessions`'s own key derivation: the session
     /// filename minus its `<date>_` prefix and `.json` extension.
-    private static func sessionFileId(_ path: String, today: String) -> String? {
+    private static func sessionFileId(_ path: String, date: String) -> String? {
         let base = (path as NSString).lastPathComponent
         let withoutExt = base.hasSuffix(".json") ? String(base.dropLast(5)) : base
-        let prefix = "\(today)_"
+        let prefix = "\(date)_"
         guard withoutExt.hasPrefix(prefix) else { return nil }
         return String(withoutExt.dropFirst(prefix.count))
     }
 
-    /// Every day in the week list is either the plan's row, a logged activity that day, or
-    /// blank; blank means unplanned, not Rest.
-    private static func weekRow(for day: CurrentWeekDay, today: String) -> WeekRow {
-        let isToday = day.date == today
-        guard let session = day.sessions.first else {
-            return WeekRow(date: day.date, isFilled: false, title: nil, durationMin: nil, discipline: nil, isToday: isToday)
+    // MARK: - Live week
+
+    private static func weekFromPlan(_ plan: CurrentWeek, input: Input) -> TrainWeek {
+        let days = plan.days.map { trainDay(for: $0, input: input) }
+        return makeWeek(
+            id: plan.week.id,
+            days: days,
+            hints: input.loadHints,
+            isLive: true
+        )
+    }
+
+    private static func trainDay(for day: CurrentWeekDay, input: Input) -> TrainDay {
+        let kind = dayKind(day.date, today: input.today)
+        let sessions = day.sessions.map { session in
+            trainSession(session, on: day.date, input: input)
         }
-        return WeekRow(
+        let observed = observedLoad(date: day.date, sessions: sessions, hints: input.loadHints)
+        return TrainDay(
             date: day.date,
-            isFilled: true,
-            title: session.title,
-            durationMin: session.plannedDurationMin,
-            discipline: session.discipline,
-            isToday: isToday
+            kind: kind,
+            isRest: sessions.isEmpty,
+            sessions: sessions,
+            observedLoad: observed,
+            coachNote: day.coachNote
+        )
+    }
+
+    private static func trainSession(
+        _ session: CurrentWeekSession,
+        on date: String,
+        input: Input
+    ) -> TrainSession {
+        let activity = matchingActivity(session, date: date, in: input.loggedActivities)
+        let resolved = session.templateId.flatMap {
+            resolveRunnable(
+                templateId: $0,
+                sessionFile: session.sessionFile,
+                date: date,
+                templates: input.templates,
+                sessionsForDate: input.sessionsForDate
+            )
+        }
+        let logged = session.status == .done || activity != nil
+        let load = logged ? sessionLoad(activity: activity, date: date, hints: input.loadHints) : nil
+        let workout = resolved?.workout
+        let duration = logged
+            ? activity.map { Int((Double($0.elapsedTime) / 60).rounded()) }
+            : (workout?.estimatedDurationMins ?? session.plannedDurationMin)
+        return TrainSession(
+            id: session.id,
+            title: activity?.name ?? session.title,
+            shortTitle: shortTitle(activity?.name ?? session.title),
+            sport: session.discipline.asWarmSport,
+            status: logged ? .logged : .draft,
+            load: load,
+            durationMin: duration,
+            plannedMin: session.plannedDurationMin,
+            subline: subline(session: session, workout: workout, activity: activity),
+            phases: workout?.phases ?? [],
+            coachNote: session.coachNote ?? workout?.coachingNote,
+            workout: workout,
+            activity: activity
         )
     }
 
@@ -146,25 +241,151 @@ enum WorkoutsPageSelector {
 
     /// Not live, or missing, means the week band shows only logged activity for that ISO
     /// week if any exists, else hides entirely.
-    private static func weekRowsFromActivities(_ activities: [SyncCacheEntry], today: String) -> [WeekRow]? {
-        let monday = mondayOfWeek(containing: today)
+    private static func weekFromActivities(_ input: Input) -> TrainWeek? {
+        let monday = mondayOfWeek(containing: input.today)
         let weekDates = (0..<7).map { addDaysToDateString(monday, $0) }
-        let byDate = Dictionary(grouping: activities) { String($0.startDateLocal.prefix(10)) }
-
-        let rows = weekDates.map { date -> WeekRow in
-            guard let entries = byDate[date], let first = entries.first else {
-                return WeekRow(date: date, isFilled: false, title: nil, durationMin: nil, discipline: nil, isToday: date == today)
-            }
-            return WeekRow(
+        let byDate = Dictionary(grouping: input.loggedActivities) { String($0.startDateLocal.prefix(10)) }
+        let days = weekDates.map { date -> TrainDay in
+            let entries = byDate[date] ?? []
+            let sessions = entries.map { entry in histSession(entry, hints: input.loadHints) }
+            return TrainDay(
                 date: date,
-                isFilled: true,
-                title: first.name,
-                durationMin: Int((Double(first.elapsedTime) / 60).rounded()),
-                discipline: discipline(for: first),
-                isToday: date == today
+                kind: dayKind(date, today: input.today),
+                isRest: sessions.isEmpty,
+                sessions: sessions,
+                observedLoad: observedLoad(date: date, sessions: sessions, hints: input.loadHints),
+                coachNote: nil
             )
         }
-        return rows.contains(where: { $0.isFilled }) ? rows : nil
+        guard days.contains(where: { !$0.sessions.isEmpty }) else { return nil }
+        return makeWeek(
+            id: isoWeekId(fromMonday: monday),
+            days: days,
+            hints: input.loadHints,
+            isLive: false
+        )
+    }
+
+    private static func histSession(_ entry: SyncCacheEntry, hints: LoadHints) -> TrainSession {
+        let date = String(entry.startDateLocal.prefix(10))
+        let sport = discipline(for: entry).asWarmSport
+        return TrainSession(
+            id: entry.fileName,
+            title: entry.name,
+            shortTitle: shortTitle(entry.name),
+            sport: sport,
+            status: .logged,
+            load: sessionLoad(activity: entry, date: date, hints: hints),
+            durationMin: Int((Double(entry.elapsedTime) / 60).rounded()),
+            plannedMin: nil,
+            subline: entry.activity?.description?.nilIfEmpty ?? Format.duration(seconds: entry.elapsedTime),
+            phases: [],
+            coachNote: nil,
+            workout: nil,
+            activity: entry
+        )
+    }
+
+    // MARK: - Join / load
+
+    private static func matchingActivity(
+        _ session: CurrentWeekSession,
+        date: String,
+        in activities: [SyncCacheEntry]
+    ) -> SyncCacheEntry? {
+        for raw in session.completionActivityIds {
+            let uuid = raw.hasPrefix("healthkit:") ? String(raw.dropFirst("healthkit:".count)) : raw
+            if let hit = activities.first(where: { $0.activity?.activityId == uuid || $0.fileName.contains(uuid) }) {
+                return hit
+            }
+        }
+        let sameDay = activities.filter { $0.startDateLocal.hasPrefix(date) }
+        if sameDay.count == 1 { return sameDay[0] }
+        let sport = session.discipline.asWarmSport
+        return sameDay.first { discipline(for: $0).asWarmSport == sport }
+    }
+
+    private static func sessionLoad(activity: SyncCacheEntry?, date: String, hints: LoadHints) -> Int? {
+        if let activity, let zones = activity.activity?.hrZones, let load = HealthKitSyncManager.zoneLoad(hrZones: zones) {
+            return load
+        }
+        return hints.loadByDate[date]
+    }
+
+    private static func observedLoad(date: String, sessions: [TrainSession], hints: LoadHints) -> Int? {
+        if let hinted = hints.loadByDate[date] { return hinted }
+        let values = sessions.compactMap(\.load)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +)
+    }
+
+    private static func makeWeek(id: String, days: [TrainDay], hints: LoadHints, isLive: Bool) -> TrainWeek {
+        let logged = days.compactMap(\.observedLoad).reduce(0, +)
+        let loggedOrNil: Int? = days.contains(where: { $0.observedLoad != nil }) ? logged : nil
+        return TrainWeek(
+            id: id,
+            number: weekNumber(from: id),
+            loggedLoad: loggedOrNil,
+            bandVerdict: bandVerdict(logged: loggedOrNil, hints: hints),
+            days: days,
+            isLive: isLive
+        )
+    }
+
+    private static func bandVerdict(logged: Int?, hints: LoadHints) -> String? {
+        guard let logged, let low = hints.bandLow, let high = hints.bandHigh else { return nil }
+        if Double(logged) > high { return "over the band" }
+        if Double(logged) < low { return "under the band" }
+        return "in the band"
+    }
+
+    // MARK: - Labels
+
+    private static func dayKind(_ date: String, today: String) -> DayKind {
+        if date == today { return .today }
+        return date < today ? .past : .future
+    }
+
+    private static func shortTitle(_ title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        if trimmed.count <= 14 { return trimmed }
+        if let hash = trimmed.range(of: "#") {
+            return String(trimmed[hash.lowerBound...]).prefix(14).description
+        }
+        return trimmed.split(separator: " ").prefix(2).joined(separator: " ")
+    }
+
+    private static func subline(session: CurrentWeekSession, workout: Workout?, activity: SyncCacheEntry?) -> String {
+        if let subtitle = workout?.subtitle, !subtitle.isEmpty { return subtitle }
+        if let kind = session.kind.nilIfEmpty { return kind.replacingOccurrences(of: "_", with: " ") }
+        if let duration = activity.map({ Format.duration(seconds: $0.elapsedTime) }) { return duration }
+        if let minutes = session.plannedDurationMin { return "\(minutes) min" }
+        return session.title
+    }
+
+    private static func weekNumber(from id: String) -> Int {
+        if let range = id.range(of: #"W(\d+)"#, options: .regularExpression) {
+            return Int(id[range].dropFirst()) ?? 0
+        }
+        return 0
+    }
+
+    private static func isoWeekId(fromMonday monday: String) -> String {
+        "\(String(monday.prefix(4)))-W\(String(format: "%02d", isoWeekNumber(monday)))"
+    }
+
+    private static func isoWeekNumber(_ dateString: String) -> Int {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        utcCalendar.firstWeekday = 2
+        utcCalendar.minimumDaysInFirstWeek = 4
+        let formatter = DateFormatter()
+        formatter.calendar = utcCalendar
+        formatter.timeZone = utcCalendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateString) else { return 0 }
+        return utcCalendar.component(.weekOfYear, from: date)
     }
 
     /// Best-effort discipline from a locally-synced activity — prefers the manually-tagged
@@ -219,5 +440,18 @@ enum WorkoutsPageSelector {
             return dateString
         }
         return formatter.string(from: monday)
+    }
+
+    static func defaultFocusIndex(in day: TrainDay) -> Int {
+        if let draft = day.sessions.firstIndex(where: { $0.status == .draft }) {
+            return draft
+        }
+        return 0
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
