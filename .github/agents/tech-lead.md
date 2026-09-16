@@ -35,7 +35,7 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 - Loop: freshness gate → plan → athlete approves → subagent implements → **you review** → PR →
 	short summary. Bob the Builder / UI Expert / iOS Builder are the same thing with a scoped role doc.
 
-### Review is seven countable checks, not a verdict
+### Review is eight countable checks, not a verdict
 
 1. the full local gate ran before first push, then the named GitHub checks are green — **read the
 	evidence, don't re-run it.** `gh pr checks <n>` is the check; `ios-build.yml` covers `ios/**`,
@@ -58,6 +58,12 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 6. PR body: human blurb ≤5 lines on top, agent detail below; `Refs: #N` mid-stack or `Fixes: #N` on
 	the finishing PR (never neither; never `Fixes` too early)
 7. if this PR finishes a `docs/plans/` plan, that plan file is deleted in the diff
+8. a new failure path (new workflow, new job, a swallowed error turned fail-closed) has Sentry
+	parity with its nearest sibling, checked against `docs/eng-docs/sentry-runbook.md` § Coverage
+	boundary — not assumed from green CI, which proves the code runs, not that a failure reports
+	anywhere. A scheduled workflow can ship with no failure alert at all; a new fail-closed error
+	can land excluded from capture by an existing `shouldCapture`-style rule tuned for a different,
+	benign case. Either update the runbook's coverage boundary or open a follow-up naming the gap.
 
 ### Reporting a review — P0/P1/P2, plain bullets
 
