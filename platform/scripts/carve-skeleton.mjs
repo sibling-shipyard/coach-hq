@@ -554,7 +554,11 @@ function copyWorkflows(outDir, opts = {}) {
   );
   fs.writeFileSync(path.join(wfDir, "sync.yml"), stampSyncDsn(sync, opts));
 
-  for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
+  for (const wf of [
+    "validate-data.yml",
+    "apply-coach-patch.yml",
+    "rollover.user.yml",
+  ]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));
   }
 }

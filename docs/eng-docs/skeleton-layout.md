@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-13 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -253,7 +253,7 @@ Read the script when they disagree — it is what runs.
 |---|---|---|
 | `engine/scripts/` (11 carved files) | `engine/scripts/` | `engine/` |
 | `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
-| `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
+| `engine/.github/workflows/` (4 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/SOUL.claude.md` | `SOUL.claude.md` at repo root | `platform/` |
 | `engine/claude/athlete/` | `.claude/`, root `CLAUDE.md` | `engine/` |
