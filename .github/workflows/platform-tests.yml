@@ -46,7 +46,7 @@ jobs:
         run: python3 -m unittest discover -s engine/scripts -p "test_*.py"
 
       - name: Run engine Node tests
-        run: node --test engine/scripts/*.test.mjs
+        run: node --test engine/scripts/*.test.mjs shared/golden-dataset/*.test.mjs
 
       - name: Run platform/skills tests
         run: node --test platform/skills/*.test.mjs
