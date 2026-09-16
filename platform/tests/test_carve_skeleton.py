@@ -24,7 +24,7 @@ class TestCarveSkeleton(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
-            workflow = Path(out) / ".github/workflows/rollover.user.yml"
+            workflow = Path(out) / ".github/workflows/rollover.yml"
             self.assertTrue(workflow.is_file())
             content = workflow.read_text(encoding="utf-8")
             self.assertIn("schedule:", content)

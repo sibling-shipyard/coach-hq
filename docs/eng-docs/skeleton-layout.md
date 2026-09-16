@@ -65,6 +65,7 @@ coach-skeleton/  (= coach-user after fork)
 │
 ├── .github/workflows/
 │   ├── sync.yml
+│   ├── rollover.yml
 │   ├── validate-data.yml
 │   └── apply-coach-patch.yml
 │
