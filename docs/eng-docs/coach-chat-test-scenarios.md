@@ -14,8 +14,8 @@ test libraries going forward - update it whenever a scenario is added, removed, 
 The 2026-09-15 coverage-audit pass (phase 1) cross-referenced every action field the code can
 actually emit against this catalog. It closed every real gap it found except two, then a same-day
 follow-up (issue #1066) closed those last two - see the Coverage matrix section below, which now
-has zero open rows, and `docs/plans/coach-chat-redesign-followups.md`'s two items this pass
-settles/retests.
+has zero open rows. The same pass also settled the coach-chat redesign's own last open items
+(transcripts 19/20 and the `session-plan`/`week-kickoff-flash` scenarios below).
 
 ## Eval transcripts
 
