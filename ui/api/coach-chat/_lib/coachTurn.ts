@@ -78,6 +78,8 @@ import {
   isFullWeekKickoff,
   applyWeekUpdate,
   assertCurrentWeekCommitReady,
+  currentWeekNeedsRollover,
+  buildRolloverPlaceholder,
 } from "./decide/coachWeekFiles.js";
 import {
   activeTemplatesContext,
@@ -1993,6 +1995,51 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     });
   }
 
+  // ADR 0049: lazy same-turn rollover, alongside the CI job. current_week.json's rollover
+  // otherwise only runs inside sync.user.yml, gated on the iOS app's own activity-sync push - an
+  // athlete who hasn't synced recently gets no rollover at all. Checked on every turn, same as
+  // injectCoachSinceIfNeeded is below, but only when this turn's own week_update didn't already
+  // produce a write to the same path - the athlete's own intent this turn is more current than a
+  // generic empty-frame refresh, and commitFilesAtomic does not merge two writes to the same path.
+  let rolloverWrite: FileEntry | undefined;
+  // turn.today is always a real YYYY-MM-DD date in production (loadTurnState computes it from
+  // todayDateString before this ever runs) - this guard is defense-in-depth only, so a turn built
+  // by a test harness (or any future caller) that skips that step no-ops here instead of handing
+  // an unparseable date string into buildRolloverPlaceholder's own date arithmetic.
+  if (currentWeekWrite === undefined && /^\d{4}-\d{2}-\d{2}$/.test(turn.today)) {
+    // Reuse whatever read of current_week.json this turn already did - the patch-mode fetch
+    // above when a (dropped) week_update needed one, otherwise requestCoachReply's own prefetch
+    // (undefined only on a first-session turn, where it's never fetched at all). Only a
+    // first-session turn falls back to a fresh soft read here, same contract as every other soft
+    // read in this file: 404 quiet, anything else captured once, both read as null.
+    const rolloverSourceContent =
+      currentWeekContent !== undefined
+        ? currentWeekContent
+        : turn.prefetchedCurrentWeekContent !== undefined
+          ? turn.prefetchedCurrentWeekContent
+          : await (async () => {
+              try {
+                return await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+              } catch (err: unknown) {
+                const status = (err as { status?: number }).status;
+                if (status === 404) return null;
+                await captureServerException(err);
+                return null;
+              }
+            })();
+    const rolloverNow = new Date(turn.now);
+    if (currentWeekNeedsRollover(rolloverSourceContent ?? null, turn.today, rolloverNow)) {
+      rolloverWrite = {
+        path: CURRENT_WEEK_PATH,
+        content: JSON.stringify(
+          buildRolloverPlaceholder(timezone, turn.today, rolloverNow),
+          null,
+          2,
+        ),
+      };
+    }
+  }
+
   for (const dropped of droppedActions) {
     console.error("[coach-chat] dropped a structured-fact action - bad reference:", dropped, {
       traceId,
@@ -2181,6 +2228,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     sessionPlanWrite,
     ...workoutCreateAndRemoveWrites,
     currentWeekWrite,
+    rolloverWrite,
     seasonStartWrites?.seasonWrite,
     seasonStartWrites?.questWrite,
     questCreateWrite,
