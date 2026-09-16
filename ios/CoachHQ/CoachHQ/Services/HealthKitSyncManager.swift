@@ -645,7 +645,10 @@ class HealthKitSyncManager: ObservableObject {
             // Session match needs hist contents, not just filenames (ADR 0035). Garmin
             // rewrites drop the old uuid from HealthKit, so filename-only uuid parse misses.
             let hkWindowFiles = recentFiles.filter { Self.uuid(fromHistoryFileName: $0.name) != nil }
-            let histSessions = await loadHistSessions(files: hkWindowFiles)
+            let histSessions = try await loadHistSessions(
+                files: hkWindowFiles,
+                operationID: diagnosticOperation.id
+            )
             var sessionByUUID: [String: HistSession] = [:]
             for session in histSessions {
                 for id in Self.identityUUIDs(of: session.activity) {
@@ -1220,7 +1223,15 @@ class HealthKitSyncManager: ObservableObject {
             guard let date = Self.date(fromHistoryFileName: file.name) else { return true }
             return date >= since
         }
-        let histSessions = await loadHistSessions(files: windowFiles)
+        let histSessions: [HistSession]
+        do {
+            histSessions = try await loadHistSessions(
+                files: windowFiles,
+                operationID: UUID()
+            )
+        } catch {
+            return nil
+        }
         var committedIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
         for session in histSessions {
             committedIDs.formUnion(Self.identityUUIDs(of: session.activity))
@@ -1339,20 +1350,37 @@ class HealthKitSyncManager: ObservableObject {
         let activity: Activity
     }
 
-    private func loadHistSessions(files: [GitHubFileEntry]) async -> [HistSession] {
-        guard let apiClient else { return [] }
-        return await withTaskGroup(of: HistSession?.self, returning: [HistSession].self) { group in
+    private func loadHistSessions(
+        files: [GitHubFileEntry],
+        operationID: UUID
+    ) async throws -> [HistSession] {
+        guard let apiClient else { throw GitHubAPIError.sessionNotReady }
+        // Every listed file is required: a missing body could hide a Garmin rewrite's
+        // canonical session. Only a missing directory is an empty history (ADR 0035).
+        return try await withThrowingTaskGroup(of: HistSession.self, returning: [HistSession].self) { group in
             for file in files {
                 group.addTask {
-                    guard let activity = try? await apiClient.readActivity(fileName: file.name) else {
-                        return nil
+                    do {
+                        let activity = try await apiClient.readActivity(fileName: file.name)
+                        return HistSession(fileName: file.name, activity: activity)
+                    } catch let error as GitHubAPIError {
+                        // The directory listing is a snapshot: a listed file can disappear
+                        // before its body read. Surface that race to Sentry while preserving
+                        // the directory's own benign 404 handling at the caller.
+                        if case .notFound = error {
+                            DiagnosticsManager.capture(
+                                error: GitHubAPIError.notFound(operation: "Reading listed history file"),
+                                operation: "healthkit.history.read",
+                                operationID: operationID
+                            )
+                        }
+                        throw error
                     }
-                    return HistSession(fileName: file.name, activity: activity)
                 }
             }
             var sessions: [HistSession] = []
-            for await session in group {
-                if let session { sessions.append(session) }
+            for try await session in group {
+                sessions.append(session)
             }
             return sessions
         }
@@ -1436,7 +1464,7 @@ class HealthKitSyncManager: ObservableObject {
     // MARK: - HealthKit Queries
 
     /// Fetches all workouts completed since a given date.
-    private func fetchWorkouts(since startDate: Date) async throws -> [HKWorkout] {
+    func fetchWorkouts(since startDate: Date) async throws -> [HKWorkout] {
         let predicate = HKQuery.predicateForSamples(
             withStart: startDate,
             end: Date(),
