@@ -3,10 +3,9 @@ import SwiftUI
 /// Native Coach Chat — Warm Instrument continuous landing (`Coach Chat Mobile.dc.html` Turn 1).
 ///
 /// **Wireup checklist (Skanda):**
-/// 1. `loadThreads()` — API returns seeded today thread on new-day open; drop preview fallback.
 /// 3. `chips(for:)` — map coach message metadata from API instead of `CoachChatPreviewData.chipsByMessageId`.
 /// 4. `showSignature(for:)` — server flag on unprompted morning-read messages only.
-/// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
+/// 5. Live history is the API list only (empty means empty). 7-day window is server-side; client groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
     @EnvironmentObject private var syncManager: HealthKitSyncManager
@@ -86,10 +85,6 @@ struct CoachChatView: View {
         liveDayNumber = Self.challengeDayNumber(startDate: startDate)
     }
 
-    private var usingPreviewShell: Bool {
-        !threadsLoading && threads.filter { $0.status != .deleted }.isEmpty
-    }
-
     /// Empty today landing when the API has no threads — UI only, never sent to the server.
     private var emptyTodayShell: ChatThread {
         ChatThread(
@@ -104,8 +99,7 @@ struct CoachChatView: View {
     }
 
     private var historyThreads: [ChatThread] {
-        let live = threads.filter { $0.status != .deleted }
-        return live.isEmpty ? CoachChatPreviewData.historyThreads : live
+        threads.filter { $0.status != .deleted }
     }
 
     private var todayThread: ChatThread? {
@@ -117,22 +111,12 @@ struct CoachChatView: View {
     // still-open thread from any prior day, not just dayOffset == 1. threads is newest-first
     // (per the API), so .first(where:) already picks the most recent match.
     private var yesterdayThread: ChatThread? {
-        if let live = threads.first(where: { $0.dayOffset > 0 && $0.status == .active && !$0.messages.isEmpty }) {
-            return live
-        }
-        if usingPreviewShell {
-            return CoachChatPreviewData.historyThreads.first { $0.dayOffset == 1 }
-        }
-        return nil
+        threads.first(where: { $0.dayOffset > 0 && $0.status == .active && !$0.messages.isEmpty })
     }
 
     private var displayThread: ChatThread {
-        if let id = activeThreadId {
-            if let thread = threads.first(where: { $0.id == id }) { return thread }
-            if usingPreviewShell,
-               let preview = CoachChatPreviewData.historyThreads.first(where: { $0.id == id }) {
-                return preview
-            }
+        if let id = activeThreadId, let thread = threads.first(where: { $0.id == id }) {
+            return thread
         }
         if let today = todayThread { return today }
         return emptyTodayShell
@@ -143,9 +127,7 @@ struct CoachChatView: View {
     }
 
     var body: some View {
-        Group {
-            continuousLandingView
-        }
+        continuousLandingView
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
         .overlay {
@@ -259,28 +241,33 @@ struct CoachChatView: View {
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in
-                    ScrollView {
-                        chatMessageStack
-                            .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .bottom)
-                    }
-                    .scrollClipDisabled()
-                    .scrollDismissesKeyboard(.interactively)
-                    .background(WarmInstrument.chatSurface)
-                    .onAppear {
-                        scrollToBottom(proxy: proxy, animated: false)
-                    }
-                    .onChange(of: displayThread.messages.count) { oldCount, newCount in
-                        guard newCount > oldCount else { return }
-                        scrollToBottom(proxy: proxy)
-                    }
-                    .onChange(of: sending) { _, isSending in
-                        if isSending {
-                            scrollToBottom(proxy: proxy, anchor: "thinking")
+                    if threadsLoading {
+                        loadingView
+                            .background(WarmInstrument.chatSurface)
+                    } else {
+                        ScrollView {
+                            chatMessageStack
+                                .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .bottom)
                         }
-                    }
-                    .onChange(of: syncManager.activitySyncTurn?.phase) { _, phase in
-                        if phase == .requestingCoach {
-                            scrollToBottom(proxy: proxy, anchor: "thinking")
+                        .scrollClipDisabled()
+                        .scrollDismissesKeyboard(.interactively)
+                        .background(WarmInstrument.chatSurface)
+                        .onAppear {
+                            scrollToBottom(proxy: proxy, animated: false)
+                        }
+                        .onChange(of: displayThread.messages.count) { oldCount, newCount in
+                            guard newCount > oldCount else { return }
+                            scrollToBottom(proxy: proxy)
+                        }
+                        .onChange(of: sending) { _, isSending in
+                            if isSending {
+                                scrollToBottom(proxy: proxy, anchor: "thinking")
+                            }
+                        }
+                        .onChange(of: syncManager.activitySyncTurn?.phase) { _, phase in
+                            if phase == .requestingCoach {
+                                scrollToBottom(proxy: proxy, anchor: "thinking")
+                            }
                         }
                     }
                 }
@@ -300,7 +287,7 @@ struct CoachChatView: View {
                     threadTitle: displayThread.title,
                     onBackToToday: { selectTodayThread() }
                 )
-            } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell, !chatWelcomeShown {
+            } else if displayThread.messages.isEmpty, isViewingToday, !chatWelcomeShown {
                 CoachChatWelcomeIntro()
             } else {
                 ForEach(displayThread.messages) { message in
@@ -349,7 +336,7 @@ struct CoachChatView: View {
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
-                placeholder: coachIsReplying ? "Coach is replying…" : "",
+                placeholder: coachIsReplying ? "Coach is replying…" : "Message Coach…",
                 isSending: coachIsReplying,
                 onSend: { Task { await send(from: resolvedSendThreadId()) } }
             )
@@ -716,7 +703,7 @@ struct CoachChatView: View {
         }
     }
 
-    /// Live thread messages only — never include preview shell content or local welcome messages in API context.
+    /// Live thread messages only — never include local welcome messages in API context.
     private func priorMessagesForSend(targetId: String?) -> [ChatMessage] {
         guard let targetId,
               let thread = threads.first(where: { $0.id == targetId }) else {

@@ -17,7 +17,10 @@ struct CoachChatHeaderBar: View {
             backAccessibilityLabel: "Back"
         ) {
             if let onHistory {
-                Button(action: onHistory) {
+                Button {
+                    Haptics.tap()
+                    onHistory()
+                } label: {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(WarmInstrument.ink)
@@ -179,7 +182,10 @@ struct CoachChatPickUpRow: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             HStack(spacing: 9) {
                 Text(dayLabel)
                     .font(WarmInstrument.monoLabel(9.5))
@@ -302,7 +308,10 @@ struct CoachChatSyncRetryRow: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             Text("Retry")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(WarmInstrument.onAccent)
@@ -446,7 +455,10 @@ struct CoachChatComposer: View {
             .frame(height: fieldHeight)
             .animation(.easeOut(duration: 0.12), value: fieldHeight)
 
-            Button(action: onSend) {
+            Button {
+                Haptics.tap()
+                onSend()
+            } label: {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(WarmInstrument.onAccent)
@@ -700,6 +712,7 @@ struct CoachChatHistorySheet: View {
             }
 
             Button {
+                Haptics.tap()
                 onNew()
                 dismiss()
             } label: {

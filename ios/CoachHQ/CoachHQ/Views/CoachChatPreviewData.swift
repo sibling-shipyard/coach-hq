@@ -2,9 +2,9 @@ import Foundation
 
 // MARK: - Preview / wireup shell
 //
-// Placeholder content for the Coach Chat Warm Instrument UI (`Coach Chat Mobile.dc.html`).
-// Skanda: replace preview fallbacks in `CoachChatView` once `/api/coach-chat` returns:
-//   1. Seeded today thread on new-day open (continuous landing)
+// Canvas and chip-placeholder content for Coach Chat Warm Instrument.
+// Live `CoachChatView` history is the API list only — never seed `historyThreads` into it.
+// Remaining wireup:
 //   2. Header context (`D-143 · WK 4/4`) from profile.json / snapshots — today only
 //   3. Inline chips on coach morning-read messages (engine + commitments)
 //   4. 7-day thread window (no search)
