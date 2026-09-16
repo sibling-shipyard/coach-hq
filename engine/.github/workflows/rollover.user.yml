@@ -1,0 +1,57 @@
+# Keep an athlete repo's current week fresh even when no one has pushed data or opened Coach.
+name: Daily current-week rollover
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 0 * * *'
+
+permissions:
+  contents: write
+
+# Sync and rollover both write current_week.json. Share the lock so a scheduled run cannot
+# race a data-triggered Sync run and publish an older week over a newer one.
+concurrency:
+  group: sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Roll over an aged-out current week
+        id: rollover_current_week
+        run: |
+          ./engine/scripts/rollover-current-week
+          if git diff --quiet -- user_data/ledger/current_week.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Current week is still current; skipping derived-data build"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build dashboard snapshot and athlete insights
+        if: steps.rollover_current_week.outputs.changed == 'true'
+        run: |
+          node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
+          node engine/scripts/generate-athlete-insights.mjs
+
+      - name: Commit current-week rollover and derived data
+        if: steps.rollover_current_week.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add user_data/ledger/current_week.json
+          git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
+          git commit -m "data: roll over current week [skip ci]"
+          git push

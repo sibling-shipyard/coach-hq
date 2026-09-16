@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
 
 ## Context
 
@@ -189,10 +189,10 @@ The dated week plan. ADR 0042 collapsed the write side to one action field, `wee
 as either a full seven-day kickoff or a sparse per-day/per-session patch — see
 `docs/ref-docs/current-week-contract.md` for the full wire contract. Written by
 `turnWrites/weekWrite.ts` (`buildCurrentWeekWrite`), which wraps `coachWeekFiles.ts`'s
-`applyWeekUpdate`. Two more writers exist outside chat entirely, both in the sync pipeline, not
-chat-triggered: `engine/scripts/reconcile-current-week.mjs` (matches synced activities to planned
-sessions, no model call) and `engine/scripts/rollover-current-week.mjs` (replaces an aged-out
-week with a fresh placeholder frame). Strict schema owned by `engine/lib/current-week.mts`
+`applyWeekUpdate`. Two more writers exist outside chat. Sync runs
+`engine/scripts/reconcile-current-week.mjs` to match activities to planned sessions.
+Sync and the daily scheduled workflow run `engine/scripts/rollover-current-week.mjs`
+to replace an aged-out week with a fresh placeholder frame. The strict schema is owned by `engine/lib/current-week.mts`
 (`parseCurrentWeek`) — every write here is validated against it before being committed; a
 violation throws rather than commits.
 
