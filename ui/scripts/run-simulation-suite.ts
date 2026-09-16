@@ -345,6 +345,30 @@ const SCENARIOS: Scenario[] = [
       { turnIndex: 3 },
     ],
   },
+  {
+    id: "multi-field-success",
+    file: "manual-coach-chat-turns-multi-field-success.json",
+    description:
+      "B2 (#1105): two action fields landing together on the same turn, both correct - a single message asking for a permanent template_edit ('going forward') and a this-week-only week_update in one go. Every existing multi-field integration coverage (fullTurnPipeline.test.ts) only proves two fields failing together (a hallucinated template_id alongside a valid write); nothing before this proved two real fields can both commit cleanly from one turn.",
+    athlete: "akash",
+    repo: "akash-suresh/coach-akash-suresh",
+    // template_edit needs a real existing template to point at - no real athlete repo is assumed
+    // to already have the right one on file, so this seeds one first with a real workout_create
+    // ask (same phrasing as template-edit-permanent's own turn 1) rather than relying on whatever
+    // happens to already be there.
+    preconditions: {
+      hasTemplate: {
+        seedMessages: ["Can you build me a full-body strength routine, no equipment, for twice a week?"],
+      },
+    },
+    expect: [
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/ledger/current_week.json", "workout_plans/templates/"],
+      },
+      { turnIndex: 2 },
+    ],
+  },
 ];
 
 /** coach-hq paths that, if changed, could invalidate a scenario's last pass - coverage-index.json's watched_paths. */
