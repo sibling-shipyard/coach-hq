@@ -491,10 +491,7 @@ function sendSeedMessages(
   seedMessages: string[],
   branch: string,
 ): { costUsd: number; ranCleanly: boolean } {
-  const seedTurns = [
-    { greet: true, message: "" },
-    ...seedMessages.map((message) => ({ message })),
-  ];
+  const seedTurns = [{ greet: true, message: "" }, ...seedMessages.map((message) => ({ message }))];
   const seedPath = path.join(examplesDir, `.seed-${scenario.id}-${Date.now()}.json`);
   fs.writeFileSync(seedPath, JSON.stringify(seedTurns, null, 2));
 
