@@ -15,6 +15,7 @@
  * loading/error check - not a rewrite of page logic.
  */
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/react";
 import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
 import { captureFetchFailure } from "../lib/observability";
 export interface RepoData {
@@ -121,6 +122,17 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
       ) {
+        // Athlete-facing blocking card — capture once so deploy skew is visible in Sentry.
+        Sentry.captureMessage(`repo-file schema_version unsupported: ${aggregate.schema_version}`, {
+          level: "error",
+          fingerprint: ["schema_unsupported", "/api/repo-file"],
+          tags: {
+            fetch_endpoint: "/api/repo-file",
+            outcome: "schema_unsupported",
+            schema_version: String(aggregate.schema_version),
+            supported_schema_version: String(SUPPORTED_SCHEMA_VERSION),
+          },
+        });
         setState({
           data: null,
           loading: false,
