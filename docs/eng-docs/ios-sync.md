@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-13
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-16
 
 ## Context
 
@@ -248,9 +248,10 @@ snapshot pipeline "runs on the next sync/build" — this action just picks up wh
 there.
 
 Those downstream artifacts only get regenerated when the sync workflow runs. On a user fork,
-`engine/.github/workflows/sync.user.yml` has a `push` trigger on `user_data/activities/hist/**`,
-which every workout sync writes. So an iOS sync **does indirectly trigger a second, automatic
-GitHub Actions run**. The workflow records only added or modified history paths, adds a stored
+`engine/.github/workflows/sync.user.yml` has a `push` trigger on history, profile, ledger,
+sleep-log, and workout-plan writes. Every workout sync writes history, so an iOS sync
+**does indirectly trigger a second, automatic GitHub Actions run**. The workflow records
+only added or modified history paths, adds a stored
 `vs_usual` baseline to eligible files that do not already contain one, and rebuilds
 `gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, `gen/quest_history.json`, and
 `gen/sync_status.json`. Deleted or older activity files are not enriched.
