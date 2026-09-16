@@ -32,11 +32,11 @@ Cyclops uses file paths to route, per ADR 0034:
 
 | Path pattern | Owner |
 |---|---|
-| `ui/client/` | UI Expert |
+| `ui/client/`, `shared/warm-instrument/` | UI Expert |
 | `ui/api/`, `ui/observability/`, `ui/scripts/` | Bob the Builder |
-| `engine/core/`, `scripts/` | Bob the Builder |
+| `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/` | Bob the Builder |
 | `ios/` | iOS Builder |
-| `platform/` | Tech Lead |
+| `platform/`, `.github/workflows/`, `kdb/scripts/`, `shared/golden-dataset/`, `shared/workout-library/` | Tech Lead |
 | Cross-surface or unclear | Tech Lead decides |
 
 ## Docs to read
