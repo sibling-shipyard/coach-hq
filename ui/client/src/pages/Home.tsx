@@ -50,6 +50,7 @@ function HomeContent({
   return (
     <WarmInstrumentHome
       activities={activities}
+      matchHistory={data.match_history}
       ledger={ledger}
       currentWeek={currentWeek}
       dataMode="live"

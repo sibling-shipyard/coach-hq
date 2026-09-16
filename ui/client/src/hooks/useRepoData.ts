@@ -19,6 +19,7 @@ import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
 import { captureFetchFailure } from "../lib/observability";
 export interface RepoData {
   activities: unknown[];
+  match_history?: unknown;
   ledger?: any;
   workouts: unknown;
   sync_status: unknown;

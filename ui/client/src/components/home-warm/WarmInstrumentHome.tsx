@@ -26,6 +26,7 @@ import "./warm-instrument.css";
 
 interface WarmInstrumentHomeProps {
   activities: Activity[];
+  matchHistory?: unknown;
   ledger: SplitLedger;
   syncStatus: SyncStatusPayload;
   currentWeek?: CurrentWeekContract;
@@ -45,6 +46,7 @@ export {
 
 export function WarmInstrumentHome({
   activities,
+  matchHistory,
   ledger,
   syncStatus,
   currentWeek,
@@ -55,8 +57,15 @@ export function WarmInstrumentHome({
     const effectiveWeek =
       currentWeek ??
       (dataMode === "live" ? buildLiveWeekContract(activities) : GOLDEN_CURRENT_WEEK);
-    return buildWarmHomeSnapshots(activities, ledger, syncStatus, effectiveWeek, dataMode);
-  }, [activities, ledger, currentWeek, dataMode, syncStatus]);
+    return buildWarmHomeSnapshots(
+      activities,
+      ledger,
+      syncStatus,
+      effectiveWeek,
+      dataMode,
+      matchHistory,
+    );
+  }, [activities, ledger, currentWeek, dataMode, syncStatus, matchHistory]);
 
   return (
     <div className={`wi-shell ${dataMode === "live" ? "is-live-data" : ""}`.trim()}>

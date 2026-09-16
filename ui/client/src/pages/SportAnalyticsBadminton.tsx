@@ -48,7 +48,10 @@ function SportAnalyticsBadmintonContent({ data }: { data: RepoData }) {
 
   const [mode, setMode] = useState<BadmintonMode>("all");
 
-  const lens = useMemo(() => buildBadmintonLensModel(activities, mode), [activities, mode]);
+  const lens = useMemo(
+    () => buildBadmintonLensModel(activities, mode, data.match_history),
+    [activities, mode, data.match_history],
+  );
 
   if (!isBadmintonAnalyticsAvailable(data)) {
     return <Redirect to="/404" />;

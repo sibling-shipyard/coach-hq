@@ -13,6 +13,8 @@ export interface HrZone {
 
 export interface Activity {
   id: number | string;
+  /** Exact committed hist basename, supplied by the dashboard snapshot. */
+  history_file?: string;
   /** Optional machine category — when present, used by getTrainingCategory before name-regex fallbacks. */
   category?: string;
   name: string;
@@ -460,43 +462,6 @@ export function getLastWeekActivities(activities: Activity[]): Activity[] {
     const d = parseLocal(a.start_date_local);
     return d >= lastMonday && d < thisMonday;
   });
-}
-
-// ─── Win/Loss Parsing ───────────────────────────────────────────────────────
-
-export interface WinLossRecord {
-  ranked: { wins: number; losses: number };
-  all: { wins: number; losses: number };
-}
-
-export function parseWinLoss(description: string | null): WinLossRecord | null {
-  if (!description) return null;
-  // Ranked W/L from the summary line (e.g., "4W-3L (57%)")
-  const summaryMatch = description.match(/(\d+)W[–-](\d+)L/);
-  if (!summaryMatch) return null;
-  const rankedWins = parseInt(summaryMatch[1]);
-  const rankedLosses = parseInt(summaryMatch[2]);
-
-  // All W/L by counting individual game lines ("W ..." or "L ...")
-  const lines = description.split("\n");
-  let allWins = 0;
-  let allLosses = 0;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^W \d+[–-]\d+/.test(trimmed)) allWins++;
-    else if (/^L \d+[–-]\d+/.test(trimmed)) allLosses++;
-  }
-
-  // Fallback: if no game lines found, use summary
-  if (allWins + allLosses === 0) {
-    allWins = rankedWins;
-    allLosses = rankedLosses;
-  }
-
-  return {
-    ranked: { wins: rankedWins, losses: rankedLosses },
-    all: { wins: allWins, losses: allLosses },
-  };
 }
 
 // ─── Foundation Streak ──────────────────────────────────────────────────────
