@@ -371,6 +371,43 @@ const SCENARIOS: Scenario[] = [
       { turnIndex: 2 },
     ],
   },
+  // #1105 B3: probes whether #1085's memory_update drop (a durable fact stated alongside an
+  // unrelated request, in the same message) is a narration-vs-action failure class rather than a
+  // memory_update-specific one. Each probing turn bundles a structural, this-field-only request
+  // with an unrelated, non-actionable remark (mirroring #1085's own turn 1 shape) and checks
+  // whether the structural write actually lands, not just whether the reply claims it did. This
+  // is explicitly an open question - memory_update's own drop on this shape stays an accepted,
+  // separately tracked gap; it is not reopened here.
+  {
+    id: "compound-narration-probe",
+    file: "manual-coach-chat-turns-compound-narration-probe.json",
+    description:
+      "New (#1105 B3): same compound-message shape that dropped memory_update (#1085), aimed at template_edit and week_update instead - a permanent per-day routine edit bundled with an unrelated sleep remark, then a this-week-only schedule move bundled with an unrelated weather remark. Not a known-good case: the expect block honestly reports whichever way each write goes.",
+    athlete: "skanda",
+    repo: "skanda-2003/coach-skanda-2003",
+    // Reuses A2b's existing seed-recipe text verbatim (hasTemplate mirrors session-plan/
+    // template-edit-permanent's own inline template-build message; currentWeekHasSessions is the
+    // same recipe ambiguous-contradiction already uses) rather than writing new equivalent copies.
+    preconditions: {
+      hasTemplate: {
+        seedMessages: [
+          "Can you build me a simple full-body strength routine, no equipment, for twice a week?",
+          "That looks good, thanks.",
+        ],
+      },
+      currentWeekHasSessions: {
+        seedMessages: [
+          "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+          "That looks good, let's go with that.",
+        ],
+      },
+    },
+    expect: [
+      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/"] },
+      { turnIndex: 2, filesChangedInclude: ["user_data/ledger/current_week.json"] },
+      { turnIndex: 3 },
+    ],
+  },
 ];
 
 /** coach-hq paths that, if changed, could invalidate a scenario's last pass - coverage-index.json's watched_paths. */
