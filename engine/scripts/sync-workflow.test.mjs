@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildDashboardSnapshot } from "./build-dashboard-snapshot.mjs";
@@ -33,6 +34,7 @@ test("a profile or workout file alone triggers Sync and reaches the snapshot bui
   const paths = [...push.matchAll(/^      - '([^']+)'$/gm)].map((match) => match[1]);
   for (const expected of [
     "user_data/activities/hist/**",
+    "user_data/activities/match_history.json",
     "user_data/activities/workout_plans/templates/**",
     "user_data/activities/workout_plans/sessions/**",
     "user_data/ledger/**",
@@ -72,6 +74,62 @@ test("push retry regenerates the snapshot after both week updates", () => {
     "node engine/scripts/generate-athlete-insights.mjs",
     "git add -f gen/dashboard_snapshot.json gen/athlete_insights.json",
   ]);
+});
+
+test("normal and retry commits stage badminton output after regeneration", () => {
+  const commit = step("Commit pipeline changes");
+  assert.equal((commit.match(/^          stage_badminton_analytics$/gm) ?? []).length, 1);
+  const retry = commit.split("for attempt in 1 2 3; do", 2)[1];
+  assert.ok(retry, "missing retry path");
+  assertOrder(retry, [
+    "python3 engine/scripts/regenerate_derived.py",
+    "stage_badminton_analytics",
+    "git diff --cached --quiet",
+  ]);
+});
+
+test("badminton staging adds enabled output and deletes disabled or empty output", (t) => {
+  const commit = step("Commit pipeline changes");
+  const helper = commit.match(/          stage_badminton_analytics\(\) \{[\s\S]*?\n          \}/)?.[0];
+  assert.ok(helper, "missing badminton staging helper");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sync-plugin-stage-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  function run(command) {
+    // Git hooks export their parent repository paths; the fixture needs its own .git.
+    const env = { ...process.env };
+    for (const key of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX"]) {
+      delete env[key];
+    }
+    const result = spawnSync("bash", ["-e", "-c", command], { cwd: root, encoding: "utf8", env });
+    assert.equal(result.status, 0, `${command}: ${result.stdout}${result.stderr}`);
+    return result.stdout.trim();
+  }
+
+  run("git init -q");
+  run("git config user.name Test");
+  run("git config user.email test@example.com");
+  fs.writeFileSync(path.join(root, ".gitignore"), "gen/\n");
+  run("git add .gitignore && git commit -qm baseline");
+  fs.mkdirSync(path.join(root, "gen"));
+  const snapshot = path.join(root, "gen/badminton_analytics_snapshot.json");
+  const stage = `${helper}\nstage_badminton_analytics`;
+
+  run(stage);
+  assert.equal(run("git diff --cached --name-status"), "", "absent output is a no-op");
+
+  fs.writeFileSync(snapshot, "fresh");
+  run(stage);
+  assert.equal(run("git diff --cached --name-status"), "A\tgen/badminton_analytics_snapshot.json");
+  run("git commit -qm generated");
+
+  fs.unlinkSync(snapshot);
+  run(stage);
+  assert.equal(run("git diff --cached --name-status"), "D\tgen/badminton_analytics_snapshot.json");
+  run("git commit -qm removed");
+
+  run(stage);
+  assert.equal(run("git diff --cached --name-status"), "", "deleted output stays a no-op on retry");
 });
 
 test("snapshot carries the reconciled week and the later rolled-over week", (t) => {

@@ -1,6 +1,7 @@
 # User-repo sync (coach-skeleton / coach-<user>). HealthKit commits history directly;
 # Coach also writes profile, ledger, and workout files. This regenerates derived files
-# (quest_history, sync_status, dashboard_snapshot, athlete_insights), reconciles
+# (quest_history, sync_status, dashboard_snapshot, athlete_insights, optional
+# badminton analytics), reconciles
 # current_week.json against newly-synced activities, and rolls it over once it ages
 # out (ADR 0042) — on relevant data pushes. A run that dies
 # instead commits gen/sync_failure.json — the record of why gen/ is stale — and alerts Sentry.
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'user_data/activities/hist/**'
+      - 'user_data/activities/match_history.json'
       - 'user_data/activities/workout_plans/templates/**'
       - 'user_data/activities/workout_plans/sessions/**'
       - 'user_data/ledger/**'
@@ -114,6 +116,14 @@ jobs:
             [ -f "$week" ] || return 0
             git add "$week"
           }
+          stage_badminton_analytics() {
+            snapshot=gen/badminton_analytics_snapshot.json
+            if [ -f "$snapshot" ]; then
+              git add -f "$snapshot"
+            else
+              git rm -q --cached --ignore-unmatch "$snapshot"
+            fi
+          }
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -121,6 +131,7 @@ jobs:
           add_current_week
           git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
           git add gen/quest_history.json gen/sync_status.json
+          stage_badminton_analytics
           rm -f gen/sync_failure.json
           git rm -q --cached --ignore-unmatch gen/sync_failure.json
           if git diff --cached --quiet; then
@@ -149,6 +160,7 @@ jobs:
             add_current_week
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
             git add gen/quest_history.json gen/sync_status.json
+            stage_badminton_analytics
             rm -f gen/sync_failure.json
             git rm -q --cached --ignore-unmatch gen/sync_failure.json
             if git diff --cached --quiet; then

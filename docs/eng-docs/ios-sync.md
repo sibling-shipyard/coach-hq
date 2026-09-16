@@ -248,13 +248,15 @@ snapshot pipeline "runs on the next sync/build" — this action just picks up wh
 there.
 
 Those downstream artifacts only get regenerated when the sync workflow runs. On a user fork,
-`engine/.github/workflows/sync.user.yml` has a `push` trigger on history, profile, ledger,
-sleep-log, and workout-plan writes. Every workout sync writes history, so an iOS sync
+`engine/.github/workflows/sync.user.yml` has a `push` trigger on history, match history,
+profile, ledger, sleep-log, and workout-plan writes. Every workout sync writes history, so an iOS sync
 **does indirectly trigger a second, automatic GitHub Actions run**. The workflow records
 only added or modified history paths, adds a stored
 `vs_usual` baseline to eligible files that do not already contain one, and rebuilds
 `gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, `gen/quest_history.json`, and
-`gen/sync_status.json`. Deleted or older activity files are not enriched.
+`gen/sync_status.json`. When the badminton plugin is enabled and has sessions, Sync also commits
+`gen/badminton_analytics_snapshot.json`; otherwise it removes any stale copy. Deleted or older
+activity files are not enriched.
 
 A run that **fails** rebuilds none of those, so `home.sync.timestamp` never advances and
 `refreshAfterSync(since:)` polls until it gives up. Such a run commits `gen/sync_failure.json`
