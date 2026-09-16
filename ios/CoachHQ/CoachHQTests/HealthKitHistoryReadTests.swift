@@ -46,6 +46,8 @@ final class HealthKitHistoryReadTests: XCTestCase {
         guard case .failed = manager.lastSyncResult?.outcome else {
             return XCTFail("A listed file's 404 is not an empty history")
         }
+        let events = TimelineBuffer.shared.getEvents()
+        XCTAssertEqual(events.filter { $0.category == "healthkit.history.read" }.count, 1)
     }
 
     func testMalformedRequiredBodyFailsSync() async {
@@ -75,6 +77,9 @@ final class HealthKitHistoryReadTests: XCTestCase {
         let files = try XCTUnwrap(client.commits.first)
         XCTAssertEqual(files.filter { $0.path.hasPrefix(Self.histPath) }.count, 2)
         XCTAssertTrue(files.contains { $0.path.contains(manager.workouts[0].uuid.uuidString) })
+        XCTAssertTrue(TimelineBuffer.shared.getEvents().allSatisfy {
+            $0.category != "healthkit.history.read"
+        })
     }
 
     func testFailedDirectoryListingStopsSync() async {
