@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-09-01 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-16 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -123,13 +123,34 @@ Concurrency note: the project ships `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` 
 `SWIFT_STRICT_CONCURRENCY`. Don't change these to silence warnings — CI builds with the
 committed settings, so local overrides just hide what CI will still see.
 
+## Versioning
+
+`ios/scripts/bump-version.py <patch|minor|major>` bumps `MARKETING_VERSION` for the
+`CoachHQ` app and `CoachHQWidgetExtension` targets together (it reads the current version off
+the pbxproj, so you don't pass a version number). It errors out instead of touching the file if
+the two targets have already drifted apart. `CoachHQTests` has its own independent
+`MARKETING_VERSION` and is never touched.
+
+Pick the bump kind by what changed:
+
+- **patch** — bug fix, no user-facing behavior change.
+- **minor** — new feature or screen, backward-compatible.
+- **major** — reserved for the actual App Store launch, and afterward for a breaking change to
+  the synced data format or a redesign that changes the app's contract with the dashboard/sync
+  pipeline.
+
+Run it, review the diff, then commit it as part of your PR — it's a manual pre-release step, not
+CI automation.
+
 ## CI
 
 `.github/workflows/ios-build.yml` tests the `CoachHQ` scheme on an iOS Simulator running on
 `macos-26`. That scheme compiles the app and its embedded widget before running `CoachHQTests`.
 CI uses `CODE_SIGNING_ALLOWED=NO` and copies `Secrets.swift` from the `.example`. Signing, devices,
 and HealthKit runtime behaviour are not covered. A local build on a real phone is still the only
-way to verify those behaviours.
+way to verify those behaviours. On a stacked PR it skips when an upstack open PR also changes
+`ios/**` (`kdb/scripts/stack_ci_gate.py`); `workflow_dispatch` still runs a middle PR. Superseded
+runs on the same branch cancel. `push` to `main` still runs: this repo squash-merges.
 
 ## Layout
 
