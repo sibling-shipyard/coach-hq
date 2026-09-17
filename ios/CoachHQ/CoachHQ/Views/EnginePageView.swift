@@ -16,13 +16,28 @@ struct EngineDetailView: View {
         EnginePageMath.bandRelation(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
     }
 
+    private var weekHist: [EnginePageMath.HistSession] {
+        hist.filter { weekDates.contains(EnginePageMath.dateKey($0.startDateLocal)) }
+    }
+
+    /// Hist is the ledger source of truth. Wait instead of flashing the snapshot's last-five.
+    private var ledgerWaiting: Bool {
+        allActivitiesStore.isLoadingInitial && weekHist.isEmpty
+    }
+
+    private var ledgerRows: [DoseRowSnapshot] {
+        let fromHist = EnginePageMath.rowsFromHist(hist, weekDates: weekDates)
+        if !fromHist.isEmpty { return fromHist }
+        if ledgerWaiting { return [] }
+        if allActivitiesStore.loadError != nil {
+            return engine.doseRows.filter { $0.isRest != true }
+        }
+        return []
+    }
+
     private var groups: [EnginePageMath.DoseGroup] {
         EnginePageMath.groupedSessions(
-            rows: EnginePageMath.ledgerRows(
-                doseRows: engine.doseRows,
-                hist: hist,
-                weekDates: weekDates
-            ),
+            rows: ledgerRows,
             dayNumbers: EnginePageMath.dayNumbers(weekLabel: engine.weekLabel)
         )
     }
@@ -224,7 +239,9 @@ struct EngineDetailView: View {
             }
             .padding(.horizontal, 6)
 
-            if groups.isEmpty {
+            if ledgerWaiting {
+                loadingDose
+            } else if groups.isEmpty {
                 emptyDose
             } else {
                 doseCard
@@ -233,6 +250,7 @@ struct EngineDetailView: View {
     }
 
     private var doseMeta: String {
+        if ledgerWaiting { return "" }
         if groups.isEmpty { return "0 SESSIONS" }
         let count = groups.reduce(0) { $0 + $1.sessionCount }
         let sum = groups.reduce(0) { $0 + $1.loadSum }
@@ -335,6 +353,24 @@ struct EngineDetailView: View {
         if let minutes = meta.minutes { parts.append("\(minutes) MIN") }
         if let hr = meta.averageHR { parts.append("\(hr) BPM") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var loadingDose: some View {
+        HStack {
+            Spacer(minLength: 0)
+            WarmSignalLoader(size: 28, color: WarmInstrument.inkFaint)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 88)
+        .background(WarmInstrument.paper)
+        .clipShape(RoundedRectangle(cornerRadius: EnginePageLayout.cardRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: EnginePageLayout.cardRadius, style: .continuous)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
+        )
+        .accessibilityElement()
+        .accessibilityLabel("Loading this week's ledger")
     }
 
     private var emptyDose: some View {
