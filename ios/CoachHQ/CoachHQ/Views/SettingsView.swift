@@ -88,7 +88,7 @@ struct SettingsView: View {
                         title: "Sign Out?",
                         message: "You'll need to sign in again to access your training data.",
                         primaryTitle: "Sign Out",
-                        primaryAction: { authManager.signOut() },
+                        primaryAction: { authManager.signOut(reason: .userLogout) },
                         secondaryTitle: "Cancel",
                         secondaryAction: { showSignOutConfirmation = false },
                         primaryColor: WorkoutTimerWarm.rust,

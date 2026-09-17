@@ -58,7 +58,7 @@ struct SetupView: View {
         .overlay(alignment: .topTrailing) {
             Button {
                 Haptics.tap()
-                authManager.signOut()
+                authManager.signOut(reason: .setupCancelled)
             } label: {
                 Text("Cancel")
                     .font(WarmInstrument.monoLabel(10.5))
@@ -310,6 +310,13 @@ struct SetupView: View {
                 // If handleCallback() routed to .active, SetupView is already gone.
                 // If needs_setup=1 or cancel, we fall through and re-check below.
             } catch {
+                if error is AuthError {
+                    DiagnosticsManager.capture(
+                        error: error,
+                        operation: "github.auth.continue_to_install",
+                        operationID: UUID()
+                    )
+                }
                 errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
                 Haptics.error()
             }

@@ -20,7 +20,7 @@ struct SessionExpiredView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button {
-                authManager.signOut()
+                authManager.signOut(reason: .sessionExpired)
             } label: {
                 Text("Sign in again")
                     .font(.system(size: 15, weight: .semibold))

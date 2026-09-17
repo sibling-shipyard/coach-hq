@@ -36,15 +36,30 @@ final class GitHubAuthManagerTests: XCTestCase {
     private func prepareKeychainManager() throws -> GitHubAuthManager {
         try skipIfKeychainWritesAreUnavailable()
         let manager = GitHubAuthManager()
-        manager.signOut()
+        manager.signOut(reason: .userLogout)
         return manager
     }
 
     @MainActor
     override func tearDown() async throws {
         // Best-effort clean; may no-op when Keychain is unavailable (CI).
-        GitHubAuthManager().signOut()
+        GitHubAuthManager().signOut(reason: .userLogout)
         try await super.tearDown()
+    }
+
+    @MainActor
+    func testFreshInstallClearReportsOnlyDeletedCredentials() throws {
+        let manager = try prepareKeychainManager()
+        XCTAssertFalse(GitHubAuthManager.clearKeychainOnFreshInstall())
+
+        manager.saveStoredTokens(GitHubAuthManager.StoredTokens(
+            accessToken: "gho_test123",
+            refreshToken: "ghr_test456",
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        XCTAssertTrue(GitHubAuthManager.clearKeychainOnFreshInstall())
+        XCTAssertNil(manager.loadStoredTokens())
+        XCTAssertFalse(GitHubAuthManager.clearKeychainOnFreshInstall())
     }
 
     func testTransientRefreshStatusIsOnly502() {
