@@ -1,0 +1,400 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-53-28-300Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Morning Prateek. We've got our Strength & Weight Gain season rolling, but we still need to get that first strength session on the board. How are you feeling today to get this thing moving?",
+      "threadId": "t-1789620813431",
+      "threads": [],
+      "repoSha": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "usage": {
+      "promptTokens": 6926,
+      "completionTokens": 46,
+      "totalTokens": 6972,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.005367
+    },
+    "costUsd": 0.005367
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-53-28-300Z",
+    "input": {
+      "threadId": "t-1789620813431",
+      "messages": [],
+      "message": "I didn't sleep well last night, only about 4 hours."
+    },
+    "output": {
+      "reply": "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?",
+      "threadId": "t-1789620813431",
+      "threads": [
+        {
+          "id": "t-1789620813431",
+          "createdAt": 1789620815167,
+          "title": "I didn't sleep well last nig…",
+          "preview": "Look, four hours is rough. I've been there plenty of times before big training b",
+          "messages": [
+            {
+              "id": "d-1789620815167",
+              "role": "divider",
+              "label": "TODAY · 5:53 AM"
+            },
+            {
+              "id": "u-1789620815167",
+              "role": "user",
+              "text": "I didn't sleep well last night, only about 4 hours."
+            },
+            {
+              "id": "c-1789620815167",
+              "role": "coach",
+              "paragraphs": [
+                "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "f73e26eb3b539be28a2a6d4f44fcbac7bf166231",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "ru2cr7mm",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex c4344e1..8454a9b 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,3 +1,34 @@\n {\n-  \"threads\": []\n-}\n+  \"_meta\": {\n+    \"updated_at\": \"2026-09-17T04:53:42.277Z\",\n+    \"updated_by\": \"coach\",\n+    \"trace_id\": \"ru2cr7mm\"\n+  },\n+  \"threads\": [\n+    {\n+      \"id\": \"t-1789620813431\",\n+      \"createdAt\": 1789620815167,\n+      \"title\": \"I didn't sleep well last nig…\",\n+      \"preview\": \"Look, four hours is rough. I've been there plenty of times before big training b\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789620815167\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 5:53 AM\"\n+        },\n+        {\n+          \"id\": \"u-1789620815167\",\n+          \"role\": \"user\",\n+          \"text\": \"I didn't sleep well last night, only about 4 hours.\"\n+        },\n+        {\n+          \"id\": \"c-1789620815167\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?\"\n+          ]\n+        }\n+      ]\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 452e1ea..c7af4d8 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -1,4 +1,13 @@\n {\n   \"version\": 1,\n-  \"rows\": []\n-}\n+  \"rows\": [\n+    {\n+      \"id\": \"sess_2026-09-17_y88g\",\n+      \"date\": \"2026-09-17\",\n+      \"ts\": \"2026-09-17T04:53:39.127Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Athlete reported poor sleep (about 4 hours) heading into Thursday.\",\n+      \"trace_id\": \"ru2cr7mm\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex be861a2..5bb6b65 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,60 @@\n {\n   \"schema_version\": 1,\n   \"data_status\": \"placeholder\",\n-  \"timezone\": \"UTC\",\n+  \"timezone\": \"Europe/London\",\n   \"week\": {\n-    \"id\": \"2026-W37\",\n-    \"start_date\": \"2026-09-07\",\n-    \"end_date\": \"2026-09-13\",\n+    \"id\": \"2026-W38\",\n+    \"start_date\": \"2026-09-14\",\n+    \"end_date\": \"2026-09-20\",\n     \"focus\": null,\n     \"guardrails\": []\n   },\n   \"coach_read\": null,\n   \"days\": [\n     {\n-      \"date\": \"2026-09-07\",\n+      \"date\": \"2026-09-14\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-08\",\n+      \"date\": \"2026-09-15\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-09\",\n+      \"date\": \"2026-09-16\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-10\",\n+      \"date\": \"2026-09-17\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-11\",\n+      \"date\": \"2026-09-18\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-12\",\n+      \"date\": \"2026-09-19\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-13\",\n+      \"date\": \"2026-09-20\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     }\n   ],\n-  \"updated_at\": \"2026-09-13T22:14:03.528Z\",\n+  \"updated_at\": \"2026-09-17T04:53:35.167Z\",\n   \"updated_by\": \"rollover\",\n   \"trace_id\": \"rollover\"\n-}\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "f73e26eb3b539be28a2a6d4f44fcbac7bf166231",
+    "usage": {
+      "promptTokens": 12475,
+      "completionTokens": 96,
+      "totalTokens": 12571,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00971625
+    },
+    "costUsd": 0.00971625
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-53-28-300Z",
+    "input": {
+      "threadId": "t-1789620813431",
+      "messages": [
+        {
+          "id": "d-1789620825157",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789620825157",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1789620825157",
+          "role": "coach",
+          "paragraphs": [
+            "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+          ]
+        }
+      ],
+      "message": "I skipped the gym today because I felt too tired."
+    },
+    "output": {
+      "reply": "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?",
+      "threadId": "t-1789620813431",
+      "threads": [
+        {
+          "id": "t-1789620813431",
+          "createdAt": 1789620815167,
+          "title": "I didn't sleep well last nig…",
+          "preview": "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy",
+          "messages": [
+            {
+              "id": "d-1789620825157",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789620825157",
+              "role": "user",
+              "text": "I didn't sleep well last night, only about 4 hours."
+            },
+            {
+              "id": "c-1789620825157",
+              "role": "coach",
+              "paragraphs": [
+                "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+              ]
+            },
+            {
+              "id": "u-1789620828007",
+              "role": "user",
+              "text": "I skipped the gym today because I felt too tired."
+            },
+            {
+              "id": "c-1789620828007",
+              "role": "coach",
+              "paragraphs": [
+                "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?"
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "588a5a356f69a3411f062d98d46ee9e87b5a2cbd",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "sif5ilud",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 8454a9b..73c35d5 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,32 +1,44 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-17T04:53:42.277Z\",\n+    \"updated_at\": \"2026-09-17T04:53:54.695Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"ru2cr7mm\"\n+    \"trace_id\": \"sif5ilud\"\n   },\n   \"threads\": [\n     {\n       \"id\": \"t-1789620813431\",\n       \"createdAt\": 1789620815167,\n       \"title\": \"I didn't sleep well last nig…\",\n-      \"preview\": \"Look, four hours is rough. I've been there plenty of times before big training b\",\n+      \"preview\": \"Look, with four hours of sleep, your body was running on fumes. Skipping a heavy\",\n       \"messages\": [\n         {\n-          \"id\": \"d-1789620815167\",\n+          \"id\": \"d-1789620825157\",\n           \"role\": \"divider\",\n-          \"label\": \"TODAY · 5:53 AM\"\n+          \"label\": \"Today\"\n         },\n         {\n-          \"id\": \"u-1789620815167\",\n+          \"id\": \"u-1789620825157\",\n           \"role\": \"user\",\n           \"text\": \"I didn't sleep well last night, only about 4 hours.\"\n         },\n         {\n-          \"id\": \"c-1789620815167\",\n+          \"id\": \"c-1789620825157\",\n           \"role\": \"coach\",\n           \"paragraphs\": [\n             \"Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?\"\n           ]\n+        },\n+        {\n+          \"id\": \"u-1789620828007\",\n+          \"role\": \"user\",\n+          \"text\": \"I skipped the gym today because I felt too tired.\"\n+        },\n+        {\n+          \"id\": \"c-1789620828007\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?\"\n+          ]\n         }\n       ]\n     }\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex c7af4d8..8969067 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -4,10 +4,10 @@\n     {\n       \"id\": \"sess_2026-09-17_y88g\",\n       \"date\": \"2026-09-17\",\n-      \"ts\": \"2026-09-17T04:53:39.127Z\",\n+      \"ts\": \"2026-09-17T04:53:51.627Z\",\n       \"type\": \"chat\",\n-      \"text\": \"Athlete reported poor sleep (about 4 hours) heading into Thursday.\",\n-      \"trace_id\": \"ru2cr7mm\"\n+      \"text\": \"Athlete reported poor sleep (about 4 hours) heading into Thursday. Skipped gym session due to severe fatigue.\",\n+      \"trace_id\": \"sif5ilud\"\n     }\n   ]\n }\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "f73e26eb3b539be28a2a6d4f44fcbac7bf166231",
+    "shaAfter": "588a5a356f69a3411f062d98d46ee9e87b5a2cbd",
+    "usage": {
+      "promptTokens": 12591,
+      "completionTokens": 107,
+      "totalTokens": 12698,
+      "cachedPromptTokens": 4046,
+      "thinkingTokens": 0,
+      "costUsd": 0.00711345
+    },
+    "costUsd": 0.00711345
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-53-28-300Z",
+    "input": {
+      "threadId": "t-1789620813431",
+      "messages": [
+        {
+          "id": "d-1789620825157",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789620825157",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1789620825157",
+          "role": "coach",
+          "paragraphs": [
+            "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+          ]
+        },
+        {
+          "id": "u-1789620839017",
+          "role": "user",
+          "text": "I skipped the gym today because I felt too tired."
+        },
+        {
+          "id": "c-1789620839017",
+          "role": "coach",
+          "paragraphs": [
+            "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?"
+          ]
+        }
+      ],
+      "message": "Tomorrow I will do my scheduled Workout A though."
+    },
+    "output": {
+      "reply": "Good. That's the mindset. Protect tonight's sleep, get off screens early, and show up hungry tomorrow to get Workout A done. No excuses once you're rested.",
+      "threadId": "t-1789620813431",
+      "threads": [
+        {
+          "id": "t-1789620813431",
+          "createdAt": 1789620815167,
+          "title": "I didn't sleep well last nig…",
+          "preview": "Good. That's the mindset. Protect tonight's sleep, get off screens early, and sh",
+          "messages": [
+            {
+              "id": "d-1789620825157",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789620825157",
+              "role": "user",
+              "text": "I didn't sleep well last night, only about 4 hours."
+            },
+            {
+              "id": "c-1789620825157",
+              "role": "coach",
+              "paragraphs": [
+                "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+              ]
+            },
+            {
+              "id": "u-1789620839017",
+              "role": "user",
+              "text": "I skipped the gym today because I felt too tired."
+            },
+            {
+              "id": "c-1789620839017",
+              "role": "coach",
+              "paragraphs": [
+                "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?"
+              ]
+            },
+            {
+              "id": "u-1789620841759",
+              "role": "user",
+              "text": "Tomorrow I will do my scheduled Workout A though."
+            },
+            {
+              "id": "c-1789620841759",
+              "role": "coach",
+              "paragraphs": [
+                "Good. That's the mindset. Protect tonight's sleep, get off screens early, and show up hungry tomorrow to get Workout A done. No excuses once you're rested."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "33ba2554bcfbfe439f118e664a968574ebd77b72",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "elm52wqc",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 73c35d5..8c52cc0 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,15 +1,15 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-17T04:53:54.695Z\",\n+    \"updated_at\": \"2026-09-17T04:54:09.324Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"sif5ilud\"\n+    \"trace_id\": \"elm52wqc\"\n   },\n   \"threads\": [\n     {\n       \"id\": \"t-1789620813431\",\n       \"createdAt\": 1789620815167,\n       \"title\": \"I didn't sleep well last nig…\",\n-      \"preview\": \"Look, with four hours of sleep, your body was running on fumes. Skipping a heavy\",\n+      \"preview\": \"Good. That's the mindset. Protect tonight's sleep, get off screens early, and sh\",\n       \"messages\": [\n         {\n           \"id\": \"d-1789620825157\",\n@@ -29,16 +29,28 @@\n           ]\n         },\n         {\n-          \"id\": \"u-1789620828007\",\n+          \"id\": \"u-1789620839017\",\n           \"role\": \"user\",\n           \"text\": \"I skipped the gym today because I felt too tired.\"\n         },\n         {\n-          \"id\": \"c-1789620828007\",\n+          \"id\": \"c-1789620839017\",\n           \"role\": \"coach\",\n           \"paragraphs\": [\n             \"Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?\"\n           ]\n+        },\n+        {\n+          \"id\": \"u-1789620841759\",\n+          \"role\": \"user\",\n+          \"text\": \"Tomorrow I will do my scheduled Workout A though.\"\n+        },\n+        {\n+          \"id\": \"c-1789620841759\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Good. That's the mindset. Protect tonight's sleep, get off screens early, and show up hungry tomorrow to get Workout A done. No excuses once you're rested.\"\n+          ]\n         }\n       ]\n     }\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 8969067..87bba14 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -4,10 +4,10 @@\n     {\n       \"id\": \"sess_2026-09-17_y88g\",\n       \"date\": \"2026-09-17\",\n-      \"ts\": \"2026-09-17T04:53:51.627Z\",\n+      \"ts\": \"2026-09-17T04:54:05.856Z\",\n       \"type\": \"chat\",\n-      \"text\": \"Athlete reported poor sleep (about 4 hours) heading into Thursday. Skipped gym session due to severe fatigue.\",\n-      \"trace_id\": \"sif5ilud\"\n+      \"text\": \"Athlete reported poor sleep (about 4 hours) heading into Thursday. Skipped gym session due to severe fatigue. Committed to completing scheduled Workout A on Friday.\",\n+      \"trace_id\": \"elm52wqc\"\n     }\n   ]\n }\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "588a5a356f69a3411f062d98d46ee9e87b5a2cbd",
+    "shaAfter": "33ba2554bcfbfe439f118e664a968574ebd77b72",
+    "usage": {
+      "promptTokens": 12685,
+      "completionTokens": 95,
+      "totalTokens": 12780,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00987
+    },
+    "costUsd": 0.00987
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-53-28-300Z",
+    "input": {
+      "threadId": "t-1789620813431",
+      "messages": [
+        {
+          "id": "d-1789620825157",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789620825157",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1789620825157",
+          "role": "coach",
+          "paragraphs": [
+            "Look, four hours is rough. I've been there plenty of times before big training blocks, and pushing through on empty is usually how we mess things up. If you had heavy lifting planned today, we don't force it. What was the plan for today, and how is your body actually feeling right now?"
+          ]
+        },
+        {
+          "id": "u-1789620839017",
+          "role": "user",
+          "text": "I skipped the gym today because I felt too tired."
+        },
+        {
+          "id": "c-1789620839017",
+          "role": "coach",
+          "paragraphs": [
+            "Look, with four hours of sleep, your body was running on fumes. Skipping a heavy lift when you're cooked isn't a failure, it's smart risk management. But we have to protect the standard. Use tonight to get eight hours, get some good food in, and let's make sure we hit the floor ready to work tomorrow. Deal?"
+          ]
+        },
+        {
+          "id": "u-1789620851966",
+          "role": "user",
+          "text": "Tomorrow I will do my scheduled Workout A though."
+        },
+        {
+          "id": "c-1789620851966",
+          "role": "coach",
+          "paragraphs": [
+            "Good. That's the mindset. Protect tonight's sleep, get off screens early, and show up hungry tomorrow to get Workout A done. No excuses once you're rested."
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Coach is getting a lot of requests right now - try again shortly.",
+      "traceId": "2mwo60te"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33ba2554bcfbfe439f118e664a968574ebd77b72",
+    "shaAfter": "33ba2554bcfbfe439f118e664a968574ebd77b72"
+  }
+]

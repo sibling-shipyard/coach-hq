@@ -1,0 +1,207 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-03-05-940Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Morning, Prateek. We've got the Strength & Weight Gain season rolling, but we still need to get that first session on the board toward your twenty. How does the body feel today, and what time are we getting after it?",
+      "threadId": "t-1789621391352",
+      "threads": [],
+      "repoSha": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "usage": {
+      "promptTokens": 6926,
+      "completionTokens": 53,
+      "totalTokens": 6979,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00539325
+    },
+    "costUsd": 0.00539325
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-03-05-940Z",
+    "input": {
+      "threadId": "t-1789621391352",
+      "messages": [],
+      "message": "Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week."
+    },
+    "output": {
+      "reply": "Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run.",
+      "threadId": "t-1789621391352",
+      "threads": [
+        {
+          "id": "t-1789621391352",
+          "createdAt": 1789621392725,
+          "title": "Two things - I want to perma…",
+          "preview": "Look, for the full-body strength template, template edits let us remove specific",
+          "messages": [
+            {
+              "id": "d-1789621392725",
+              "role": "divider",
+              "label": "TODAY · 6:03 AM"
+            },
+            {
+              "id": "u-1789621392725",
+              "role": "user",
+              "text": "Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week."
+            },
+            {
+              "id": "c-1789621392725",
+              "role": "coach",
+              "paragraphs": [
+                "Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "15fed8b33681576f4196e916f6fc2752c2929181",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "v7nmqqep",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex c4344e1..8ab04e8 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,3 +1,34 @@\n {\n-  \"threads\": []\n-}\n+  \"_meta\": {\n+    \"updated_at\": \"2026-09-17T05:03:20.902Z\",\n+    \"updated_by\": \"coach\",\n+    \"trace_id\": \"v7nmqqep\"\n+  },\n+  \"threads\": [\n+    {\n+      \"id\": \"t-1789621391352\",\n+      \"createdAt\": 1789621392725,\n+      \"title\": \"Two things - I want to perma…\",\n+      \"preview\": \"Look, for the full-body strength template, template edits let us remove specific\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789621392725\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 6:03 AM\"\n+        },\n+        {\n+          \"id\": \"u-1789621392725\",\n+          \"role\": \"user\",\n+          \"text\": \"Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week.\"\n+        },\n+        {\n+          \"id\": \"c-1789621392725\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run.\"\n+          ]\n+        }\n+      ]\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex be861a2..7514eaa 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,60 @@\n {\n   \"schema_version\": 1,\n   \"data_status\": \"placeholder\",\n-  \"timezone\": \"UTC\",\n+  \"timezone\": \"Europe/London\",\n   \"week\": {\n-    \"id\": \"2026-W37\",\n-    \"start_date\": \"2026-09-07\",\n-    \"end_date\": \"2026-09-13\",\n+    \"id\": \"2026-W38\",\n+    \"start_date\": \"2026-09-14\",\n+    \"end_date\": \"2026-09-20\",\n     \"focus\": null,\n     \"guardrails\": []\n   },\n   \"coach_read\": null,\n   \"days\": [\n     {\n-      \"date\": \"2026-09-07\",\n+      \"date\": \"2026-09-14\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-08\",\n+      \"date\": \"2026-09-15\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-09\",\n+      \"date\": \"2026-09-16\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-10\",\n+      \"date\": \"2026-09-17\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-11\",\n+      \"date\": \"2026-09-18\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-12\",\n+      \"date\": \"2026-09-19\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-13\",\n+      \"date\": \"2026-09-20\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     }\n   ],\n-  \"updated_at\": \"2026-09-13T22:14:03.528Z\",\n+  \"updated_at\": \"2026-09-17T05:03:12.725Z\",\n   \"updated_by\": \"rollover\",\n   \"trace_id\": \"rollover\"\n-}\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "15fed8b33681576f4196e916f6fc2752c2929181",
+    "usage": {
+      "promptTokens": 12531,
+      "completionTokens": 122,
+      "totalTokens": 12653,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00985575
+    },
+    "costUsd": 0.00985575
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-03-05-940Z",
+    "input": {
+      "threadId": "t-1789621391352",
+      "messages": [
+        {
+          "id": "d-1789621403566",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789621403566",
+          "role": "user",
+          "text": "Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week."
+        },
+        {
+          "id": "c-1789621403566",
+          "role": "coach",
+          "paragraphs": [
+            "Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run."
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "reply": "Rest up, Prateek. When you're ready to dial in the week or adjust that routine, we'll pick it right back up.",
+      "threadId": "t-1789621391352",
+      "threads": [
+        {
+          "id": "t-1789621391352",
+          "createdAt": 1789621392725,
+          "title": "Two things - I want to perma…",
+          "preview": "Rest up, Prateek. When you're ready to dial in the week or adjust that routine, ",
+          "messages": [
+            {
+              "id": "d-1789621403566",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789621403566",
+              "role": "user",
+              "text": "Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week."
+            },
+            {
+              "id": "c-1789621403566",
+              "role": "coach",
+              "paragraphs": [
+                "Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run."
+              ]
+            },
+            {
+              "id": "u-1789621406337",
+              "role": "user",
+              "text": "That's it for today, wrap this up."
+            },
+            {
+              "id": "c-1789621406337",
+              "role": "coach",
+              "paragraphs": [
+                "Rest up, Prateek. When you're ready to dial in the week or adjust that routine, we'll pick it right back up."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "5020080c69447781a9e0cb1ba4cf67dc8816cd4b",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "06x5uvj4",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 8ab04e8..3839833 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,32 +1,44 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-17T05:03:20.902Z\",\n+    \"updated_at\": \"2026-09-17T05:03:30.446Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"v7nmqqep\"\n+    \"trace_id\": \"06x5uvj4\"\n   },\n   \"threads\": [\n     {\n       \"id\": \"t-1789621391352\",\n       \"createdAt\": 1789621392725,\n       \"title\": \"Two things - I want to perma…\",\n-      \"preview\": \"Look, for the full-body strength template, template edits let us remove specific\",\n+      \"preview\": \"Rest up, Prateek. When you're ready to dial in the week or adjust that routine, \",\n       \"messages\": [\n         {\n-          \"id\": \"d-1789621392725\",\n+          \"id\": \"d-1789621403566\",\n           \"role\": \"divider\",\n-          \"label\": \"TODAY · 6:03 AM\"\n+          \"label\": \"Today\"\n         },\n         {\n-          \"id\": \"u-1789621392725\",\n+          \"id\": \"u-1789621403566\",\n           \"role\": \"user\",\n           \"text\": \"Two things - I want to permanently swap the core phase out of my full-body strength routine going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - move my rest day to Thursday and shift the long run to Saturday, my schedule changed just for this week.\"\n         },\n         {\n-          \"id\": \"c-1789621392725\",\n+          \"id\": \"c-1789621403566\",\n           \"role\": \"coach\",\n           \"paragraphs\": [\n             \"Look, for the full-body strength template, template edits let us remove specific movements or phases, but replacing them with new exercises means building a dedicated routine or adjusting session by session. Let me know which exact routine you want to modify (like foundation_full_gym_general or strength_a) and we can pull that phase out cleanly. As for restructuring the week, we don't have an active week plan loaded on your board right now. Give me what the rest of your week looks like and we'll lock in Thursday as rest and Saturday for that long run.\"\n           ]\n+        },\n+        {\n+          \"id\": \"u-1789621406337\",\n+          \"role\": \"user\",\n+          \"text\": \"That's it for today, wrap this up.\"\n+        },\n+        {\n+          \"id\": \"c-1789621406337\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Rest up, Prateek. When you're ready to dial in the week or adjust that routine, we'll pick it right back up.\"\n+          ]\n         }\n       ]\n     }\n"
+    },
+    "shaBefore": "15fed8b33681576f4196e916f6fc2752c2929181",
+    "shaAfter": "5020080c69447781a9e0cb1ba4cf67dc8816cd4b",
+    "usage": {
+      "promptTokens": 12660,
+      "completionTokens": 35,
+      "totalTokens": 12695,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00962625
+    },
+    "costUsd": 0.00962625
+  }
+]

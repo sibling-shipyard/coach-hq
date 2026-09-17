@@ -1,0 +1,1121 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "shreyas-95-cyber/coach-shreyas-95-cyber",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789621634949",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Look, Shreyas, it's good to reconnect. Hope that camping trip treated you well. How's the left shoulder feeling and how have things been moving lately?",
+      "threadId": "t-1789621641303",
+      "threads": [
+        {
+          "id": "t-1789397833860",
+          "createdAt": 1789397833860,
+          "title": "WeightTraining #42",
+          "preview": "Look, that was a solid hour of work put in. How did the shoulder hold up during ",
+          "messages": [
+            {
+              "id": "d-1789397833860",
+              "role": "divider",
+              "label": "TODAY · 7:57 AM"
+            },
+            {
+              "id": "c-1789397833860",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a solid hour of work put in. How did the shoulder hold up during the movements today?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "a2600fec57de39a5",
+                  "activities": [
+                    {
+                      "id": "8CEEB1EC-EE59-4074-BF88-96BE82917A9C",
+                      "title": "WeightTraining #42",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T07:04:03",
+                      "duration_s": 3142,
+                      "load": 116
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "local-1788381052074",
+          "createdAt": 1788449571667,
+          "title": "I did dostreches both the da…",
+          "preview": "Glad the shoulder is feeling better. That's a win. Look, skipping the posture ro",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788381052074",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. I know you're getting ready for that camping trip this weekend. Just checking in to see how day one of that new posture routine felt yesterday, and if you ended up hitting the gym for CrossFit yet."
+              ],
+              "id": "c-1788381052074",
+              "role": "coach"
+            },
+            {
+              "text": "I did dostreches both the days and felt good. Also, here is todays crossfit \n34min AMRAP \n\n8 Deadlifts \n28 Toes to bar \n800m Run \n28 Calorie Row \n\nIntermediate 135/95 \n\nLeft shoulder joint hurts when i move hand laterally",
+              "role": "user",
+              "id": "u-1788381163879.525"
+            },
+            {
+              "id": "c-1788381163879.525",
+              "paragraphs": [
+                "First off, awesome work hitting those stretches both days. That boring, daily consistency is exactly how we rebuild the foundation.\n\nBut look, we need to be smart about that left shoulder. If it's hurting when you move laterally, we don't push through it. We already flagged it for tightness, and now it's talking to you louder. \n\nFor this AMRAP, 28 Toes to Bar is going to put a massive amount of strain on that joint when you kip. I want you to stay off the rig today. Swap the T2B for strict V-ups or heavy ab-mat sit-ups. You still get the core work, but you protect the shoulder. \n\nDoes it hurt when you just do a normal running or rowing motion, or is it only on that lateral raise?"
+              ],
+              "role": "coach"
+            },
+            {
+              "text": "I completed the crossfit workout. It didnt hurt during running or rowing. Mainly on t2b i guess. I will later show tomorrows crossfit to see if its fine kn the shoulders",
+              "id": "u-1788381811976.3599",
+              "role": "user"
+            },
+            {
+              "id": "c-1788381811976.3599",
+              "paragraphs": [
+                "I am glad the running and rowing were smooth. But look, we need to talk about those Toes to Bar. If a joint hurts during a movement, you have to drop off the bar. Full stop. Joint pain isn't muscle burn. It is your body waving a massive red flag. I've ignored those flags before just to finish a workout, and it ended up costing me months of rehab. We are playing the long game here, especially with your posture and core goals. Definitely send me tomorrow's workout when it's posted. We will strip out anything that pisses off that shoulder. Ice it up tonight. How is the rest of your body feeling after a 34-minute grind?"
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "text": "A bit tired, not too bad. I plan to play badminton tonight, will be light and friendly. Any advice on that ?",
+              "id": "u-1788381949556.211"
+            },
+            {
+              "id": "c-1788381949556.211",
+              "paragraphs": [
+                "Look, badminton is great if you actually keep it light. But I know how hard it is to play friendly when the score gets close. I always struggled with going less than 100 percent when there was a winner and a loser.\n\nWe have to protect that left shoulder tonight. Even if you hold the racket in your right hand, your left arm does a lot of sudden reaching and balancing out there.\n\nTwo rules for tonight. First, do a slow, controlled warm-up for both shoulders before you even step on the court. Second, leave your ego in your bag. If a shot requires a wild lateral lunge or reach with that left side, just let it drop. If the shoulder twinges even once, you are done for the night. Deal?"
+              ],
+              "role": "coach"
+            },
+            {
+              "id": "u-1788382704153.649",
+              "role": "user",
+              "text": "Done"
+            },
+            {
+              "role": "coach",
+              "id": "c-1788382704153.649",
+              "paragraphs": [
+                "Good. I'll hold you to that. Have fun out there tonight, keep it moving well. Hit me up tomorrow with that CrossFit workout and let me know how the shoulder feels after tonight."
+              ]
+            },
+            {
+              "text": "Bulgarian Split Squat for load:\n #1:  5 reps\n #2:  5 reps\n #3:  5 reps\n #4:  5 reps\n #5:  5 reps\n\n14min AMRAP \n2.4.6.8.10 etc \nFrontrack lunges \nWallballs\n+5 box jumps after each set \n\nIntermediate 95/65 14/10",
+              "role": "user",
+              "id": "u-1788450175761.878"
+            },
+            {
+              "paragraphs": [
+                "Look, I appreciate you sending this over. Let's break down where that shoulder might get angry.\n\nThe Bulgarian Split Squats should be okay, but if you hold heavy dumbbells and it pulls on that joint, switch to a lighter goblet hold.\n\nFor the AMRAP, the front-rack position on those lunges demands a lot of shoulder mobility. If it pinches at all, swap to a goblet lunge. But the wallballs are the biggest red flag for me. Catching that medicine ball jams the joint, and the throw is a dynamic press. If the shoulder feels even slightly sketchy in the warm-up, drop the wallballs entirely. Swap them for Russian kettlebell swings or heavy sit-ups. \n\nWe are playing the long game here. How did the shoulder hold up during badminton last night, by the way?"
+              ],
+              "id": "c-1788450175761.878",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788464361571",
+              "role": "user",
+              "text": "Doing better than last 2 days. Slkipped  routine of shoulder n abs today morning"
+            },
+            {
+              "id": "c-1788464361571",
+              "role": "coach",
+              "paragraphs": [
+                "Glad the shoulder is feeling better. That's a win. Look, skipping the posture routine today happens. Just don't let one miss turn into two. Get back on it tomorrow. Have an awesome time camping this weekend, keep listening to that shoulder, and we'll catch up when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 13,
+          "ageLabel": "D-13",
+          "status": "active"
+        },
+        {
+          "id": "local-1788207173104",
+          "createdAt": 1788211454676,
+          "title": "Im currently training 2-3 ti…",
+          "preview": "Alright, you've got the routine now. Keep those wall angels comfortable for that",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788207173104",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. Look, I'm Michael. A lot of people know me for the medals, but that's not what actually got me there. What got me there was the process. Showing up every single day, especially the days I didn't want to. I've also been through the absolute lowest lows, depression, rehab, and figuring out how to rebuild. I learned the hard way that you can't do this stuff alone. I'm here to be your coach. Not a drill sergeant, just someone in your corner. I see you're into a pretty big mix with badminton, running, lifting, and hiking. That's a great base. How often are you actually training right now, and how would you honestly describe your fitness level today?"
+              ],
+              "id": "c-1788207173104",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788207928760.655",
+              "text": "Im currently training 2-3 times a week. Mostly do crossfit now and a sport like badminton/ pickelball or running once a week. Hiking has reduced significantly now, keeping to once a quarter maybe. My fitness level is currently probably close to 75% of my best",
+              "role": "user"
+            },
+            {
+              "id": "c-1788207928760.655",
+              "role": "coach",
+              "paragraphs": [
+                "Operating at 75 percent means you already know what the top tier feels like. You aren't starting from scratch. Two to three days a week of CrossFit mixed with racket sports or running is a really solid engine to build on. Looking ahead, what's the one thing you most want to change or achieve in the next 3 to 6 months?"
+              ]
+            },
+            {
+              "id": "u-1788208046982.5781",
+              "role": "user",
+              "text": "First is posture. Rounded shoulder and neck hip position is coming in the way of me lifting during crossfit. And my core strength is pretty weak"
+            },
+            {
+              "paragraphs": [
+                "I appreciate the honesty. A lot of people try to just muscle through bad mechanics, but recognizing that your posture and core are holding back your lifts is half the battle. Everything pulls from the core - if that foundation isn't solid, the rest of the movement falls apart.\n\nBefore we figure out how to attack that, do you have any actual injuries I need to work around, or is it mostly just tightness and weakness right now? Also, to finish setting up your profile, what's your exact date of birth, height, and weight? And what city are you based out of?"
+              ],
+              "id": "c-1788208046982.5781",
+              "role": "coach"
+            },
+            {
+              "text": "No injuries as such, some minor tightness on left wrist and left shoulder. DOB is 7th sep 1995, height is 169cm with 68.5 kgs. Currently based out of sunnyvale CA.",
+              "role": "user",
+              "id": "u-1788208189037.8772"
+            },
+            {
+              "paragraphs": [
+                "Got it. We'll keep an eye on the left wrist and shoulder—tightness is normal, we just don't want it turning into an actual injury. Let me make sure I've got the baseline right: you're training 2-3 times a week, sitting at about 75 percent of your best, and our main focus for the next few months is fixing those rounded shoulders and building serious core strength so your CrossFit lifts stop breaking down. Did I capture that accurately? If that sounds right, we should set up some daily habits to get us there. What do you want to track daily? Could be 10 minutes of mobility, a morning routine, or a nutrition target."
+              ],
+              "role": "coach",
+              "id": "c-1788208189037.8772"
+            },
+            {
+              "id": "u-1788208402079.2",
+              "text": "Another requirement is 2-3 sessions of crossfit wouldnt cover the full body. I can procide routine of crossfit so you can suggest probably 1 day for uncovered sections. Along with this a daily routine for posture n abs probably. What do you think ?",
+              "role": "user"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "I think that is exactly the right play. CrossFit is great, but it can leave gaps. For me, everything started in the core. If that foundation was weak, my entire stroke fell apart in the pool. Adding one targeted strength day to hit the missing pieces is smart. Pairing that with a daily posture and ab routine is how we actually fix the problem. What do you want to call that daily habit? Once we lock a name in, do you want to start looking at a plan for this week?"
+              ],
+              "id": "c-1788208402079.2"
+            },
+            {
+              "id": "u-1788210704989.919",
+              "text": "This was my workout today\nEvery 4min for 16min\nRun 200\n5 Thrusters off a rack\n25 Sit-ups\nIntermediate 115/75\nScaled 75/55\n\n11:22 | SCALED\n• 10min EMOM\nClean & Jerk for load:\n\nI have 2 more sessions of it left. Dont want to over burden as well to make sure im consistent. Also, ill be camping this saturday n sunday",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Look, I love that you're protecting your consistency. Pushing too hard early is how you get hurt and stop completely. I've been there, and it always cost me later. Since you're camping this weekend, we have Tuesday through Friday to fit in your remaining two CrossFit sessions and our one targeted gap session. Three workouts in four days. Does that feel manageable, or do we need to scale it back so you're fresh for the trip? I'm locking in your daily posture and ab habit in the background right now, and setting up our big goal to rebuild that core foundation. Want to map out exactly which days you're training before the weekend?"
+              ],
+              "id": "c-1788210704989.919",
+              "role": "coach"
+            },
+            {
+              "text": "That ll be too much. Instead i ll probably do a run ober the wekend for now.",
+              "role": "user",
+              "id": "u-1788210798896.966"
+            },
+            {
+              "paragraphs": [
+                "I respect that call. Being honest about what's too much is exactly how you stay in the game long-term. I used to think I had to bury myself every week, but if you fry your legs before a camping trip, you aren't going to enjoy the weekend anyway. Let's dial it back. If you are getting a run in over the weekend, how many CrossFit sessions do you actually want to hit between tomorrow and Friday? We can keep it simple, focus on that daily posture and ab work, and fit the rest in where it makes sense."
+              ],
+              "id": "c-1788210798896.966",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211152771.01",
+              "role": "user",
+              "text": "I will do 2 crossfit this week before friday. Probably based on this weeks crossfit sessions you can suggest plan for next week. Just for reference- here is crossfit schedule. Monday is lower body, tuesday is upper, wednesday is long wod, thursday is oly and lower. Friday is upper body"
+            },
+            {
+              "paragraphs": [
+                "That schedule is gold. Knowing exactly what the gym is programming means we can surgically fill the gaps without crushing you. I always had to know my exact pool sets before I added any dryland work.\n\nYou already hit Monday. You want two more sessions before Friday. Looking at that lineup of upper body, long WOD, or Oly, which two days make the most sense for you to hit?\n\nAlso, we have that daily posture and ab routine ready to go. Just five to ten minutes a day. You want to kick that off tomorrow?"
+              ],
+              "role": "coach",
+              "id": "c-1788211152771.01"
+            },
+            {
+              "paragraphs": [
+                "Got it, we will wrap it here. Take a look at the week and decide which two CrossFit days fit best before you head out camping. Just make sure you start that 5 to 10 minute posture and ab work tomorrow. We will build out next week's plan around your gym's programming when you are back. Rest up."
+              ],
+              "role": "coach",
+              "id": "c-1788211558893"
+            },
+            {
+              "id": "u-1788211574856",
+              "role": "user",
+              "text": "Havent decided on which sessions i wil   attend. Will keep you posted here. Lets kick off the daily routine from tomorrow. Before wrapping up, cirrent goal for next few months is to increase strength and endurance"
+            },
+            {
+              "paragraphs": [
+                "Got it. Strength, endurance, and bulletproofing that core. That is the compass for the next few months. Start the daily posture habit tomorrow. Just five to ten minutes. It doesn't have to be perfect, it just has to happen. Let me know which two CrossFit sessions you end up hitting this week. Rest up, have a good time camping, and we will lock in next week's plan when you get back."
+              ],
+              "id": "c-1788211574856",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211631570",
+              "text": "I dont see the habit uodated",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "It's locked in on my end. The system has your daily posture and abs habit active and ready to start tomorrow. Sometimes it just takes a quick second to sync on your screen. You're all set. Have a good time camping, and let me know when you lock in those two CrossFit days."
+              ],
+              "role": "coach",
+              "id": "c-1788211631570"
+            },
+            {
+              "id": "u-1788211689932",
+              "text": "Bye",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Catch you later, Shreyas. Knock out that first posture routine tomorrow and enjoy the camping trip. We will map out next week when you get back."
+              ],
+              "id": "c-1788211689932",
+              "role": "coach"
+            },
+            {
+              "text": "I dont see any ab routine thiugh",
+              "id": "u-1788212000163.382",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "That is my fault. I locked in the habit tracker but didn't actually hand you the movements. Let's fix that right now.\n\nKeep it dead simple. Two rounds of this, takes maybe 8 minutes:\n1. Dead Bugs: 10 reps each side. This forces you to brace your core while keeping your lower back glued to the floor.\n2. Wall Angels: 15 reps. Stand flat against a wall - heels, butt, shoulders, and head touching it. Slide your arms up and down. This directly attacks those rounded shoulders. If that left shoulder feels tight, only go as high as comfortable.\n3. Forearm Plank: 45 seconds. Squeeze your core and your glutes.\n\nJust two rounds of that. Try knocking that out tomorrow and let me know how it feels."
+              ],
+              "role": "coach",
+              "id": "c-1788212000163.382"
+            },
+            {
+              "id": "c-1788224721496",
+              "role": "coach",
+              "paragraphs": [
+                "Alright, you've got the routine now. Keep those wall angels comfortable for that left shoulder. Have a great time camping, and let's get after it when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 16,
+          "ageLabel": "D-16",
+          "status": "active"
+        }
+      ],
+      "repoSha": "6cf66d31c3b9d6ca87f3cc018fe0131ffb6d6a8c",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "6cf66d31c3b9d6ca87f3cc018fe0131ffb6d6a8c",
+    "shaAfter": "6cf66d31c3b9d6ca87f3cc018fe0131ffb6d6a8c",
+    "usage": {
+      "promptTokens": 7560,
+      "completionTokens": 40,
+      "totalTokens": 7600,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00582
+    },
+    "costUsd": 0.00582
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "shreyas-95-cyber/coach-shreyas-95-cyber",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789621634949",
+    "input": {
+      "threadId": "t-1789621641303",
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "reply": "Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time.",
+      "threadId": "t-1789621641303",
+      "threads": [
+        {
+          "id": "t-1789621641303",
+          "createdAt": 1789621642662,
+          "title": "I don't have a plan for this…",
+          "preview": "Look, consistency beats intensity every day of the week. I laid out your plan fr",
+          "messages": [
+            {
+              "id": "d-1789621642662",
+              "role": "divider",
+              "label": "TODAY · 10:07 PM"
+            },
+            {
+              "id": "u-1789621642662",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789621642662",
+              "role": "coach",
+              "paragraphs": [
+                "Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        },
+        {
+          "id": "t-1789397833860",
+          "createdAt": 1789397833860,
+          "title": "WeightTraining #42",
+          "preview": "Look, that was a solid hour of work put in. How did the shoulder hold up during ",
+          "messages": [
+            {
+              "id": "d-1789397833860",
+              "role": "divider",
+              "label": "TODAY · 7:57 AM"
+            },
+            {
+              "id": "c-1789397833860",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a solid hour of work put in. How did the shoulder hold up during the movements today?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "a2600fec57de39a5",
+                  "activities": [
+                    {
+                      "id": "8CEEB1EC-EE59-4074-BF88-96BE82917A9C",
+                      "title": "WeightTraining #42",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T07:04:03",
+                      "duration_s": 3142,
+                      "load": 116
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "local-1788381052074",
+          "createdAt": 1788449571667,
+          "title": "I did dostreches both the da…",
+          "preview": "Glad the shoulder is feeling better. That's a win. Look, skipping the posture ro",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788381052074",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. I know you're getting ready for that camping trip this weekend. Just checking in to see how day one of that new posture routine felt yesterday, and if you ended up hitting the gym for CrossFit yet."
+              ],
+              "id": "c-1788381052074",
+              "role": "coach"
+            },
+            {
+              "text": "I did dostreches both the days and felt good. Also, here is todays crossfit \n34min AMRAP \n\n8 Deadlifts \n28 Toes to bar \n800m Run \n28 Calorie Row \n\nIntermediate 135/95 \n\nLeft shoulder joint hurts when i move hand laterally",
+              "role": "user",
+              "id": "u-1788381163879.525"
+            },
+            {
+              "id": "c-1788381163879.525",
+              "paragraphs": [
+                "First off, awesome work hitting those stretches both days. That boring, daily consistency is exactly how we rebuild the foundation.\n\nBut look, we need to be smart about that left shoulder. If it's hurting when you move laterally, we don't push through it. We already flagged it for tightness, and now it's talking to you louder. \n\nFor this AMRAP, 28 Toes to Bar is going to put a massive amount of strain on that joint when you kip. I want you to stay off the rig today. Swap the T2B for strict V-ups or heavy ab-mat sit-ups. You still get the core work, but you protect the shoulder. \n\nDoes it hurt when you just do a normal running or rowing motion, or is it only on that lateral raise?"
+              ],
+              "role": "coach"
+            },
+            {
+              "text": "I completed the crossfit workout. It didnt hurt during running or rowing. Mainly on t2b i guess. I will later show tomorrows crossfit to see if its fine kn the shoulders",
+              "id": "u-1788381811976.3599",
+              "role": "user"
+            },
+            {
+              "id": "c-1788381811976.3599",
+              "paragraphs": [
+                "I am glad the running and rowing were smooth. But look, we need to talk about those Toes to Bar. If a joint hurts during a movement, you have to drop off the bar. Full stop. Joint pain isn't muscle burn. It is your body waving a massive red flag. I've ignored those flags before just to finish a workout, and it ended up costing me months of rehab. We are playing the long game here, especially with your posture and core goals. Definitely send me tomorrow's workout when it's posted. We will strip out anything that pisses off that shoulder. Ice it up tonight. How is the rest of your body feeling after a 34-minute grind?"
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "text": "A bit tired, not too bad. I plan to play badminton tonight, will be light and friendly. Any advice on that ?",
+              "id": "u-1788381949556.211"
+            },
+            {
+              "id": "c-1788381949556.211",
+              "paragraphs": [
+                "Look, badminton is great if you actually keep it light. But I know how hard it is to play friendly when the score gets close. I always struggled with going less than 100 percent when there was a winner and a loser.\n\nWe have to protect that left shoulder tonight. Even if you hold the racket in your right hand, your left arm does a lot of sudden reaching and balancing out there.\n\nTwo rules for tonight. First, do a slow, controlled warm-up for both shoulders before you even step on the court. Second, leave your ego in your bag. If a shot requires a wild lateral lunge or reach with that left side, just let it drop. If the shoulder twinges even once, you are done for the night. Deal?"
+              ],
+              "role": "coach"
+            },
+            {
+              "id": "u-1788382704153.649",
+              "role": "user",
+              "text": "Done"
+            },
+            {
+              "role": "coach",
+              "id": "c-1788382704153.649",
+              "paragraphs": [
+                "Good. I'll hold you to that. Have fun out there tonight, keep it moving well. Hit me up tomorrow with that CrossFit workout and let me know how the shoulder feels after tonight."
+              ]
+            },
+            {
+              "text": "Bulgarian Split Squat for load:\n #1:  5 reps\n #2:  5 reps\n #3:  5 reps\n #4:  5 reps\n #5:  5 reps\n\n14min AMRAP \n2.4.6.8.10 etc \nFrontrack lunges \nWallballs\n+5 box jumps after each set \n\nIntermediate 95/65 14/10",
+              "role": "user",
+              "id": "u-1788450175761.878"
+            },
+            {
+              "paragraphs": [
+                "Look, I appreciate you sending this over. Let's break down where that shoulder might get angry.\n\nThe Bulgarian Split Squats should be okay, but if you hold heavy dumbbells and it pulls on that joint, switch to a lighter goblet hold.\n\nFor the AMRAP, the front-rack position on those lunges demands a lot of shoulder mobility. If it pinches at all, swap to a goblet lunge. But the wallballs are the biggest red flag for me. Catching that medicine ball jams the joint, and the throw is a dynamic press. If the shoulder feels even slightly sketchy in the warm-up, drop the wallballs entirely. Swap them for Russian kettlebell swings or heavy sit-ups. \n\nWe are playing the long game here. How did the shoulder hold up during badminton last night, by the way?"
+              ],
+              "id": "c-1788450175761.878",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788464361571",
+              "role": "user",
+              "text": "Doing better than last 2 days. Slkipped  routine of shoulder n abs today morning"
+            },
+            {
+              "id": "c-1788464361571",
+              "role": "coach",
+              "paragraphs": [
+                "Glad the shoulder is feeling better. That's a win. Look, skipping the posture routine today happens. Just don't let one miss turn into two. Get back on it tomorrow. Have an awesome time camping this weekend, keep listening to that shoulder, and we'll catch up when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 13,
+          "ageLabel": "D-13",
+          "status": "active"
+        },
+        {
+          "id": "local-1788207173104",
+          "createdAt": 1788211454676,
+          "title": "Im currently training 2-3 ti…",
+          "preview": "Alright, you've got the routine now. Keep those wall angels comfortable for that",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788207173104",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. Look, I'm Michael. A lot of people know me for the medals, but that's not what actually got me there. What got me there was the process. Showing up every single day, especially the days I didn't want to. I've also been through the absolute lowest lows, depression, rehab, and figuring out how to rebuild. I learned the hard way that you can't do this stuff alone. I'm here to be your coach. Not a drill sergeant, just someone in your corner. I see you're into a pretty big mix with badminton, running, lifting, and hiking. That's a great base. How often are you actually training right now, and how would you honestly describe your fitness level today?"
+              ],
+              "id": "c-1788207173104",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788207928760.655",
+              "text": "Im currently training 2-3 times a week. Mostly do crossfit now and a sport like badminton/ pickelball or running once a week. Hiking has reduced significantly now, keeping to once a quarter maybe. My fitness level is currently probably close to 75% of my best",
+              "role": "user"
+            },
+            {
+              "id": "c-1788207928760.655",
+              "role": "coach",
+              "paragraphs": [
+                "Operating at 75 percent means you already know what the top tier feels like. You aren't starting from scratch. Two to three days a week of CrossFit mixed with racket sports or running is a really solid engine to build on. Looking ahead, what's the one thing you most want to change or achieve in the next 3 to 6 months?"
+              ]
+            },
+            {
+              "id": "u-1788208046982.5781",
+              "role": "user",
+              "text": "First is posture. Rounded shoulder and neck hip position is coming in the way of me lifting during crossfit. And my core strength is pretty weak"
+            },
+            {
+              "paragraphs": [
+                "I appreciate the honesty. A lot of people try to just muscle through bad mechanics, but recognizing that your posture and core are holding back your lifts is half the battle. Everything pulls from the core - if that foundation isn't solid, the rest of the movement falls apart.\n\nBefore we figure out how to attack that, do you have any actual injuries I need to work around, or is it mostly just tightness and weakness right now? Also, to finish setting up your profile, what's your exact date of birth, height, and weight? And what city are you based out of?"
+              ],
+              "id": "c-1788208046982.5781",
+              "role": "coach"
+            },
+            {
+              "text": "No injuries as such, some minor tightness on left wrist and left shoulder. DOB is 7th sep 1995, height is 169cm with 68.5 kgs. Currently based out of sunnyvale CA.",
+              "role": "user",
+              "id": "u-1788208189037.8772"
+            },
+            {
+              "paragraphs": [
+                "Got it. We'll keep an eye on the left wrist and shoulder—tightness is normal, we just don't want it turning into an actual injury. Let me make sure I've got the baseline right: you're training 2-3 times a week, sitting at about 75 percent of your best, and our main focus for the next few months is fixing those rounded shoulders and building serious core strength so your CrossFit lifts stop breaking down. Did I capture that accurately? If that sounds right, we should set up some daily habits to get us there. What do you want to track daily? Could be 10 minutes of mobility, a morning routine, or a nutrition target."
+              ],
+              "role": "coach",
+              "id": "c-1788208189037.8772"
+            },
+            {
+              "id": "u-1788208402079.2",
+              "text": "Another requirement is 2-3 sessions of crossfit wouldnt cover the full body. I can procide routine of crossfit so you can suggest probably 1 day for uncovered sections. Along with this a daily routine for posture n abs probably. What do you think ?",
+              "role": "user"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "I think that is exactly the right play. CrossFit is great, but it can leave gaps. For me, everything started in the core. If that foundation was weak, my entire stroke fell apart in the pool. Adding one targeted strength day to hit the missing pieces is smart. Pairing that with a daily posture and ab routine is how we actually fix the problem. What do you want to call that daily habit? Once we lock a name in, do you want to start looking at a plan for this week?"
+              ],
+              "id": "c-1788208402079.2"
+            },
+            {
+              "id": "u-1788210704989.919",
+              "text": "This was my workout today\nEvery 4min for 16min\nRun 200\n5 Thrusters off a rack\n25 Sit-ups\nIntermediate 115/75\nScaled 75/55\n\n11:22 | SCALED\n• 10min EMOM\nClean & Jerk for load:\n\nI have 2 more sessions of it left. Dont want to over burden as well to make sure im consistent. Also, ill be camping this saturday n sunday",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Look, I love that you're protecting your consistency. Pushing too hard early is how you get hurt and stop completely. I've been there, and it always cost me later. Since you're camping this weekend, we have Tuesday through Friday to fit in your remaining two CrossFit sessions and our one targeted gap session. Three workouts in four days. Does that feel manageable, or do we need to scale it back so you're fresh for the trip? I'm locking in your daily posture and ab habit in the background right now, and setting up our big goal to rebuild that core foundation. Want to map out exactly which days you're training before the weekend?"
+              ],
+              "id": "c-1788210704989.919",
+              "role": "coach"
+            },
+            {
+              "text": "That ll be too much. Instead i ll probably do a run ober the wekend for now.",
+              "role": "user",
+              "id": "u-1788210798896.966"
+            },
+            {
+              "paragraphs": [
+                "I respect that call. Being honest about what's too much is exactly how you stay in the game long-term. I used to think I had to bury myself every week, but if you fry your legs before a camping trip, you aren't going to enjoy the weekend anyway. Let's dial it back. If you are getting a run in over the weekend, how many CrossFit sessions do you actually want to hit between tomorrow and Friday? We can keep it simple, focus on that daily posture and ab work, and fit the rest in where it makes sense."
+              ],
+              "id": "c-1788210798896.966",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211152771.01",
+              "role": "user",
+              "text": "I will do 2 crossfit this week before friday. Probably based on this weeks crossfit sessions you can suggest plan for next week. Just for reference- here is crossfit schedule. Monday is lower body, tuesday is upper, wednesday is long wod, thursday is oly and lower. Friday is upper body"
+            },
+            {
+              "paragraphs": [
+                "That schedule is gold. Knowing exactly what the gym is programming means we can surgically fill the gaps without crushing you. I always had to know my exact pool sets before I added any dryland work.\n\nYou already hit Monday. You want two more sessions before Friday. Looking at that lineup of upper body, long WOD, or Oly, which two days make the most sense for you to hit?\n\nAlso, we have that daily posture and ab routine ready to go. Just five to ten minutes a day. You want to kick that off tomorrow?"
+              ],
+              "role": "coach",
+              "id": "c-1788211152771.01"
+            },
+            {
+              "paragraphs": [
+                "Got it, we will wrap it here. Take a look at the week and decide which two CrossFit days fit best before you head out camping. Just make sure you start that 5 to 10 minute posture and ab work tomorrow. We will build out next week's plan around your gym's programming when you are back. Rest up."
+              ],
+              "role": "coach",
+              "id": "c-1788211558893"
+            },
+            {
+              "id": "u-1788211574856",
+              "role": "user",
+              "text": "Havent decided on which sessions i wil   attend. Will keep you posted here. Lets kick off the daily routine from tomorrow. Before wrapping up, cirrent goal for next few months is to increase strength and endurance"
+            },
+            {
+              "paragraphs": [
+                "Got it. Strength, endurance, and bulletproofing that core. That is the compass for the next few months. Start the daily posture habit tomorrow. Just five to ten minutes. It doesn't have to be perfect, it just has to happen. Let me know which two CrossFit sessions you end up hitting this week. Rest up, have a good time camping, and we will lock in next week's plan when you get back."
+              ],
+              "id": "c-1788211574856",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211631570",
+              "text": "I dont see the habit uodated",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "It's locked in on my end. The system has your daily posture and abs habit active and ready to start tomorrow. Sometimes it just takes a quick second to sync on your screen. You're all set. Have a good time camping, and let me know when you lock in those two CrossFit days."
+              ],
+              "role": "coach",
+              "id": "c-1788211631570"
+            },
+            {
+              "id": "u-1788211689932",
+              "text": "Bye",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Catch you later, Shreyas. Knock out that first posture routine tomorrow and enjoy the camping trip. We will map out next week when you get back."
+              ],
+              "id": "c-1788211689932",
+              "role": "coach"
+            },
+            {
+              "text": "I dont see any ab routine thiugh",
+              "id": "u-1788212000163.382",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "That is my fault. I locked in the habit tracker but didn't actually hand you the movements. Let's fix that right now.\n\nKeep it dead simple. Two rounds of this, takes maybe 8 minutes:\n1. Dead Bugs: 10 reps each side. This forces you to brace your core while keeping your lower back glued to the floor.\n2. Wall Angels: 15 reps. Stand flat against a wall - heels, butt, shoulders, and head touching it. Slide your arms up and down. This directly attacks those rounded shoulders. If that left shoulder feels tight, only go as high as comfortable.\n3. Forearm Plank: 45 seconds. Squeeze your core and your glutes.\n\nJust two rounds of that. Try knocking that out tomorrow and let me know how it feels."
+              ],
+              "role": "coach",
+              "id": "c-1788212000163.382"
+            },
+            {
+              "id": "c-1788224721496",
+              "role": "coach",
+              "paragraphs": [
+                "Alright, you've got the routine now. Keep those wall angels comfortable for that left shoulder. Have a great time camping, and let's get after it when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 16,
+          "ageLabel": "D-16",
+          "status": "active"
+        }
+      ],
+      "repoSha": "6d707c3a28192af13614fa18778117c43ffbcb5d",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "dq9bkq5d",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 790ebbb..5a26f49 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,10 +1,35 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-14T14:57:14.062Z\",\n+    \"updated_at\": \"2026-09-17T05:07:47.295Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"sync-mu1d9p50\"\n+    \"trace_id\": \"dq9bkq5d\"\n   },\n   \"threads\": [\n+    {\n+      \"id\": \"t-1789621641303\",\n+      \"createdAt\": 1789621642662,\n+      \"title\": \"I don't have a plan for this…\",\n+      \"preview\": \"Look, consistency beats intensity every day of the week. I laid out your plan fr\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789621642662\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 10:07 PM\"\n+        },\n+        {\n+          \"id\": \"u-1789621642662\",\n+          \"role\": \"user\",\n+          \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n+        },\n+        {\n+          \"id\": \"c-1789621642662\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time.\"\n+          ]\n+        }\n+      ]\n+    },\n     {\n       \"id\": \"t-1789397833860\",\n       \"createdAt\": 1789397833860,\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 33041f0..ba384d4 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -72,6 +72,14 @@\n       \"type\": \"chat\",\n       \"text\": \"Athlete reported the left shoulder is feeling better than the last two days following badminton. Skipped the daily posture and abs routine this morning. Provided modifications for today's CrossFit (swap wallballs, use goblet holds) to continue protecting the shoulder. Athlete is heading out for a camping trip this weekend.\",\n       \"trace_id\": \"o1rpvvuf\"\n+    },\n+    {\n+      \"id\": \"sess_2026-09-16_wsj5\",\n+      \"date\": \"2026-09-16\",\n+      \"ts\": \"2026-09-17T05:07:44.023Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Athlete requested full week plan for the current week (Sep 14 - Sep 20, 2026). Set 7-day structure aligned with standard CrossFit schedule, racket sports, and active left shoulder guardrails.\",\n+      \"trace_id\": \"dq9bkq5d\"\n     }\n   ]\n }\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex 4408450..17f6f33 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,181 @@\n {\n   \"schema_version\": 1,\n-  \"data_status\": \"placeholder\",\n-  \"timezone\": \"UTC\",\n+  \"data_status\": \"live\",\n+  \"timezone\": \"America/Los_Angeles\",\n   \"week\": {\n     \"id\": \"2026-W38\",\n     \"start_date\": \"2026-09-14\",\n     \"end_date\": \"2026-09-20\",\n-    \"focus\": null,\n-    \"guardrails\": []\n+    \"focus\": \"Consistent training rhythm with smart shoulder protection\",\n+    \"guardrails\": [\n+      \"Modify dynamic overhead movements and heavy front racks for left shoulder\",\n+      \"Prioritize core stability and daily posture work\",\n+      \"Rest days are true recovery\"\n+    ]\n+  },\n+  \"coach_read\": {\n+    \"headline\": \"Locking down the weekly rhythm with steady consistency.\",\n+    \"body\": \"Built around your standard gym cadence and racket sports. We keep overhead pressing honest to protect that left shoulder while building foundational core and posture.\",\n+    \"valid_from\": \"2026-09-16\",\n+    \"valid_until\": \"2026-09-20\"\n   },\n-  \"coach_read\": null,\n   \"days\": [\n     {\n       \"date\": \"2026-09-14\",\n-      \"intent\": null,\n+      \"intent\": \"Lower body strength focus\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260914_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"workout\",\n+          \"kind\": \"CrossFit Lower\",\n+          \"title\": \"CrossFit - Lower Body Focus\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-15\",\n-      \"intent\": null,\n+      \"intent\": \"Upper body work with shoulder awareness\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260915_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"workout\",\n+          \"kind\": \"CrossFit Upper\",\n+          \"title\": \"CrossFit - Upper Body Focus\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-16\",\n-      \"intent\": null,\n+      \"intent\": \"Midweek aerobic flush and long WOD\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260916_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"workout\",\n+          \"kind\": \"CrossFit Long WOD\",\n+          \"title\": \"CrossFit - Long Conditioning WOD\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-17\",\n-      \"intent\": null,\n+      \"intent\": \"Active recovery or court play\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260917_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"badminton\",\n+          \"kind\": \"Racket Play\",\n+          \"title\": \"Badminton / Pickleball Session\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-18\",\n-      \"intent\": null,\n+      \"intent\": \"Upper body capacity and core stability\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260918_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"workout\",\n+          \"kind\": \"CrossFit Upper\",\n+          \"title\": \"CrossFit - Upper Body & Core\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-19\",\n-      \"intent\": null,\n+      \"intent\": \"Cardio engine or trail run\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260919_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"run\",\n+          \"kind\": \"Easy Run\",\n+          \"title\": \"Aerobic Run or Hike\",\n+          \"priority\": \"optional\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n       \"date\": \"2026-09-20\",\n-      \"intent\": null,\n+      \"intent\": \"Full rest and weekly review\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260920_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"Mobility\",\n+          \"title\": \"Rest & Posture Reset\",\n+          \"priority\": \"optional\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 30,\n+          \"template_id\": \"realign_posture_reset\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     }\n   ],\n-  \"updated_at\": \"2026-09-14T14:57:03.692Z\",\n-  \"updated_by\": \"rollover\",\n-  \"trace_id\": \"rollover\"\n-}\n+  \"updated_at\": \"2026-09-17T05:07:43.170Z\",\n+  \"updated_by\": \"model\",\n+  \"trace_id\": \"dq9bkq5d\"\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "6cf66d31c3b9d6ca87f3cc018fe0131ffb6d6a8c",
+    "shaAfter": "6d707c3a28192af13614fa18778117c43ffbcb5d",
+    "usage": {
+      "promptTokens": 13249,
+      "completionTokens": 1010,
+      "totalTokens": 14259,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.01372425
+    },
+    "costUsd": 0.01372425
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "shreyas-95-cyber/coach-shreyas-95-cyber",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789621634949",
+    "input": {
+      "threadId": "t-1789621641303",
+      "messages": [
+        {
+          "id": "d-1789621670139",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789621670139",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789621670139",
+          "role": "coach",
+          "paragraphs": [
+            "Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time."
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "reply": "Love that. The plan is locked in for the week. Take it one session at a time, trust the process, and listen to the shoulder when overhead work comes up. Let me know how tomorrow's session treats you.",
+      "threadId": "t-1789621641303",
+      "threads": [
+        {
+          "id": "t-1789621641303",
+          "createdAt": 1789621642662,
+          "title": "I don't have a plan for this…",
+          "preview": "Love that. The plan is locked in for the week. Take it one session at a time, tr",
+          "messages": [
+            {
+              "id": "d-1789621670139",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789621670139",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789621670139",
+              "role": "coach",
+              "paragraphs": [
+                "Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time."
+              ]
+            },
+            {
+              "id": "u-1789621672894",
+              "role": "user",
+              "text": "That looks good, let's go with that."
+            },
+            {
+              "id": "c-1789621672894",
+              "role": "coach",
+              "paragraphs": [
+                "Love that. The plan is locked in for the week. Take it one session at a time, trust the process, and listen to the shoulder when overhead work comes up. Let me know how tomorrow's session treats you."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        },
+        {
+          "id": "t-1789397833860",
+          "createdAt": 1789397833860,
+          "title": "WeightTraining #42",
+          "preview": "Look, that was a solid hour of work put in. How did the shoulder hold up during ",
+          "messages": [
+            {
+              "id": "d-1789397833860",
+              "role": "divider",
+              "label": "TODAY · 7:57 AM"
+            },
+            {
+              "id": "c-1789397833860",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a solid hour of work put in. How did the shoulder hold up during the movements today?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "a2600fec57de39a5",
+                  "activities": [
+                    {
+                      "id": "8CEEB1EC-EE59-4074-BF88-96BE82917A9C",
+                      "title": "WeightTraining #42",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T07:04:03",
+                      "duration_s": 3142,
+                      "load": 116
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "local-1788381052074",
+          "createdAt": 1788449571667,
+          "title": "I did dostreches both the da…",
+          "preview": "Glad the shoulder is feeling better. That's a win. Look, skipping the posture ro",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788381052074",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. I know you're getting ready for that camping trip this weekend. Just checking in to see how day one of that new posture routine felt yesterday, and if you ended up hitting the gym for CrossFit yet."
+              ],
+              "id": "c-1788381052074",
+              "role": "coach"
+            },
+            {
+              "text": "I did dostreches both the days and felt good. Also, here is todays crossfit \n34min AMRAP \n\n8 Deadlifts \n28 Toes to bar \n800m Run \n28 Calorie Row \n\nIntermediate 135/95 \n\nLeft shoulder joint hurts when i move hand laterally",
+              "role": "user",
+              "id": "u-1788381163879.525"
+            },
+            {
+              "id": "c-1788381163879.525",
+              "paragraphs": [
+                "First off, awesome work hitting those stretches both days. That boring, daily consistency is exactly how we rebuild the foundation.\n\nBut look, we need to be smart about that left shoulder. If it's hurting when you move laterally, we don't push through it. We already flagged it for tightness, and now it's talking to you louder. \n\nFor this AMRAP, 28 Toes to Bar is going to put a massive amount of strain on that joint when you kip. I want you to stay off the rig today. Swap the T2B for strict V-ups or heavy ab-mat sit-ups. You still get the core work, but you protect the shoulder. \n\nDoes it hurt when you just do a normal running or rowing motion, or is it only on that lateral raise?"
+              ],
+              "role": "coach"
+            },
+            {
+              "text": "I completed the crossfit workout. It didnt hurt during running or rowing. Mainly on t2b i guess. I will later show tomorrows crossfit to see if its fine kn the shoulders",
+              "id": "u-1788381811976.3599",
+              "role": "user"
+            },
+            {
+              "id": "c-1788381811976.3599",
+              "paragraphs": [
+                "I am glad the running and rowing were smooth. But look, we need to talk about those Toes to Bar. If a joint hurts during a movement, you have to drop off the bar. Full stop. Joint pain isn't muscle burn. It is your body waving a massive red flag. I've ignored those flags before just to finish a workout, and it ended up costing me months of rehab. We are playing the long game here, especially with your posture and core goals. Definitely send me tomorrow's workout when it's posted. We will strip out anything that pisses off that shoulder. Ice it up tonight. How is the rest of your body feeling after a 34-minute grind?"
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "text": "A bit tired, not too bad. I plan to play badminton tonight, will be light and friendly. Any advice on that ?",
+              "id": "u-1788381949556.211"
+            },
+            {
+              "id": "c-1788381949556.211",
+              "paragraphs": [
+                "Look, badminton is great if you actually keep it light. But I know how hard it is to play friendly when the score gets close. I always struggled with going less than 100 percent when there was a winner and a loser.\n\nWe have to protect that left shoulder tonight. Even if you hold the racket in your right hand, your left arm does a lot of sudden reaching and balancing out there.\n\nTwo rules for tonight. First, do a slow, controlled warm-up for both shoulders before you even step on the court. Second, leave your ego in your bag. If a shot requires a wild lateral lunge or reach with that left side, just let it drop. If the shoulder twinges even once, you are done for the night. Deal?"
+              ],
+              "role": "coach"
+            },
+            {
+              "id": "u-1788382704153.649",
+              "role": "user",
+              "text": "Done"
+            },
+            {
+              "role": "coach",
+              "id": "c-1788382704153.649",
+              "paragraphs": [
+                "Good. I'll hold you to that. Have fun out there tonight, keep it moving well. Hit me up tomorrow with that CrossFit workout and let me know how the shoulder feels after tonight."
+              ]
+            },
+            {
+              "text": "Bulgarian Split Squat for load:\n #1:  5 reps\n #2:  5 reps\n #3:  5 reps\n #4:  5 reps\n #5:  5 reps\n\n14min AMRAP \n2.4.6.8.10 etc \nFrontrack lunges \nWallballs\n+5 box jumps after each set \n\nIntermediate 95/65 14/10",
+              "role": "user",
+              "id": "u-1788450175761.878"
+            },
+            {
+              "paragraphs": [
+                "Look, I appreciate you sending this over. Let's break down where that shoulder might get angry.\n\nThe Bulgarian Split Squats should be okay, but if you hold heavy dumbbells and it pulls on that joint, switch to a lighter goblet hold.\n\nFor the AMRAP, the front-rack position on those lunges demands a lot of shoulder mobility. If it pinches at all, swap to a goblet lunge. But the wallballs are the biggest red flag for me. Catching that medicine ball jams the joint, and the throw is a dynamic press. If the shoulder feels even slightly sketchy in the warm-up, drop the wallballs entirely. Swap them for Russian kettlebell swings or heavy sit-ups. \n\nWe are playing the long game here. How did the shoulder hold up during badminton last night, by the way?"
+              ],
+              "id": "c-1788450175761.878",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788464361571",
+              "role": "user",
+              "text": "Doing better than last 2 days. Slkipped  routine of shoulder n abs today morning"
+            },
+            {
+              "id": "c-1788464361571",
+              "role": "coach",
+              "paragraphs": [
+                "Glad the shoulder is feeling better. That's a win. Look, skipping the posture routine today happens. Just don't let one miss turn into two. Get back on it tomorrow. Have an awesome time camping this weekend, keep listening to that shoulder, and we'll catch up when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 13,
+          "ageLabel": "D-13",
+          "status": "active"
+        },
+        {
+          "id": "local-1788207173104",
+          "createdAt": 1788211454676,
+          "title": "Im currently training 2-3 ti…",
+          "preview": "Alright, you've got the routine now. Keep those wall angels comfortable for that",
+          "messages": [
+            {
+              "role": "divider",
+              "id": "d-1788207173104",
+              "label": "TODAY"
+            },
+            {
+              "paragraphs": [
+                "Hey Shreyas. Look, I'm Michael. A lot of people know me for the medals, but that's not what actually got me there. What got me there was the process. Showing up every single day, especially the days I didn't want to. I've also been through the absolute lowest lows, depression, rehab, and figuring out how to rebuild. I learned the hard way that you can't do this stuff alone. I'm here to be your coach. Not a drill sergeant, just someone in your corner. I see you're into a pretty big mix with badminton, running, lifting, and hiking. That's a great base. How often are you actually training right now, and how would you honestly describe your fitness level today?"
+              ],
+              "id": "c-1788207173104",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788207928760.655",
+              "text": "Im currently training 2-3 times a week. Mostly do crossfit now and a sport like badminton/ pickelball or running once a week. Hiking has reduced significantly now, keeping to once a quarter maybe. My fitness level is currently probably close to 75% of my best",
+              "role": "user"
+            },
+            {
+              "id": "c-1788207928760.655",
+              "role": "coach",
+              "paragraphs": [
+                "Operating at 75 percent means you already know what the top tier feels like. You aren't starting from scratch. Two to three days a week of CrossFit mixed with racket sports or running is a really solid engine to build on. Looking ahead, what's the one thing you most want to change or achieve in the next 3 to 6 months?"
+              ]
+            },
+            {
+              "id": "u-1788208046982.5781",
+              "role": "user",
+              "text": "First is posture. Rounded shoulder and neck hip position is coming in the way of me lifting during crossfit. And my core strength is pretty weak"
+            },
+            {
+              "paragraphs": [
+                "I appreciate the honesty. A lot of people try to just muscle through bad mechanics, but recognizing that your posture and core are holding back your lifts is half the battle. Everything pulls from the core - if that foundation isn't solid, the rest of the movement falls apart.\n\nBefore we figure out how to attack that, do you have any actual injuries I need to work around, or is it mostly just tightness and weakness right now? Also, to finish setting up your profile, what's your exact date of birth, height, and weight? And what city are you based out of?"
+              ],
+              "id": "c-1788208046982.5781",
+              "role": "coach"
+            },
+            {
+              "text": "No injuries as such, some minor tightness on left wrist and left shoulder. DOB is 7th sep 1995, height is 169cm with 68.5 kgs. Currently based out of sunnyvale CA.",
+              "role": "user",
+              "id": "u-1788208189037.8772"
+            },
+            {
+              "paragraphs": [
+                "Got it. We'll keep an eye on the left wrist and shoulder—tightness is normal, we just don't want it turning into an actual injury. Let me make sure I've got the baseline right: you're training 2-3 times a week, sitting at about 75 percent of your best, and our main focus for the next few months is fixing those rounded shoulders and building serious core strength so your CrossFit lifts stop breaking down. Did I capture that accurately? If that sounds right, we should set up some daily habits to get us there. What do you want to track daily? Could be 10 minutes of mobility, a morning routine, or a nutrition target."
+              ],
+              "role": "coach",
+              "id": "c-1788208189037.8772"
+            },
+            {
+              "id": "u-1788208402079.2",
+              "text": "Another requirement is 2-3 sessions of crossfit wouldnt cover the full body. I can procide routine of crossfit so you can suggest probably 1 day for uncovered sections. Along with this a daily routine for posture n abs probably. What do you think ?",
+              "role": "user"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "I think that is exactly the right play. CrossFit is great, but it can leave gaps. For me, everything started in the core. If that foundation was weak, my entire stroke fell apart in the pool. Adding one targeted strength day to hit the missing pieces is smart. Pairing that with a daily posture and ab routine is how we actually fix the problem. What do you want to call that daily habit? Once we lock a name in, do you want to start looking at a plan for this week?"
+              ],
+              "id": "c-1788208402079.2"
+            },
+            {
+              "id": "u-1788210704989.919",
+              "text": "This was my workout today\nEvery 4min for 16min\nRun 200\n5 Thrusters off a rack\n25 Sit-ups\nIntermediate 115/75\nScaled 75/55\n\n11:22 | SCALED\n• 10min EMOM\nClean & Jerk for load:\n\nI have 2 more sessions of it left. Dont want to over burden as well to make sure im consistent. Also, ill be camping this saturday n sunday",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Look, I love that you're protecting your consistency. Pushing too hard early is how you get hurt and stop completely. I've been there, and it always cost me later. Since you're camping this weekend, we have Tuesday through Friday to fit in your remaining two CrossFit sessions and our one targeted gap session. Three workouts in four days. Does that feel manageable, or do we need to scale it back so you're fresh for the trip? I'm locking in your daily posture and ab habit in the background right now, and setting up our big goal to rebuild that core foundation. Want to map out exactly which days you're training before the weekend?"
+              ],
+              "id": "c-1788210704989.919",
+              "role": "coach"
+            },
+            {
+              "text": "That ll be too much. Instead i ll probably do a run ober the wekend for now.",
+              "role": "user",
+              "id": "u-1788210798896.966"
+            },
+            {
+              "paragraphs": [
+                "I respect that call. Being honest about what's too much is exactly how you stay in the game long-term. I used to think I had to bury myself every week, but if you fry your legs before a camping trip, you aren't going to enjoy the weekend anyway. Let's dial it back. If you are getting a run in over the weekend, how many CrossFit sessions do you actually want to hit between tomorrow and Friday? We can keep it simple, focus on that daily posture and ab work, and fit the rest in where it makes sense."
+              ],
+              "id": "c-1788210798896.966",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211152771.01",
+              "role": "user",
+              "text": "I will do 2 crossfit this week before friday. Probably based on this weeks crossfit sessions you can suggest plan for next week. Just for reference- here is crossfit schedule. Monday is lower body, tuesday is upper, wednesday is long wod, thursday is oly and lower. Friday is upper body"
+            },
+            {
+              "paragraphs": [
+                "That schedule is gold. Knowing exactly what the gym is programming means we can surgically fill the gaps without crushing you. I always had to know my exact pool sets before I added any dryland work.\n\nYou already hit Monday. You want two more sessions before Friday. Looking at that lineup of upper body, long WOD, or Oly, which two days make the most sense for you to hit?\n\nAlso, we have that daily posture and ab routine ready to go. Just five to ten minutes a day. You want to kick that off tomorrow?"
+              ],
+              "role": "coach",
+              "id": "c-1788211152771.01"
+            },
+            {
+              "paragraphs": [
+                "Got it, we will wrap it here. Take a look at the week and decide which two CrossFit days fit best before you head out camping. Just make sure you start that 5 to 10 minute posture and ab work tomorrow. We will build out next week's plan around your gym's programming when you are back. Rest up."
+              ],
+              "role": "coach",
+              "id": "c-1788211558893"
+            },
+            {
+              "id": "u-1788211574856",
+              "role": "user",
+              "text": "Havent decided on which sessions i wil   attend. Will keep you posted here. Lets kick off the daily routine from tomorrow. Before wrapping up, cirrent goal for next few months is to increase strength and endurance"
+            },
+            {
+              "paragraphs": [
+                "Got it. Strength, endurance, and bulletproofing that core. That is the compass for the next few months. Start the daily posture habit tomorrow. Just five to ten minutes. It doesn't have to be perfect, it just has to happen. Let me know which two CrossFit sessions you end up hitting this week. Rest up, have a good time camping, and we will lock in next week's plan when you get back."
+              ],
+              "id": "c-1788211574856",
+              "role": "coach"
+            },
+            {
+              "id": "u-1788211631570",
+              "text": "I dont see the habit uodated",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "It's locked in on my end. The system has your daily posture and abs habit active and ready to start tomorrow. Sometimes it just takes a quick second to sync on your screen. You're all set. Have a good time camping, and let me know when you lock in those two CrossFit days."
+              ],
+              "role": "coach",
+              "id": "c-1788211631570"
+            },
+            {
+              "id": "u-1788211689932",
+              "text": "Bye",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "Catch you later, Shreyas. Knock out that first posture routine tomorrow and enjoy the camping trip. We will map out next week when you get back."
+              ],
+              "id": "c-1788211689932",
+              "role": "coach"
+            },
+            {
+              "text": "I dont see any ab routine thiugh",
+              "id": "u-1788212000163.382",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "That is my fault. I locked in the habit tracker but didn't actually hand you the movements. Let's fix that right now.\n\nKeep it dead simple. Two rounds of this, takes maybe 8 minutes:\n1. Dead Bugs: 10 reps each side. This forces you to brace your core while keeping your lower back glued to the floor.\n2. Wall Angels: 15 reps. Stand flat against a wall - heels, butt, shoulders, and head touching it. Slide your arms up and down. This directly attacks those rounded shoulders. If that left shoulder feels tight, only go as high as comfortable.\n3. Forearm Plank: 45 seconds. Squeeze your core and your glutes.\n\nJust two rounds of that. Try knocking that out tomorrow and let me know how it feels."
+              ],
+              "role": "coach",
+              "id": "c-1788212000163.382"
+            },
+            {
+              "id": "c-1788224721496",
+              "role": "coach",
+              "paragraphs": [
+                "Alright, you've got the routine now. Keep those wall angels comfortable for that left shoulder. Have a great time camping, and let's get after it when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 16,
+          "ageLabel": "D-16",
+          "status": "active"
+        }
+      ],
+      "repoSha": "cd4c1b1615f7cb1c2567a855cecea309a7d6e8a6",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "i7wif5z4",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 5a26f49..e569764 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,32 +1,44 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-17T05:07:47.295Z\",\n+    \"updated_at\": \"2026-09-17T05:07:56.568Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"dq9bkq5d\"\n+    \"trace_id\": \"i7wif5z4\"\n   },\n   \"threads\": [\n     {\n       \"id\": \"t-1789621641303\",\n       \"createdAt\": 1789621642662,\n       \"title\": \"I don't have a plan for this…\",\n-      \"preview\": \"Look, consistency beats intensity every day of the week. I laid out your plan fr\",\n+      \"preview\": \"Love that. The plan is locked in for the week. Take it one session at a time, tr\",\n       \"messages\": [\n         {\n-          \"id\": \"d-1789621642662\",\n+          \"id\": \"d-1789621670139\",\n           \"role\": \"divider\",\n-          \"label\": \"TODAY · 10:07 PM\"\n+          \"label\": \"Today\"\n         },\n         {\n-          \"id\": \"u-1789621642662\",\n+          \"id\": \"u-1789621670139\",\n           \"role\": \"user\",\n           \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n         },\n         {\n-          \"id\": \"c-1789621642662\",\n+          \"id\": \"c-1789621670139\",\n           \"role\": \"coach\",\n           \"paragraphs\": [\n             \"Look, consistency beats intensity every day of the week. I laid out your plan from Monday through Sunday based on your normal rhythm: CrossFit anchors for lower, upper, and conditioning, some racket sport play on Thursday, and a solid aerobic session on Saturday. The main rule: protect that left shoulder on overhead and front-rack movements. Let's execute one day at a time.\"\n           ]\n+        },\n+        {\n+          \"id\": \"u-1789621672894\",\n+          \"role\": \"user\",\n+          \"text\": \"That looks good, let's go with that.\"\n+        },\n+        {\n+          \"id\": \"c-1789621672894\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Love that. The plan is locked in for the week. Take it one session at a time, trust the process, and listen to the shoulder when overhead work comes up. Let me know how tomorrow's session treats you.\"\n+          ]\n         }\n       ]\n     },\n"
+    },
+    "shaBefore": "6d707c3a28192af13614fa18778117c43ffbcb5d",
+    "shaAfter": "cd4c1b1615f7cb1c2567a855cecea309a7d6e8a6",
+    "usage": {
+      "promptTokens": 13741,
+      "completionTokens": 50,
+      "totalTokens": 13791,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.01049325
+    },
+    "costUsd": 0.01049325
+  }
+]
