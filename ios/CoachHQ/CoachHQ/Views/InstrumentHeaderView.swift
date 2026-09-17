@@ -1,17 +1,11 @@
 import SwiftUI
 
-/// Compact mobile home header — `HQ` wordmark and build-phase badge. Matches the
-/// `wi-instrument-header` mobile row in `Warm Instrument Mobile.dc.html` / web `@media (max-width: 720px)`.
+/// Build-phase badge under the Home wordmark row. Page chrome is `WarmPageHeader`.
 struct CompactInstrumentHeader: View {
     let phase: BuildPhaseSnapshot
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("HQ")
-                .font(WarmInstrument.monoLabel(12))
-                .tracking(1.4)
-                .foregroundColor(WarmInstrument.ink)
-
             Text("BUILD · \(phase.weekLabel.uppercased())")
                 .font(WarmInstrument.monoLabel(9))
                 .tracking(1.0)

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkoutOverviewView: View {
     let workout: Workout
+    var autoStart: Bool = false
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var bottomDock: BottomDockState
     @State private var showTimer = false
@@ -23,6 +24,9 @@ struct WorkoutOverviewView: View {
         .background(WarmInstrument.desk)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            if autoStart {
+                showTimer = true
+            }
             withAnimation(PremiumMotion.dock) {
                 bottomDock.showStartWorkout { showTimer = true }
             }

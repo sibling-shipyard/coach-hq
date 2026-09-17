@@ -566,6 +566,10 @@ enum Haptics {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    static func medium() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
     static func soft() {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
@@ -836,7 +840,8 @@ enum PremiumMotion {
 
 /// Floating main-tab dock geometry — keep scroll clearance in sync with `MainTabView`.
 enum WarmMainDockLayout {
-    static let pillHeight: CGFloat = 58
+    /// Outer paper trough — Train mock is plump; the ink chip sits inset inside this.
+    static let pillHeight: CGFloat = 56
     static let topPadding: CGFloat = 2
     /// Gap between the last scroll row and the dock pill.
     static let scrollBottomBreathingRoom: CGFloat = 16

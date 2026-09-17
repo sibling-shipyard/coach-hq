@@ -1368,11 +1368,13 @@ class HealthKitSyncManager: ObservableObject {
                         // before its body read. Surface that race to Sentry while preserving
                         // the directory's own benign 404 handling at the caller.
                         if case .notFound = error {
-                            DiagnosticsManager.capture(
-                                error: GitHubAPIError.notFound(operation: "Reading listed history file"),
-                                operation: "healthkit.history.read",
-                                operationID: operationID
-                            )
+                            await MainActor.run {
+                                DiagnosticsManager.capture(
+                                    error: GitHubAPIError.notFound(operation: "Reading listed history file"),
+                                    operation: "healthkit.history.read",
+                                    operationID: operationID
+                                )
+                            }
                         }
                         throw error
                     }

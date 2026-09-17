@@ -116,13 +116,15 @@ Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` f
 
 ## Tab chrome
 
-Tab roots share `WarmPageHeader`: small mono wordmark left (`TRAIN` / `HOME` / `COACH` / `YOU`), quiet meta right, desk behind. No UIKit nav bar and no circular chips. Pushes use `‹` then the wordmark, never a paper circle.
+Tab roots share `WarmPageHeader`: small mono wordmark left (`TRAIN` / `HOME` / `COACH` / `YOU`), quiet meta right, desk behind. No UIKit nav bar and no circular chips. Pushes use `‹` then the wordmark (same mono as Ledger's `‹ HQ`), never a paper circle.
+
+The floating dock is the same four words (`HOME` `COACH` `TRAIN` `YOU`): a plump paper capsule (56pt) with a small ink rounded-rect hugging the selected word. Unselected labels are `inkFaint` so the bar recedes. No icons.
 
 ## Train
 
-Day Card + Week Strip L + library. Day Card is the day's focused session (receipt, rest, protocol draft, match draft). Cubes are equal-width; ticks stack; logged / today / draft / rest strokes follow the four cube states. Pointer under today, ring 2pt outside any other selected day. Week header is `WK N` plus the chevron — no strip total, no band verdict. Load lives on the cube (day) and once on the Day Card footer (session). Duration uses `Format.duration` (`2h 47m`). Receipt footer is TIME · LOAD · KCAL under a hairline. No sport glyph on the Day Card.
+Day Card + Week Strip L + library. Day Card is the day's focused session (receipt, rest, protocol draft, match draft). Cubes are equal-width; ticks stack; logged / today / draft / rest strokes follow the four cube states. Pointer under today, ring 2pt outside any other selected day. Week header is `WK N` plus the chevron — no strip total, no band verdict. Load lives on the cube (day) and once on the Day Card footer (session). Duration uses `Format.duration` (`2h 47m`). Receipt footer is TIME · LOAD · KCAL under a hairline. No sport glyph on the Day Card. Pill row is one short-name chip per session — including a single activity (`KICKSTART`, `WT #163`); the focused chip is ink-filled. Rest keeps the empty 22pt slot so height does not jump.
 
-Haptics: `.light` on cube select and pill swap. `.medium` on Day Card START. Silent chevron and swipe settle. Today's draft shows ink **START** (no clock) beside **DETAIL**. Cube select remounts the Day Card with a ≤180ms spring slide on the card only.
+Haptics: `.light` on cube select and pill swap. `.medium` on Day Card START. Silent chevron and swipe settle. Today's draft shows ink **START** (no clock) beside **DETAIL**, both `monoLabel(9)` tracked caps in the 36pt footer. Coach line is two italic lines, capped at `TrainLayout.maxCoachNoteChars` (80), signed `— PHELPS`. Cube select remounts the Day Card with a ≤180ms spring slide on the card only.
 
 Terracotta is load figures and WarmPrimary only. Draft load is `—` until a real projected number exists. HR ribbon uses a stored stream, or the slot stays empty. The today cube is how you get back — no `TODAY ›` on other Day Cards.
 

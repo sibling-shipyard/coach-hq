@@ -44,6 +44,8 @@ struct WarmInstrumentHomeView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 14) {
+                    WarmPageHeader(title: "HOME", trailing: WarmPageDate.label())
+
                     if let snapshots = store.snapshots {
                         if !preferredName.isEmpty {
                             greetingRow
@@ -74,7 +76,7 @@ struct WarmInstrumentHomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()

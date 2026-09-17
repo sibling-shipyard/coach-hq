@@ -383,32 +383,34 @@ private extension AnyTransition {
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
 
 private enum WarmDockMetrics {
-    /// Icon row + inner pill padding (44 + 4×2); shared by tab bar and start CTA.
+    /// Shared by the word dock trough and the start CTA.
     static let pillHeight = WarmMainDockLayout.pillHeight
     static let horizontalPadding: CGFloat = 20
     static let topPadding = WarmMainDockLayout.topPadding
 }
 
-/// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
+/// Floating word dock — `HOME · COACH · TRAIN · YOU`.
+/// Paper trough with a small ink chip on the selected word so the bar recedes like the Train mock.
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
     @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 tabItem(tab)
             }
         }
-        .padding(4)
+        .padding(.horizontal, 8)
+        .frame(height: WarmDockMetrics.pillHeight)
         .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(Capsule(style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
+            Capsule(style: .continuous)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
         )
-        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
+        .shadow(color: WarmInstrument.cardShadow, radius: 6, x: 0, y: 2)
         .padding(.horizontal, WarmDockMetrics.horizontalPadding)
         .padding(.top, WarmDockMetrics.topPadding)
     }
@@ -422,39 +424,29 @@ private struct WarmTabBar: View {
                 selection = tab
             }
         } label: {
-            ZStack {
-                if selected {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(WarmInstrument.surfaceMuted)
-                        .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
-                        .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
+            Text(tab.labelText.uppercased())
+                .font(WarmInstrument.monoLabel(9))
+                .tracking(1.2)
+                .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(WarmInstrument.ink)
+                            .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
+                    }
                 }
-
-                VStack(spacing: 2) {
-                    Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
-                        .font(.system(size: 18, weight: selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                        .scaleEffect(selected ? 1.04 : 1)
-                        .offset(y: selected ? -1 : 0)
-                        .overlay(alignment: .topTrailing) {
-                            if tab == .chat && chatHasUnread {
-                                Circle()
-                                    .fill(WarmInstrument.accent)
-                                    .frame(width: 7, height: 7)
-                                    .offset(x: 5, y: -2)
-                            }
-                        }
-
-                    Text(tab.labelText)
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(0.4)
-                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                .overlay(alignment: .topTrailing) {
+                    if tab == .chat && chatHasUnread && !selected {
+                        Circle()
+                            .fill(WarmInstrument.accent)
+                            .frame(width: 6, height: 6)
+                            .offset(x: 2, y: 2)
+                    }
                 }
-                .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(TabBarPressStyle())
         .accessibilityLabel(tab.accessibilityLabel)
@@ -489,12 +481,12 @@ private struct WarmDockStartCTA: View {
             .foregroundColor(WarmInstrument.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: WarmDockMetrics.pillHeight)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 1)
-                )
+            .background(WorkoutTimerWarm.rust)
+            .clipShape(Capsule(style: .continuous))
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 1)
+            )
                 .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
         }
         .buttonStyle(TimerWarmPressStyle())

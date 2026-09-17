@@ -7,6 +7,7 @@ struct TrainDayCard: View {
     let focusIndex: Int
     var onFocus: (Int) -> Void
     var onOpen: (WorkoutsPageSelector.TrainSession) -> Void
+    var onStart: (WorkoutsPageSelector.TrainSession) -> Void
     var onSwipe: (Int) -> Void
 
     @EnvironmentObject private var authManager: GitHubAuthManager
@@ -17,12 +18,14 @@ struct TrainDayCard: View {
         focusIndex: Int,
         onFocus: @escaping (Int) -> Void,
         onOpen: @escaping (WorkoutsPageSelector.TrainSession) -> Void,
+        onStart: @escaping (WorkoutsPageSelector.TrainSession) -> Void,
         onSwipe: @escaping (Int) -> Void
     ) {
         self.day = day
         self.focusIndex = focusIndex
         self.onFocus = onFocus
         self.onOpen = onOpen
+        self.onStart = onStart
         self.onSwipe = onSwipe
         let focused = day.sessions[safe: focusIndex] ?? day.sessions.first
         if let uuid = focused?.activity?.activity?.activityId, HRStreamCache.contains(uuid) {
@@ -38,15 +41,15 @@ struct TrainDayCard: View {
         VStack(alignment: .leading, spacing: 8) {
             header.frame(height: 14)
             titleBlock.frame(height: 56, alignment: .top)
-            ribbon.frame(height: 66, alignment: .bottom)
-            coachLine.frame(height: 32, alignment: .top)
+            ribbon.frame(height: 66, alignment: ribbonSlotAlignment)
+            coachLine.frame(height: 42, alignment: .top)
             footer.frame(height: 46, alignment: .top)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 276)
+        .frame(height: 286)
         .background(shellFill)
         .clipShape(RoundedRectangle(cornerRadius: TrainLayout.cardRadius, style: .continuous))
         .overlay(
@@ -55,7 +58,10 @@ struct TrainDayCard: View {
         )
         .shadow(color: shellShadow, radius: 14, y: 7)
         .contentShape(Rectangle())
-        .onTapGesture { openFocused() }
+        .onTapGesture {
+            guard !(day.isToday && session?.status == .draft) else { return }
+            openFocused()
+        }
         .simultaneousGesture(swipeGesture)
         .task(id: session?.activity?.activity?.activityId) {
             await loadStream()
@@ -93,25 +99,28 @@ struct TrainDayCard: View {
     private var pillRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                if day.sessions.count == 1, let session, session.status == .draft {
-                    TrainPill(title: "COACH DRAFT", filled: false)
-                } else {
-                    ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            tapFocus(index)
-                        } label: {
-                            TrainPill(title: item.shortTitle, filled: index == focusIndex)
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .highPriorityGesture(
-                            TapGesture().onEnded { tapFocus(index) }
-                        )
+                ForEach(Array(day.sessions.enumerated()), id: \.element.id) { index, item in
+                    Button {
+                        tapFocus(index)
+                    } label: {
+                        TrainPill(title: item.shortTitle, filled: index == focusIndex)
+                            .contentShape(Capsule())
                     }
+                    .buttonStyle(.plain)
+                    .highPriorityGesture(
+                        TapGesture().onEnded { tapFocus(index) }
+                    )
                 }
             }
         }
         .frame(height: 22)
+    }
+
+    /// Logged HR ribbon stays bottom-aligned (bar + legend). Protocol phases sit on the
+    /// same visual center as that 44pt bar so the coach line has air underneath.
+    private var ribbonSlotAlignment: Alignment {
+        if session?.status == .draft, session?.isProtocol == true { return .center }
+        return .bottom
     }
 
     @ViewBuilder
@@ -141,7 +150,7 @@ struct TrainDayCard: View {
     }
 
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Rectangle()
                 .fill(WarmInstrument.headerRule)
                 .frame(height: 1)
@@ -163,18 +172,8 @@ struct TrainDayCard: View {
             }
         } else if let session, session.status == .logged {
             receiptFooter(session)
-        } else if day.isToday, let session, session.isProtocol {
-            Button("DETAIL") { onOpen(session) }
-                .buttonStyle(.plain)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(WarmInstrument.ink)
-                .frame(maxWidth: .infinity)
-                .frame(height: 32)
-                .contentShape(Rectangle())
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(WarmInstrument.border, lineWidth: 1)
-                )
+        } else if day.isToday, let session, session.status == .draft, session.workout != nil {
+            launchFooter(session)
         } else {
             Color.clear
         }
@@ -325,17 +324,58 @@ struct TrainDayCard: View {
         .frame(maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .top))
     }
 
-    private func coachText(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(text)
-                .font(WarmInstrument.coachVoice(14.5))
-                .foregroundColor(WarmInstrument.ink)
-                .lineLimit(2)
-            Spacer(minLength: 0)
-            Text("— PHELPS")
-                .font(WarmInstrument.monoLabel(8))
-                .foregroundColor(WarmInstrument.inkFaint)
+    private func launchFooter(_ session: WorkoutsPageSelector.TrainSession) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                Haptics.medium()
+                onStart(session)
+            } label: {
+                Text("START")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(1.2)
+                    .foregroundColor(WarmInstrument.paper)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .background(WarmInstrument.ink)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Haptics.tap()
+                onOpen(session)
+            } label: {
+                Text("DETAIL")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(1.2)
+                    .foregroundColor(WarmInstrument.ink)
+                    .frame(width: 96)
+                    .frame(height: 36)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(WarmInstrument.border, lineWidth: 1)
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
+    }
+
+    private func coachText(_ text: String) -> some View {
+        Text("\(clippedCoachNote(text)) \(Text("— PHELPS").font(WarmInstrument.monoLabel(8)).foregroundColor(WarmInstrument.inkFaint))")
+            .font(WarmInstrument.coachVoice(13.5))
+            .foregroundColor(WarmInstrument.ink)
+            .lineLimit(2)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func clippedCoachNote(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let limit = TrainLayout.maxCoachNoteChars
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit - 1)).trimmingCharacters(in: .whitespaces) + "…"
     }
 
     // MARK: - Shell / copy
@@ -348,7 +388,7 @@ struct TrainDayCard: View {
     }
 
     private var showsPills: Bool {
-        day.sessions.count > 1 || (session?.status == .draft && session?.isMatchDraft != true)
+        !day.sessions.isEmpty
     }
 
     private var restTitle: String { "Rest" }
