@@ -391,5 +391,7 @@ function parseCurrentWeek(input, now = /* @__PURE__ */ new Date()) {
 export {
   CURRENT_WEEK_SCHEMA_VERSION,
   SESSION_DISCIPLINES,
+  addDays,
+  getIsoWeekId,
   parseCurrentWeek
 };
