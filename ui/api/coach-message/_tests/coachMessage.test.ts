@@ -4,21 +4,22 @@ import type { LlmAdapter } from "../../_lib/llmClient.js";
 import { activitySyncBatchId } from "../../coach-chat/_lib/decide/activitySync.js";
 import type { ChatThread } from "../../coach-chat/_lib/chatThreads.js";
 import {
-  CoachMessageError,
-  MAX_ACTIVITY_IDS,
   PROACTIVE_FEW_SHOT_PAIRS,
   PROACTIVE_RESPONSE_SCHEMA,
   buildProactivePrompt,
   generateAndStoreCoachMessage,
   generateProactiveBody,
-  loadProactiveContext,
+  type CoachMessageDependencies,
+} from "../_lib/coachMessage.js";
+import {
+  CoachMessageError,
+  MAX_ACTIVITY_IDS,
   parseActivityHistoryTree,
   parseActivityIdsRequest,
   validateActivityIdsPayload,
   validateGeneratedBody,
-  type CoachMessageDependencies,
-  type LatestCoachMessage,
-} from "../_lib/coachMessage.js";
+} from "../_lib/activityRequest.js";
+import { loadProactiveContext, type LatestCoachMessage } from "../_lib/proactiveContext.js";
 
 /** A fake adapter, standing in for either real one — `generateProactiveBody` only needs the
  * `LlmAdapter` contract (name, model, `generate`), never a specific provider's transport. */

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // mock bodies infer never[] / Promise<null> and reject every mockResolvedValue in this file.
 import type { DirectoryEntry } from "../../_lib/decide/coachChatFiles.js";
 import type { ChatHistoryFile } from "../../_lib/chatThreads.js";
-import type { ActivityFileEntry } from "../../../coach-message/_lib/coachMessage.js";
+import type { ActivityFileEntry } from "../../../coach-message/_lib/activityRequest.js";
 import type { LlmAdapter } from "../../../_lib/llmClient.js";
 
 const {
@@ -87,9 +87,9 @@ vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
 // /api/coach-message uses. Keep it real (so buildProactivePrompt/loadProactiveContext get
 // genuine coverage through this integration test) and only stand in for the GitHub tree read,
 // which would otherwise need real HTTP mocking.
-vi.mock("../../../coach-message/_lib/coachMessage.js", async (importOriginal) => {
+vi.mock("../../../coach-message/_lib/activityRequest.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../../../coach-message/_lib/coachMessage.js")>();
+    await importOriginal<typeof import("../../../coach-message/_lib/activityRequest.js")>();
   return {
     ...original,
     listActivityFiles,
@@ -104,10 +104,8 @@ import {
 import { handleActivitySync } from "../../_lib/commit/activitySyncTurn.js";
 import { CHAT_FILE_PATH, type ChatThread } from "../../_lib/chatThreads.js";
 import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/turnRequest.js";
-import {
-  LATEST_COACH_MESSAGE_PATH,
-  parseLatestMessageFile,
-} from "../../../coach-message/_lib/coachMessage.js";
+import { LATEST_COACH_MESSAGE_PATH } from "../../../coach-message/_lib/coachMessage.js";
+import { parseLatestMessageFile } from "../../../coach-message/_lib/proactiveContext.js";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";

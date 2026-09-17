@@ -48,11 +48,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { SOUL } from "../api/_generated/soul.js";
 import {
-  loadProactiveContext,
   buildProactivePrompt,
   PROACTIVE_RESPONSE_SCHEMA,
-  type ActivityFileEntry,
 } from "../api/coach-message/_lib/coachMessage.js";
+import { type ActivityFileEntry } from "../api/coach-message/_lib/activityRequest.js";
+import { loadProactiveContext } from "../api/coach-message/_lib/proactiveContext.js";
 
 const uiRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 try {
