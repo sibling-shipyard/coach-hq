@@ -89,6 +89,22 @@ Page riffle is UIKit-only. A custom recognizer on the All Activity `UIScrollView
 
 ---
 
+## Wait language
+
+Two waits, ink on desk, never terracotta (ADR 0041). Reduce Motion freezes both.
+
+| Kind | Component | Use |
+|---|---|---|
+| Page | `WarmWaveLoader` | Empty first paint: Home, Chat, Train, Ledger, Health Data |
+| Inline | `WarmSignalLoader` | Busy control: save, load more, sync, import, sign in |
+| Chat reply | thinking bubble + Signal | Keep cycling copy; Signal replaces the three dots |
+
+Leave: pull-to-refresh, WidgetKit `.redacted`, onboarding `.skeleton()` (reveal, not wait).
+
+Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
+
+---
+
 ## Phases — Status
 
 ### ✅ Phase 1 — Activity Feed Polish
