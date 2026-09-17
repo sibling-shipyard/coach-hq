@@ -40,7 +40,7 @@ function main() {
   const date = parseDate(process.argv.slice(2));
   const rawManualDir = path.join(repoRoot, "test-results", "raw", date, "manual");
   const coveragePath = path.join(repoRoot, "test-results", "coverage-index.json");
-  const examplesDir = path.join(repoRoot, "ui", "scripts", "examples");
+  const examplesDir = path.join(repoRoot, "ui", "eval", "examples");
 
   console.log(`Reconciling coverage-index.json against raw run logs for ${date}...`);
   const { ok, lines } = checkReconciliation(date, rawManualDir, coveragePath, examplesDir);

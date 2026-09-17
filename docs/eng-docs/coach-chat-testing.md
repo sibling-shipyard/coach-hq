@@ -92,8 +92,8 @@ expected. Explicitly does not judge coaching voice/persona quality (see the SOUL
 that would need a second, more expensive judge-model call per transcript, deferred per
 `docs/eng-docs/llm-provider-current.md`'s Eval section.
 
-**Mechanics** (`ui/scripts/eval-coach-chat.ts`) - runs golden transcripts
-(`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`) against a live Gemini call. No real repo
+**Mechanics** (`ui/eval/eval-coach-chat.ts`) - runs golden transcripts
+(`ui/eval/transcripts/`) against a live Gemini call. No real repo
 writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
 exercises `coachTurn.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
 single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
@@ -159,12 +159,12 @@ athlete repo data, real Gemini call, real GitHub commit - the way an actual athl
 does. Everything upstream of this (layers 1-3, `eval:coach-chat`) tests a slice with something
 faked; this is the slice with nothing faked.
 
-**Mechanics** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real conversation through the
+**Mechanics** (`ui/eval/run-manual-coach-chat-test.ts`) - drives a real conversation through the
 real `handle()` in `coach-chat.ts` against a real athlete repo (`coach-skanda`/`coach-akash`), using
 `gh auth token`. Real Gemini calls, real GitHub commits. `--branch` is optional - omit it and the
 script names and creates its own scratch branch off the repo's real default branch; it refuses
 outright to run against the real default branch or `main`. Use `--greet` / `--message "..."` for
-one turn, or `--turns <file.json>` for a scripted conversation - see `ui/scripts/examples/` for
+one turn, or `--turns <file.json>` for a scripted conversation - see `ui/eval/examples/` for
 ready-to-run ones, including `manual-coach-chat-turns-fsp.json` (a full First Session) and
 `manual-coach-chat-turns-daily.json`/`-daily-2.json` (ordinary daily check-ins).
 
@@ -187,9 +187,9 @@ Never treat a `derived` entry as evidence of a real bug - only `observed` entrie
   when something other than a person keeps it current. Sweep by hand, periodically, using
   `gh api repos/<owner>/<repo>/branches --paginate` filtered to `test/`/`retest/`.
 
-**The fourth test type - the simulation suite** (`ui/scripts/run-simulation-suite.ts`, paid, live
+**The fourth test type - the simulation suite** (`ui/eval/run-manual-simulation-suite.ts`, paid, live
 model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
-above are no longer just run by hand. `run-simulation-suite.ts` drives a small tracked library of
+above are no longer just run by hand. `run-manual-simulation-suite.ts` drives a small tracked library of
 those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`, `ambiguous-contradiction`) one at
 a time through
 `test:coach-chat-manual`'s real pipeline - a child-process invocation, same real

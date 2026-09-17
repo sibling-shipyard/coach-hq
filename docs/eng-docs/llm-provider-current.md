@@ -136,7 +136,7 @@ The ADR amending 0011 carries the full rationale.
 
 ## Eval — how we actually pick, not vibes
 
-**Harness** (`ui/scripts/eval-coach-chat.ts`, `npm run eval:coach-chat`) - see
+**Harness** (`ui/eval/eval-coach-chat.ts`, `npm run eval:coach-chat`) - see
 [`coach-chat-testing.md`](coach-chat-testing.md) for the current, accurate description of the
 suite (14 diagnosed transcripts as of G1/#670, the closing-turn concept C1 removed no longer
 exists to test, `session_closed` is gone from the schema). This section only tracks the

@@ -38,7 +38,7 @@ import { fetchWithTimeout } from "../api/_lib/httpTimeout.js";
 import { getHeadSha } from "../api/coach-chat/_lib/decide/coachChatFiles.js";
 import { handle } from "../api/coach-message.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
-import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
+import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
