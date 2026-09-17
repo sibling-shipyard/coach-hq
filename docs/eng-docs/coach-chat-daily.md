@@ -201,12 +201,12 @@ On every returning-athlete turn:
   list.
 - The templates manifest and `current_week.json` are **not** fetched up front any more. Gemini's
   prompt carries no pre-fetched template/session id list — that fetch is lazy now, triggered in
-  `buildTurnWrites()` (`coachTurn.ts`) only when the reply actually contains `template_edit`,
+  `buildTurnWrites()` (`buildTurnWrites.ts`) only when the reply actually contains `template_edit`,
   `session_plan`, `week_update`, `workout_create`, or `workout_remove`. Most ordinary turns never
   touch those fields and never pay for the extra GitHub reads. A wrong or invented template/session
   id just fails validation and drops that one write; it doesn't corrupt anything.
 - If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
-  back over its length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that
+  back over its length cap, `requestCoachReply()` (`requestCoachReply.ts`) reprompts Gemini once for that
   field before proceeding — one extra `askGemini()` round trip on this turn only. See
   `gemini-flow.md`'s "Text-field length caps" and "Retries" sections for the full three-layer
   design (schema `maxLength`, this reprompt, and the deterministic `capText` truncation backstop in
@@ -220,7 +220,7 @@ On every returning-athlete turn:
   write that fails parsing or comes back with `availability: "invalid"` throws instead of
   committing.
 - Beyond the length-cap/missing-`coach_note` reprompt above, `requestCoachReply()` also runs a
-  whole family of `findMissed*Language`/`findUncounted*Language` detectors (`coachTurn.ts`). Each
+  whole family of `findMissed*Language`/`findUncounted*Language` detectors (`turnReplyValidation.ts`). Each
   one covers an action field with a known narration-vs-action risk - the model describes a fact
   as saved without setting the matching field, or captures only some of several real facts in one
   message. Same one-shot reprompt mechanism, same "still" check afterward. `gemini-flow.md`'s
@@ -235,7 +235,7 @@ On every returning-athlete turn:
 - Server-side intent appliers (`turnWrites/*.ts`, wrapping the pure appliers in `coachIntents.ts`,
   `coachWorkoutFiles.ts`, `coachWeekFiles.ts`) validate ids, add dates and timestamps, and resolve
   each action against fresh file content. The resulting split JSON files and `chat_history.json`
-  land in one atomic commit (`commitTurn()`, `coachTurn.ts`; ADR 0012).
+  land in one atomic commit (`commitTurn()`, `turnCompletion.ts`; ADR 0012).
 - The response includes `profileComplete`, as greet responses do — computed from the projected
   profile, memory, and season content for this turn.
 - `COACH_CHAT_BRANCH` (env var, defaults to `main`) controls which branch the commit lands on —
@@ -341,7 +341,8 @@ on the same thread self-correct via the staleness toast instead of silently dive
 ## Appendix — file/class reference
 
 `coach-chat.ts` is the HTTP handler only; turn-lifecycle stages live in
-`ui/api/coach-chat/_lib/coachTurn.ts`, and per-reply-field write construction lives in
+`ui/api/coach-chat/_lib/turnRequest.ts`, `requestCoachReply.ts`, `buildTurnWrites.ts`, and
+`turnCompletion.ts`, and per-reply-field write construction lives in
 `ui/api/coach-chat/_lib/decide/turnWrites/` — see [`ui/api/coach-chat/README.md`](../../ui/api/coach-chat/README.md)
 for the full module index and [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/decide/turnWrites/README.md)
 for the write-builder table.
@@ -362,7 +363,11 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, response-time display cap |
 | `ui/api/coach-chat/_lib/decide/coachDay.ts` | timezone/day-number math |
 | `ui/api/coach-chat/_lib/decide/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |
-| `ui/api/coach-chat/_lib/coachTurn.ts` | message-turn orchestration, write assembly, and commit responses |
+| `ui/api/coach-chat/_lib/turnRequest.ts` | request parsing and turn-state loading |
+| `ui/api/coach-chat/_lib/requestCoachReply.ts` | Gemini call and reprompt-loop orchestration |
+| `ui/api/coach-chat/_lib/turnReplyValidation.ts` | reply-content validators the reprompt loop checks against |
+| `ui/api/coach-chat/_lib/buildTurnWrites.ts` | decide→write assembly |
+| `ui/api/coach-chat/_lib/turnCompletion.ts` | post-write cleanup and the final commit |
 | `ui/api/coach-chat/_lib/decide/turnWrites/*.ts` | one file per reply action field's write-builder |
 | `ui/api/coach-chat/_lib/_generated/text-caps.bundle.js` | esbuild bundle of `engine/lib/text-caps.mts`'s per-field length caps, for the Lambda runtime |
 | `ui/api/coach-chat/_lib/_generated/current-week.bundle.js` | esbuild bundle of `engine/lib/current-week.mts`'s `current_week.json` parser/validator, for the Lambda runtime |

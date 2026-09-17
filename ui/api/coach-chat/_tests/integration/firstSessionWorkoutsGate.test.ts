@@ -49,7 +49,7 @@ vi.mock("../../_lib/decide/coachFirstSessionBenchmark.js", async (importOriginal
   return { ...original, buildBenchmarkSpec };
 });
 
-import { generateFirstSessionWorkoutsAfterCompletion } from "../../_lib/coachTurn.js";
+import { generateFirstSessionWorkoutsAfterCompletion } from "../../_lib/turnCompletion.js";
 import { loadExerciseCatalog } from "../../_lib/decide/coachFirstSessionBenchmark.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {

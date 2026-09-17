@@ -25,7 +25,7 @@ vi.mock("../../_lib/sentry.js", async (importOriginal) => {
   return { ...original, captureServerException };
 });
 
-import { loadTurnState, type TurnRequest } from "../_lib/coachTurn.js";
+import { loadTurnState, type TurnRequest } from "../_lib/turnRequest.js";
 import { ACTIVITIES_HIST_DIR } from "../_lib/decide/activitySync.js";
 
 const UUID = "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE";

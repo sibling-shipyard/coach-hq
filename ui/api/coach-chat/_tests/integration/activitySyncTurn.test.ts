@@ -103,7 +103,7 @@ import {
 } from "../../_lib/decide/activitySync.js";
 import { handleActivitySync } from "../../_lib/commit/activitySyncTurn.js";
 import { CHAT_FILE_PATH, type ChatThread } from "../../_lib/chatThreads.js";
-import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/coachTurn.js";
+import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/turnRequest.js";
 import {
   LATEST_COACH_MESSAGE_PATH,
   parseLatestMessageFile,

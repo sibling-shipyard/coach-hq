@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { sumUsage } from "../../_lib/coachTurn.js";
+import { sumUsage } from "../../_lib/requestCoachReply.js";
 import type { GeminiUsage } from "../../../_lib/sentry.js";
 
 // sumUsage is the #1053 gap 1 fix: it's what accumulates real token usage across a turn's
-// initial call plus up to two reprompts (coachTurn.ts calls it after every askGemini() result).
+// initial call plus up to two reprompts (requestCoachReply.ts calls it after every askGemini() result).
 // These tests exercise the pure function directly rather than through a full mocked turn, per
 // Tech Lead's review request - a bug here would silently mis-report cost on every turn.
 

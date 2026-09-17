@@ -91,7 +91,7 @@ import { isTransient } from "../api/_lib/githubGitData.js";
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { handle } from "../api/coach-chat.js";
-import { TURN_USAGE_HEADER } from "../api/coach-chat/_lib/coachTurn.js";
+import { TURN_USAGE_HEADER } from "../api/coach-chat/_lib/requestCoachReply.js";
 import type { GeminiUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";

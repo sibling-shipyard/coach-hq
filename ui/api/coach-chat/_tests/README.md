@@ -20,7 +20,7 @@ Full design rationale: `docs/eng-docs/coach-chat-testing.md`.
   `fileEdits.test.ts` in that same `_lib/_tests/` directory, rather than living under one caller's
   test tree. Mocks `fetch` against the GitHub REST endpoints only; the real
   blob->tree->commit->ref sequence runs.
-- **`integration/`** - the full turn pipeline (`coachTurn.ts`'s `commitTurn` and
+- **`integration/`** - the full turn pipeline (`turnCompletion.ts`'s `commitTurn` and
   `activitySyncTurn.ts`), with `fetch` mocked at the Gemini and GitHub HTTP boundary only. Real
   prompt building, real schema parsing, real turnWrites, real commit-payload assembly all execute.
 

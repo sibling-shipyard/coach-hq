@@ -37,7 +37,7 @@ vi.mock("../../_lib/decide/coachWeekFiles.js", async (importOriginal) => {
   };
 });
 
-import { buildTurnWrites } from "../../_lib/coachTurn.js";
+import { buildTurnWrites } from "../../_lib/buildTurnWrites.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {
   return {
