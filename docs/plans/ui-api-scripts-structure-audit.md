@@ -2,6 +2,10 @@
 
 > Status: Plan · Owner: Tech Lead · Created: 2026-09-17
 
+**Progress (issue #1190):** everything below is shipped except the `ui/api/_lib/sentry.ts` split,
+which stays blocked on `docs/plans/gemini-to-llm-rename.md` landing first. This file stays open
+until that split ships; the rest of this doc is historical record of what already landed.
+
 ## Context
 
 `ui/api/` and `ui/scripts/` grew organically. Eval fixtures, manual live-LLM test drivers, real
