@@ -34,7 +34,7 @@ struct HealthSettingsView: View {
 
                     switch loadState {
                     case .loading:
-                        loadingState
+                        EmptyView()
                     case .failed:
                         failedState
                     case .loaded(let rows) where rows.isEmpty:
@@ -58,6 +58,15 @@ struct HealthSettingsView: View {
             }
             .refreshable { await load() }
             .toast($toast)
+            .overlay {
+                WarmPageWaitCover(
+                    isWaiting: {
+                        if case .loading = loadState { return true }
+                        return false
+                    }(),
+                    caption: "Reading Apple Health…"
+                )
+            }
         }
         .task { await load() }
     }
@@ -126,19 +135,6 @@ struct HealthSettingsView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-        }
-    }
-
-    private var loadingState: some View {
-        WarmCard {
-            HStack(spacing: 10) {
-                ProgressView()
-                Text("Reading Apple Health…")
-                    .font(.system(size: 13))
-                    .foregroundColor(WarmInstrument.inkMuted)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 18)
         }
     }
 
@@ -273,26 +269,15 @@ private struct WorkoutImportRow: View {
             MonoLabel("Can't check", size: 9, color: WarmInstrument.inkFaint)
 
         case .notSynced:
-            Button(action: onImport) {
-                Group {
-                    if isImporting {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(WarmInstrument.onAccent)
-                    } else {
-                        Text("Import")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(WarmInstrument.onAccent)
-                    }
-                }
-                .frame(minWidth: 64)
-                .frame(height: 30)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(TimerWarmPressStyle())
+            WarmPrimary(
+                title: isImporting ? "" : "Import",
+                isBusy: isImporting,
+                size: .compact,
+                action: onImport
+            )
             .disabled(isBusy)
             .opacity(isBusy && !isImporting ? 0.5 : 1)
+            .accessibilityLabel("Import")
         }
     }
 

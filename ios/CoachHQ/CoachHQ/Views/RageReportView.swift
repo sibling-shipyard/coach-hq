@@ -203,11 +203,10 @@ struct RageReportView: View {
                     }
 
                     if viewModel.submissionState != .queued {
-                        Button("Submit") {
+                        WarmPrimary(title: "Submit") {
                             messageFocused = false
                             viewModel.submitReport()
                         }
-                        .buttonStyle(PrimaryButtonStyle())
                         .disabled(!viewModel.canSubmit)
                         .opacity(!viewModel.canSubmit ? 0.5 : 1)
                     }

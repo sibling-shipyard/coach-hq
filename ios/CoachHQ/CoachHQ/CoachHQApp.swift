@@ -54,15 +54,17 @@ struct CoachHQApp: App {
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
+    @AppStorage("debugWarmLoaderGallery") private var showLoaderGallery = false
 
     var body: some Scene {
         WindowGroup {
             Group {
                 switch router.state {
                 case .bootstrapping:
-                    // Blank background while the stored token is verified — prevents the
-                    // empty home skeleton from flashing before routing settles.
-                    WarmInstrument.desk.ignoresSafeArea()
+                    // Same centered Wave as Home's first paint — blank desk was a flash.
+                    WarmPageWait()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(WarmInstrument.desk.ignoresSafeArea())
                 case .active:
                     MainTabView()
                         .environmentObject(router.authManager)
@@ -88,6 +90,12 @@ struct CoachHQApp: App {
             }
             .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
+            .overlay {
+                if showLoaderGallery {
+                    WarmLoaderGalleryView()
+                        .zIndex(200)
+                }
+            }
             .onOpenURL { url in
                 // Catch coachhq:// callbacks that reach the app via the OS URL scheme
                 // handler instead of being intercepted inside WKWebView (e.g. when the

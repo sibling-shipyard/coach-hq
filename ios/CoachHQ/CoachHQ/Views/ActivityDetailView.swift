@@ -137,7 +137,7 @@ struct ActivityDetailView: View {
             Spacer(minLength: 8)
 
             if isLoading {
-                ProgressView().controlSize(.small)
+                WarmSignalLoader(size: 18)
             } else {
                 categoryMenuChip
             }
@@ -849,12 +849,11 @@ private struct DescriptionEditorSheet: View {
                         .foregroundColor(WarmInstrument.accent)
                         .padding(.horizontal, 4)
                 }
-                WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync") {
+                WarmPrimary(title: isSaving ? "Saving…" : "Save & Sync", isBusy: isSaving) {
                     Task { await onSave() }
                 }
                 .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                .overlay { if isSaving { ProgressView().tint(WarmInstrument.onAccent) } }
             }
             .padding(.horizontal, 16)
             .padding(.top, 24)

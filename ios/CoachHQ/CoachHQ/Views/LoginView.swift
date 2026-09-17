@@ -73,7 +73,7 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 8) {
                         if isRetryingMultipleRepos {
-                            ProgressView().scaleEffect(0.85)
+                            WarmSignalLoader(size: 16, color: WarmInstrument.inkMuted)
                         }
                         Text(isRetryingMultipleRepos ? "Checking…" : "I've removed access - try again")
                     }
@@ -96,29 +96,15 @@ struct LoginView: View {
                     }
                 }
 
-                Button {
+                WarmPrimary(
+                    title: isLoading ? "Signing in…" : "Continue with GitHub",
+                    isBusy: isLoading,
+                    fill: Theme.ink,
+                    icon: .asset("GitHubMark")
+                ) {
                     Haptics.tap()
                     signIn()
-                } label: {
-                    HStack(spacing: 10) {
-                        if isLoading {
-                            ProgressView()
-                                .tint(WarmInstrument.onAccent)
-                                .scaleEffect(0.85)
-                                .transition(.scale.combined(with: .opacity))
-                        } else {
-                            Image("GitHubMark")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18, height: 18)
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                        Text(isLoading ? "Signing in…" : "Continue with GitHub")
-                            .contentTransition(.opacity)
-                    }
-                    .animation(PremiumMotion.press, value: isLoading)
                 }
-                .buttonStyle(WarmLoginButtonStyle())
                 .disabled(isLoading)
                 .onboardingReveal(index: 4)
             }
@@ -149,22 +135,5 @@ struct LoginView: View {
             await authManager.retryAfterMultipleRepos()
             isRetryingMultipleRepos = false
         }
-    }
-}
-
-// MARK: - Ink primary button (auth — terracotta reserved for load CTAs)
-
-private struct WarmLoginButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 15, weight: .semibold))
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(Theme.ink.opacity(configuration.isPressed ? 0.85 : 1))
-            .foregroundColor(WarmInstrument.onAccent)
-            .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
-            .shadow(color: WarmInstrument.cardShadow, radius: 10, y: 5)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
     }
 }

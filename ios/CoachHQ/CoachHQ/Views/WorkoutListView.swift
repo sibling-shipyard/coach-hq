@@ -85,15 +85,16 @@ struct WorkoutListView: View {
                 await refreshAll()
             }
             .overlay {
-                if workoutService.isLoading && workoutService.templates.isEmpty && isEmpty {
-                    ProgressView()
-                } else if let error = workoutService.fetchError, workoutService.templates.isEmpty {
-                    // A fetch failure must never look identical to "you genuinely have no
-                    // plan" — that false-empty state is what sent Skanda's real workouts
-                    // missing on refresh.
-                    errorState(error)
-                } else if isEmpty {
-                    emptyState
+                ZStack {
+                    if let error = workoutService.fetchError, workoutService.templates.isEmpty,
+                       !(workoutService.isLoading && isEmpty) {
+                        errorState(error)
+                    } else if isEmpty, !(workoutService.isLoading && workoutService.templates.isEmpty) {
+                        emptyState
+                    }
+                    WarmPageWaitCover(
+                        isWaiting: workoutService.isLoading && workoutService.templates.isEmpty && isEmpty
+                    )
                 }
             }
             .onChange(of: workoutService.fetchError) { _, newError in

@@ -64,18 +64,18 @@ struct WarmInstrumentHomeView: View {
 
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
-                    } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        HomeSkeletonView()
-                    } else if authManager.selectedRepo == nil {
+                    } else if authManager.selectedRepo == nil,
+                              authManager.isSessionReady,
+                              store.isConfigured,
+                              !store.isLoading {
                         repoNotConfiguredState
-                    } else {
+                    } else if authManager.isSessionReady, store.isConfigured, !store.isLoading {
                         emptyState
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
@@ -140,6 +140,9 @@ struct WarmInstrumentHomeView: View {
                 guard store.isConfigured else { return }
                 Task { await store.refresh(showSpinner: false) }
             }
+            .overlay {
+                WarmPageWaitCover(isWaiting: homePageWaiting, holdOnAppear: true)
+            }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {
                     doneButton
@@ -149,6 +152,12 @@ struct WarmInstrumentHomeView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+    }
+
+    /// First paint without snapshots. Pull-to-refresh keeps snapshots and is not a page wait.
+    private var homePageWaiting: Bool {
+        store.snapshots == nil
+            && (!authManager.isSessionReady || !store.isConfigured || store.isLoading)
     }
 
     // MARK: - Widget column
@@ -705,45 +714,6 @@ private struct EngineDetailGauge: View {
                     .position(x: width, y: 48)
             }
         }
-    }
-}
-
-// MARK: - Home skeleton loading
-
-/// Shimmer placeholder cards that match the visual weight of the actual widget column —
-/// shown while the snapshot fetch is in-flight so the screen never opens empty.
-private struct HomeSkeletonView: View {
-    var body: some View {
-        VStack(spacing: 14) {
-            HomeSkeletonCard(height: 172)
-            HomeSkeletonCard(height: 78)
-            HomeSkeletonCard(height: 96)
-            HStack(spacing: 14) {
-                HomeSkeletonCard(height: 148)
-                HomeSkeletonCard(height: 148)
-            }
-            HomeSkeletonCard(height: 112)
-            HomeSkeletonCard(height: 138)
-        }
-    }
-}
-
-private struct HomeSkeletonCard: View {
-    let height: CGFloat
-    @State private var pulsing = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
-            .fill(WarmInstrument.surfaceMuted)
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .overlay(
-                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
-                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
-            )
-            .opacity(pulsing ? 0.45 : 0.85)
-            .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulsing)
-            .onAppear { pulsing = true }
     }
 }
 

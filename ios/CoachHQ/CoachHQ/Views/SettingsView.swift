@@ -221,26 +221,15 @@ struct SettingsView: View {
 
     private var syncSection: some View {
         WarmSettingsSection(title: "Sync") {
-            Button {
+            WarmPrimary(
+                title: syncManager.isSyncing ? "Syncing…" : "Sync Now",
+                isBusy: syncManager.isSyncing,
+                icon: .system("arrow.clockwise")
+            ) {
                 Haptics.tap()
                 Task { await syncManager.syncNewWorkouts() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(WarmInstrument.onAccent)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(WorkoutTimerWarm.rust)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
             }
-            .buttonStyle(TimerWarmPressStyle())
             .disabled(syncManager.isSyncing)
-            .opacity(syncManager.isSyncing ? 0.6 : 1)
 
             if let error = syncManager.syncError {
                 Text(error)
@@ -468,26 +457,12 @@ struct SettingsView: View {
                 }
                 .padding(.top, 2)
 
-                Button {
+                WarmPrimary(
+                    title: isResetting ? "Resetting…" : "Reset Test Branch",
+                    isBusy: isResetting
+                ) {
                     Task { await resetTestBranch() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if isResetting {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(WarmInstrument.onAccent)
-                        }
-                        Text(isResetting ? "Resetting..." : "Reset Test Branch")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(WarmInstrument.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(WorkoutTimerWarm.rust)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
                 }
-                .buttonStyle(TimerWarmPressStyle())
                 .disabled(isResetting)
 
                 if let resetResult {
@@ -753,16 +728,13 @@ private struct SettingsProfileHeader: View {
                 }
 
                 HStack(spacing: 10) {
-                    Image(systemName: syncIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(syncColor)
-                        .rotationEffect(isSyncing ? .degrees(360) : .zero)
-                        .animation(
-                            isSyncing
-                                ? .linear(duration: 1).repeatForever(autoreverses: false)
-                                : .default,
-                            value: isSyncing
-                        )
+                    if isSyncing {
+                        WarmSignalLoader(size: 16, color: syncColor)
+                    } else {
+                        Image(systemName: syncIcon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(syncColor)
+                    }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(syncTitle)

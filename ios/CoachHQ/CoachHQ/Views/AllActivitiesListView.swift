@@ -32,23 +32,20 @@ struct AllActivitiesListView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                if allActivitiesStore.isLoadingInitial && allActivitiesStore.loadedEntries.isEmpty {
-                    fallbackHeader
-                    loadingState
-                        .padding(.horizontal, 16)
-                        .padding(.top, 24)
-                } else if let loadError = allActivitiesStore.loadError,
-                          allActivitiesStore.loadedEntries.isEmpty {
+                if let loadError = allActivitiesStore.loadError,
+                          allActivitiesStore.loadedEntries.isEmpty,
+                          !allActivitiesStore.isLoadingInitial {
                     fallbackHeader
                     errorState(loadError)
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else if allActivitiesStore.loadedEntries.isEmpty {
+                } else if allActivitiesStore.loadedEntries.isEmpty,
+                          !allActivitiesStore.isLoadingInitial {
                     fallbackHeader
                     emptyState
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
-                } else {
+                } else if !allActivitiesStore.loadedEntries.isEmpty {
                     ActivityLedgerView(
                         entries: allActivitiesStore.loadedEntries,
                         onSelect: onSelectEntry,
@@ -62,6 +59,11 @@ struct AllActivitiesListView: View {
             .scrollClipDisabled()
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .overlay {
+            WarmPageWaitCover(
+                isWaiting: allActivitiesStore.isLoadingInitial && allActivitiesStore.loadedEntries.isEmpty
+            )
+        }
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar(true)
         .edgeBackSwipe(enabled: true) { dismiss() }
@@ -103,24 +105,23 @@ struct AllActivitiesListView: View {
                 Haptics.tap()
                 Task { await allActivitiesStore.loadMore(client: histClient) }
             } label: {
-                if allActivitiesStore.isLoadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                } else {
-                    Text("Load 20 more")
+                HStack(spacing: 8) {
+                    if allActivitiesStore.isLoadingMore {
+                        WarmSignalLoader(size: 18)
+                    }
+                    Text(allActivitiesStore.isLoadingMore ? "Loading…" : "Load 20 more")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(WarmInstrument.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
             }
             .buttonStyle(.plain)
             .disabled(allActivitiesStore.isLoadingMore)
         }
     }
 
-    // MARK: - Empty / error / loading states
+    // MARK: - Empty / error
 
     private var emptyState: some View {
         WarmCard {
@@ -131,17 +132,6 @@ struct AllActivitiesListView: View {
                     .foregroundColor(WarmInstrument.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
-
-    private var loadingState: some View {
-        WarmCard {
-            HStack {
-                Spacer()
-                ProgressView()
-                Spacer()
-            }
-            .padding(.vertical, 20)
         }
     }
 
