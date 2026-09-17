@@ -9,7 +9,10 @@ import {
 } from "../../_lib/activityLookup.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import type { LlmAdapter, LlmJsonSchema } from "../../_lib/llmClient.js";
-import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
+import {
+  parseCurrentWeek,
+  type CurrentWeek,
+} from "../../coach-chat/_lib/_generated/current-week.bundle.js";
 import { getHeadSha, resolveCoachChatBranch } from "../../coach-chat/_lib/decide/coachChatFiles.js";
 import {
   CHAT_FILE_PATH,

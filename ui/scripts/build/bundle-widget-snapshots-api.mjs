@@ -17,7 +17,7 @@ const entry = path.join(
 );
 const outfile = path.join(
   uiRoot,
-  "api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js",
+  "api/auth/_lib/_generated/generate-widget-snapshots-from-dashboard-snapshot.bundle.js",
 );
 
 await esbuild.build({

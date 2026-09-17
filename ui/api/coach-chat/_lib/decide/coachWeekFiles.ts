@@ -21,8 +21,11 @@ import {
   type CurrentWeekSession,
   type CurrentWeekSessionDiscipline,
   type CurrentWeekSessionPriority,
-} from "../current-week.bundle.js";
-import { needsRollover, buildRolloverPlaceholder } from "../current-week-rollover.bundle.js";
+} from "../_generated/current-week.bundle.js";
+import {
+  needsRollover,
+  buildRolloverPlaceholder,
+} from "../_generated/current-week-rollover.bundle.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 

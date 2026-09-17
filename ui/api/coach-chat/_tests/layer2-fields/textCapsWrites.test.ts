@@ -15,7 +15,7 @@ import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
-} from "../../_lib/text-caps.bundle.js";
+} from "../../_lib/_generated/text-caps.bundle.js";
 
 // Issue #462, layer 3: even if the Gemini schema (layer 1), prompt (layer 0), and reprompt
 // (layer 2) all fail to keep a field in budget, these write builders are the deterministic

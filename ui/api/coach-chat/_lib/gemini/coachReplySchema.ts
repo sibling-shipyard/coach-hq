@@ -10,12 +10,12 @@
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "../decide/coachMemoryFiles.js";
 import type { WeekUpdate } from "../decide/coachWeekFiles.js";
 import { WORKOUT_TYPES_LIST, EXERCISE_TYPES_LIST } from "../decide/workoutSchema.js";
-import { SESSION_DISCIPLINES } from "../current-week.bundle.js";
+import { SESSION_DISCIPLINES } from "../_generated/current-week.bundle.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
-} from "../text-caps.bundle.js";
+} from "../_generated/text-caps.bundle.js";
 import type { LlmJsonSchema, LlmJsonSchemaNode } from "../../../_lib/llmClient.js";
 
 export interface GeminiReply {

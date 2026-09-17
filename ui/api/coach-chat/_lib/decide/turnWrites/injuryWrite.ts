@@ -14,7 +14,7 @@ import {
   type InjuryEvent,
 } from "../coachIntents.js";
 import { INJURIES_PATH } from "../coachMemoryFiles.js";
-import { capText, INJURY_FLAG_TEXT_CAP } from "../../text-caps.bundle.js";
+import { capText, INJURY_FLAG_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 
 export function buildInjuryWrites(
   repo: string,

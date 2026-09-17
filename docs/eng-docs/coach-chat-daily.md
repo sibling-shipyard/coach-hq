@@ -364,8 +364,8 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/decide/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |
 | `ui/api/coach-chat/_lib/coachTurn.ts` | message-turn orchestration, write assembly, and commit responses |
 | `ui/api/coach-chat/_lib/decide/turnWrites/*.ts` | one file per reply action field's write-builder |
-| `ui/api/coach-chat/_lib/text-caps.bundle.js` | esbuild bundle of `engine/lib/text-caps.mts`'s per-field length caps, for the Lambda runtime |
-| `ui/api/coach-chat/_lib/current-week.bundle.js` | esbuild bundle of `engine/lib/current-week.mts`'s `current_week.json` parser/validator, for the Lambda runtime |
+| `ui/api/coach-chat/_lib/_generated/text-caps.bundle.js` | esbuild bundle of `engine/lib/text-caps.mts`'s per-field length caps, for the Lambda runtime |
+| `ui/api/coach-chat/_lib/_generated/current-week.bundle.js` | esbuild bundle of `engine/lib/current-week.mts`'s `current_week.json` parser/validator, for the Lambda runtime |
 | `ui/api/_lib/fileEdits.ts` | write strategies — `applyStringEdits`, `applyJsonMergePatch` |
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |

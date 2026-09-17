@@ -17,5 +17,8 @@ delegating real logic to `_lib/` below.
 | `github-dashboard-snapshot.ts`                         | Fetches `gen/dashboard_snapshot.json` from an athlete repo via the GitHub Contents API |
 | `generate-widget-snapshots-from-dashboard-snapshot.ts` | Runs Warm Instrument snapshot models against a fetched dashboard bundle (ADR 0005)     |
 
+`_lib/_generated/` holds the checked-in esbuild output for
+`generate-widget-snapshots-from-dashboard-snapshot.ts` — never hand-edit.
+
 `_tests/` holds this folder's own test suite — one file per `_lib` module or endpoint being
 covered, matching the naming there.

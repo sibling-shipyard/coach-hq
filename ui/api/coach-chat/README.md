@@ -83,6 +83,9 @@ the schema module must not depend on prompt text.
 | ---------------- | ---------------------------------------------------------------------------------------- |
 | `chatThreads.ts` | Thread/message model, `chat_history.json`, seven-thread retention, server-derived titles |
 
+`_lib/_generated/` holds the checked-in esbuild output for the `engine/lib/` cross-band bundles
+(`current-week`, `current-week-rollover`, `compile-workout`, `text-caps`) — never hand-edit.
+
 ## Tests
 
 `_tests/` covers the pure modules and cross-module behavior. Golden live-Gemini transcripts live

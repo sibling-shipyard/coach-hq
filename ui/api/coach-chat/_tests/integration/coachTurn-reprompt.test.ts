@@ -31,7 +31,7 @@ vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
 });
 
 import { requestCoachReply } from "../../_lib/coachTurn.js";
-import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
+import { COACH_LOG_TEXT_CAP } from "../../_lib/_generated/text-caps.bundle.js";
 import { buildDynamicText } from "../../_lib/gemini/coachPromptText.js";
 
 function baseTurnState(overrides: Record<string, unknown> = {}) {

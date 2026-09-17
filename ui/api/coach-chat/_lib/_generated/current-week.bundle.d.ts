@@ -3,4 +3,4 @@
 // it can't drift out of sync with engine/lib/current-week.mts's exported surface - that file is
 // a different top-level band from ui/, edited by other roles with no signal back to this one,
 // and current-week.mts has no default export, so `export *` alone covers everything it has.
-export * from "../../../../engine/lib/current-week.mts";
+export * from "../../../../../engine/lib/current-week.mts";

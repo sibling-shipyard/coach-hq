@@ -2,7 +2,7 @@
 import type { ChatMessage } from "../chatThreads.js";
 import { todayContextLine } from "../decide/coachDay.js";
 import type { TurnMode } from "./coachReplySchema.js";
-import { MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../text-caps.bundle.js";
+import { MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../_generated/text-caps.bundle.js";
 
 export const MAX_HISTORY_MESSAGES = 40;
 
