@@ -5,4 +5,4 @@
 // band from ui/, edited by other roles with no signal back to this one, and
 // currentWeekRollover.mts has no default export, so `export *` alone covers everything it has.
 // Same pattern as current-week.bundle.d.ts.
-export * from "../../../../engine/lib/currentWeekRollover.mts";
+export * from "../../../../../engine/lib/currentWeekRollover.mts";

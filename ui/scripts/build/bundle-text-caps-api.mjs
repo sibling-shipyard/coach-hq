@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const uiRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 const entry = path.join(uiRoot, "../engine/lib/text-caps.mts");
-const outfile = path.join(uiRoot, "api/coach-chat/_lib/text-caps.bundle.js");
+const outfile = path.join(uiRoot, "api/coach-chat/_lib/_generated/text-caps.bundle.js");
 
 await esbuild.build({
   entryPoints: [entry],

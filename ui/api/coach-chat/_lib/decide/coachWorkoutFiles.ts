@@ -10,7 +10,7 @@ import { parseJsonOrNull } from "./coachChatFiles.js";
 import type { ProgressionsJson } from "./coachQuestFiles.js";
 import { validateWorkout, computeUnackedInjuryFlags } from "./workoutSchema.js";
 import type { Workout } from "../../../../client/src/lib/workouts.js";
-import { compileWorkout, type WorkoutSpec } from "../compile-workout.bundle.js";
+import { compileWorkout, type WorkoutSpec } from "../_generated/compile-workout.bundle.js";
 
 export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templates/";
 // coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory

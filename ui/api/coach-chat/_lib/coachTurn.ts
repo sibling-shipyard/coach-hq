@@ -96,7 +96,7 @@ import {
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
   capText,
-} from "./text-caps.bundle.js";
+} from "./_generated/text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import { buildChatWrite } from "./decide/turnWrites/chatWrite.js";
 import { buildCoachNoteWrite } from "./decide/turnWrites/coachNoteWrite.js";

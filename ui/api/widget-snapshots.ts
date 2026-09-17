@@ -9,7 +9,7 @@
  */
 import { fetchRepoDashboardSnapshot } from "./auth/_lib/github-dashboard-snapshot.js";
 import type { DashboardSnapshotInput } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
-import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js";
+import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/_generated/generate-widget-snapshots-from-dashboard-snapshot.bundle.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { getFileRaw } from "./coach-chat/_lib/decide/coachChatFiles.js";

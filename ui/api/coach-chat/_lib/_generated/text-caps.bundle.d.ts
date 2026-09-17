@@ -3,4 +3,4 @@
 // can't drift out of sync with engine/lib/text-caps.mts's exported surface - that file is a
 // different top-level band from ui/, edited by other roles with no signal back to this one, and
 // text-caps.mts has no default export, so `export *` alone covers everything it has.
-export * from "../../../../engine/lib/text-caps.mts";
+export * from "../../../../../engine/lib/text-caps.mts";

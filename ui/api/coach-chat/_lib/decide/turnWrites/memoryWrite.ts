@@ -6,7 +6,7 @@ import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyMemoryUpdate, applyCoachingStyleUpdate, applySportsUpdate } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
-import { capText, MEMORY_NOTE_TEXT_CAP } from "../../text-caps.bundle.js";
+import { capText, MEMORY_NOTE_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 
 export interface MemoryUpdateInput {
   label: MemoryNoteLabel;

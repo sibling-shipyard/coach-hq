@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const uiRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 const entry = path.join(uiRoot, "../engine/lib/compileWorkout.mts");
-const outfile = path.join(uiRoot, "api/coach-chat/_lib/compile-workout.bundle.js");
+const outfile = path.join(uiRoot, "api/coach-chat/_lib/_generated/compile-workout.bundle.js");
 
 await esbuild.build({
   entryPoints: [entry],

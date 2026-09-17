@@ -56,7 +56,7 @@ write - the CLI's job stops at compiling.
 server-side. But `engine/` and `ui/` are different top-level monorepo bands, and Vercel's build
 for `api/*.ts` serverless functions only traces `ui/` - a raw cross-band `.mts` import would be
 missing from the deployed Lambda. `ui/scripts/build/bundle-compile-workout-api.mjs` pre-builds a small
-esbuild bundle instead: `ui/api/coach-chat/_lib/compile-workout.bundle.js` re-exports the same
+esbuild bundle instead: `ui/api/coach-chat/_lib/_generated/compile-workout.bundle.js` re-exports the same
 `compileWorkout` from `engine/lib/compileWorkout.mts`, the same fix shape
 `bundle-current-week-api.mjs` uses for `current-week.mts`. `coachWorkoutFiles.ts`'s
 `applyWorkoutCreate` imports the bundle, not the raw `.mts` file.
