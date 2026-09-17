@@ -352,9 +352,10 @@ no season change at all).
 
 **`pending_clarification`** (Bug 3, string, optional) — a same-pass self-report of any open
 either/or question the reply itself left unanswered. Persisted via `coach_log.json` the same way
-`coach_note` is, and checked next turn (`findUnconfirmedAssumption` in `turnReplyValidation.ts`) before any
-action field that touches the same session is allowed to commit — see `chat-llm-seam.md` and
-`turnReplyValidation.ts`/`requestCoachReply.ts` for the full mechanism. Not a write action; nothing in `turnWrites/` consumes it
+`coach_note` is. Checked next turn (`findUnconfirmedAssumption` in `turnReplyValidation.ts`)
+before any action field that touches the same session is allowed to commit — see
+`chat-llm-seam.md` and `turnReplyValidation.ts`/`requestCoachReply.ts` for the full mechanism.
+Not a write action; nothing in `turnWrites/` consumes it
 directly.
 
 **`unrecorded_facts`** (Finding D mitigation, `string[]`, optional) — a same-pass self-audit

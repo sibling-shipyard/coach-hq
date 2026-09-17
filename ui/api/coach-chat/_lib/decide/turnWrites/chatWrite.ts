@@ -1,7 +1,7 @@
 // Builds the chat-transcript write: every turn's write to chat_history.json, merging the
-// current thread to the front and re-serializing. Split out of coachTurn.ts so the transcript
-// concern reads on its own, separate from the athlete-data writes (memory, injuries, quests...)
-// a turn may also produce.
+// current thread to the front and re-serializing. Kept separate from the athlete-data writes
+// (memory, injuries, quests...) a turn may also produce, since the transcript concern is its
+// own thing.
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import {
   CHAT_FILE_PATH,

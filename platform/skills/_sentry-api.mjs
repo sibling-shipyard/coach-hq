@@ -98,7 +98,7 @@ export function listQuery(raw) {
  * An unscoped query (`project: "-1"`, as the issues endpoints use) pulls in `http.server` spans
  * from web/iOS too, which carry an unrelated `outcome` value (e.g. a sync job's `"nothing_new"`)
  * and no `operation` tag at all - confirmed against the live API while building the M2 digest
- * section, and the same scoping `ui/scripts/check-span-health.mjs` already uses.
+ * section, and the same scoping `ui/scripts/checks/check-span-health.mjs` already uses.
  */
 export const API_PROJECT = "coach-hq-api";
 

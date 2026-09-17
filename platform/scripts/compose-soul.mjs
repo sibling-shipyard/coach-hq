@@ -3,7 +3,7 @@
  * compose-soul.mjs — Deterministic assembly of the composed SOUL builds from soul/ layer files.
  *
  * One source, two targets (ADR 0022):
- *   chat   → platform/SOUL.chat.md    bundled into coach-chat by ui/scripts/build-soul.mjs
+ *   chat   → platform/SOUL.chat.md    bundled into coach-chat by ui/scripts/build/build-soul.mjs
  *   claude → platform/SOUL.claude.md  carved into athlete repos for BYO Claude Code
  *
  * The bare `platform/SOUL.md` name is retired so neither runtime silently owns it.
@@ -176,7 +176,7 @@ const ASSEMBLY = [
       // the capability exists. BYOB has no structured action field, so it needs the extra line
       // naming the CLI it compiles through instead.
       s10_routine_create_claude_runtime: CLAUDE_ONLY,
-      // C2: coach_note is a server-owned day-keyed overwrite in chat (coachIntents.ts's
+      // C2: coach_note is a server-owned day-keyed overwrite in chat (coachProfileIntents.ts's
       // applyCoachNote), still a git-committed append-only row in BYOB - the two variants tell
       // each runtime the mechanic that actually applies to it, same split as the memory pair above.
       s12_coach_notes_chat_runtime: CHAT_ONLY,
@@ -217,7 +217,7 @@ const ASSEMBLY = [
  * They exist because the chat runtime pays for its whole prompt on every turn, and the cached
  * prefix is hashed (soulCache.ts) — so a block only one athlete in a hundred needs is pure cost
  * for everyone else, and putting it in the prefix per-athlete would fork the cache. A horcrux is
- * emitted as its own file, bundled by ui/scripts/build-soul.mjs, and injected into the *dynamic*
+ * emitted as its own file, bundled by ui/scripts/build/build-soul.mjs, and injected into the *dynamic*
  * half of the prompt (buildDynamicText's extraContext) when the backend's predicate says so.
  *
  * A horcrux is not a third target: TARGETS stays ["chat","claude"] so validate-soul's mirrored

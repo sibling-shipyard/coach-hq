@@ -135,7 +135,7 @@ describe("currentWeekAdapter completion matching", () => {
 // phase/current_block concept Part 2 already removed from seasons.json), and coach_read no
 // longer carries tone/confidence/evidence_refs (redundant with SOUL's prose voice / better
 // computed from real data than self-asserted). trace_id is now required at the root, matching
-// the pattern coachIntents.ts/coachMemoryFiles.ts already stamp elsewhere.
+// the pattern the decide/ appliers (coachProfileIntents.ts, coachInjuryIntents.ts, coachSeasonQuestIntents.ts) and coachMemoryFiles.ts already stamp elsewhere.
 describe("current_week.json schema v1 shape (part3-rollout)", () => {
   it("parses without phase_name/block_name on week and without tone/confidence/evidence_refs on coach_read", () => {
     const raw: CurrentWeek = {

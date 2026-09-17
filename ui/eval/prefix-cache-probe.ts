@@ -39,7 +39,7 @@
  * not the model (same Gotcha).
  *
  * Needs OPENROUTER_API_KEY in ui/.env.local or env. Run from ui/:
- *   npx tsx --tsconfig tsconfig.json scripts/prefix-cache-probe.ts
+ *   npx tsx --tsconfig tsconfig.json eval/prefix-cache-probe.ts
  *
  * Real money: 4 arms x 6 calls = 24 live calls, each a few cents at most per the prior bench.
  */
