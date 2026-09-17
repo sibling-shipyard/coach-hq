@@ -20,8 +20,7 @@ either of those. Owned by vade-the-tester (ADR 0044) - mechanics for all four te
 ## Why this is its own folder
 
 `ui/api/` is deployed Vercel routes - a paid, live-model call and a batch of manual-test fixtures
-never belonged in there just because one eval script used to read its transcripts from a path
-nested under `ui/api/coach-chat/_tests/`. `ui/scripts/` is build-time/CI tooling that runs on
+don't belong there. `ui/scripts/` is build-time/CI tooling that runs on
 every push - it never calls a live model or writes to a real athlete repo. Everything in this
 folder does both, on purpose, only when someone runs it by hand or via `workflow_dispatch`
 (ADR 0047). Keeping it separate also lets CI/Vercel build triggers exclude this folder outright
