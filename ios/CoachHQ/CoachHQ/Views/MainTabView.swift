@@ -427,7 +427,7 @@ private struct WarmTabBar: View {
             Text(tab.labelText.uppercased())
                 .font(WarmInstrument.monoLabel(9))
                 .tracking(1.2)
-                .foregroundStyle(selected ? WarmInstrument.onAccent : WarmInstrument.inkFaint)
+                .foregroundStyle(selected ? WarmInstrument.paper : WarmInstrument.inkFaint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
                 .background {
