@@ -1,11 +1,11 @@
 /**
  * D1 layer 3 (#736): pre-validate referential-id actions before any write is built, instead of
  * relying on the applier's own throw-inside-commitFilesAtomic's-blob-resolve-closure guard
- * (coachIntents.ts's applyQuestEvent/applyInjuryEvent; coachWorkoutFiles.ts's
- * applyTemplateEdit/applySessionPlan; coachWeekFiles.ts's applySessionReconcile/applyPlanEdit) to
- * abort the whole atomic commit on one bad reference. By the time a reply reaches buildTurnWrites
- * it has already passed layer 1's enum-constrained generation and layer 2's one-shot corrective
- * retry (coachTurn.ts) - what's left here is the rare id that still doesn't resolve (a
+ * (coachSeasonQuestIntents.ts's applyQuestEvent; coachInjuryIntents.ts's applyInjuryEvent;
+ * coachWorkoutFiles.ts's applyTemplateEdit/applySessionPlan; coachWeekFiles.ts's
+ * applySessionReconcile/applyPlanEdit) to abort the whole atomic commit on one bad reference. By
+ * the time a reply reaches buildTurnWrites it has already passed layer 1's enum-constrained
+ * generation and layer 2's one-shot corrective retry (requestCoachReply.ts) - what's left here is the rare id that still doesn't resolve (a
  * stale/hallucinated one, or the underlying file changed between context load and reply).
  * Filtering here, before the write is ever built, means the applier's own throw guard should
  * never fire in normal operation; it stays in place purely as defense in depth.
@@ -134,7 +134,7 @@ const NEGATION_PATTERN =
   /\b(not|no|never|don'?t|doesn'?t|didn'?t|won'?t|wouldn'?t|isn'?t|wasn'?t)\b/i;
 const NEGATION_LOOKBACK_CHARS = 20;
 
-// Exported so coachTurn.ts's findUnconfirmedAssumption (Bug 3 Primary - pending-clarification
+// Exported so turnReplyValidation.ts's findUnconfirmedAssumption (Bug 3 Primary - pending-clarification
 // tracking) can reuse the exact same "does the athlete's raw message read as an answer" judgment
 // this content-diff guard already uses, rather than a second, possibly-drifting keyword list.
 export function hasConfirmationCue(athleteMessage: string): boolean {
@@ -156,7 +156,7 @@ function categoryChangeIsConfirmed(
   // No existing record to compare against (shouldn't happen once the id-existence check above
   // already passed, but fail open here - this guard's whole job is comparing content, not
   // re-deciding existence) or the category is unchanged - nothing to confirm either way. Same
-  // null/type guard discipline as findUnrecordedFacts (coachTurn.ts) - the schema declares
+  // null/type guard discipline as findUnrecordedFacts (turnReplyValidation.ts) - the schema declares
   // discipline as a required string, but that's a request to Gemini, not a runtime guarantee.
   if (!existing || typeof proposedDiscipline !== "string") return true;
   if (existing.discipline.trim().toLowerCase() === proposedDiscipline.trim().toLowerCase()) {
@@ -308,7 +308,7 @@ export interface QuestForSynthesis {
 }
 
 // Finding E (2026-09-10 pro baseline, reproduced live on two separate repos/quests/phrasings):
-// coachTurn.ts's self-audit (unrecorded_facts) and its one-shot reprompt both correctly detect a
+// requestCoachReply.ts's self-audit (unrecorded_facts) and its one-shot reprompt both correctly detect a
 // quest completion the model narrated in reply/coach_note but never captured as a real
 // quest_event - detection works every time. The model then confabulates a false refusal
 // ("quest_event isn't in the schema," which is untrue - it's declared in RETURNING_ACTIONS) instead
@@ -333,10 +333,10 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Exported for coachTurn.ts's findMissedQuestLanguage (#1037 PR D) - that detector needs
+// Exported for turnReplyValidation.ts's findMissedQuestLanguage (#1037 PR D) - that detector needs
 // turn.context.quests, not the synthesis inputs this file works with, so it can't just call
 // synthesizeQuestEventFromUnrecordedFacts itself, but the name-matching problem underneath is the
-// same either way. Duplicating this function in coachTurn.ts would let the two copies drift.
+// same either way. Duplicating this function in turnReplyValidation.ts would let the two copies drift.
 export function questNameReferencedIn(questName: string, factText: string): boolean {
   const words = questName
     .toLowerCase()

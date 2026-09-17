@@ -22,7 +22,7 @@ export async function loadClosingFileContext(
 //
 // A3 retry fix (#727): the same transition also flips on first_session_benchmark_pending, in the
 // same merge patch - it's the durable "this is a genuinely new signup, not an established
-// athlete" marker generateFirstSessionWorkoutsAfterCompletion (coachTurn.ts) gates on, so a
+// athlete" marker generateFirstSessionWorkoutsAfterCompletion (turnCompletion.ts) gates on, so a
 // failed benchmark attempt can retry on a later turn instead of being a one-shot. Riding the same
 // coach_since-guarded patch means it only ever gets set on the real transition, never for an
 // athlete who already has coach_since - the exact protection this file already existed to give

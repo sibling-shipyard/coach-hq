@@ -8,7 +8,7 @@
  * This looks at a RepoDataProfile snapshot (A1, repoDataProfile.ts) and says whether a scenario's
  * preconditions hold. A2 (#1105) started this as a bare presence/absence check with no way to fix
  * an unmet one. A2b extends each field to optionally carry a `seedMessages` recipe: a short real
- * conversation that produces the missing state honestly, run by run-simulation-suite.ts through
+ * conversation that produces the missing state honestly, run by run-manual-simulation-suite.ts through
  * the same real turn-sending path the scenario itself uses, before re-checking. I return the
  * recipe (not run it myself - this file stays a pure check, no child processes, no real turns) so
  * the caller knows whether an unmet precondition is worth seeding or should just skip.
@@ -46,7 +46,7 @@ function boolSeedMessages(spec: BoolPrecondition): string[] | undefined {
 
 /**
  * Checks one profile against one set of preconditions. Returns the first unmet field's reason,
- * plus that field's seedMessages recipe when it has one - the caller (run-simulation-suite.ts)
+ * plus that field's seedMessages recipe when it has one - the caller (run-manual-simulation-suite.ts)
  * decides what to do with it (seed and re-check, or skip). No seedMessages on the result means
  * this field has no recipe: skip is the only honest fallback A2b left for it.
  */

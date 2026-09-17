@@ -20,9 +20,9 @@ import type { LlmJsonSchema, LlmJsonSchemaNode } from "../../../_lib/llmClient.j
 
 export interface GeminiReply {
   reply: string;
-  // See responseSchema's coach_note and coachIntents.ts's applyCoachNote.
+  // See responseSchema's coach_note and coachProfileIntents.ts's applyCoachNote.
   coach_note?: string;
-  // See responseSchema's memory_update and coachIntents.ts's applyMemoryUpdate.
+  // See responseSchema's memory_update and coachProfileIntents.ts's applyMemoryUpdate.
   memory_update?: { label: MemoryNoteLabel; text: string };
   // See responseSchema's coaching_style_update for rationale and legal values.
   coaching_style_update?: "accountability" | "encouragement" | "analysis";
@@ -58,7 +58,7 @@ export interface GeminiReply {
   };
   // See responseSchema's workout_create for rationale and wire shape. A generated routine, dosed
   // from the athlete's own progressions/injuries - never timer physics, that's compileWorkout()'s
-  // job (engine/lib/compileWorkout.mts, reached through compile-workout.bundle.js).
+  // job (engine/lib/compileWorkout.mts, reached through _generated/compile-workout.bundle.js).
   workout_create?: {
     title: string;
     workout_type: "foundation" | "strength" | "recovery" | "realign" | "calisthenics";
@@ -131,7 +131,7 @@ export interface GeminiReply {
   };
   // Finding D (OpenRouter K1 retest) mitigation - a self-audit, not a text heuristic. The model
   // names any concrete fact its own reply/coach_note narrates that has no matching action field
-  // above, empty array when there's nothing to flag. See coachTurn.ts's findUnrecordedFacts for
+  // above, empty array when there's nothing to flag. See turnReplyValidation.ts's findUnrecordedFacts for
   // the reprompt this triggers, and responsePropertiesFor below for why it's declared after reply.
   unrecorded_facts?: string[];
   // Bug 3 (2026-09-10 pro baseline, real diff-confirmed) - a genuinely different self-report than
@@ -142,7 +142,7 @@ export interface GeminiReply {
   // A short plain-language restatement of the open question, absent/empty when the reply doesn't
   // leave one open. Persisted via coach_log.json (buildCoachNoteWrite) the same way coach_note
   // already is, so next turn's real context naturally surfaces it - see coachContext.ts and
-  // coachTurn.ts's findUnconfirmedAssumption for how it's read back and enforced.
+  // turnReplyValidation.ts's findUnconfirmedAssumption for how it's read back and enforced.
   pending_clarification?: string;
 }
 
@@ -153,7 +153,7 @@ export type TurnMode = "greeting" | "ordinary" | "activity_sync";
 const RESPONSE_PROPERTIES = {
   // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4).
   // Continuity note for coach_log.json, never shown to the athlete - day-keyed overwrite
-  // (coachIntents.ts's applyCoachNote), available on every ordinary turn.
+  // (coachProfileIntents.ts's applyCoachNote), available on every ordinary turn.
   coach_note: { type: "string", maxLength: COACH_LOG_TEXT_CAP },
   // Replaces one of memory.json's constrained labelled note boxes in full.
   memory_update: {
@@ -176,7 +176,7 @@ const RESPONSE_PROPERTIES = {
   // file rather than replacing it (applySportsUpdate, #1037 PR E).
   sports_update: { type: "array", items: { type: "string" } },
   // A brand-new injury the athlete has never mentioned before. No id in the wire shape -
-  // server mints one (coachIntents.ts's applyInjuryFlag), same discipline as quest_create.
+  // server mints one (coachInjuryIntents.ts's applyInjuryFlag), same discipline as quest_create.
   // Split from injury_event (#693): a single optional-id field let Gemini invent a flag_id for
   // a new injury, which injury_event's existing-match-or-throw guard then rejected every time.
   injury_flag: {
@@ -244,7 +244,7 @@ const RESPONSE_PROPERTIES = {
   // unsupported additions must not be represented as edits.
   // template_id is free text in the schema itself - C1 stopped feeding Gemini a live template-id
   // list on every turn (that fetch is now lazy, only after a reply actually asks for one of
-  // these fields - see coachTurn.ts's buildTurnWrites); coachWorkoutFiles.ts's applyTemplateEdit
+  // these fields - see buildTurnWrites.ts's buildTurnWrites); coachWorkoutFiles.ts's applyTemplateEdit
   // against the real manifest, fetched at that point, is the actual enforcement point.
   template_edit: {
     type: "object",
@@ -270,7 +270,7 @@ const RESPONSE_PROPERTIES = {
       skip_phases: { type: "array", items: { type: "string" } },
       note: { type: "string" },
     },
-    // template_id is the only field the write guard in coachTurn.ts actually needs
+    // template_id is the only field the write guard in buildTurnWrites.ts actually needs
     // (skip_exercise_nums/note are genuinely optional content) - required here so Gemini
     // can't set this field at all without it, same "no silently-partial commitment object"
     // discipline as template_edit above.
@@ -411,7 +411,7 @@ const RESPONSE_PROPERTIES = {
   // without a goal, or setting a goal without starting a season, are both structurally
   // impossible now, not just discouraged in the prompt. The server resolves the outgoing
   // season's status and retires its old main_quest into quests.json in the same commit -
-  // coachIntents.ts's applySeasonStart.
+  // coachSeasonQuestIntents.ts's applySeasonStart.
   // new_habits (#808): required so Gemini must explicitly address it whenever season_start
   // fires - empty array when no habit was mentioned - the same structural guarantee that
   // already makes main_quest itself reliable. A goal and a new daily habit often arrive in the
@@ -522,8 +522,8 @@ const FSP_ACTIONS = [
 // the session-artifact half in too - there is no more closing ritual to gate them behind).
 // season_start and quest_create joined the data-fact half in B3 - a returning athlete can start
 // a new season with its goal, or add a habit quest, the same as during First Session, any turn.
-// coach_note is here too - day-keyed (coachIntents.ts's applyCoachNote), available on every
-// returning turn; coachTurn.ts enforces it's present whenever another structured write fires
+// coach_note is here too - day-keyed (coachProfileIntents.ts's applyCoachNote), available on every
+// returning turn; turnReplyValidation.ts enforces it's present whenever another structured write fires
 // this turn.
 // season_start/quest_create moved up next to coach_note for the same reason as FSP_ACTIONS
 // above - declared last, they were the field most often silently dropped on live Gemini.

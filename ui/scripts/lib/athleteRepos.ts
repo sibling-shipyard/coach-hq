@@ -1,5 +1,5 @@
 // athleteRepos.ts - the map of known --athlete shortcuts to their real repo + local clone path.
-// run-manual-coach-chat-test.ts uses this for its --athlete flag; run-simulation-suite.ts uses it
+// run-manual-coach-chat-test.ts uses this for its --athlete flag; run-manual-simulation-suite.ts uses it
 // too, to find a scenario's local clone path so it can check preconditions (#1105) before ever
 // invoking run-manual-coach-chat-test.ts as a child process. Pulled out here so there's one copy
 // instead of two maps quietly drifting apart.
@@ -28,7 +28,7 @@ export const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> 
 
 // #1105 A3: --repo and --all-repos both need to force a scenario's athlete/repo/localPath to a
 // specific real repo regardless of what the scenario itself hardcodes. This is the one place that
-// turns a shortcut into the override triple, so run-simulation-suite.ts's two flags share the same
+// turns a shortcut into the override triple, so run-manual-simulation-suite.ts's two flags share the same
 // resolution (and the same error) instead of each rolling their own lookup.
 export interface AthleteOverride {
   athlete: string;

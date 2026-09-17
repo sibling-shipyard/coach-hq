@@ -4,7 +4,7 @@
  * coach_log.json (the merged continuity log - named coach_log.json rather than sessions.json to
  * avoid colliding with the unrelated activities/workout_plans/sessions/*.json workout files).
  * Types only here - the read/write mechanics live in coachChatFiles.ts (reads) and
- * coachIntents.ts (server-owned writes). state.md/coach_notes.md/rolling_state.json, which these
+ * coachProfileIntents.ts/coachInjuryIntents.ts (server-owned writes). state.md/coach_notes.md/rolling_state.json, which these
  * four files replaced, no longer exist.
  */
 

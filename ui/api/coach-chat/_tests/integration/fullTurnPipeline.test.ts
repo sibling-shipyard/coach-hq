@@ -510,7 +510,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(repo.files.get("user_data/coach/coach_log.json")).toContain("quest_event");
 
     // The real proof: the *next* turn's loadTurnState (which is what feeds askGemini's prompt -
-    // coachTurn.ts's requestCoachReply passes turn.athleteContext straight through) actually
+    // requestCoachReply.ts's requestCoachReply passes turn.athleteContext straight through) actually
     // contains the dropped-action detail, not just something committed nobody reads.
     const secondTurnState = await loadTurnState(
       {

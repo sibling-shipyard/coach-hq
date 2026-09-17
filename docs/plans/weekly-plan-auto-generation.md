@@ -21,7 +21,7 @@ the exact same validated path a chat-driven kickoff already uses -
 
 ```mermaid
 flowchart LR
-    A["app-open (coach-chat-context)\nor chat turn (coachTurn.ts)"] --> B{needsRollover?}
+    A["app-open (coach-chat-context)\nor chat turn (requestCoachReply.ts)"] --> B{needsRollover?}
     B -->|yes| C["commit placeholder +\nweekly_plan_pending: true"]
     C --> D["waitUntil: LLM call\n(16w pattern + memory.json + season goal/quests)"]
     D -->|success| E["applyFullWeekKickoff\nclears pending, origin: auto"]
@@ -31,7 +31,7 @@ flowchart LR
 
 Both trigger points share one check, same pattern `coach_since` (ADR 0018) already established -
 cheap on every hit, rare real write:
-- **Chat turn** - inside `coachTurn.ts`'s existing `rolloverWrite` block.
+- **Chat turn** - inside `buildTurnWrites.ts`'s existing `rolloverWrite` block.
 - **App open** - `GET /api/coach-chat-context`, already hit once per session on both web and iOS.
   App-open reaches this first in practice, but the chat-turn check stays as a backup. The app-open
   warm-up call swallows its own fetch failures today (`prefetchCoachContext.ts`), so without a
@@ -50,7 +50,7 @@ season, not just their habitual schedule.
 
 **Idempotency:** `weekly_plan_pending: true` written in the same atomic commit as the placeholder,
 before the LLM call starts - any other trigger that fires while it's set no-ops. Give up after 3
-attempts (`FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS` in `coachTurn.ts` is the precedent), leave the
+attempts (`FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS` in `turnCompletion.ts` is the precedent), leave the
 placeholder, `captureGeminiFailure` with `outcome: "gave_up"`.
 
 **Execution:** `waitUntil` (`@vercel/functions`, already used in `sentry.ts`) - real LLM latency

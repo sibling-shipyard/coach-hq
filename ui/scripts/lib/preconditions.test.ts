@@ -77,7 +77,7 @@ describe("checkPreconditions", () => {
   });
 
   // A2b: the object form always wants `true` (there's no honest way to seed a repo back to
-  // false) and surfaces its seedMessages back on an unmet result, so run-simulation-suite.ts
+  // false) and surfaces its seedMessages back on an unmet result, so run-manual-simulation-suite.ts
   // knows there's a real recipe to try before falling back to a skip.
   describe("A2b seed recipes", () => {
     it("surfaces currentWeekHasSessions's seedMessages when unmet", () => {

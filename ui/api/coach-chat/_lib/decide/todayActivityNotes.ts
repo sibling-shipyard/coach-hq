@@ -30,7 +30,7 @@ export interface TodayActivityNote {
 }
 
 // ADR 0032 / #1078: both deps are a best-effort read that must fail open, never throw - the
-// caller (coachTurn.ts's loadTurnState) is expected to capture any real fault to Sentry inside
+// caller (turnRequest.ts's loadTurnState) is expected to capture any real fault to Sentry inside
 // these functions and resolve to [] / null so this module never needs its own try/catch, and a
 // GitHub or parse fault here degrades to "no note" instead of breaking the whole reply turn.
 export interface TodayActivityNoteDeps {

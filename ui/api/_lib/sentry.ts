@@ -352,7 +352,7 @@ export interface GeminiUsage {
  * Adds two optional counts the absent-vs-zero-safe way: undefined only when neither side ever
  * reported a value, otherwise a real sum. The shared primitive both openRouterAdapter.ts's own
  * truncation-retry accumulation and sumUsage below use - defined here, next to GeminiUsage itself,
- * so neither adapter file nor coachTurn.ts has to duplicate it (#1053 review finding).
+ * so neither adapter file nor requestCoachReply.ts has to duplicate it (#1053 review finding).
  */
 export function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
   if (a === undefined && b === undefined) return undefined;
@@ -360,7 +360,7 @@ export function sumDefined(a: number | undefined, b: number | undefined): number
 }
 
 /**
- * Sums two GeminiUsage snapshots field by field - shared by coachTurn.ts (accumulating usage
+ * Sums two GeminiUsage snapshots field by field - shared by requestCoachReply.ts (accumulating usage
  * across a turn's initial call plus up to two reprompts) and geminiClient.ts (accumulating usage
  * across its own JSON-parse-failure retry), so a real bug in this math gets fixed once, not twice.
  * costUsd sums too (OpenRouter reports it per call); resolvedProvider/resolvedModel keep the
@@ -629,7 +629,7 @@ export async function captureValidationFailure(
 
 /**
  * #1009: what a still-unresolved reprompt guard must carry to see the pattern from Sentry alone.
- * The "still" block in coachTurn.ts's `requestCoachReply` re-runs every findMissed*Language/
+ * The "still" block in requestCoachReply.ts's `requestCoachReply` re-runs every findMissed*Language/
  * structural detector after the one-shot reprompt fires, and until now only ever logged
  * `console.warn` when one was still unresolved - invisible outside a local log. There's no thrown
  * error here (the turn still completes, just with the gap unfixed), so this captures a message

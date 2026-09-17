@@ -25,7 +25,7 @@ const SLUG_TO_ATHLETE = new Map<string, string>(
   Object.entries(ATHLETE_SHORTCUTS).map(([shortcut, repo]) => [slugify(repo, "-"), shortcut]),
 );
 
-// Mirrors run-simulation-suite.ts's SCENARIOS list - just the id and whichever of repo/athlete
+// Mirrors run-manual-simulation-suite.ts's SCENARIOS list - just the id and whichever of repo/athlete
 // each one passes to run-manual-coach-chat-test.ts, enough to reconstruct the same repo slug
 // findLatestManualLog there computes. Not an import of that module: it calls main() at its own
 // top level unconditionally, so importing it here would run the real (paid) suite as a side

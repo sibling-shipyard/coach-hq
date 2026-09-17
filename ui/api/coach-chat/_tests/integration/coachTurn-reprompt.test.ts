@@ -771,7 +771,7 @@ describe("requestCoachReply supplies real template/session context (Finding A fi
 });
 
 // Bug 3 Primary (2026-09-10 pro baseline): the reprompt-side half of pending-clarification
-// tracking - see coachTurn.ts's findUnconfirmedAssumption for the full story.
+// tracking - see turnReplyValidation.ts's findUnconfirmedAssumption for the full story.
 describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", () => {
   beforeEach(() => {
     askGemini.mockReset();
@@ -1759,7 +1759,7 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
   });
 
   // Deliberate scope boundary, not an oversight to fix later (see the code comment above
-  // findMissedInjuryUpdateLanguage in coachTurn.ts): with 2+ active flags, "which injury" is
+  // findMissedInjuryUpdateLanguage in turnReplyValidation.ts): with 2+ active flags, "which injury" is
   // ambiguous and THIS detector stays silent rather than risk a false-positive reprompt naming a
   // specific flag_id on an ordinary mention of one of several known issues. That scope boundary is
   // still true. What changed in #1037 PR D: findUncountedInjuryLanguage now covers the "something
@@ -1966,7 +1966,7 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
 });
 
 // #1037 PR D: quest_event had no dedicated guard before this - see findMissedQuestLanguage in
-// coachTurn.ts. Every test below is a returning-athlete turn (baseTurnState's default); the
+// turnReplyValidation.ts. Every test below is a returning-athlete turn (baseTurnState's default); the
 // detector doesn't gate on firstSession at all, it only cares about active quests on file.
 describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
   beforeEach(() => {
@@ -2146,7 +2146,7 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
 });
 
 // #1037 PR D: findUncountedInjuryLanguage closes both injury_flag's returning-athlete gap and
-// injury_event's 2+-flag gap in one function - see the code comment above it in coachTurn.ts for
+// injury_event's 2+-flag gap in one function - see the code comment above it in turnReplyValidation.ts for
 // why one detector covers both. Every test below is a returning-athlete turn.
 describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   beforeEach(() => {

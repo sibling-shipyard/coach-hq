@@ -1,5 +1,5 @@
 // memory_update / coaching_style_update / sports_update: all three land in memory.json, so they
-// share one FileEntry and one usecase file - see coachIntents.ts for the pure appliers this wraps
+// share one FileEntry and one usecase file - see coachProfileIntents.ts for the pure appliers this wraps
 // with I/O.
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";

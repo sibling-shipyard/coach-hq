@@ -65,6 +65,6 @@ CI/preview coverage. Revisit the exclude list whenever a new top-level folder ap
 
 ## Verification
 
-1. Open a throwaway PR touching only `ui/scripts/examples/*.json` (or the moved
-   `ui/eval/examples/`) — confirm neither the full `ui-tests.yml` run nor a Vercel preview fires.
+1. Open a throwaway PR touching only `ui/eval/examples/*.json` — confirm neither the full
+   `ui-tests.yml` run nor a Vercel preview fires.
 2. Open a second throwaway PR touching `ui/api/coach-chat.ts` — confirm both still fire.

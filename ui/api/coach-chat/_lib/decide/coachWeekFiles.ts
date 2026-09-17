@@ -3,7 +3,8 @@
  * week_plan/session_reconcile/plan_edit trio. The same object patches an existing week (status
  * changes, content edits, moves) or, when it carries a full headline/body/7-day payload, commits a
  * fresh week outright (the old week_plan behavior). Same "Gemini reports a small fact, server owns
- * every bookkeeping field" principle as coachWorkoutFiles.ts/coachIntents.ts. Both paths build a
+ * every bookkeeping field" principle as coachWorkoutFiles.ts/coachProfileIntents.ts/
+ * coachInjuryIntents.ts/coachSeasonQuestIntents.ts. Both paths build a
  * full CurrentWeek object and run it through parseCurrentWeek before returning - never commit
  * something the strict schema v1 validator would reject (engine/lib/current-week.mts).
  *
@@ -236,7 +237,8 @@ export function isFullWeekKickoff(update: WeekUpdate | undefined): boolean {
  *   0042). It was structurally unreachable: by the time Gemini reports a kickoff the conversation
  *   already happened, and there was never a second "confirm" turn to leave a week parked in.
  * - `updated_by` is "model" (matches _meta.updated_by across every other Gemini-driven applier in
- *   this pipeline - coachIntents.ts, coachWorkoutFiles.ts), not the contract doc's own example
+ *   this pipeline - coachProfileIntents.ts/coachInjuryIntents.ts/coachSeasonQuestIntents.ts,
+ *   coachWorkoutFiles.ts), not the contract doc's own example
  *   value "coach" (which describes a human/Claude-Code hand-write, the old path this replaces).
  */
 function applyFullWeekKickoff(
@@ -566,7 +568,7 @@ export function applyWeekUpdate(
 }
 
 // Same session_id set applyWeekPatch derives internally, but callable before it runs and
-// non-throwing on a malformed file - coachTurn.ts uses this to validate week_update's session_ids
+// non-throwing on a malformed file - buildTurnWrites.ts uses this to validate week_update's session_ids
 // up front (validateWeekUpdate in validateActions.ts), same "drop the one bad reference, don't let
 // the whole atomic commit abort" discipline as validTemplateIdsFromManifest in
 // coachWorkoutFiles.ts. A malformed or unreadable file just yields an empty set - every referenced
@@ -588,7 +590,7 @@ export function validSessionIdsFromCurrentWeek(content: string | null): Readonly
  * Same source file as validSessionIdsFromCurrentWeek above, but shaped for
  * coachPromptText.ts's activeWeekSessionsContext rather than for validation - the prompt needs a
  * session's date/title/status too so the model can match "tomorrow's session" to the right id,
- * not just know which ids are legal. Pulled out as its own function (coachTurn.ts§requestCoachReply,
+ * not just know which ids are legal. Pulled out as its own function (requestCoachReply.ts§requestCoachReply,
  * Finding A fix) so an ordinary turn can supply this before asking Gemini, not just validate
  * against it after. A malformed or unreadable file yields an empty list, same defensive default as
  * validSessionIdsFromCurrentWeek.

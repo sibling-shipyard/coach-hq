@@ -16,7 +16,7 @@ import {
 } from "../coachMemoryFiles.js";
 import type { SeasonsJson } from "../coachQuestFiles.js";
 
-// Typed as ResolvedFileWrite, not the broader FileEntry, so coachTurn.ts can access .resolve
+// Typed as ResolvedFileWrite, not the broader FileEntry, so buildTurnWrites.ts can access .resolve
 // after this crosses a function-call boundary - TS only keeps that narrowing for object literals
 // assigned inline to a FileEntry-typed const, not for one returned from a function.
 export function buildProfileUpdateWrite(

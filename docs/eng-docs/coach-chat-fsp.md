@@ -157,7 +157,7 @@ message until the sending device's request resolves and its commit lands.
 sport. It also requires a real `memory.json.coaching_style` (E1 - one of
 `accountability`/`encouragement`/`analysis`, not `null`) and a `seasons.json.current_season_id`
 that names an existing season. Quests are optional.
-`coachTurn.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
+`buildTurnWrites.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
 writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
 GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is what gates
 `coach_since` stamping (ADR 0018) and the first-session benchmark plus first-week compile

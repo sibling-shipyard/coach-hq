@@ -5,7 +5,8 @@ file). Each file exports a `build*Write` function that takes the relevant slice 
 reply plus repo/token/timezone/traceId, and returns a `FileEntry | undefined` (or a pair of them,
 for `seasonWrite.ts` - see below) - undefined when the reply didn't touch that concern.
 
-These wrap the pure appliers in `coachIntents.ts`, `coachWorkoutFiles.ts`, and `coachWeekFiles.ts`
+These wrap the pure appliers in `coachProfileIntents.ts`, `coachInjuryIntents.ts`,
+`coachSeasonQuestIntents.ts`, `coachWorkoutFiles.ts`, and `coachWeekFiles.ts`
 with the I/O (`getFileRaw`) and path/`resolve` wiring `commitFilesAtomic` needs. The appliers stay
 pure; this layer is where fetch-then-apply happens.
 

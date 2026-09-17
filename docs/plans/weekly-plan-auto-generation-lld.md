@@ -7,7 +7,7 @@
 | PR | outcome | final base | files | result |
 |---|---|---|---|---|
 | 1 | weekday histogram in `athlete_insights.json` | main | `engine/scripts/generate-athlete-insights.mjs`, new `kdb/decisions/00XX-athlete-insights-weekday-pattern.md` | schema has real pattern data, verified against a real repo |
-| 2 | shared trigger/pending-flag plumbing, chat-turn wired | PR1 | new `engine/lib/weeklyPlanAuto.mts`, `ui/api/coach-chat/_lib/coachTurn.ts` | chat-turn trigger sets/reads the pending flag, no LLM call yet |
+| 2 | shared trigger/pending-flag plumbing, chat-turn wired | PR1 | new `engine/lib/weeklyPlanAuto.mts`, `ui/api/coach-chat/_lib/buildTurnWrites.ts` | chat-turn trigger sets/reads the pending flag, no LLM call yet |
 | 3 | the LLM call + validated commit + retry/give-up | PR2 | `ui/api/coach-chat/_lib/coachWeekPlanAuto.ts` (new), `ui/api/_lib/sentry.ts` | a stale placeholder week actually gets filled, chat-turn path only |
 | 4 | app-open trigger | PR3 | `ui/api/coach-chat-context.ts` | app-open alone can produce a real plan, no chat needed |
 | 5 | Coach awareness of a fresh auto-plan | PR4 | `ui/api/coach-chat/_lib/decide/coachContext.ts` | Coach mentions the plan once, goes quiet after an athlete edit |
@@ -97,7 +97,7 @@ export function buildPendingMarker(now: Date): { weekly_plan_pending: true; pend
 `weekly_plan_attempts?: number`, `origin?: "auto" | "athlete"` (origin lands in PR3, declared here
 so the schema change is one PR, not two).
 
-**Wire into `coachTurn.ts`'s `rolloverWrite` block:** immediately after the existing placeholder
+**Wire into `buildTurnWrites.ts`'s `rolloverWrite` block:** immediately after the existing placeholder
 commit, if `needsAutoPlan` is true, fold `buildPendingMarker`'s fields into the *same*
 `optionalWrites` array that write already uses - one commit, placeholder + pending flag together.
 No LLM call in this PR; that's PR3. This PR only proves the flag round-trips correctly and blocks a
@@ -132,7 +132,7 @@ plus `quests[]`** - the athlete's explicit ask. Without this the plan only refle
 athlete usually does, not what they're currently training toward - a goal like "build a 5K base"
 should bias which sessions get planned, not just which weekday. Reuse
 `activeTemplatesContext`/`activeWeekSessionsContext` and `renderQuestContext` from
-`coachPromptText.ts`/`coachTurn.ts` - the same helpers the real chat-driven kickoff prompt
+`coachPromptText.ts`/`coachContext.ts`, consumed by `requestCoachReply.ts`/`turnRequest.ts` - the same helpers the real chat-driven kickoff prompt
 already builds `questContext` from, so the auto prompt sees identical goal/quest state.
 No `cachePrefix` - single-shot call, same as `generateProactiveBody`, not a multi-turn conversation.
 

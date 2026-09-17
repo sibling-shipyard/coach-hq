@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ATHLETE_REPOS, resolveAthleteOverride } from "./athleteRepos.js";
 
-// #1105 A3: resolveAthleteOverride is what run-simulation-suite.ts's --repo and --all-repos flags
+// #1105 A3: resolveAthleteOverride is what run-manual-simulation-suite.ts's --repo and --all-repos flags
 // both use to turn a shortcut into the athlete/repo/localPath triple they force onto every
 // scenario for a run - this checks that lookup and its failure mode directly, without going
 // anywhere near the CLI or the child-process flow.

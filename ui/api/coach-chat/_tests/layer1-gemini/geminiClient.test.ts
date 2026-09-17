@@ -171,7 +171,7 @@ describe("askGemini", () => {
   });
 
   // Review finding: this retry stacks with the adapter's own 503/504/truncation retry and
-  // coachTurn.ts's up to two reprompt calls, none of which know how much of the 300s Vercel
+  // requestCoachReply.ts's up to two reprompt calls, none of which know how much of the 300s Vercel
   // budget the others have already spent - the retry must not reuse the full 45s timeout again.
   it("bounds the parse-failure retry to a shorter timeout than the initial call (review finding)", async () => {
     let call = 0;

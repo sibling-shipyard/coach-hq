@@ -18,7 +18,7 @@ export function buildCurrentWeekWrite(
   traceId: string,
   weekUpdate: WeekUpdate | undefined,
   validTemplateIds: ReadonlySet<string>,
-  // coachTurn.ts already fetches current_week.json once to build the session_id set
+  // buildTurnWrites.ts already fetches current_week.json once to build the session_id set
   // validateWeekUpdate checks patch entries against before we get here - reusing that same read
   // here (instead of fetching it again) means what got validated is exactly what gets patched, no
   // race window between the two reads.

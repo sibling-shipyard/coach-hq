@@ -1,6 +1,6 @@
-// #1076: run-simulation-suite.ts used to read test-results/coverage-index.json once at the top
+// #1076: run-manual-simulation-suite.ts used to read test-results/coverage-index.json once at the top
 // of a run, mutate that in-memory copy across every scenario, and write it back once at the very
-// end. Two `run-simulation-suite.ts` processes running concurrently against the same checkout
+// end. Two `run-manual-simulation-suite.ts` processes running concurrently against the same checkout
 // (done live to cut wall-clock time on a paid live pass) each hold their own stale copy, so
 // whichever process finishes last silently overwrites every key the other one wrote - 3 real
 // entries were lost this way. These helpers make each scenario's write atomic relative to that
