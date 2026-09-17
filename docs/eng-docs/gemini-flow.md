@@ -232,7 +232,7 @@ write path only rejects data it receives, and a skipped field sends nothing to r
    Real but partial effect on its own (`coachPromptText.ts`'s `workout_create`, `season_start`,
    and week-kickoff instructions all carry one).
 2. **A deterministic reprompt, only when a safe trigger signal exists.** Reuses the existing
-   one-shot reprompt in `requestCoachReply` (`coachTurn.ts`) - one corrective retry, same call as
+   one-shot reprompt in `requestCoachReply` (`requestCoachReply.ts`) - one corrective retry, same call as
    `findOversizedTextField` already makes for a text cap. The signal has to be safe. One safe
    shape keys on the **athlete's own message** (`findMissedInjuryLanguage`,
    `findMissedHabitLanguage`, `findMissedSeasonLanguage` - first-session only, since a
@@ -317,7 +317,7 @@ This closes out the #1009 hardening round. All seven fields it set out to cover 
 standalone `quest_create`, and `memory_update` - are now accounted for, either with a real
 detector or a documented prompt-only decision. See the table above for the final state.
 
-The "still unresolved after reprompt" block (`coachTurn.ts`'s "still" check, after every
+The "still unresolved after reprompt" block (`requestCoachReply.ts`'s "still" check, after every
 detector's one-shot reprompt) now also calls `captureStillUnresolvedGuard`
 (`ui/api/_lib/sentry.ts`). It runs alongside the existing `console.warn`, for every detector old
 and new - previously this failure mode was invisible outside a local log.
@@ -347,7 +347,7 @@ still needed.
 
 **#1037 hardening round, PR E (2026-09-14): `sports_update` merges instead of replacing.**
 This one wasn't a missing detector, it was a write-side data-loss bug: `applySportsUpdate`
-(`coachIntents.ts`) fully replaced `memory.sports` with whatever the model sent, so a partial
+(`coachProfileIntents.ts`) fully replaced `memory.sports` with whatever the model sent, so a partial
 list silently deleted whatever it forgot to restate. The fix unions the new list against what's
 already on file, case-insensitive, preferring the new list's casing/order for anything it names.
 `findMissedSportsLanguage` (the guard above) still only catches "did sports_update fire at all" -
@@ -406,7 +406,7 @@ the existing mitigation pattern, not new failure modes needing a new approach.
   detector and its one-shot reprompt already worked; what was missing was the same-turn
   correction `formatDroppedActionsCorrection` already does for a dropped write action. When
   `stillProseOnlyWeekPlan` stays true after the reprompt, the reply the athlete actually reads
-  now gets an honest addendum (`formatProseOnlyWeekPlanCorrection`, `coachTurn.ts`) saying the
+  now gets an honest addendum (`formatProseOnlyWeekPlanCorrection`, `requestCoachReply.ts`) saying the
   week plan above wasn't saved. Before this fix it only reached a `console.warn`/
   `captureStillUnresolvedGuard` call the athlete never sees. `RepliedTurn.stillProseOnlyWeekPlan`
   carries the signal from `requestCoachReply` into `buildTurnWrites`, same shape as
@@ -414,7 +414,7 @@ the existing mitigation pattern, not new failure modes needing a new approach.
 - **#1071: `workout_create` narrates success before its own injury_ack invariant drops the
   write.** Invariant 7 already makes a dropped write recoverable (the existing correction note
   fires), but the model's prose claims the routine is built and locked in first, so the athlete
-  reads a self-contradicting reply. `findMissingWorkoutCreateInjuryAck` (`coachTurn.ts`) is a new
+  reads a self-contradicting reply. `findMissingWorkoutCreateInjuryAck` (`turnReplyValidation.ts`) is a new
   structural reprompt trigger, same family as `findMalformedWorkoutCreateExercises`. When the
   turn has active injury flags, the reply sets `workout_create`, and `injury_ack` doesn't cover
   every active flag, it reprompts once before the applier ever sees the write.
@@ -486,7 +486,7 @@ guard - see the coverage table above for the current state.
   on top of four others that already ran was itself a review finding (2026-09-10). Its own worst
   case (2 attempts at 20s, if the retry attempt also hits a transport-level 503/504) adds up to
   ~40s, not another ~120s.
-- Separately, `requestCoachReply` (`coachTurn.ts`) does its own single combined reprompt: a
+- Separately, `requestCoachReply` (`requestCoachReply.ts`) does its own single combined reprompt: a
   second, full `askGemini()` invocation. Six checks can each trigger it on one turn:
   - A text field over its `maxLength` cap (issue #462).
   - A missing required `coach_note`.
@@ -502,7 +502,7 @@ guard - see the coverage table above for the current state.
   layer-3 fallback in `buildTurnWrites` handles it instead of a third model call - see
   `docs/eng-docs/coach-chat-testing.md` and the PR #955 findings log for the specific mechanisms.
 - **True worst case for one turn**, every layer stacking: the initial `askGemini()` invocation at
-  up to ~160s (120s adapter retry + 40s JSON-parse retry), plus `coachTurn.ts`'s one reprompt at
+  up to ~160s (120s adapter retry + 40s JSON-parse retry), plus `requestCoachReply.ts`'s one reprompt at
   up to another ~160s. That's ~320s total - over the 300s `maxDuration` ceiling. Reaching it needs
   several independent transient failures in one turn at once: a 503/504 on both calls of the
   initial invocation, a malformed-JSON retry that itself also hits a 503/504, and a content

@@ -66,7 +66,9 @@ the schema module must not depend on prompt text.
 
 | File                     | Responsibility                                                                                            |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `coachIntents.ts`        | Apply profile, memory, coaching-style, sports, injury, season, quest, progress, and coach-log actions     |
+| `coachProfileIntents.ts` | Apply profile, memory, coaching-style, availability, sports, and coach-log actions                        |
+| `coachInjuryIntents.ts`  | Apply injury flag/event actions                                                                           |
+| `coachSeasonQuestIntents.ts` | Apply season-start, quest-create, and quest-event actions                                             |
 | `coachWeekFiles.ts`      | Validate and apply full week plans, session reconciliation, and dated plan edits                          |
 | `coachWorkoutFiles.ts`   | Select/generate initial templates; validate template edits and today's modified session                   |
 | `workoutSchema.ts`       | Structural runtime validation for workout/template JSON                                                   |
