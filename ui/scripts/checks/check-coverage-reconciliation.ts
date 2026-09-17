@@ -28,8 +28,8 @@
  */
 import path from "node:path";
 
-import { checkReconciliation } from "./lib/coverageReconciliation.js";
-import { repoRoot } from "./lib/testLog.js";
+import { checkReconciliation } from "../lib/coverageReconciliation.js";
+import { repoRoot } from "../lib/testLog.js";
 
 function parseDate(argv: string[]): string {
   const positional = argv.find((a) => !a.startsWith("--"));

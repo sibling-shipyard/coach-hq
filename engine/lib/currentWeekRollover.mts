@@ -4,7 +4,7 @@
  * needsRollover and buildRolloverPlaceholder depend only on a parsed CurrentWeekRuntime and
  * today's date, never on the local git checkout, so they live here rather than in
  * rollover-current-week.mjs itself: this file is importable from a plain Node script and (via
- * ui/scripts/bundle-current-week-api.mjs, the same way current-week.mts already is) from the
+ * ui/scripts/build/bundle-current-week-api.mjs, the same way current-week.mts already is) from the
  * coach-chat Vercel function, once that consumer lands.
  */
 import type { CurrentWeekRuntime } from "./current-week.mts";

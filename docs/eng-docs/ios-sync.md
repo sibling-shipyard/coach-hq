@@ -320,7 +320,7 @@ row tap opens `ActivityDetailView` by the attachment `id`.
 iOS Home also depends on HQ's `/api/widget-snapshots` being deployed and healthy. A 401 from it
 without auth headers is expected; a **500 is a server-side bug** — historically Vercel not
 resolving TS `@/` path aliases, fixed by the pre-build bundle in
-`ui/scripts/bundle-widget-snapshots-api.mjs`.
+`ui/scripts/build/bundle-widget-snapshots-api.mjs`.
 
 ## HealthKit permissions
 

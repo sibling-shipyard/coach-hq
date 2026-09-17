@@ -10,7 +10,7 @@ import esbuild from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const uiRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const uiRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 const entry = path.join(
   uiRoot,
   "api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts",

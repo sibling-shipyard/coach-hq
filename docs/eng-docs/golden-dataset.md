@@ -31,7 +31,7 @@ The generated layer is rebuilt by `generate-repo-data.mjs` on every `npm run dev
 `npm run build`. Every date is relative to `Date.now()`, and the randomness is seeded from the
 calendar date, so two people running dev on the same day get identical data.
 It generates structured `match_history.json` alongside badminton activities, with matching
-`history_file` keys. `ui/scripts/build-data.mjs` includes both in the local dashboard snapshot.
+`history_file` keys. `ui/scripts/build/build-data.mjs` includes both in the local dashboard snapshot.
 
 ## The generator must produce bad weeks, not just good ones
 

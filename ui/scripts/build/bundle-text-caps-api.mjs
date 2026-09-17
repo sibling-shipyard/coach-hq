@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Pre-build bundle for engine/lib/currentWeekRollover.mts.
+ * Pre-build bundle for engine/lib/text-caps.mts.
  *
  * engine/ is a different top-level monorepo band from ui/. Vite spans the whole monorepo in
  * local dev so the raw cross-band import resolves fine there, but Vercel's build for api/*.ts
@@ -12,9 +12,9 @@ import esbuild from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const uiRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const entry = path.join(uiRoot, "../engine/lib/currentWeekRollover.mts");
-const outfile = path.join(uiRoot, "api/coach-chat/_lib/current-week-rollover.bundle.js");
+const uiRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
+const entry = path.join(uiRoot, "../engine/lib/text-caps.mts");
+const outfile = path.join(uiRoot, "api/coach-chat/_lib/text-caps.bundle.js");
 
 await esbuild.build({
   entryPoints: [entry],

@@ -13,7 +13,7 @@ test("golden dashboard carries an exact history-file match for every badminton a
     cwd: root,
     stdio: "ignore",
   });
-  execFileSync(process.execPath, [path.join(root, "ui/scripts/build-data.mjs")], {
+  execFileSync(process.execPath, [path.join(root, "ui/scripts/build/build-data.mjs")], {
     cwd: root,
     stdio: "ignore",
   });

@@ -85,7 +85,7 @@ does today.
 
 ## Local setup
 
-`npm run dev:api` (`ui/scripts/local-api-server.mjs`, port 3001) runs the real `ui/api/*` handlers
+`npm run dev:api` (`ui/scripts/dev/local-api-server.mjs`, port 3001) runs the real `ui/api/*` handlers
 with secrets read from `ui/.env.local` — not `vercel dev` (see #63). Needs `GEMINI_API_KEY` plus the
 GitHub App vars in `docs/eng-docs/env-vars.md`. Set `COACH_CHAT_BRANCH` to a scratch branch.
 

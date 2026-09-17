@@ -12,7 +12,7 @@ functions (`api/`) that also power the iOS app. HQ-only — athlete repos don't 
 
 ## Data flow into `client/src/data/`
 
-`npm run dev`/`npm run build` both run `scripts/build-data.mjs` first (`predev`/`prebuild` in
+`npm run dev`/`npm run build` both run `scripts/build/build-data.mjs` first (`predev`/`prebuild` in
 `package.json`), which populates `client/src/data/` — including `dashboard_snapshot.json`, which
 `useRepoData.ts` statically imports and Vite bundles at build time. **Never hand-edit anything in
 `client/src/data/`** — on HQ it's copied from `shared/golden-dataset/`; in an athlete repo it's

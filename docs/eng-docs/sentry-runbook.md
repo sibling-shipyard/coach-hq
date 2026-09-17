@@ -78,7 +78,7 @@ Both surfaces set the same `rage_report` fingerprint, so each project's reports 
 issue. They do not share an issue: web is `coach-hq-web`, iOS is `coach-hq-ios`.
 
 **No alert covers absence.** `.github/workflows/span-health.yml` runs
-`node ui/scripts/check-span-health.mjs` daily at 04:00 UTC (09:30 IST), after the digest.
+`node ui/scripts/checks/check-span-health.mjs` daily at 04:00 UTC (09:30 IST), after the digest.
 The job fails when the script exits non-zero: production served traffic in the last 24 hours and
 sent no `http.server` span. That is the shape of #878: errors kept arriving and every dashboard
 looked healthy. Traffic counts all three surfaces, iOS included: #878's own evidence was a
@@ -88,7 +88,7 @@ browser span and no API error.
 one dataset at a time, so it cannot say "traffic happened but spans did not", and "no spans" alone
 fires on every quiet day.
 Run manually via Actions → Span health → Run workflow, or
-`node ui/scripts/check-span-health.mjs` with `SENTRY_AUTH_TOKEN`.
+`node ui/scripts/checks/check-span-health.mjs` with `SENTRY_AUTH_TOKEN`.
 
 ## Query from a terminal
 

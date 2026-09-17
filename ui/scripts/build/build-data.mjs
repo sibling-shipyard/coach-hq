@@ -16,8 +16,8 @@ import {
   goldenRepoDataDir,
   isHqMonorepo,
   repoRoot,
-} from "../../engine/lib/repo-layout.mjs";
-import { buildDashboardSnapshot } from "../../engine/scripts/build-dashboard-snapshot.mjs";
+} from "../../../engine/lib/repo-layout.mjs";
+import { buildDashboardSnapshot } from "../../../engine/scripts/build-dashboard-snapshot.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
@@ -74,7 +74,7 @@ function copyGoldenToOutDir() {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-spawnSync("node", ["scripts/generate-wi-tokens.mjs"], { cwd: UI_DIR, stdio: "inherit" });
+spawnSync("node", ["scripts/build/generate-wi-tokens.mjs"], { cwd: UI_DIR, stdio: "inherit" });
 
 if (isHqMonorepo(REPO_ROOT)) {
   copyGoldenToOutDir();
@@ -113,7 +113,7 @@ fs.writeFileSync(
 
 const snapshotResult = spawnSync(
   "npx",
-  ["tsx", "--tsconfig", "tsconfig.json", "scripts/generate-widget-snapshots.ts"],
+  ["tsx", "--tsconfig", "tsconfig.json", "scripts/build/generate-widget-snapshots.ts"],
   { cwd: UI_DIR, stdio: "inherit" },
 );
 if (snapshotResult.status !== 0) {

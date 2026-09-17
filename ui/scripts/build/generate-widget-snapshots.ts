@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 import {
   generateWidgetSnapshotsFromDashboardSnapshot,
   type DashboardSnapshotInput,
-} from "../api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot";
-import { repoRoot, widgetSnapshotsPath } from "../../engine/lib/repo-layout.mjs";
+} from "../../api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot";
+import { repoRoot, widgetSnapshotsPath } from "../../../engine/lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
