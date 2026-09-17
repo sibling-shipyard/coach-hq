@@ -131,7 +131,7 @@ JSON answer, stripped before the reply reaches the athlete.
 
 **Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40`, having been
 fully unbounded (see Architecture above). SOUL is bundled from `platform/SOUL.chat.md` at build
-time by `ui/scripts/build-soul.mjs`, rather than fetched from the athlete's own repo every turn.
+time by `ui/scripts/build/build-soul.mjs`, rather than fetched from the athlete's own repo every turn.
 The ADR amending 0011 carries the full rationale.
 
 ## Eval — how we actually pick, not vibes

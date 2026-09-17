@@ -1,7 +1,7 @@
 # ui/api/ — Vercel serverless functions
 
 Every non-`_`-prefixed `.ts` file under here becomes a routed function, mapped by its literal file
-path (confirmed in `ui/scripts/local-api-server.mjs`'s dev-server route table, which mirrors real
+path (confirmed in `ui/scripts/dev/local-api-server.mjs`'s dev-server route table, which mirrors real
 Vercel behavior). That's why some routes are flat files and others are folders: a file can only
 move into a folder if its URL is allowed to change too. The Hobby plan caps a deployment at 12
 functions — see [`kdb/decisions/0017-vercel-function-count-catch-all-routes.md`](../../kdb/decisions/0017-vercel-function-count-catch-all-routes.md)
@@ -27,7 +27,7 @@ files total, well under the cap.
 | Path                                           | Role                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `_lib/`                                        | Generic cross-cutting infra only — `fileEdits.ts` (JSON merge-patch), `githubGitData.ts` (atomic multi-file commits, ADR 0012), `httpTimeout.ts` (fetch-with-timeout). **Not** a place for feature-specific internals — `auth/` and `coach-chat/` each own their own `_lib/` for that. |
-| `_generated/`                                  | Build output (`soul.ts`, written by `ui/scripts/build-soul.mjs`) — never hand-edit                                                                                                                                                                                                     |
+| `_generated/`                                  | Build output (`soul.ts`, written by `ui/scripts/build/build-soul.mjs`) — never hand-edit                                                                                                                                                                                               |
 | `auth/_lib/`, `auth/_tests/`                   | See [`auth/README.md`](auth/README.md)                                                                                                                                                                                                                                                 |
 | `coach-chat/_lib/`, `coach-chat/_tests/`       | See [`coach-chat/README.md`](coach-chat/README.md)                                                                                                                                                                                                                                     |
 | `coach-message/_lib/`, `coach-message/_tests/` | Proactive-message context projection, Gemini boundary, resolved write, and deterministic tests                                                                                                                                                                                         |

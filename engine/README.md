@@ -17,7 +17,7 @@ Layout: [`docs/eng-docs/skeleton-layout.md`](../docs/eng-docs/skeleton-layout.md
 The carve ships `platform/SOUL.claude.md` as root `SOUL.claude.md`, plus `.claude/` and
 `CLAUDE.md`, so a fresh repo boots as Coach via BYO Claude Code (issue #358, landed).
 `platform/SOUL.chat.md` never leaves HQ - coach-chat bundles it directly
-(`ui/scripts/build-soul.mjs`) rather than reading anything from an athlete's repo. See the ADR
+(`ui/scripts/build/build-soul.mjs`) rather than reading anything from an athlete's repo. See the ADR
 amending 0011 for the full rationale. (Two existing athlete repos carry these BYOB files
 pointed at `SOUL.claude.md` per the migration in `docs/plans/coach-repo-migration-and-skeleton.md`
 - kept intentionally, not a cleanup item; see issue #454.)

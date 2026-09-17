@@ -31,4 +31,4 @@ jobs:
             echo "::error::SENTRY_AUTH_TOKEN is not configured; span health cannot read Sentry."
             exit 1
           fi
-          node ui/scripts/check-span-health.mjs
+          node ui/scripts/checks/check-span-health.mjs

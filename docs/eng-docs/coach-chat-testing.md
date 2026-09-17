@@ -243,7 +243,7 @@ result. Use a fresh worktree off the PR branch under test, never the primary che
 git fetch origin <pr-branch> -q
 git worktree add /tmp/wt-<brief> origin/<pr-branch> -q
 cp ui/.env.local /tmp/wt-<brief>/ui/.env.local
-cd /tmp/wt-<brief> && node platform/scripts/compose-soul.mjs && node ui/scripts/build-soul.mjs
+cd /tmp/wt-<brief> && node platform/scripts/compose-soul.mjs && node ui/scripts/build/build-soul.mjs
 ln -s <primary-checkout>/ui/node_modules /tmp/wt-<brief>/ui/node_modules
 ```
 

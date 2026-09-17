@@ -67,7 +67,7 @@ reply (no free-form file edits) - full schema and field-by-field detail in
 Ingestion is iOS/HealthKit only now - Strava ingestion was removed (ADR 0010). Activities are
 named client-side by the app; there's no separate rename script anymore.
 
-Workout templates and sessions are compiled separately, by `ui/scripts/build-data.mjs` - it runs automatically every time you do `npm run dev` or `npm run build` inside `ui/`, so there's nothing to run by hand for those.
+Workout templates and sessions are compiled separately, by `ui/scripts/build/build-data.mjs` - it runs automatically every time you do `npm run dev` or `npm run build` inside `ui/`, so there's nothing to run by hand for those.
 
 ## Multi-agent setup
 

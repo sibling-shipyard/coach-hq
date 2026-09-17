@@ -10,7 +10,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const uiRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
+const uiRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const envLocalPath = path.join(uiRoot, ".env.local");
 try {
   process.loadEnvFile(envLocalPath);
@@ -21,14 +21,14 @@ try {
 const PORT = Number(process.env.PORT) || 3001;
 
 const ROUTES = [
-  [/^\/api\/auth(\/|$)/, "../api/auth/[...action].ts"],
-  [/^\/api\/repo-file$/, "../api/repo-file.ts"],
-  [/^\/api\/coach-chat$/, "../api/coach-chat.ts"],
-  [/^\/api\/coach-chat-context$/, "../api/coach-chat-context.ts"],
-  [/^\/api\/coach-chat-profile-status$/, "../api/coach-chat-profile-status.ts"],
-  [/^\/api\/coach-message$/, "../api/coach-message.ts"],
-  [/^\/api\/waitlist$/, "../api/waitlist.ts"],
-  [/^\/api\/widget-snapshots$/, "../api/widget-snapshots.ts"],
+  [/^\/api\/auth(\/|$)/, "../../api/auth/[...action].ts"],
+  [/^\/api\/repo-file$/, "../../api/repo-file.ts"],
+  [/^\/api\/coach-chat$/, "../../api/coach-chat.ts"],
+  [/^\/api\/coach-chat-context$/, "../../api/coach-chat-context.ts"],
+  [/^\/api\/coach-chat-profile-status$/, "../../api/coach-chat-profile-status.ts"],
+  [/^\/api\/coach-message$/, "../../api/coach-message.ts"],
+  [/^\/api\/waitlist$/, "../../api/waitlist.ts"],
+  [/^\/api\/widget-snapshots$/, "../../api/widget-snapshots.ts"],
 ];
 
 async function resolveHandler(pathname) {

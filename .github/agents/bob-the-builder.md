@@ -34,14 +34,14 @@ Keep these current when the backend changes; rules in `docs/eng-docs/README.md`.
 - Activity naming: `engine/core/rename_core.py` is source of truth — keep iOS `ActivityNamer.swift` aligned.
 - Regenerate derived data with `python3 engine/scripts/regenerate_derived.py` (quest_history, sync_status, vs_usual enrichment); `gen/quest_history.json` is auto-generated — never edit manually. `quest_log.md` is a retired name from before the split-ledger redesign, not a real file anymore.
 - `data:` commits to `main` for sync-only changes; scripts/workflows need branch + PR (see `.github/CONVENTIONS.md`).
-- `npm run dev:api` (`ui/scripts/local-api-server.mjs`) dynamically imports handlers and Node caches them by resolved path — restart the server after editing anything under `ui/api/`, or you're testing stale code.
+- `npm run dev:api` (`ui/scripts/dev/local-api-server.mjs`) dynamically imports handlers and Node caches them by resolved path — restart the server after editing anything under `ui/api/`, or you're testing stale code.
 - Coach-chat prompt/schema/model/harness changes are the ADR 0024 gate: hand off to vade-the-tester (or Tech Lead) for a live `eval:coach-chat` run — that's a separate agent's tool now (ADR 0044), not Bob's own to run. Other coach-chat PRs skip it (it's a paid live-API run) and say so in the test plan.
 - During `ui/` work, `npm run check` is the fast typecheck; its `precheck` builds generated data.
   It does not replace the full pre-push gate in `AGENTS.md` or the authoritative GitHub checks.
 
 ## Learnings
 
-- In a fresh worktree, 13 `ui/api` test files fail on a missing `ui/api/_generated/soul.js`. It is a build artifact, not a code error — run `node ui/scripts/build-soul.mjs` first. (The pre-push hook already prints the `ui/node_modules` symlink fix; nothing warns you about this one.)
+- In a fresh worktree, 13 `ui/api` test files fail on a missing `ui/api/_generated/soul.js`. It is a build artifact, not a code error — run `node ui/scripts/build/build-soul.mjs` first. (The pre-push hook already prints the `ui/node_modules` symlink fix; nothing warns you about this one.)
 - `withSentryRoute` (`ui/api/_lib/sentry.ts`) captures only what **throws** — a route that builds a failure into a `Response` must call `captureException` itself. `ui/api/_tests/route-tracing.test.ts` holds the line.
 - Gemini's `responseSchema` (`coachReplySchema.ts`) fills properties roughly in declaration order — declare commitment fields (`coach_note`, `profile_update`, etc.) ahead of narrative ones (`reply` last). Reduces skipped fields; doesn't eliminate them.
 - The Python pipeline never takes `sentry_sdk` or any new pip dependency for observability. `engine/scripts/notify_sync_failure.py` already hand-builds and sends a Sentry envelope over `urllib` whenever the Sync workflow's `if: failure()` branch runs — any step that raises or exits nonzero is already covered. Fixing a PY-numbered soft-continue means making it raise/exit nonzero, not adding its own capture call.

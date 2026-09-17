@@ -158,7 +158,7 @@ reference for everything Gemini-specific, this doc stays focused on the request 
 it.
 
 SOUL itself is bundled from `platform/SOUL.chat.md` — the coach-chat build of the two composed
-targets (ADR 0022) — at build time (`ui/scripts/build-soul.mjs`,
+targets (ADR 0022) — at build time (`ui/scripts/build/build-soul.mjs`,
 wired into `predev`/`prebuild`), rather than fetched from the athlete's own repo. It's 100%
 generic, no per-athlete substitution happens anywhere in the carve process, so re-fetching it per
 athlete per turn was pure waste. See the ADR amending 0011 for the full rationale.
