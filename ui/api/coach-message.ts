@@ -9,9 +9,11 @@ import { getFileRaw, resolveCoachChatBranch } from "./coach-chat/_lib/decide/coa
 import {
   generateAndStoreCoachMessage,
   generateProactiveBody,
+} from "./coach-message/_lib/coachMessage.js";
+import {
   listActivityFiles,
   parseActivityIdsRequest,
-} from "./coach-message/_lib/coachMessage.js";
+} from "./coach-message/_lib/activityRequest.js";
 
 export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   if (req.method !== "POST") {

@@ -21,12 +21,14 @@ import {
   LATEST_COACH_MESSAGE_PATH,
   buildProactivePrompt,
   generateProactiveBody,
-  listActivityFiles,
+  serializeLatestMessage,
+} from "../../../coach-message/_lib/coachMessage.js";
+import { listActivityFiles } from "../../../coach-message/_lib/activityRequest.js";
+import {
   loadProactiveContext,
   parseLatestMessageFile,
-  serializeLatestMessage,
   type LatestCoachMessage,
-} from "../../../coach-message/_lib/coachMessage.js";
+} from "../../../coach-message/_lib/proactiveContext.js";
 import {
   activitySyncBatchId,
   buildActivitySyncThread,
