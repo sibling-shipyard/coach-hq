@@ -349,7 +349,8 @@ enum DiagnosticsManager {
         severity: DiagnosticSeverity,
         operation: String,
         operationID: UUID,
-        metadata: [String: String] = [:]
+        metadata: [String: String] = [:],
+        tags: [String: String] = [:]
     ) {
         record(category: operation, message: message, operationID: operationID, metadata: metadata)
         guard isEnabled else { return }
@@ -357,6 +358,7 @@ enum DiagnosticsManager {
             scope.setLevel(severity.sentryLevel)
             scope.setTag(value: operation, key: "operation")
             scope.setTag(value: operationID.uuidString, key: "operation_id")
+            DiagnosticsScrubber.scrub(tags).forEach { scope.setTag(value: $0.value, key: $0.key) }
             scope.setExtras(DiagnosticsScrubber.scrub(metadata))
         }
     }

@@ -121,6 +121,13 @@ struct LoginView: View {
                 try await authManager.signIn()
                 Haptics.success()
             } catch {
+                if error is AuthError {
+                    DiagnosticsManager.capture(
+                        error: error,
+                        operation: "github.auth.sign_in",
+                        operationID: UUID()
+                    )
+                }
                 errorMessage = UserFacingError.message(for: error, devMode: false)
                 devErrorDetail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 Haptics.error()

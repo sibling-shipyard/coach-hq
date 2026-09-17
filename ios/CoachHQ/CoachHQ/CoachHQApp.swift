@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 @main
 struct CoachHQApp: App {
+    private static let pendingFreshInstallWipeKey = "com.siblingshipyard.coachhq.pendingFreshInstallWipe"
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var router = AppRouter()
 
@@ -43,7 +44,10 @@ struct CoachHQApp: App {
         // always starts from a clean LoginView rather than a broken session.
         let installedKey = "com.siblingshipyard.coachhq.hasLaunched"
         if !UserDefaults.standard.bool(forKey: installedKey) {
-            GitHubAuthManager.clearKeychainOnFreshInstall()
+            if GitHubAuthManager.clearKeychainOnFreshInstall() {
+                // AppDelegate configures Sentry after this initializer; report the wipe on first paint.
+                UserDefaults.standard.set(true, forKey: Self.pendingFreshInstallWipeKey)
+            }
             UserDefaults.standard.set(true, forKey: installedKey)
         }
     }
@@ -127,6 +131,17 @@ struct CoachHQApp: App {
                 }
             }
             .onAppear {
+                if UserDefaults.standard.bool(forKey: Self.pendingFreshInstallWipeKey) {
+                    DiagnosticsManager.capture(
+                        message: "iOS credentials cleared on first launch",
+                        severity: .warning,
+                        operation: "github.auth.sign_out",
+                        operationID: UUID(),
+                        metadata: ["reason": "fresh_install_wipe"],
+                        tags: ["reason": "fresh_install_wipe"]
+                    )
+                    UserDefaults.standard.removeObject(forKey: Self.pendingFreshInstallWipeKey)
+                }
                 // Lets AppRouter.checkAccountSwitch() reset these on an account switch
                 // (not just the explicit sign-out path above).
                 router.bindAccountScopedServices(

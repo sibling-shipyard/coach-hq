@@ -344,7 +344,7 @@ class GitHubAuthManager: ObservableObject {
         // signOut() clears the keychain so the next launch gets a clean LoginView
         // instead of looping on the same failure.
         if selectedRepo == nil && pendingSetupLogin == nil {
-            signOut()
+            signOut(reason: .bootstrapUnresolvedState)
             return
         }
         isSessionReady = true
@@ -702,7 +702,26 @@ class GitHubAuthManager: ObservableObject {
         return try await URLSession.shared.data(for: request)
     }
 
-    func signOut() {
+    enum SignOutReason: String, Equatable {
+        case userLogout = "user_logout"
+        case setupCancelled = "setup_cancelled"
+        case sessionExpired = "session_expired"
+        case bootstrapUnresolvedState = "bootstrap_unresolved_state"
+    }
+
+    func signOut(reason: SignOutReason) {
+        var metadata = ["reason": reason.rawValue]
+        if reason == .bootstrapUnresolvedState {
+            metadata["had_network_error"] = String(lastNetworkError != nil)
+        }
+        DiagnosticsManager.capture(
+            message: "iOS session signed out",
+            severity: reason == .bootstrapUnresolvedState ? .fault : .warning,
+            operation: "github.auth.sign_out",
+            operationID: UUID(),
+            metadata: metadata,
+            tags: ["reason": reason.rawValue]
+        )
         TimelineBuffer.shared.clearOnSignOut()
 
         deleteKeychainString(for: keychainKey)
@@ -733,19 +752,23 @@ class GitHubAuthManager: ObservableObject {
 
     /// Called once on first launch after a fresh install. UserDefaults is cleared on app
     /// deletion but Keychain is not, so a reinstall would otherwise inherit a stale token.
-    static func clearKeychainOnFreshInstall() {
+    static func clearKeychainOnFreshInstall() -> Bool {
         let keys = [
             "com.siblingshipyard.coachhq.github.token",
             "com.siblingshipyard.coachhq.github.refresh_token",
             "com.siblingshipyard.coachhq.github.expires_at",
         ]
+        var clearedCredentials = false
         for key in keys {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrAccount as String: key,
             ]
-            SecItemDelete(query as CFDictionary)
+            if SecItemDelete(query as CFDictionary) == errSecSuccess {
+                clearedCredentials = true
+            }
         }
+        return clearedCredentials
     }
 }
 
