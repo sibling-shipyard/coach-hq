@@ -115,7 +115,7 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 | **Bob the Builder** | Worker thread | `engine/core/`, `engine/lib/`, `engine/scripts/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 | **Cyclops** | Triage thread | Sentry event triage (read-only, no code changes) |
-| **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) - never application/production code |
+| **vade-the-tester** | Worker thread | Testing infrastructure and process (ADR 0044) - `ui/eval/` plus `ui/scripts/run-tests-logged.ts`/`lib/llmPricing.ts` - never application/production code |
 
 **Boundaries:**
 - `platform/` in full — `soul/`, `scripts/`, `agent-kit/`, `skills/`, `plugins/`, `tests/`, `horcruxes/`, `skeleton-templates/` — is **Tech Lead only**. Previously only `platform/soul/*` and `platform/skeleton-templates/*.json` were named; the rest fell to the CODEOWNERS `*` fallback with no declared owner (`kdb/decisions/0048-close-agent-scope-gaps.md`).

@@ -86,7 +86,7 @@ the schema module must not depend on prompt text.
 ## Tests
 
 `_tests/` covers the pure modules and cross-module behavior. Golden live-Gemini transcripts live
-under `_tests/coach-chat-eval/transcripts/` and are run by `ui/scripts/eval-coach-chat.ts`.
+under `ui/eval/transcripts/` and are run by `ui/eval/eval-coach-chat.ts`.
 
 ```bash
 cd ui

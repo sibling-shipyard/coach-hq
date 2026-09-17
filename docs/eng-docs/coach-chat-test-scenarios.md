@@ -8,7 +8,7 @@ The 2026-09-14 eval-audit pass reviewed all 23 eval transcripts and the simulati
 turns library. Numbering had drifted (01, 02, 10, 11, ... 42) from years of ad hoc adds/removes.
 Several transcripts were redundant with each other, and most tested one dropped fact per turn
 rather than the multi-fact conversations real check-ins actually are. 11 example turns files in
-`ui/scripts/examples/` were unused by anything, too. This doc is the catalog of record for both
+`ui/eval/examples/` were unused by anything, too. This doc is the catalog of record for both
 test libraries going forward - update it whenever a scenario is added, removed, or renumbered.
 
 The 2026-09-15 coverage-audit pass (phase 1) cross-referenced every action field the code can
@@ -19,7 +19,7 @@ has zero open rows. The same pass also settled the coach-chat redesign's own las
 
 ## Eval transcripts
 
-`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/` - run by `npm run eval:coach-chat`, see
+`ui/eval/transcripts/` - run by `npm run eval:coach-chat`, see
 `docs/eng-docs/coach-chat-testing.md`'s Type 2 section for mechanics.
 
 | # | file | turns | what it tests | key expect assertions |
@@ -60,7 +60,7 @@ of seven separate one-fact files.
 
 ## Simulation scenarios
 
-`ui/scripts/run-simulation-suite.ts`'s `SCENARIOS` array - real live-model, real-write runs
+`ui/eval/run-manual-simulation-suite.ts`'s `SCENARIOS` array - real live-model, real-write runs
 through `test:coach-chat-manual`'s pipeline. See `docs/eng-docs/coach-chat-testing.md`'s section on
 the fourth test type for mechanics.
 
@@ -88,7 +88,7 @@ coverage-audit pass added 5 more (`17`-`21`, the last one from the same-day #106
 21 total today. See "Cut" and "Merged" notes above for the eval-audit's reasoning per file, and
 the coverage matrix below for what each new one closes.
 
-`ui/scripts/examples/` dropped 11 unused `-727-*` probe files from the #727 migration in the
+`ui/eval/examples/` dropped 11 unused `-727-*` probe files from the #727 migration in the
 eval-audit pass. The original estimate was 2 named plus roughly 8 more; the real count, confirmed
 unreferenced anywhere by grep before deletion, was 11. That same pass gained one new file
 (`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass and its #1066

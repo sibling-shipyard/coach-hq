@@ -27,8 +27,8 @@
  *   npm run test:coach-chat-manual -- --athlete skanda --activity-ids "hk:UUID1,hk:UUID2"
  *   npm run test:coach-chat-manual -- --athlete akash --message "..." --preconditions '{"injuryFlags":"any"}'
  *
- * **--preconditions** takes the same JSON shape as run-simulation-suite.ts's Scenario#preconditions
- * (lib/preconditions.ts) - a cheap, real-file check of the target repo's actual data (does the
+ * **--preconditions** takes the same JSON shape as run-manual-simulation-suite.ts's Scenario#preconditions
+ * (scripts/lib/preconditions.ts) - a cheap, real-file check of the target repo's actual data (does the
  * current week have real sessions, is there an active injury flag, etc.) run once before any turn
  * is sent. This exists so an ad hoc manual run against a repo that plainly can't produce the
  * behavior you're checking fails fast and honestly, instead of a real Gemini call falling back to
@@ -58,7 +58,7 @@
  * different threads. There is no closing turn any more (C1) - every turn is the same shape, and
  * a run just ends when you run out of turns to send.
  *
- * See scripts/examples/ for three realistic multi-turn examples (manual runs don't need an
+ * See eval/examples/ for three realistic multi-turn examples (manual runs don't need an
  * assertion, it's fine to just read the reply):
  *   - manual-coach-chat-turns.example.json - vague "felt a bit off" -> hip pain clarified 2 turns
  *     later -> close. Same incremental-disclosure idea eval-coach-chat.ts's turns[] transcripts
@@ -94,11 +94,11 @@ import { handle } from "../api/coach-chat.js";
 import { TURN_USAGE_HEADER } from "../api/coach-chat/_lib/coachTurn.js";
 import type { GeminiUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
-import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
-import { estimateCostUsd, formatCostUsd } from "./lib/llmPricing.js";
-import { ATHLETE_REPOS } from "./lib/athleteRepos.js";
-import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
-import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
+import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";
+import { estimateCostUsd, formatCostUsd } from "../scripts/lib/llmPricing.js";
+import { ATHLETE_REPOS } from "../scripts/lib/athleteRepos.js";
+import { buildRepoDataProfile } from "../scripts/lib/repoDataProfile.js";
+import { checkPreconditions, type Preconditions } from "../scripts/lib/preconditions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");

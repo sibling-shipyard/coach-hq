@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
  * eval-coach-chat.ts — runs the golden transcripts in
- * ui/api/coach-chat/_tests/coach-chat-eval/transcripts/ through the real askGemini() logic against
+ * ui/eval/transcripts/ through the real askGemini() logic against
  * a live model - direct Gemini by default, or OpenRouter when `LLM_PROVIDER=openrouter` is set
  * (#713 M2 PR 2 put askGemini() on the same seam every other caller uses) - and checks the
  * structural rubric: valid schema, no fabricated "saved" language, session_closed only true when
@@ -69,7 +69,7 @@ import { selectLlmAdapter } from "../api/_lib/llmClient.js";
 import { askGemini } from "../api/coach-chat/_lib/gemini/geminiClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
 import type { TurnMode } from "../api/coach-chat/_lib/gemini/coachReplySchema.js";
-import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
+import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -428,15 +428,7 @@ async function main() {
   const onlyIdx = args.indexOf("--only");
   const only = onlyIdx !== -1 ? args[onlyIdx + 1] : undefined;
 
-  const dir = path.join(
-    __dirname,
-    "..",
-    "api",
-    "coach-chat",
-    "_tests",
-    "coach-chat-eval",
-    "transcripts",
-  );
+  const dir = path.join(__dirname, "transcripts");
   let files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".json"))

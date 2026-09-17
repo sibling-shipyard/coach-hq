@@ -101,7 +101,7 @@ prompt shape.
 discount on the athlete_context turn, since production never repeats a prompt exactly. If DeepSeek
 is the target anyway on cost, no marker work is needed there.
 
-Probe script: `ui/scripts/prefix-cache-probe.ts` — throwaway, not wired into any npm script or CI.
+Probe script: `ui/eval/prefix-cache-probe.ts` — throwaway, not wired into any npm script or CI.
 
 ## DeepSeek — credible, with one real problem
 

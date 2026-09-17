@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 /**
- * run-simulation-suite.ts - the fourth, tracked test type (vade-the-tester's original design plan
+ * run-manual-simulation-suite.ts - the fourth, tracked test type (vade-the-tester's original design plan
  * is gone now that its finishing PR landed - see kdb/decisions/0044-vade-the-tester-agent.md):
  * a small library of real FSP/daily-conversation `--turns` scenarios, run one at a time through
  * run-manual-coach-chat-test.ts's real pipeline (real SOUL, real athlete repo, real Gemini call,
@@ -37,7 +37,7 @@
  *                                                          # instead of each scenario's hardcoded
  *                                                          # target
  *   npm run test:simulation-suite -- --all-repos          # run the whole suite once per real
- *                                                          # athlete repo in lib/athleteRepos.ts's
+ *                                                          # athlete repo in scripts/lib/athleteRepos.ts's
  *                                                          # ATHLETE_REPOS (5 passes today),
  *                                                          # overriding every scenario's target on
  *                                                          # each pass - replaces the old ad hoc
@@ -66,12 +66,25 @@ import { fileURLToPath } from "node:url";
 
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
-import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "./lib/testLog.js";
-import { formatCostUsd } from "./lib/llmPricing.js";
-import { readCoverageIndex, writeCoverageEntry, coverageKey } from "./lib/coverageIndex.js";
-import { ATHLETE_REPOS, resolveAthleteOverride, type AthleteOverride } from "./lib/athleteRepos.js";
-import { buildRepoDataProfile } from "./lib/repoDataProfile.js";
-import { checkPreconditions, type Preconditions } from "./lib/preconditions.js";
+import {
+  dailyLogDir,
+  repoRoot,
+  type FilesChanged,
+  type TestLogEntry,
+} from "../scripts/lib/testLog.js";
+import { formatCostUsd } from "../scripts/lib/llmPricing.js";
+import {
+  readCoverageIndex,
+  writeCoverageEntry,
+  coverageKey,
+} from "../scripts/lib/coverageIndex.js";
+import {
+  ATHLETE_REPOS,
+  resolveAthleteOverride,
+  type AthleteOverride,
+} from "../scripts/lib/athleteRepos.js";
+import { buildRepoDataProfile } from "../scripts/lib/repoDataProfile.js";
+import { checkPreconditions, type Preconditions } from "../scripts/lib/preconditions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -104,7 +117,7 @@ interface Scenario {
   repo?: string;
   localPath?: string;
   /**
-   * Checked against the target repo's real RepoDataProfile (lib/repoDataProfile.ts) before this
+   * Checked against the target repo's real RepoDataProfile (scripts/lib/repoDataProfile.ts) before this
    * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
    * section. An unmet precondition means the repo can't produce the behavior this scenario tests
    * right now (e.g. no planned session to contradict). A2b: when the unmet field carries a
@@ -470,12 +483,12 @@ function parseArgs(argv: string[]) {
   const repo = get("--repo");
   const allRepos = argv.includes("--all-repos");
   if (repo && allRepos) {
-    console.error("run-simulation-suite: --repo and --all-repos are mutually exclusive.");
+    console.error("run-manual-simulation-suite: --repo and --all-repos are mutually exclusive.");
     process.exit(1);
   }
   if (repo && !ATHLETE_REPOS[repo]) {
     console.error(
-      `run-simulation-suite: unknown --repo shortcut "${repo}" - expected one of: ${Object.keys(ATHLETE_REPOS).join(", ")}`,
+      `run-manual-simulation-suite: unknown --repo shortcut "${repo}" - expected one of: ${Object.keys(ATHLETE_REPOS).join(", ")}`,
     );
     process.exit(1);
   }
@@ -495,7 +508,7 @@ function parseArgs(argv: string[]) {
     // in practice) - there was no need for a per-scenario field in the SCENARIOS library above.
     branch: get("--branch"),
     // #1105 A3: forces every scenario's own athlete/repo/localPath to one real repo for this
-    // invocation - see resolveAthleteOverride in lib/athleteRepos.ts for the shortcut lookup.
+    // invocation - see resolveAthleteOverride in scripts/lib/athleteRepos.ts for the shortcut lookup.
     repo,
     // #1105 A3: runs the whole suite once per real athlete repo in ATHLETE_REPOS instead of once
     // against whatever each scenario hardcodes - see the repo-pass loop in main() below.
@@ -618,7 +631,7 @@ function sendSeedMessages(
     "tsx",
     "--tsconfig",
     "tsconfig.json",
-    "scripts/run-manual-coach-chat-test.ts",
+    "eval/run-manual-coach-chat-test.ts",
     ...(scenario.athlete ? ["--athlete", scenario.athlete] : []),
     ...(scenario.repo ? ["--repo", scenario.repo] : []),
     ...(scenario.localPath ? ["--local-path", scenario.localPath] : []),
@@ -658,7 +671,7 @@ async function main() {
 
   const scenarios = args.only ? SCENARIOS.filter((s) => s.id.includes(args.only!)) : SCENARIOS;
   if (scenarios.length === 0) {
-    console.error(`run-simulation-suite: no scenario matches --only "${args.only}".`);
+    console.error(`run-manual-simulation-suite: no scenario matches --only "${args.only}".`);
     process.exit(1);
     return;
   }
@@ -668,7 +681,7 @@ async function main() {
   const haveKey = Boolean(process.env[requiredKeyName]);
   if (!args.dryRun && !haveKey) {
     console.error(
-      `run-simulation-suite: ${requiredKeyName} not set (check ui/.env.local or export it) - ` +
+      `run-manual-simulation-suite: ${requiredKeyName} not set (check ui/.env.local or export it) - ` +
         `every scenario here makes a real, paid Gemini call. Pass --dry-run to see the plan ` +
         `without spending anything, or set the key to actually run it.`,
     );
@@ -713,7 +726,7 @@ async function main() {
     repoPasses = repoPasses.filter((pass) => !pass || fs.existsSync(pass.localPath));
     if (repoPasses.length === 0) {
       console.error(
-        "run-simulation-suite: --all-repos found no locally-cloned repo to run against.",
+        "run-manual-simulation-suite: --all-repos found no locally-cloned repo to run against.",
       );
       process.exit(1);
     }
@@ -721,7 +734,7 @@ async function main() {
     const [pass] = repoPasses;
     if (pass && !fs.existsSync(pass.localPath)) {
       console.error(
-        `run-simulation-suite: --repo ${args.repo} isn't cloned locally at ${pass.localPath}.`,
+        `run-manual-simulation-suite: --repo ${args.repo} isn't cloned locally at ${pass.localPath}.`,
       );
       process.exit(1);
     }
@@ -912,7 +925,7 @@ async function main() {
         "tsx",
         "--tsconfig",
         "tsconfig.json",
-        "scripts/run-manual-coach-chat-test.ts",
+        "eval/run-manual-coach-chat-test.ts",
         ...(effectiveScenario.athlete ? ["--athlete", effectiveScenario.athlete] : []),
         ...(effectiveScenario.repo ? ["--repo", effectiveScenario.repo] : []),
         ...(effectiveScenario.localPath ? ["--local-path", effectiveScenario.localPath] : []),
