@@ -62,6 +62,104 @@ final class GitHubAuthManagerTests: XCTestCase {
         XCTAssertFalse(GitHubAuthManager.clearKeychainOnFreshInstall())
     }
 
+    @MainActor
+    func testBootstrapKeepsSessionAcrossNetworkAndServerFailuresThenRetries() async {
+        let manager = GitHubAuthManager()
+        manager.isAuthenticated = true
+        manager.bootstrapTokenProvider = { ("gho_test", false) }
+        manager.dataRequestHandler = { _ in throw URLError(.notConnectedToInternet) }
+
+        await manager.bootstrapSession()
+        XCTAssertTrue(manager.isAuthenticated)
+        XCTAssertTrue(manager.bootstrapNeedsRetry)
+        let router = AppRouter(authManager: manager)
+        router.deriveState()
+        XCTAssertEqual(router.state, .sessionUnavailable)
+
+        manager.dataRequestHandler = { request in
+            let isUser = request.url?.host == "api.github.com"
+            let data = Data((isUser
+                ? #"{"id":1,"login":"sky"}"#
+                : #"{"repo_full_name":"sky/coach-sky"}"#).utf8)
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        await manager.bootstrapSession()
+        router.deriveState()
+        XCTAssertFalse(manager.bootstrapNeedsRetry)
+        XCTAssertEqual(router.state, .active)
+    }
+
+    @MainActor
+    func testBootstrapOnlyClearsOnConfirmedProfileRejection() async {
+        for status in [200, 401, 404, 502] {
+            let manager = GitHubAuthManager()
+            manager.isAuthenticated = true
+            manager.bootstrapTokenProvider = { ("gho_test", false) }
+            manager.dataRequestHandler = { request in
+                (Data(), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            }
+            await manager.bootstrapSession()
+            XCTAssertEqual(manager.isAuthenticated, status != 401)
+            XCTAssertEqual(manager.bootstrapNeedsRetry, status != 401)
+        }
+    }
+
+    @MainActor
+    func testBootstrapDoesNotClearAfterTransientRefreshFailureAndStaleAccessToken401() async {
+        let manager = GitHubAuthManager()
+        manager.isAuthenticated = true
+        manager.bootstrapTokenProvider = { ("gho_expired", true) }
+        manager.dataRequestHandler = { request in
+            (Data(), HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!)
+        }
+
+        await manager.bootstrapSession()
+        XCTAssertTrue(manager.isAuthenticated)
+        XCTAssertTrue(manager.bootstrapNeedsRetry)
+    }
+
+    @MainActor
+    func testBootstrapRoutesNoRepoAndMultipleReposWithoutClearingToken() async {
+        for (status, body, expectedState) in [
+            (200, #"{"repo_full_name":null,"reason":"no_owned_repos"}"#, AppState.needsSetup(login: "sky")),
+            (401, "{}", AppState.needsSetup(login: "sky")),
+            (409, #"{"reason":"multiple_repos_granted"}"#, AppState.multipleReposGranted)
+        ] {
+            let manager = GitHubAuthManager()
+            manager.isAuthenticated = true
+            manager.bootstrapTokenProvider = { ("gho_test", false) }
+            manager.dataRequestHandler = { request in
+                let isUser = request.url?.host == "api.github.com"
+                let data = Data((isUser ? #"{"id":1,"login":"sky"}"# : body).utf8)
+                let response = HTTPURLResponse(url: request.url!, statusCode: isUser ? 200 : status, httpVersion: nil, headerFields: nil)!
+                return (data, response)
+            }
+            await manager.bootstrapSession()
+            let router = AppRouter(authManager: manager)
+            router.deriveState()
+            XCTAssertTrue(manager.isAuthenticated)
+            XCTAssertEqual(router.state, expectedState)
+        }
+    }
+
+    @MainActor
+    func testBootstrapPreservesSessionWhenRepoLookupFailsOrCannotDecode() async {
+        for (status, body) in [(502, "{}"), (200, "not-json")] {
+            let manager = GitHubAuthManager()
+            manager.isAuthenticated = true
+            manager.bootstrapTokenProvider = { ("gho_test", false) }
+            manager.dataRequestHandler = { request in
+                let isUser = request.url?.host == "api.github.com"
+                let data = Data((isUser ? #"{"id":1,"login":"sky"}"# : body).utf8)
+                let response = HTTPURLResponse(url: request.url!, statusCode: isUser ? 200 : status, httpVersion: nil, headerFields: nil)!
+                return (data, response)
+            }
+            await manager.bootstrapSession()
+            XCTAssertTrue(manager.isAuthenticated)
+            XCTAssertTrue(manager.bootstrapNeedsRetry)
+        }
+    }
+
     func testTransientRefreshStatusIsOnly502() {
         XCTAssertTrue(GitHubAuthManager.isTransientRefreshStatus(502))
         XCTAssertFalse(GitHubAuthManager.isTransientRefreshStatus(401))

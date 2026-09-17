@@ -144,3 +144,33 @@ struct LoginView: View {
         }
     }
 }
+
+struct SessionRetryView: View {
+    @ObservedObject var authManager: GitHubAuthManager
+    @State private var isRetrying = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            OnboardingLogo()
+            Text("Couldn't reconnect to GitHub")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+            Text(authManager.lastNetworkError ?? "Check your connection and try again. Your sign-in is saved.")
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .multilineTextAlignment(.center)
+            WarmPrimary(title: isRetrying ? "Checking…" : "Try again", isBusy: isRetrying, fill: Theme.ink) {
+                Haptics.tap()
+                isRetrying = true
+                Task {
+                    await authManager.bootstrapSession()
+                    isRetrying = false
+                }
+            }
+            .disabled(isRetrying)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WarmInstrument.desk.ignoresSafeArea())
+    }
+}
