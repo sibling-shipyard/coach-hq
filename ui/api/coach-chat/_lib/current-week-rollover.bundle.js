@@ -1,13 +1,8 @@
-// ../engine/lib/currentWeekRollover.mts
+// ../engine/lib/current-week.mts
 function addDays(dateString, days) {
   const date = /* @__PURE__ */ new Date(`${dateString}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
-}
-function mondayOnOrBefore(dateString) {
-  const date = /* @__PURE__ */ new Date(`${dateString}T00:00:00Z`);
-  const day = date.getUTCDay() || 7;
-  return addDays(dateString, 1 - day);
 }
 function getIsoWeekId(dateString) {
   const date = /* @__PURE__ */ new Date(`${dateString}T00:00:00Z`);
@@ -18,6 +13,13 @@ function getIsoWeekId(dateString) {
   const daysSinceYearStart = Math.floor((date.getTime() - yearStart.getTime()) / 864e5) + 1;
   const week = Math.ceil(daysSinceYearStart / 7);
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
+}
+
+// ../engine/lib/currentWeekRollover.mts
+function mondayOnOrBefore(dateString) {
+  const date = /* @__PURE__ */ new Date(`${dateString}T00:00:00Z`);
+  const day = date.getUTCDay() || 7;
+  return addDays(dateString, 1 - day);
 }
 function needsRollover(runtime, todayDateStr) {
   const data = runtime.data;
