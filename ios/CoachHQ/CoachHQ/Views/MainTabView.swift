@@ -161,6 +161,7 @@ struct MainTabView: View {
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var workoutService: WorkoutService
     @EnvironmentObject var widgetStore: WidgetSnapshotStore
+    @EnvironmentObject var allActivitiesStore: AllActivitiesStore
     @EnvironmentObject var bottomDock: BottomDockState
     @EnvironmentObject var router: AppRouter
     @State private var selectedTab: AppTab = .home
@@ -194,6 +195,8 @@ struct MainTabView: View {
                 tabRoot(.workouts) {
                     WorkoutListView()
                         .environmentObject(workoutService)
+                        .environmentObject(widgetStore)
+                        .environmentObject(allActivitiesStore)
                 }
                 tabRoot(.you) {
                     SettingsView()

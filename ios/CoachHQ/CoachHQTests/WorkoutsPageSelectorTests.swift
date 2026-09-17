@@ -30,13 +30,14 @@ final class WorkoutsPageSelectorTests: XCTestCase {
         status: CurrentWeekSessionStatus = .planned,
         templateId: String? = "tmpl_a",
         sessionFile: String? = nil,
-        durationMin: Int? = 30
+        durationMin: Int? = 30,
+        completionIds: [String] = []
     ) -> CurrentWeekSession {
         CurrentWeekSession(
             id: id, origin: .planned, discipline: discipline, kind: "strength", title: title,
             priority: .anchor, status: status, plannedDurationMin: durationMin,
             templateId: templateId, sessionFile: sessionFile, coachNote: nil,
-            originalDate: nil, completionActivityIds: []
+            originalDate: nil, completionActivityIds: completionIds
         )
     }
 
@@ -55,44 +56,62 @@ final class WorkoutsPageSelectorTests: XCTestCase {
 
     private let live = CurrentWeekAvailability(status: .current, available: true)
 
+    private func input(
+        currentWeek: CurrentWeek? = nil,
+        availability: CurrentWeekAvailability? = nil,
+        templates: [Workout] = [],
+        sessionsForDate: [String: Workout] = [:],
+        loggedActivities: [SyncCacheEntry] = [],
+        loadHints: WorkoutsPageSelector.LoadHints = .init(),
+        today: String
+    ) -> WorkoutsPageSelector.Input {
+        WorkoutsPageSelector.Input(
+            currentWeek: currentWeek,
+            availability: availability,
+            templates: templates,
+            sessionsForDate: sessionsForDate,
+            loggedActivities: loggedActivities,
+            loadHints: loadHints,
+            today: today
+        )
+    }
+
     // MARK: - Today band
 
     func testTodayWithNoSessionIsRest() {
         let plan = week(days: [day(date: "2026-09-09")])
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: plan, availability: live, templates: [], sessionsForToday: [:],
-            loggedActivities: [], today: "2026-09-09"
-        )
-        XCTAssertEqual(WorkoutsPageSelector.select(input).today, .rest)
+        let selection = WorkoutsPageSelector.select(input(currentWeek: plan, availability: live, today: "2026-09-09"))
+        XCTAssertEqual(selection.today, .rest)
+        XCTAssertEqual(selection.week?.days.first { $0.date == "2026-09-09" }?.isRest, true)
     }
 
     func testLiveSessionWithNoTemplateIdIsAMentionNeverRest() {
         let plan = week(days: [day(date: "2026-09-09", sessions: [
             currentWeekSession(title: "Badminton match", templateId: nil, durationMin: 60),
         ])])
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: plan, availability: live, templates: [], sessionsForToday: [:],
-            loggedActivities: [], today: "2026-09-09"
-        )
-        guard case .mention(let title, let duration) = WorkoutsPageSelector.select(input).today else {
+        let selection = WorkoutsPageSelector.select(input(currentWeek: plan, availability: live, today: "2026-09-09"))
+        guard case .mention(let title, let duration) = selection.today else {
             return XCTFail("expected .mention")
         }
         XCTAssertEqual(title, "Badminton match")
         XCTAssertEqual(duration, 60)
+        let session = selection.week?.days.first { $0.date == "2026-09-09" }?.sessions.first
+        XCTAssertEqual(session?.isMatchDraft, true)
+        XCTAssertNil(session?.load, "draft load stays blank — planned_load is gone")
     }
 
     func testLiveSessionResolvesToTemplateWhenNoCoachSessionFileExists() {
         let plan = week(days: [day(date: "2026-09-09", sessions: [currentWeekSession()])])
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: plan, availability: live, templates: [template()], sessionsForToday: [:],
-            loggedActivities: [], today: "2026-09-09"
-        )
-        guard case .runnable(let workout, let isSession, let done) = WorkoutsPageSelector.select(input).today else {
+        let selection = WorkoutsPageSelector.select(input(
+            currentWeek: plan, availability: live, templates: [template()], today: "2026-09-09"
+        ))
+        guard case .runnable(let workout, let isSession, let done) = selection.today else {
             return XCTFail("expected .runnable")
         }
         XCTAssertEqual(workout.id, "tmpl_a")
         XCTAssertFalse(isSession)
         XCTAssertFalse(done)
+        XCTAssertEqual(selection.week?.days.first { $0.date == "2026-09-09" }?.sessions.first?.isProtocol, true)
     }
 
     func testLiveSessionPrefersCoachAdjustedSessionFileOverTemplate() {
@@ -100,11 +119,10 @@ final class WorkoutsPageSelectorTests: XCTestCase {
             currentWeekSession(status: .done, sessionFile: "user_data/activities/workout_plans/sessions/2026-09-09_tmpl_a.json"),
         ])])
         let sessions = ["tmpl_a": session(id: "tmpl_a", templateId: "tmpl_a", date: "2026-09-09")]
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: plan, availability: live, templates: [template()], sessionsForToday: sessions,
-            loggedActivities: [], today: "2026-09-09"
-        )
-        guard case .runnable(let workout, let isSession, let done) = WorkoutsPageSelector.select(input).today else {
+        let selection = WorkoutsPageSelector.select(input(
+            currentWeek: plan, availability: live, templates: [template()], sessionsForDate: sessions, today: "2026-09-09"
+        ))
+        guard case .runnable(let workout, let isSession, let done) = selection.today else {
             return XCTFail("expected .runnable")
         }
         XCTAssertEqual(workout.title, "Coach-adjusted")
@@ -112,33 +130,40 @@ final class WorkoutsPageSelectorTests: XCTestCase {
         XCTAssertTrue(done, "session already marked done stays runnable, badged done")
     }
 
-    // MARK: - Week band
+    // MARK: - Week
 
-    func testWeekRowsFillFromThePlanRegardlessOfWhichDayIsToday() {
+    func testWeekDaysFillFromThePlanRegardlessOfWhichDayIsToday() {
         let plan = week(days: [
             day(date: "2026-09-07"),
             day(date: "2026-09-08", sessions: [currentWeekSession(title: "Long run", durationMin: 45)]),
         ])
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: plan, availability: live, templates: [], sessionsForToday: [:],
-            loggedActivities: [], today: "2026-09-07"
-        )
-        let week = WorkoutsPageSelector.select(input).week
-        XCTAssertEqual(week?[0].isFilled, false, "blank day means unplanned, not rest")
-        XCTAssertEqual(week?[1].isFilled, true)
-        XCTAssertEqual(week?[1].title, "Long run")
-        XCTAssertEqual(week?[0].isToday, true)
-        XCTAssertEqual(week?[1].isToday, false)
+        let week = WorkoutsPageSelector.select(input(currentWeek: plan, availability: live, today: "2026-09-07")).week
+        XCTAssertEqual(week?.days[0].isRest, true, "blank day is rest, not a missing row")
+        XCTAssertEqual(week?.days[1].isRest, false)
+        XCTAssertEqual(week?.days[1].sessions.first?.title, "Long run")
+        XCTAssertEqual(week?.days[0].isToday, true)
+        XCTAssertEqual(week?.days[1].isToday, false)
+        XCTAssertEqual(week?.number, 37)
     }
 
-    func testNotLiveWithNoLoggedActivityHidesTheWeekBandEntirely() {
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: nil, availability: nil, templates: [], sessionsForToday: [:],
-            loggedActivities: [], today: "2026-09-09"
-        )
-        let selection = WorkoutsPageSelector.select(input)
+    func testTwoSessionsOnOneDayBothSurvive() {
+        let plan = week(days: [day(date: "2026-09-09", sessions: [
+            currentWeekSession(id: "a", title: "Kickstart"),
+            currentWeekSession(id: "b", discipline: .badminton, title: "Match", templateId: nil),
+        ])])
+        let day = WorkoutsPageSelector.select(input(
+            currentWeek: plan, availability: live, templates: [template()], today: "2026-09-09"
+        )).week?.days.first { $0.date == "2026-09-09" }
+        XCTAssertEqual(day?.sessions.map(\.id), ["a", "b"])
+        XCTAssertEqual(WorkoutsPageSelector.defaultFocusIndex(in: day!), 0)
+    }
+
+    func testNotLiveWithNoLoggedActivityStillShowsThisIsoWeek() {
+        let selection = WorkoutsPageSelector.select(input(today: "2026-09-09"))
         XCTAssertEqual(selection.today, .none)
-        XCTAssertNil(selection.week)
+        XCTAssertEqual(selection.week?.days.count, 7)
+        XCTAssertEqual(selection.week?.days.allSatisfy(\.isRest), true)
+        XCTAssertEqual(selection.week?.days.first { $0.isToday }?.date, "2026-09-09")
     }
 
     func testNotLiveWithLoggedActivityShowsOnlyThatIsoWeek() {
@@ -146,19 +171,37 @@ final class WorkoutsPageSelectorTests: XCTestCase {
             fileName: "2026-09-08_run.json", name: "Morning run", sportType: "Run",
             startDateLocal: "2026-09-08T07:00:00", elapsedTime: 1800, hasDescription: true
         )
-        let input = WorkoutsPageSelector.Input(
-            currentWeek: nil, availability: nil, templates: [], sessionsForToday: [:],
-            loggedActivities: [entry], today: "2026-09-09"
-        )
-        let week = WorkoutsPageSelector.select(input).week
+        let week = WorkoutsPageSelector.select(input(loggedActivities: [entry], today: "2026-09-09")).week
         XCTAssertNotNil(week, "logged activity this ISO week must not hide the band")
-        XCTAssertEqual(week?.count, 7)
-        let tuesday = week?.first { $0.date == "2026-09-08" }
-        XCTAssertEqual(tuesday?.isFilled, true)
-        XCTAssertEqual(tuesday?.title, "Morning run")
-        XCTAssertEqual(tuesday?.discipline, .run)
-        let monday = week?.first { $0.date == "2026-09-07" }
-        XCTAssertEqual(monday?.isFilled, false)
+        XCTAssertEqual(week?.days.count, 7)
+        let tuesday = week?.days.first { $0.date == "2026-09-08" }
+        XCTAssertEqual(tuesday?.isRest, false)
+        XCTAssertEqual(tuesday?.sessions.first?.title, "Morning run")
+        XCTAssertEqual(tuesday?.sessions.first?.sport, .run)
+        XCTAssertEqual(tuesday?.sessions.first?.status, .logged)
+        let monday = week?.days.first { $0.date == "2026-09-07" }
+        XCTAssertEqual(monday?.isRest, true)
+    }
+
+    func testSnapshotLoadHintsFillLoggedFiguresAndBand() {
+        let plan = week(days: [
+            day(date: "2026-09-07", sessions: [
+                currentWeekSession(status: .done, completionIds: ["healthkit:abc"]),
+            ]),
+        ])
+        let entry = SyncCacheEntry(
+            fileName: "2026-09-07_fdn.json", name: "Foundation A", sportType: "WeightTraining",
+            startDateLocal: "2026-09-07T07:00:00", elapsedTime: 1800, hasDescription: true
+        )
+        var hinted = entry
+        // activityId join needs a payload; load itself comes from the snapshot hint.
+        let hints = WorkoutsPageSelector.LoadHints(loadByDate: ["2026-09-07": 61], bandLow: 50, bandHigh: 80)
+        let week = WorkoutsPageSelector.select(input(
+            currentWeek: plan, availability: live, loggedActivities: [hinted], loadHints: hints, today: "2026-09-09"
+        )).week
+        XCTAssertEqual(week?.loggedLoad, 61)
+        XCTAssertEqual(week?.bandVerdict, "in the band")
+        XCTAssertEqual(week?.days.first?.observedLoad, 61)
     }
 
     // MARK: - mondayOfWeek

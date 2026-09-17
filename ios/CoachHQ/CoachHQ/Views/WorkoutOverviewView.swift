@@ -20,7 +20,7 @@ struct WorkoutOverviewView: View {
             .padding(.top, 16)
             .padding(.bottom, WarmMainDockLayout.scrollBottomClearance)
         }
-        .background(Theme.mutedBackground)
+        .background(WarmInstrument.desk)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             withAnimation(PremiumMotion.dock) {

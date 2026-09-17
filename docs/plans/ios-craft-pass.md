@@ -39,7 +39,7 @@ Bar: sit with every state, as the ledger did. Do not clone paper stacks, `‹ HQ
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Shared wait | Wave + Signal replace the wait map. Ink on desk. Reduce Motion freezes. | `main` | `ios/CoachHQ/CoachHQ/Views/WarmLoaders.swift`, `WarmInstrumentAtoms.swift`, `WarmInstrumentHomeView.swift`, `CoachChatView.swift`, `CoachChatWarmUI.swift`, `WorkoutListView.swift`, `AllActivitiesListView.swift`, `ActivityDetailView.swift`, `SettingsView.swift`, `HealthSettingsView.swift`, `LoginView.swift`, `SetupView.swift`, `ios/DESIGN.md`, `docs/plans/ios-craft-pass.md`, `docs/plans/ios-craft-pass-lld.md` | iOS Builder | — | |
-| 2 | 2 Train | TODAY none/rest/mention as a quiet paper card. Activity-week rows even with library. Dock clears last card and Start pill. | PR 1 | `ios/CoachHQ/CoachHQ/Views/WorkoutListView.swift`, `WorkoutOverviewView.swift` | iOS Builder | 3,4,5,6 | |
+| 2 | 2 Train | Day Card (five voices) + Week Strip L + library. No START on the card. Dock clears the open week list. | PR 1 | `ios/CoachHQ/CoachHQ/Views/WorkoutListView.swift`, `TrainDayCard.swift`, `TrainWeekStrip.swift`, `Services/WorkoutsPageSelector.swift`, `WorkoutOverviewView.swift`, `ios/DESIGN.md`, `docs/plans/ios-craft-pass.md`, `docs/plans/ios-craft-pass-lld.md` | iOS Builder | 3,4,5,6 | |
 | 3 | 3 Home + Engine | Home: layout-true wait already from PR 1; dock clears calories/quest; recent rows tappable; empty/error in Home type. Engine: hide system Back, desk, hide tab bar, dose as a card. | PR 1 | `ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift`, `Views/Widgets/RecentSessionsCard.swift` | iOS Builder | 2,4,5,6 | |
 | 4 | 4 Chat | Keep header + composer while Wave runs. Drop preview history on the live path. Placeholder + haptics. | PR 1 | `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift`, `CoachChatWarmUI.swift`, `CoachChatPreviewData.swift` | iOS Builder | 2,3,5,6 | |
 | 5 | 4 Detail | Quiet header. Beat 01 honest for load and no-HR. Hide `0m` zone legend. Errors use alarm ink, not terracotta. | PR 1 | `ios/CoachHQ/CoachHQ/Views/ActivityDetailView.swift` | iOS Builder | 2,3,4,6 | |
@@ -50,7 +50,7 @@ File overlap is PR 1 vs everyone. After PR 1 merges, 2–6 are disjoint and may 
 ## Done when
 
 1. No live wait in the map still uses `ProgressView` or `HomeSkeletonView`.
-2. Train TestFlight frame (TODAY none + activity week + library) reads as one page; dock clips nothing.
+2. Train is one page: Day Card, Week Strip L, library. Rest and hist-week have a designed voice. Dock clips nothing.
 3. Engine push shows desk and no system Back; tab bar does not eat the coach card.
 4. Chat never shows a chrome-less spinner; history has no preview threads.
 5. Detail empty-note sessions do not print `BASE 0m`; no-HR leaves no blank stat shelf.

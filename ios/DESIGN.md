@@ -114,6 +114,14 @@ One primary, one secondary. Signal in a fixed slot beside the label; the pair is
 
 Chip and empty stay for a later kit pass. Don't add a per-screen `ButtonStyle` for the same job.
 
+## Train
+
+Day Card + Week Strip L + library. Day Card is the day's focused session (receipt, rest, protocol draft, match draft). Cubes are equal-width; ticks stack; logged / today / draft / rest strokes follow the four cube states. Pointer under today, ring 2pt outside any other selected day. Week header is `WK N` plus the chevron — no strip total, no band verdict. Load lives on the cube (day) and once on the Day Card footer (session). Duration uses `Format.duration` (`2h 47m`). Receipt footer is TIME · LOAD · KCAL under a hairline. No sport glyph on the Day Card.
+
+Haptics: `.light` on cube select and pill swap. Silent chevron and swipe settle. Timer Start lives on workout overview, not the Day Card. Cube select remounts the Day Card with a ≤180ms spring slide on the card only.
+
+Terracotta is load figures and WarmPrimary only. Draft load is `—` until a real projected number exists. HR ribbon uses a stored stream, or the slot stays empty. The today cube is how you get back — no `TODAY ›` on other Day Cards.
+
 Craft of other live screens (care, not a ledger clone) is `docs/plans/ios-craft-pass.md`. Audit detail: `docs/plans/ios-craft-pass-lld.md`. Delete both on the last PR of #1159.
 
 ---
