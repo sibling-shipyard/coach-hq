@@ -49,6 +49,7 @@
 | 0048 | Close agent-scope gaps, correct Tech Lead's own delegation | cross-cutting |
 | 0049 | Lazy week rollover from coach-chat, alongside the CI job | core |
 | 0050 | Match history keys each session by its history file | cross-cutting (iOS, pipeline, web) |
+| 0051 | Script file-extension convention: .mjs for build-time, .ts/.mts for typed | cross-cutting |
 
 <details>
 <summary>Superseded / historical (5) — kept for the citations, not for the boot read</summary>
