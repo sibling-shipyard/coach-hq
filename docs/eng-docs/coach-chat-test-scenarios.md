@@ -1,6 +1,6 @@
 # Coach chat - test scenario catalog
 
-> Status: Current · Owner: vade-the-tester · Verified: 2026-09-15 (coverage-audit phase 1 follow-up)
+> Status: Current · Owner: vade-the-tester · Verified: 2026-09-17
 
 ## Context
 
@@ -79,6 +79,8 @@ the fourth test type for mechanics.
 | `quest-event` | `manual-coach-chat-turns-quest-event.json` | 3 (incl. greet) | new (coverage-audit phase 1); real-write companion to eval `16` - a habit completion commits `progress.json`, previously never checked live | turn 1: `progress.json` changed; turn 2: PASS |
 | `quest-create-standalone` | `manual-coach-chat-turns-quest-create-standalone.json` | 3 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `11` - a standalone new habit with zero season/goal language commits `quests.json` | turn 1: `quests.json` changed; turn 2: PASS |
 | `template-edit-permanent` | `manual-coach-chat-turns-template-edit.json` | 4 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `21` - creates a routine, then permanently edits it ("going forward", not "just today") | turn 1: `templates/_manifest.json` changed; turn 2: `workout_plans/templates/` file changed; turn 3: PASS |
+| `multi-field-success` | `manual-coach-chat-turns-multi-field-success.json` | 3 (incl. greet) | new (#1105 B2); one message asking for a permanent `template_edit` and a this-week-only `week_update` together - proves two real action fields can both land from one turn, not just fail together (`fullTurnPipeline.test.ts` only ever proved the failure case) | turn 1: `current_week.json` and `workout_plans/templates/` both changed; turn 2: PASS |
+| `compound-narration-probe` | `manual-coach-chat-turns-compound-narration-probe.json` | 4 (incl. greet) | new (#1105 B3); reuses the compound-message shape that dropped `memory_update` (#1085), aimed at `template_edit` and `week_update` instead - not a known-good case, the `expect` block reports honestly whichever way each write goes | turn 1: `workout_plans/templates/` changed; turn 2: `current_week.json` changed; turn 3: PASS |
 
 ## What replaced what
 
@@ -92,7 +94,12 @@ the coverage matrix below for what each new one closes.
 eval-audit pass. The original estimate was 2 named plus roughly 8 more; the real count, confirmed
 unreferenced anywhere by grep before deletion, was 11. That same pass gained one new file
 (`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass and its #1066
-follow-up together added 9 more turns files and 9 more `SCENARIOS` entries, for 13 total today.
+follow-up together added 9 more turns files and 9 more `SCENARIOS` entries. The test-harness
+hardening pass (#1105) added 2 more: `multi-field-success` and `compound-narration-probe`. It also
+added a `seedMessages` precondition-seeding mechanism (B1, no new scenario) and an
+`--all-repos`/`--repo` override for running the whole suite against any real athlete repo (A3) - see
+`docs/eng-docs/coach-chat-testing.md`'s "fourth test type" section for both mechanics. 15
+`SCENARIOS` entries total today.
 
 ## Coverage matrix (coverage-audit phase 1, 2026-09-15; closed out by #1066 same day)
 
@@ -106,7 +113,7 @@ dedicated assertion.
 
 | Action field | Writes to | Eval coverage | Simulation coverage | Status |
 |---|---|---|---|---|
-| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | fires on nearly every turn across all scenarios, but no scenario asserts `coach_log.json` itself changed | Covered (eval); simulation coverage is real but implicit - see note below |
+| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | `daily-basic` turn 1 asserts `coach_log.json` changed (#1144) | Covered |
 | `memory_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
 | `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport` | Gap → closed |
 | `sports_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
