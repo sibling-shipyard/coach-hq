@@ -66,9 +66,18 @@ import { fileURLToPath } from "node:url";
 
 import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
-import { dailyLogDir, repoRoot, type FilesChanged, type TestLogEntry } from "../scripts/lib/testLog.js";
+import {
+  dailyLogDir,
+  repoRoot,
+  type FilesChanged,
+  type TestLogEntry,
+} from "../scripts/lib/testLog.js";
 import { formatCostUsd } from "../scripts/lib/llmPricing.js";
-import { readCoverageIndex, writeCoverageEntry, coverageKey } from "../scripts/lib/coverageIndex.js";
+import {
+  readCoverageIndex,
+  writeCoverageEntry,
+  coverageKey,
+} from "../scripts/lib/coverageIndex.js";
 import {
   ATHLETE_REPOS,
   resolveAthleteOverride,

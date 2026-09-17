@@ -7,15 +7,15 @@ either of those. Owned by vade-the-tester (ADR 0044) - mechanics for all four te
 
 ## Contents
 
-| Path                                  | What it is                                                                        |
-| -------------------------------------- | ---------------------------------------------------------------------------------- |
-| `eval-coach-chat.ts`                   | Golden-transcript eval - real `askGemini()` call per transcript, structural rubric only, no repo writes |
-| `run-manual-coach-chat-test.ts`        | Drives a real conversation through the hosted coach-chat handler against a real athlete repo, on a scratch branch |
-| `run-manual-coach-message-test.ts`     | Same, against the coach-message (post-sync proactive) handler                    |
-| `run-manual-simulation-suite.ts`       | Runs the tracked `SCENARIOS` library through `run-manual-coach-chat-test.ts`'s real pipeline, scored against each scenario's `expect` block |
-| `prefix-cache-probe.ts`                | Throwaway probe (#890), not wired into any npm script or CI                      |
-| `examples/`                            | Manual coach-chat `--turns` fixtures - both the simulation suite's tracked scenarios and ad hoc example conversations |
-| `transcripts/`                         | Golden transcripts `eval-coach-chat.ts` runs                                     |
+| Path                               | What it is                                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eval-coach-chat.ts`               | Golden-transcript eval - real `askGemini()` call per transcript, structural rubric only, no repo writes                                     |
+| `run-manual-coach-chat-test.ts`    | Drives a real conversation through the hosted coach-chat handler against a real athlete repo, on a scratch branch                           |
+| `run-manual-coach-message-test.ts` | Same, against the coach-message (post-sync proactive) handler                                                                               |
+| `run-manual-simulation-suite.ts`   | Runs the tracked `SCENARIOS` library through `run-manual-coach-chat-test.ts`'s real pipeline, scored against each scenario's `expect` block |
+| `prefix-cache-probe.ts`            | Throwaway probe (#890), not wired into any npm script or CI                                                                                 |
+| `examples/`                        | Manual coach-chat `--turns` fixtures - both the simulation suite's tracked scenarios and ad hoc example conversations                       |
+| `transcripts/`                     | Golden transcripts `eval-coach-chat.ts` runs                                                                                                |
 
 ## Why this is its own folder
 
