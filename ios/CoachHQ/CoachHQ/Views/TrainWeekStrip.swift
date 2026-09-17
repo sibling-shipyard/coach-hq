@@ -337,6 +337,10 @@ enum TrainFormat {
         label(date, format: "EEE d").uppercased()
     }
 
+    static func pageDate(_ date: String) -> String {
+        label(date, format: "EEE d MMM").uppercased()
+    }
+
     static func sportCode(_ sport: WarmSportId) -> String {
         switch sport {
         case .badminton: return "BDM"

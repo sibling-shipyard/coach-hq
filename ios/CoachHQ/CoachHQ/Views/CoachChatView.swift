@@ -11,6 +11,7 @@ struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
     @EnvironmentObject private var syncManager: HealthKitSyncManager
     @Binding private var requestedProactiveRoute: CoachMessageRoute?
+    var onPop: (() -> Void)? = nil
 
     @State private var apiClient: CoachChatAPIClient?
     @State private var threads: [ChatThread] = []
@@ -43,8 +44,12 @@ struct CoachChatView: View {
     /// ActivitySyncEpoch.shouldApply for activity-sync turns.
     @State private var proactiveRouteEpoch = 0
 
-    init(requestedProactiveRoute: Binding<CoachMessageRoute?>) {
+    init(
+        requestedProactiveRoute: Binding<CoachMessageRoute?>,
+        onPop: (() -> Void)? = nil
+    ) {
         _requestedProactiveRoute = requestedProactiveRoute
+        self.onPop = onPop
     }
 
     /// Day label comes from a live fetch of profile.json's coach_since (same math as web's
@@ -206,7 +211,8 @@ struct CoachChatView: View {
             }
         }
         .animation(.spring(duration: 0.25, bounce: 0), value: showErrorDialog)
-        .hidesMainTabBar(keyboardVisible)
+        .hidesMainTabBar(onPop != nil || keyboardVisible)
+        .edgeBackSwipe(enabled: onPop != nil) { onPop?() }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardVisible = true
         }
@@ -240,8 +246,14 @@ struct CoachChatView: View {
         VStack(spacing: 0) {
             CoachChatHeaderBar(
                 context: headerContext.forDisplayThread(displayThread),
-                showsBack: !isViewingToday,
-                onBack: isViewingToday ? nil : { selectTodayThread() },
+                showsBack: onPop != nil || !isViewingToday,
+                onBack: {
+                    if !isViewingToday {
+                        selectTodayThread()
+                    } else {
+                        onPop?()
+                    }
+                },
                 onHistory: { showHistorySheet = true }
             )
 
