@@ -40,7 +40,14 @@ struct RecentSessionsCard: View {
                     VStack(spacing: 0) {
                         ForEach(Array(visible.enumerated()), id: \.element.id) { index, session in
                             if compact {
-                                SessionRow(session: session, compact: true)
+                                Button {
+                                    handleEdit(session)
+                                } label: {
+                                    SessionRow(session: session, compact: true)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(RowPressButtonStyle())
                             } else {
                                 SwipeToEditRow(onEdit: { handleEdit(session) }) {
                                     SessionRow(session: session).padding(.horizontal, 2)

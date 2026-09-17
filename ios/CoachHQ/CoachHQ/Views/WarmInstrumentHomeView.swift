@@ -40,6 +40,9 @@ struct WarmInstrumentHomeView: View {
 
     private var homeOrder: [WidgetCatalogKey] { WidgetCatalogKey.parseOrder(homeOrderRaw) }
 
+    /// Compact calories + quest share this height (`CaloriesCard` / `QuestCard`).
+    private static let caloriesQuestPairMinHeight: CGFloat = 148
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
@@ -78,7 +81,15 @@ struct WarmInstrumentHomeView: View {
                 .padding(.horizontal, 16)
                 .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
-            .mainTabScrollBottomClearance()
+            // Dock ~84pt is shorter than the calories/quest pair (minHeight 148). Local
+            // inset only — Theme.mainTabScrollBottomClearance stays shared.
+            .contentMargins(
+                .bottom,
+                WarmMainDockLayout.dockHeight
+                    + Self.caloriesQuestPairMinHeight
+                    + WarmMainDockLayout.scrollBottomBreathingRoom,
+                for: .scrollContent
+            )
             .scrollClipDisabled()
             .scrollContentBackground(.hidden)
             .refreshable { await store.refresh(showSpinner: false) }
@@ -188,7 +199,7 @@ struct WarmInstrumentHomeView: View {
                 } label: {
                     EngineCard(size: WidgetSize(rawValue: engineSize) ?? .m, sizes: snapshots.sizes.engine)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CardPressButtonStyle())
             }
             .scaleEffect(enginePulse ? 1.02 : 1)
             .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
@@ -314,37 +325,41 @@ struct WarmInstrumentHomeView: View {
     }
 
     private var repoNotConfiguredState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 36))
-                .foregroundColor(WarmInstrument.accent)
-            Text("Coach repo not found")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(WarmInstrument.ink)
-            Text("Signed in as \(authManager.user?.login ?? "GitHub"), but no `coach-*` repo was discovered. Check Settings for the linked repo.")
-                .font(.system(size: 12))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 12)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 100)
+        homeTypedEmpty(
+            kicker: "REPO",
+            body: "Signed in as \(authManager.user?.login ?? "GitHub"), but no coach repo was found. Check Settings for the linked repo."
+        )
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "gauge.with.dots.needle.33percent")
-                .font(.system(size: 36))
-                .foregroundColor(WarmInstrument.accent)
-            Text("Home isn't synced yet")
-                .font(.system(size: 16, weight: .semibold))
+        homeTypedEmpty(
+            kicker: "HOME",
+            body: "Home isn't synced yet. Pull down to fetch this week's snapshot."
+        )
+    }
+
+    private var fetchFailedState: some View {
+        homeTypedEmpty(
+            kicker: "HOME",
+            body: "Couldn't load this week's snapshot. Pull down to try again."
+        )
+    }
+
+    /// Mono kicker + serif italic body — Home's empty language, not SF Symbol + caption.
+    private func homeTypedEmpty(kicker: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(kicker)
+                .font(WarmInstrument.monoLabel(10))
+                .tracking(1.2)
+                .foregroundColor(WarmInstrument.inkFaint)
+            Text(body)
+                .font(WarmInstrument.coachVoice(16))
                 .foregroundColor(WarmInstrument.ink)
-            Text("Pull down to fetch this week's snapshot.")
-                .font(.system(size: 12))
-                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 100)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 48)
+        .padding(.horizontal, 6)
     }
 }
 
@@ -360,16 +375,16 @@ private struct EngineFirstVisitOverlay: View {
             VStack(spacing: 10) {
                 Text("This is your weekly load")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(WarmInstrument.onAccent)
                 Text("Coach uses your training dose score to calibrate what's next. Tap the Engine any time for the full breakdown.")
                     .font(WarmInstrument.coachVoice(13))
-                    .foregroundColor(.white.opacity(0.88))
+                    .foregroundColor(WarmInstrument.onAccent.opacity(0.88))
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
                 Text("TAP TO DISMISS")
                     .font(WarmInstrument.monoLabel(9))
                     .tracking(0.8)
-                    .foregroundColor(.white.opacity(0.45))
+                    .foregroundColor(WarmInstrument.onAccent.opacity(0.45))
             }
             .padding(20)
         }
