@@ -610,6 +610,7 @@ struct SettingsView: View {
     private var appStateLabel: String {
         switch router.state {
         case .bootstrapping:          return "bootstrapping"
+        case .sessionUnavailable:     return "sessionUnavailable"
         case .unauthenticated:        return "unauthenticated"
         case .needsSetup(let login):  return "needsSetup(\(login))"
         case .multipleReposGranted:   return "multipleReposGranted"

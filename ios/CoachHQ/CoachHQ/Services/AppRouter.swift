@@ -5,6 +5,7 @@ import Combine
 
 enum AppState: Equatable {
     case bootstrapping
+    case sessionUnavailable
     case unauthenticated
     case needsSetup(login: String)
     case multipleReposGranted
@@ -13,6 +14,7 @@ enum AppState: Equatable {
     var diagnosticViewName: String {
         switch self {
         case .bootstrapping: "launch"
+        case .sessionUnavailable: "session retry"
         case .unauthenticated: "sign in"
         case .needsSetup: "setup"
         case .multipleReposGranted: "multiple repos"
@@ -89,8 +91,8 @@ final class AppRouter: ObservableObject {
     // phase when state first reaches .active so the intro flow always shows after setup.
     private var hasBeenInSetup = false
 
-    init() {
-        authManager = GitHubAuthManager()
+    init(authManager: GitHubAuthManager? = nil) {
+        self.authManager = authManager ?? GitHubAuthManager()
         loadPhase()
         observeAuth()
         deriveState()
@@ -145,6 +147,11 @@ final class AppRouter: ObservableObject {
             .sink { [weak self] _ in self?.deriveState() }
             .store(in: &cancellables)
 
+        authManager.$bootstrapNeedsRetry
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.deriveState() }
+            .store(in: &cancellables)
+
         // Account-switch check — runs each time session becomes ready (false → true).
         authManager.$isSessionReady
             .filter { $0 }
@@ -163,7 +170,7 @@ final class AppRouter: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func deriveState() {
+    func deriveState() {
         // Capture setup-visited flag before any state mutation.
         if case .needsSetup = state { hasBeenInSetup = true }
         let wasActive = state == .active
@@ -172,6 +179,7 @@ final class AppRouter: ObservableObject {
             state = .bootstrapping
             return
         }
+        if authManager.bootstrapNeedsRetry { state = .sessionUnavailable; return }
         // pendingSetupLogin is set by the needs_setup=1 callback branch, which does NOT set
         // isAuthenticated — check it before the auth guard so SetupView renders correctly.
         if let login = authManager.pendingSetupLogin { state = .needsSetup(login: login); return }
@@ -192,9 +200,7 @@ final class AppRouter: ObservableObject {
             }
             return
         }
-        // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:
-        // zombie-token path — bootstrapSession() should have called signOut(), but guard here.
-        state = .unauthenticated
+        state = .sessionUnavailable
     }
 
     // MARK: - Account switch

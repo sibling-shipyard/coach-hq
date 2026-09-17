@@ -37,6 +37,7 @@ class GitHubAuthManager: ObservableObject {
     /// Surfaced by LoginView/SetupView so a network blip during sign-in doesn't leave
     /// `user`/`selectedRepo` silently unset with no signal to the person looking at the screen.
     @Published var lastNetworkError: String?
+    @Published private(set) var bootstrapNeedsRetry = false
     /// True once any screen's API call comes back 401 - MainTabView shows one shared
     /// "sign in again" screen over the whole app instead of each tab reacting on its own
     /// (Home/Activity used to just toast it, Workouts didn't surface it at all).
@@ -320,10 +321,38 @@ class GitHubAuthManager: ObservableObject {
     /// a stored token.
     func bootstrapSession() async {
         isSessionReady = false
+        bootstrapNeedsRetry = false
         lastNetworkError = nil
-        await fetchUser()
+        refreshFailedTransiently = false
+        let token: String?
+        if let bootstrapTokenProvider {
+            let provided = await bootstrapTokenProvider()
+            token = provided.token
+            refreshFailedTransiently = provided.refreshFailedTransiently
+        } else {
+            token = await validToken()
+        }
+        guard let token else {
+            markBootstrapUnavailable()
+            return
+        }
+        let refreshFailed = refreshFailedTransiently
+        switch await fetchUser(using: token) {
+        case .rejected where !refreshFailed:
+            signOut(reason: .credentialRejected)
+            return
+        case .rejected, .retry:
+            markBootstrapUnavailable()
+            return
+        case .success:
+            break
+        }
         normalizeSelectedRepo()
-        await resolveRepoIfNeeded()
+        let repoResult = await resolveRepoIfNeeded(using: token)
+        if repoResult == .retry {
+            markBootstrapUnavailable()
+            return
+        }
         normalizeSelectedRepo()
         // 2+ repos granted (ADR 0019) - block with a distinct message, never fall into Setup;
         // the account already has a coach-phelps repo, it just also has extras.
@@ -340,40 +369,41 @@ class GitHubAuthManager: ObservableObject {
             // and resolveRepoIfNeeded() finds the repo.
             pendingSetupLogin = nil
         }
-        // Token present but user and repo both unresolvable — stale or revoked token.
-        // signOut() clears the keychain so the next launch gets a clean LoginView
-        // instead of looping on the same failure.
-        if selectedRepo == nil && pendingSetupLogin == nil {
-            signOut(reason: .bootstrapUnresolvedState)
-            return
-        }
         isSessionReady = true
     }
 
+    private func markBootstrapUnavailable() {
+        lastNetworkError = lastNetworkError ?? "Couldn't reconnect to GitHub. Check your connection and try again."
+        bootstrapNeedsRetry = true
+        isSessionReady = true
+    }
+
+    private enum BootstrapResult { case success, rejected, retry }
+    private enum RepoLookupResult: Equatable { case resolved, noRepo, multiple, retry }
+
     /// Fallback repo resolution for the rare case handleCallback() didn't already get one,
     /// via list-my-repos.ts's bearer-token auth path.
-    private func resolveRepoIfNeeded() async {
-        guard selectedRepo == nil, let token = await validToken() else { return }
-        guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/list-my-repos") else { return }
+    private func resolveRepoIfNeeded(using token: String) async -> RepoLookupResult {
+        if selectedRepo != nil { return .resolved }
+        guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/list-my-repos") else { return .retry }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let operationID = UUID()
         do {
             let (data, response) = try await performDataRequest(request)
-            guard let http = response as? HTTPURLResponse else { return }
+            guard let http = response as? HTTPURLResponse else { return .retry }
             if http.statusCode == 409,
                let result = try? JSONDecoder().decode(RepoResolution.self, from: data),
                result.reason == "multiple_repos_granted" {
                 multipleReposDetected = true
-                return
+                return .multiple
             }
-            // Non-2xx responses (e.g. 401 token rejected by server) return an error body
-            // that won't decode as RepoResolution — treat them as no-repo-found rather than
-            // silently discarding. selectedRepo stays nil and bootstrapSession routes
-            // to pendingSetupLogin or zombie-token cleanup as appropriate.
+            // This endpoint also returns 401 when the App installation is absent. The
+            // successful /user response above proves the token itself is usable.
+            if http.statusCode == 401 { return .noRepo }
             guard (200..<300).contains(http.statusCode) else {
-                print("list-my-repos HTTP \(http.statusCode) — treating as unresolved")
+                lastNetworkError = "Couldn't look up your repo just now. Check your connection and try again."
                 DiagnosticsManager.capture(
                     message: "list-my-repos failed while resolving repo",
                     severity: .fault,
@@ -381,12 +411,12 @@ class GitHubAuthManager: ObservableObject {
                     operationID: operationID,
                     metadata: ["http_status": String(http.statusCode)]
                 )
-                return
+                return .retry
             }
-            if let result = try? JSONDecoder().decode(RepoResolution.self, from: data) {
-                selectedRepo = result.repoFullName
-                normalizeSelectedRepo()
-            }
+            let result = try JSONDecoder().decode(RepoResolution.self, from: data)
+            selectedRepo = result.repoFullName
+            normalizeSelectedRepo()
+            return result.repoFullName == nil ? .noRepo : .resolved
         } catch {
             lastNetworkError = "Couldn't look up your repo just now - check your connection and try again."
             print("Failed to resolve repo: \(error)")
@@ -395,6 +425,7 @@ class GitHubAuthManager: ObservableObject {
                 operation: "github.auth.resolve_repo",
                 operationID: operationID
             )
+            return .retry
         }
     }
 
@@ -411,13 +442,31 @@ class GitHubAuthManager: ObservableObject {
         // validToken(), not loadToken() - runs before GitHubAPIClient's proactive refresh
         // gets a chance to, so a token expired since last session would 401 needlessly at startup.
         guard let token = await validToken() else { return }
+        _ = await fetchUser(using: token)
+    }
+
+    private func fetchUser(using token: String) async -> BootstrapResult {
         var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let operationID = UUID()
         do {
-            let (data, _) = try await performDataRequest(request)
+            let (data, response) = try await performDataRequest(request)
+            guard let http = response as? HTTPURLResponse else { return .retry }
+            if http.statusCode == 401 { return .rejected }
+            guard http.statusCode == 200 else {
+                lastNetworkError = "Couldn't load your GitHub profile just now. Check your connection and try again."
+                DiagnosticsManager.capture(
+                    message: "GitHub profile request failed",
+                    severity: .fault,
+                    operation: "github.auth.fetch_user",
+                    operationID: operationID,
+                    metadata: ["http_status": String(http.statusCode)]
+                )
+                return .retry
+            }
             user = try JSONDecoder().decode(GitHubUser.self, from: data)
+            return .success
         } catch {
             lastNetworkError = "Couldn't load your GitHub profile just now - check your connection and try again."
             print("Failed to fetch user: \(error)")
@@ -426,6 +475,7 @@ class GitHubAuthManager: ObservableObject {
                 operation: "github.auth.fetch_user",
                 operationID: operationID
             )
+            return .retry
         }
     }
 
@@ -580,6 +630,7 @@ class GitHubAuthManager: ObservableObject {
     /// GitHubAPIClient's existing "sign in again" path, just without silent recovery.
     func validToken() async -> String? {
         guard let token = loadToken() else { return nil }
+        refreshFailedTransiently = false
         guard let expiresAt = loadExpiresAt(), expiresAt > Date().addingTimeInterval(300) else {
             return await refreshAccessToken() ?? token
         }
@@ -591,6 +642,7 @@ class GitHubAuthManager: ObservableObject {
     // already serializes access, so caching the in-flight task here makes callers share one
     // exchange instead of racing.
     private var refreshTask: Task<String?, Never>?
+    private var refreshFailedTransiently = false
 
     private func refreshAccessToken() async -> String? {
         if let existing = refreshTask {
@@ -619,6 +671,7 @@ class GitHubAuthManager: ObservableObject {
     /// Test seam for GitHub/API data requests used by coachAppInstalled, resolveRepoIfNeeded,
     /// and fetchUser (I9). Production leaves this nil and uses URLSession.
     var dataRequestHandler: ((URLRequest) async throws -> (Data, URLResponse))?
+    var bootstrapTokenProvider: (() async -> (token: String?, refreshFailedTransiently: Bool))?
 
     /// Base backoff between 502 retries. Tests set this to 0 so they don't sleep.
     var refreshBackoffNanoseconds: UInt64 = 1_500_000_000
@@ -656,6 +709,7 @@ class GitHubAuthManager: ObservableObject {
                 let (data, response) = try await performRefreshRequest(request)
                 guard let http = response as? HTTPURLResponse else {
                     softFallbackReason = "non_http_response"
+                    refreshFailedTransiently = true
                     return nil
                 }
                 if http.statusCode == 200 {
@@ -677,6 +731,7 @@ class GitHubAuthManager: ObservableObject {
                 }
                 // 401 (refresh_failed) or anything else non-200: terminal, fail immediately.
                 softFallbackReason = "http_\(http.statusCode)"
+                refreshFailedTransiently = http.statusCode != 401
                 return nil
             }
             softFallbackReason = "exhausted"
@@ -684,6 +739,7 @@ class GitHubAuthManager: ObservableObject {
         } catch {
             print("Token refresh failed: \(error)")
             softFallbackReason = "exception"
+            refreshFailedTransiently = true
             return nil
         }
     }
@@ -706,17 +762,14 @@ class GitHubAuthManager: ObservableObject {
         case userLogout = "user_logout"
         case setupCancelled = "setup_cancelled"
         case sessionExpired = "session_expired"
-        case bootstrapUnresolvedState = "bootstrap_unresolved_state"
+        case credentialRejected = "credential_rejected"
     }
 
     func signOut(reason: SignOutReason) {
-        var metadata = ["reason": reason.rawValue]
-        if reason == .bootstrapUnresolvedState {
-            metadata["had_network_error"] = String(lastNetworkError != nil)
-        }
+        let metadata = ["reason": reason.rawValue]
         DiagnosticsManager.capture(
             message: "iOS session signed out",
-            severity: reason == .bootstrapUnresolvedState ? .fault : .warning,
+            severity: reason == .credentialRejected ? .fault : .warning,
             operation: "github.auth.sign_out",
             operationID: UUID(),
             metadata: metadata,
@@ -729,6 +782,7 @@ class GitHubAuthManager: ObservableObject {
         deleteKeychainString(for: expiresAtKeychainKey)
         isAuthenticated = false
         isSessionReady = true
+        bootstrapNeedsRetry = false
         user = nil
         selectedRepo = nil
         pendingSetupLogin = nil
