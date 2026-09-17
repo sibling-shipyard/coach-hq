@@ -68,7 +68,7 @@ const GH_HEADERS_JSON = (token: string) => ({
 
 // COACH_CHAT_BRANCH lets a real close be tested end to end on a scratch branch instead of a
 // live athlete's main. Every read (this file) and write (commitFilesAtomic's branch option in
-// coachTurn.ts) must resolve the same way, or a scratch-branch test silently reads real main
+// turnCompletion.ts) must resolve the same way, or a scratch-branch test silently reads real main
 // content while writing to the scratch branch - found and fixed after exactly that happened
 // (coach_notes.md kept re-appending from main's stale baseline instead of building on the
 // previous test commit).
@@ -186,8 +186,8 @@ export interface CoachContext {
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
-// degrades to null rather than throwing. Exported so coachIntents.ts's appliers share this same
-// parse+catch instead of each hand-rolling their own copy.
+// degrades to null rather than throwing. Exported so coachProfileIntents.ts/coachInjuryIntents.ts/
+// coachSeasonQuestIntents.ts's appliers share this same parse+catch instead of each hand-rolling their own copy.
 export function parseJsonOrNull<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {

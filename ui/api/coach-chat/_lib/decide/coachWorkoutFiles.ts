@@ -16,7 +16,7 @@ export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templat
 // coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory
 // B_engine.md's "Persisting Session Files" ritual already writes to by hand
 // (sessions/YYYY-MM-DD_<workout_id>.json) - this just gives that path a named constant like
-// TEMPLATES_PATH_PREFIX has, so coachTurn.ts doesn't hand-roll the string.
+// TEMPLATES_PATH_PREFIX has, so buildTurnWrites.ts/turnCompletion.ts don't hand-roll the string.
 export const SESSIONS_PATH_PREFIX = "user_data/activities/workout_plans/sessions/";
 // Write-once sentinel: no directory-listing API exists in this codebase's GitHub plumbing
 // (githubGitData.ts only ever reads/writes single known paths), so rather than invent one, this

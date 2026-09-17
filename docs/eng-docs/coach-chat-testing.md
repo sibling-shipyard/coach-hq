@@ -59,14 +59,16 @@ directory.
 - **`layer1-gemini/`** - the Gemini call end to end through `geminiClient.ts::askGemini` (prompt
   building) into `_lib/llmAdapters/geminiAdapter.ts` (the actual HTTP call, explicit cache, retry -
   moved there by #713 M2 PR 2). Mocks `fetch` only.
-- **`layer2-fields/`** - decision -> file content, the pure appliers (`coachIntents.ts`,
-  `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `turnWrites/*.ts`). No network at all.
+- **`layer2-fields/`** - decision -> file content, the pure appliers (`coachProfileIntents.ts`,
+  `coachInjuryIntents.ts`, `coachSeasonQuestIntents.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
+  `turnWrites/*.ts`). No network at all.
 - **`layer3-commit`** - file content -> git commit (`githubGitData.ts::commitFilesAtomic`). Mocks
   `fetch` only.
 - **`integration/`** - `fullTurnPipeline.test.ts` wires all three together, `fetch` mocked only at
-  the Gemini/GitHub boundary; `coachTurn.test.ts` / `coachTurn-reprompt.test.ts` /
-  `activitySyncTurn.test.ts` mock `commitFilesAtomic`/`askGemini` directly to check `coachTurn.ts`'s
-  own stage logic in isolation.
+  the Gemini/GitHub boundary. `coachTurn.test.ts` / `coachTurn-reprompt.test.ts` /
+  `activitySyncTurn.test.ts` mock `commitFilesAtomic`/`askGemini` directly to check the turn
+  pipeline's own stage logic in isolation - `turnRequest.ts`, `requestCoachReply.ts`,
+  `turnReplyValidation.ts`, `buildTurnWrites.ts`, `turnCompletion.ts`.
 
 **Only the network edge is ever faked.** `fetch`/`fetchWithTimeout` is the sole mock in every one
 of these files - JSON parsing, schema handling, turnWrites, and commit-payload construction are
@@ -95,7 +97,7 @@ that would need a second, more expensive judge-model call per transcript, deferr
 **Mechanics** (`ui/eval/eval-coach-chat.ts`) - runs golden transcripts
 (`ui/eval/transcripts/`) against a live Gemini call. No real repo
 writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
-exercises `coachTurn.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
+exercises `requestCoachReply.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
 single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
 real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024/0047), so it's manual only,
 never automatic - `.github/workflows/eval-coach-chat.yml` runs on `workflow_dispatch` alone. It
@@ -144,7 +146,7 @@ guard once deferred pending D1 is in now too (`#40`), D1 having landed.
   `18` in `docs/eng-docs/coach-chat-test-scenarios.md`) plus a simulation-suite scenario for
   real-write coverage. This closes the gap this bullet used to name - see that doc's coverage
   matrix for the full cross-reference.
-- Because this tool calls `askGemini()` directly, it structurally cannot exercise `coachTurn.ts`'s
+- Because this tool calls `askGemini()` directly, it structurally cannot exercise `requestCoachReply.ts`'s
   reprompt mechanism - a false PASS here says nothing about whether the reprompt/guard layer
   (see `gemini-flow.md`'s "Narration-vs-action reliability guards" coverage table) is working.
   Only `test:coach-chat-manual` and the layered `coachTurn-reprompt.test.ts` suite can.
@@ -232,7 +234,7 @@ curl -s -o /dev/null -w "%{http_code}" \
 against it.
 
 **Testing a change that lives on an unmerged PR branch - use a worktree of that branch, not HQ's
-own `main` checkout.** HQ's `main` lags every open PR stack. Concretely: `coachTurn.ts` on `main`
+own `main` checkout.** HQ's `main` lags every open PR stack. Concretely: `requestCoachReply.ts` on `main`
 may still call `askGemini`/direct-Gemini unconditionally, bypassing `selectLlmAdapter` entirely.
 Setting `LLM_PROVIDER=openrouter` against `main` can then silently no-op, or silently ignore the
 setting and hit direct Gemini anyway, instead of erroring. That's worse than a crash - it looks

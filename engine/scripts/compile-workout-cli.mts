@@ -1,7 +1,7 @@
 /**
  * Thin command-line wrapper around compileWorkout() for the BYO Claude Code path (A4, #727).
  * The chat runtime reaches the same compiler through a bundle shim
- * (ui/api/coach-chat/_lib/compile-workout.bundle.js, built by
+ * (ui/api/coach-chat/_lib/_generated/compile-workout.bundle.js, built by
  * ui/scripts/build/bundle-compile-workout-api.mjs) - Claude Code has no JS import boundary to cross, so
  * it needs a plain CLI instead, and rest/prep-second timer physics belongs to the compiler, not
  * to whatever prose Coach would otherwise reason through by hand.

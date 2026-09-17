@@ -2,7 +2,7 @@
 
 ```
 platform/soul/          ← source layers (edit these)
-platform/SOUL.chat.md   ← composed output for coach-chat (bundled by ui/scripts/build-soul.mjs)
+platform/SOUL.chat.md   ← composed output for coach-chat (bundled by ui/scripts/build/build-soul.mjs)
 platform/SOUL.claude.md ← composed output for BYO Claude Code
 ```
 

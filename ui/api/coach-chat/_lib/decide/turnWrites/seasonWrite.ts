@@ -1,4 +1,4 @@
-// season_start: the seasons.json + quests.json write pair - see coachIntents.ts's
+// season_start: the seasons.json + quests.json write pair - see coachSeasonQuestIntents.ts's
 // applySeasonStart for the pure season-and-goal logic this wraps with I/O. Two files because a
 // new season and its main_quest are one atomic action (B3): the new season id has to reach both
 // files, and the outgoing season's own main_quest (if any) needs to be read from quests.json to
@@ -6,7 +6,7 @@
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import { applySeasonStart, type SeasonStartResult } from "../coachIntents.js";
+import { applySeasonStart, type SeasonStartResult } from "../coachSeasonQuestIntents.js";
 import { SEASONS_PATH, QUESTS_PATH } from "../coachQuestFiles.js";
 
 export interface SeasonStartWrites {

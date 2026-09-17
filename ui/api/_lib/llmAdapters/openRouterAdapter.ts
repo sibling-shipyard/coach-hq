@@ -76,7 +76,7 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
 }
 
 // sumDefined moved to sentry.ts, next to GeminiUsage itself, so it has one home instead of
-// living in a provider-specific adapter file that geminiClient.ts/coachTurn.ts had to reach into.
+// living in a provider-specific adapter file that geminiClient.ts/requestCoachReply.ts had to reach into.
 
 /**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one

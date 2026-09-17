@@ -60,7 +60,7 @@ Open/resolved injury flags. Written by `turnWrites/injuryWrite.ts` (`buildInjury
 ### `user_data/coach/coach_log.json`
 
 Rolling session continuity log — replaced `state.md`'s narrative sections and `coach_notes.md`.
-Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`), which calls `coachIntents.ts`'s
+Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`), which calls `coachProfileIntents.ts`'s
 `applyCoachNote`.
 
 Day-keyed, not append-only (C2): one row per calendar date. A `coach_note` on a day with an
@@ -68,7 +68,7 @@ existing row overwrites that row's `text`/`ts`/`trace_id` in place, reusing its 
 on a new day appends a fresh row. `coach_note` is available on every ordinary turn (see
 `gemini-flow.md`'s Action-field table). It is required whenever the same reply also sets
 `profile_update`, `memory_update`, `injury_flag`, `injury_event`, `quest_event`, `quest_create`, or
-`season_start`. `coachTurn.ts`'s `missingRequiredCoachNote` corrective-retry check enforces this,
+`season_start`. `turnReplyValidation.ts`'s `missingRequiredCoachNote` corrective-retry check enforces this,
 the same mechanism `findOversizedTextField` already used for the text-cap reprompt.
 
 | Field | Type | Notes |
@@ -221,7 +221,7 @@ Structural shape validated at runtime by `workoutSchema.ts`'s `validateWorkout()
 file's own header comment for why it exists as a runtime guard, not just a test helper. Written
 via `turnWrites/workoutWrite.ts` (`buildTemplateEditWrite`, `buildSessionPlanWrite`,
 `buildWorkoutCreateWrite`) and, for the one benchmark routine written at First Session close,
-`coachTurn.ts`'s `generateFirstSessionWorkoutsAfterCompletion` (A3 #727).
+`turnCompletion.ts`'s `generateFirstSessionWorkoutsAfterCompletion` (A3 #727).
 
 **`Workout.workout_type` enum:** `"foundation" \| "strength" \| "recovery" \| "realign" \| "calisthenics"`.
 **`Exercise.type` enum:** `"timed" \| "reps"` — a `timed` exercise requires `duration_secs` and
@@ -352,14 +352,15 @@ no season change at all).
 
 **`pending_clarification`** (Bug 3, string, optional) — a same-pass self-report of any open
 either/or question the reply itself left unanswered. Persisted via `coach_log.json` the same way
-`coach_note` is, and checked next turn (`findUnconfirmedAssumption` in `coachTurn.ts`) before any
-action field that touches the same session is allowed to commit — see `chat-llm-seam.md` and
-`coachTurn.ts` for the full mechanism. Not a write action; nothing in `turnWrites/` consumes it
+`coach_note` is. Checked next turn (`findUnconfirmedAssumption` in `turnReplyValidation.ts`)
+before any action field that touches the same session is allowed to commit — see
+`chat-llm-seam.md` and `turnReplyValidation.ts`/`requestCoachReply.ts` for the full mechanism.
+Not a write action; nothing in `turnWrites/` consumes it
 directly.
 
 **`unrecorded_facts`** (Finding D mitigation, `string[]`, optional) — a same-pass self-audit
 listing any concrete fact from the athlete's message that this reply's own action fields failed to
-record. Drives a one-shot corrective reprompt in `requestCoachReply` (`coachTurn.ts`); not a write
+record. Drives a one-shot corrective reprompt in `requestCoachReply` (`requestCoachReply.ts`); not a write
 action itself. Declared last in the schema, after `reply`, since it audits `reply`'s own text too.
 
 ## File relationships

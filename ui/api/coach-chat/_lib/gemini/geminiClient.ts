@@ -39,7 +39,7 @@ export type GeminiReplyWithUsage = GeminiReply & { usage?: LlmResult["usage"] };
 // dense-message scenario it was raised for, so a call that legitimately needs the fuller budget
 // must have time to actually finish generating it - trading a MAX_TOKENS truncation for a 45s
 // timeout on the exact same scenario would not be a fix. Kept well under the shared 300s Vercel
-// budget alongside the other retry layers geminiClient.ts's JSON-parse retry and coachTurn.ts's
+// budget alongside the other retry layers geminiClient.ts's JSON-parse retry and requestCoachReply.ts's
 // reprompts already account for.
 const GEMINI_GENERATE_TIMEOUT_MS = 60_000;
 
@@ -128,7 +128,7 @@ export async function askGemini(
   // not itself inside this try block, so that failure propagates straight past this function to
   // whatever calls askGemini, same as any other adapter-level throw.
   //
-  // This retry, coachTurn.ts's up to two reprompt calls, and each adapter's own 503/504/
+  // This retry, requestCoachReply.ts's up to two reprompt calls, and each adapter's own 503/504/
   // truncation retry all stack independently of one another and of the 300s Vercel budget - none
   // of the four layers knows how much time the others have already spent. Bounding this retry's
   // own timeout, rather than reusing the full budget again, keeps its worst-case addition small
@@ -149,7 +149,7 @@ export async function askGemini(
       // The first call's tokens were real and billed even though its text didn't parse -
       // summing here (instead of letting the reassignment above silently drop firstUsage)
       // keeps the reported cost honest about both calls this retry actually made. Same
-      // sumUsage() coachTurn.ts uses for its own reprompt accumulation - one merge, not two.
+      // sumUsage() requestCoachReply.ts uses for its own reprompt accumulation - one merge, not two.
       result = { ...result, usage: sumUsage(firstUsage, result.usage) };
     } catch (err) {
       throw withModelTag(err);

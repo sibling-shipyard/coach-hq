@@ -1,8 +1,8 @@
-// injury_flag / injury_event: the injuries.json write - see coachIntents.ts's applyInjuryFlag
+// injury_flag / injury_event: the injuries.json write - see coachInjuryIntents.ts's applyInjuryFlag
 // (new injury, server mints id) and applyInjuryEvent (update/resolve an existing one, flag_id
 // required) for the pure logic this wraps with I/O. Combined into one write function because
 // both act on the same file and commitFilesAtomic does not merge duplicate paths (same
-// constraint as the profile_update + coach_since merge in coachTurn.ts) - two separate
+// constraint as the profile_update + coach_since merge in buildTurnWrites.ts) - two separate
 // ResolvedFileWrite objects for INJURIES_PATH in the same turn would silently drop one.
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
@@ -12,7 +12,7 @@ import {
   applyInjuryEvent,
   type InjuryFlagInput,
   type InjuryEvent,
-} from "../coachIntents.js";
+} from "../coachInjuryIntents.js";
 import { INJURIES_PATH } from "../coachMemoryFiles.js";
 import { capText, INJURY_FLAG_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 

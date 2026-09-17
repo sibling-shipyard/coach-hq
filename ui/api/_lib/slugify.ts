@@ -1,6 +1,6 @@
 /**
  * Lowercase, non-alphanumeric-collapsed slug, trimmed of leading/trailing separators. Shared by
- * every id/filename slug this codebase mints (coachIntents.ts's injury flag ids, mintId's
+ * every id/filename slug this codebase mints (coachInjuryIntents.ts's injury flag ids, mintId's
  * season/quest ids, the manual test harness's log filenames) so they stay one pattern, not three
  * independently-typed copies of the same six lines.
  */

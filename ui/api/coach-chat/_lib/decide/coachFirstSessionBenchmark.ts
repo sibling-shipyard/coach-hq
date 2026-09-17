@@ -64,14 +64,14 @@ export const BENCHMARK_MOVEMENT_PATTERNS = ["push", "pull", "squat", "hinge", "c
 
 // The benchmark's spec.title is always this exact string, so its slugified routine id is always
 // this exact id (slugifyRoutineId has nothing to collide with on a repo's first-ever benchmark) -
-// used by coachTurn.ts to check "has the benchmark already been written" directly, instead of
+// used by turnCompletion.ts to check "has the benchmark already been written" directly, instead of
 // "does any manifest exist at all" (P0, #727 review: carve-skeleton now seeds a manifest with the
 // two starter templates at carve time, so that check was always true for a freshly carved repo).
 export const BENCHMARK_ROUTINE_ID = "first_session_benchmark";
 
 // Shared by buildBenchmarkSpec and buildFallbackBenchmarkSpec so both slugify to the exact same
 // BENCHMARK_ROUTINE_ID above - the fallback is a stand-in for the same routine slot, not a
-// different one, so coachTurn.ts's "has the benchmark already been written" check treats either
+// different one, so turnCompletion.ts's "has the benchmark already been written" check treats either
 // origin as done.
 const BENCHMARK_TITLE = "First session benchmark";
 

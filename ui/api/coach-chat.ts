@@ -13,7 +13,10 @@ import {
 } from "./coach-chat/_lib/decide/coachChatFiles.js";
 import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/decide/coachDay.js";
 import { loadChatHistory, pruneForResponse } from "./coach-chat/_lib/chatThreads.js";
-import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/decide/coachIntents.js";
+import {
+  applyProfileUpdate,
+  applySportsUpdate,
+} from "./coach-chat/_lib/decide/coachProfileIntents.js";
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
 import {

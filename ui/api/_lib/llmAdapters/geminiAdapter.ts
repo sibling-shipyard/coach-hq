@@ -195,7 +195,7 @@ export function createGeminiAdapter(
           if (!response.ok) {
             const detail = await response.text();
             // The real upstream status always passes through - coach-chat's
-            // friendlyGeminiErrorMessage (coachTurn.ts) branches on 429/503/504 specifically to
+            // friendlyGeminiErrorMessage (turnReplyValidation.ts) branches on 429/503/504 specifically to
             // tell a rate limit from a timeout from a generic failure, pre-#713 behavior this
             // adapter must not collapse now that chat shares it. Collapsing everything else
             // (400/403/500) to a generic 502 was a real regression found in review: the athlete

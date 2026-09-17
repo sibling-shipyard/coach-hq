@@ -10,8 +10,9 @@ Full design rationale: `docs/eng-docs/coach-chat-testing.md`.
 
 - **`layer1-gemini/`** - the Gemini HTTP call (`_lib/geminiClient.ts::askGemini`). Mocks
   `fetch`/`fetchWithTimeout` only; real request building and real JSON/schema parsing run.
-- **`layer2-fields/`** - decision -> file content. Pure appliers (`coachIntents.ts`,
-  `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `turnWrites/*.ts`) that take the current JSON plus a
+- **`layer2-fields/`** - decision -> file content. Pure appliers (`coachProfileIntents.ts`,
+  `coachInjuryIntents.ts`, `coachSeasonQuestIntents.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
+  `turnWrites/*.ts`) that take the current JSON plus a
   parsed action and produce the next JSON. No network, no git - these are the most unit-like tests
   in the suite.
 - **Layer 3 (file content -> git commit)** lives at `ui/api/_lib/_tests/githubGitData.test.ts`,

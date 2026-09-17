@@ -57,7 +57,7 @@ def _is_date(value) -> bool:
 
 
 # profile.json - dob/height_cm/weight_kg type checks exist for the coach-chat path only
-# (coachIntents.ts's applyProfileUpdate). A Claude/BYOB direct write bypasses that applier
+# (coachProfileIntents.ts's applyProfileUpdate). A Claude/BYOB direct write bypasses that applier
 # entirely, so this is genuinely the only layer that catches a malformed direct write.
 def check_profile(root: Path) -> list[str]:
     path = root / "user_data/coach/profile.json"
@@ -181,7 +181,7 @@ def check_quests(root: Path) -> list[str]:
         if mq_type is not None and mq_type not in QUEST_TYPES:
             errors.append(f"{path}: main_quest.type must be one of {QUEST_TYPES}, got {mq_type!r}")
         # season_id (B3): links a real main_quest to the season it belongs to - applySeasonStart
-        # (coachIntents.ts) uses it to tell an outgoing goal apart from a new one when a season
+        # (coachSeasonQuestIntents.ts) uses it to tell an outgoing goal apart from a new one when a season
         # changes. A present-but-real main_quest missing it, or holding a non-string, is exactly
         # the pre-B3 shape that made that retirement check silently fail instead of firing.
         season_id = main_quest.get("season_id")

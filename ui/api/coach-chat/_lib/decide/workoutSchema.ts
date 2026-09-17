@@ -3,7 +3,8 @@
  * Extracted out of _tests/workoutLibrary.test.ts's inline validator because applyTemplateEdit
  * needs the same check as a real runtime guard, not just a test assertion - a Gemini-produced
  * template edit that doesn't conform must never get committed (this pipeline's "never commit
- * invalid data" discipline, same spirit as every other applier in coachIntents.ts throwing
+ * invalid data" discipline, same spirit as every other applier in coachProfileIntents.ts/
+ * coachInjuryIntents.ts/coachSeasonQuestIntents.ts throwing
  * rather than writing something malformed). Throws with a descriptive message on the first
  * violation found rather than collecting every one - callers only need to know "reject this",
  * not a full report.
@@ -39,14 +40,14 @@ function assertNumber(value: unknown, field: string): void {
   }
 }
 
-// Exported so coachTurn.ts's findMalformedWorkoutCreateExercise (the pre-write reprompt check on
+// Exported so turnReplyValidation.ts's findMalformedWorkoutCreateExercise (the pre-write reprompt check on
 // Gemini's raw workout_create spec) can reuse this exact check instead of hand-duplicating it - a
 // real risk since the two shapes overlap here even though the full Workout shape this file
 // otherwise validates (id, estimated_duration_mins, allowedKeys, ...) doesn't exist yet on a raw
 // spec (P2, #727 review). Returns a short reason string on a violation, or null when the
 // type/reps/duration_secs combination is internally consistent - deliberately not throwing, since
 // the reprompt caller wants a message to hand back to the model, not an exception.
-// #1071 review: coachTurn.ts's pre-write reprompt check (findMissingWorkoutCreateInjuryAck) and
+// #1071 review: turnReplyValidation.ts's pre-write reprompt check (findMissingWorkoutCreateInjuryAck) and
 // coachWorkoutFiles.ts's applyWorkoutCreate invariant 7 need the exact same acked/unacked set
 // diff - if the matching rule ever changes in one and not the other, the reprompt trigger and the
 // write-time guard silently diverge, which is exactly the #1071 bug shape re-opening itself.

@@ -30,7 +30,7 @@ import {
 } from "../../_lib/sentry.js";
 import { type DroppedAction } from "./decide/turnWrites/validateActions.js";
 import { CURRENT_WEEK_PATH, applyWeekUpdate } from "./decide/coachWeekFiles.js";
-import { applyTrainingAvailabilityUpdate } from "./decide/coachIntents.js";
+import { applyTrainingAvailabilityUpdate } from "./decide/coachProfileIntents.js";
 import { buildWorkoutCreateAndRemoveWrites } from "./decide/turnWrites/workoutWrite.js";
 import type { TurnWrites } from "./buildTurnWrites.js";
 import { usageResponseInit } from "./requestCoachReply.js";

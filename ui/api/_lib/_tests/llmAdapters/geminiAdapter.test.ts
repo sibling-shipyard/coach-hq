@@ -249,7 +249,7 @@ describe("createGeminiAdapter", () => {
   });
 
   it("preserves a 503/504 upstream status rather than collapsing it to 502 (#713)", async () => {
-    // coach-chat's friendlyGeminiErrorMessage (coachTurn.ts) branches on 503/504 specifically to
+    // coach-chat's friendlyGeminiErrorMessage (turnReplyValidation.ts) branches on 503/504 specifically to
     // tell a timeout from a generic failure - this adapter must not flatten that distinction now
     // that chat shares it with coach-message.
     const fetcher = vi.fn(async () => new Response("overloaded", { status: 503 }));

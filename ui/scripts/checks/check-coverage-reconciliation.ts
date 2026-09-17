@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
  * check-coverage-reconciliation.ts - catches the class of bug behind the 2026-09-15 F5 finding:
- * a concurrent-write race between two run-simulation-suite.ts processes lost 3 real
+ * a concurrent-write race between two run-manual-simulation-suite.ts processes lost 3 real
  * coverage-index.json entries even though the raw run logs for those scenarios were sitting
  * right there on disk. `writeCoverageEntry` (lib/coverageIndex.ts) already fixes the race itself
  * (#1076/#1077, per-key read-merge-write) - this is a detection tool on top of that fix, not
@@ -10,7 +10,7 @@
  * hand.
  *
  * For a given date, every raw run log under test-results/raw/<date>/manual/ is one completed
- * run-manual-coach-chat-test.ts invocation. run-simulation-suite.ts drives that script per
+ * run-manual-coach-chat-test.ts invocation. run-manual-simulation-suite.ts drives that script per
  * scenario and is the only thing that writes coverage-index.json, keyed `manual:<scenario id>` -
  * so a raw log whose repo (and, when more than one scenario shares a repo, turn content) matches
  * one of the suite's known scenarios ought to have a matching coverage-index.json entry stamped

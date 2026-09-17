@@ -57,7 +57,7 @@ describe("coachReplySchema returning-athlete action fields", () => {
     );
   });
 
-  // coach_note is day-keyed (coachIntents.ts's applyCoachNote), available on every
+  // coach_note is day-keyed (coachProfileIntents.ts's applyCoachNote), available on every
   // returning-athlete turn.
   it("includes coach_note on a returning-athlete turn", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;

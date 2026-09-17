@@ -38,7 +38,7 @@ describe("coverageIndex", () => {
     expect(readCoverageIndex(nestedPath)).toEqual({ "manual:a": { status: "pass" } });
   });
 
-  // #1076: this is the real bug - two run-simulation-suite.ts processes each holding their own
+  // #1076: this is the real bug - two run-manual-simulation-suite.ts processes each holding their own
   // in-memory copy of the whole index, so whichever one wrote last clobbered the other's key.
   // writeCoverageEntry re-reads before every write, so a "concurrent" write to a different key
   // (simulated here by writing it directly to disk between two writeCoverageEntry calls) survives.

@@ -230,10 +230,10 @@ On every returning-athlete turn:
   existing local `console.warn`, so a guard that doesn't hold shows up in production monitoring,
   not just local logs.
 - `sports_update` merges the reported list against what's already on file rather than replacing
-  it (`applySportsUpdate`, `coachIntents.ts`) - a returning-athlete turn naming one new sport
+  it (`applySportsUpdate`, `coachProfileIntents.ts`) - a returning-athlete turn naming one new sport
   doesn't drop the others.
-- Server-side intent appliers (`turnWrites/*.ts`, wrapping the pure appliers in `coachIntents.ts`,
-  `coachWorkoutFiles.ts`, `coachWeekFiles.ts`) validate ids, add dates and timestamps, and resolve
+- Server-side intent appliers (`turnWrites/*.ts`, wrapping the pure appliers in `coachProfileIntents.ts`,
+  `coachInjuryIntents.ts`, `coachSeasonQuestIntents.ts`, `coachWorkoutFiles.ts`, `coachWeekFiles.ts`) validate ids, add dates and timestamps, and resolve
   each action against fresh file content. The resulting split JSON files and `chat_history.json`
   land in one atomic commit (`commitTurn()`, `turnCompletion.ts`; ADR 0012).
 - The response includes `profileComplete`, as greet responses do — computed from the projected

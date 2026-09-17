@@ -141,7 +141,7 @@ interface ManualLogEntry extends TestLogEntry {
   shaBefore: string | null;
   shaAfter: string | null;
   // #1053 gap 2 (revised after review): real token usage for this turn's askGemini call(s), read
-  // off the real Response's x-coach-chat-turn-usage header (coachTurn.ts's usageResponseInit) -
+  // off the real Response's x-coach-chat-turn-usage header (requestCoachReply.ts's usageResponseInit) -
   // no module-level state, so it can't leak between concurrent requests. Undefined on a turn that
   // threw before any model call happened.
   usage?: GeminiUsage;
@@ -196,7 +196,7 @@ async function main() {
     console.log("--debug: dumping the full assembled prompt for every turn.");
   }
   // Always on for this harness (unlike --debug above) - this run's own cost is exactly what a
-  // day-doc needs to report every time, not just on request. coachTurn.ts's usageResponseInit()
+  // day-doc needs to report every time, not just on request. requestCoachReply.ts's usageResponseInit()
   // only reads this to decide whether to attach the x-coach-chat-turn-usage header at all - never
   // set in production, so a real athlete's response never carries it.
   process.env.COACH_CHAT_EXPOSE_USAGE = "1";
@@ -232,7 +232,7 @@ async function main() {
     return;
   }
 
-  // #1105: the same guard run-simulation-suite.ts applies per-scenario, run once here for an ad
+  // #1105: the same guard run-manual-simulation-suite.ts applies per-scenario, run once here for an ad
   // hoc/manual invocation - before anything else, so an unmet precondition never spends a real
   // branch-creation call, let alone a real Gemini turn.
   if (args.preconditions) {
@@ -375,7 +375,7 @@ async function main() {
   // The ordinary/closing turn responses don't echo threadId or the message list back (only
   // greet and a closing turn's response include threads) - so unlike the eval harness this
   // script has to carry a stable threadId and build the running ChatMessage[] itself, exactly
-  // as coachTurn.ts's appendConversationTurn would, or every ordinary turn lands in its own
+  // as chatThreads.ts's appendConversationTurn would, or every ordinary turn lands in its own
   // fresh thread (buildChatWrite falls back to `t-${now}` whenever threadId is omitted).
   //
   // If the run opens with a real greet turn, its response DOES carry a real threadId
