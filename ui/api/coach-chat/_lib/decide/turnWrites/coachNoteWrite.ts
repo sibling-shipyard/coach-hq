@@ -2,7 +2,7 @@
 // coachIntents.ts's applyCoachNote for the pure merge logic this wraps with I/O.
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
-import { applyCoachNote } from "../coachIntents.js";
+import { applyCoachNote } from "../coachProfileIntents.js";
 import { COACH_LOG_PATH } from "../coachMemoryFiles.js";
 import { capText, COACH_LOG_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 

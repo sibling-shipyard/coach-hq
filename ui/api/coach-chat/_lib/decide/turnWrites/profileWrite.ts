@@ -5,7 +5,8 @@
 // athlete's profile."
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw, isAthleteProfileComplete, parseJsonOrNull } from "../coachChatFiles.js";
-import { applyProfileUpdate, applySeasonStart, type ProfileUpdate } from "../coachIntents.js";
+import { applyProfileUpdate, type ProfileUpdate } from "../coachProfileIntents.js";
+import { applySeasonStart } from "../coachSeasonQuestIntents.js";
 import {
   PROFILE_PATH,
   MEMORY_NOTE_LABELS,

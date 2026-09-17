@@ -12,7 +12,7 @@ import {
   applyInjuryEvent,
   type InjuryFlagInput,
   type InjuryEvent,
-} from "../coachIntents.js";
+} from "../coachInjuryIntents.js";
 import { INJURIES_PATH } from "../coachMemoryFiles.js";
 import { capText, INJURY_FLAG_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 

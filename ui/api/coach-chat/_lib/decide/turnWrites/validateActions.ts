@@ -10,7 +10,8 @@
  * Filtering here, before the write is ever built, means the applier's own throw guard should
  * never fire in normal operation; it stays in place purely as defense in depth.
  */
-import type { QuestEvent, InjuryEvent } from "../coachIntents.js";
+import type { QuestEvent } from "../coachSeasonQuestIntents.js";
+import type { InjuryEvent } from "../coachInjuryIntents.js";
 import type { applyTemplateEdit, applySessionPlan } from "../coachWorkoutFiles.js";
 import { isFullWeekKickoff, type WeekUpdate } from "../coachWeekFiles.js";
 

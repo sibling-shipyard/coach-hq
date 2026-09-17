@@ -6,7 +6,7 @@
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import { applySeasonStart, type SeasonStartResult } from "../coachIntents.js";
+import { applySeasonStart, type SeasonStartResult } from "../coachSeasonQuestIntents.js";
 import { SEASONS_PATH, QUESTS_PATH } from "../coachQuestFiles.js";
 
 export interface SeasonStartWrites {

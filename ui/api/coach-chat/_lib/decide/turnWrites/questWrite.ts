@@ -4,7 +4,7 @@
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import { applyQuestEvent, applyQuestCreate, type QuestEvent } from "../coachIntents.js";
+import { applyQuestEvent, applyQuestCreate, type QuestEvent } from "../coachSeasonQuestIntents.js";
 import { PROGRESS_PATH, QUESTS_PATH } from "../coachQuestFiles.js";
 
 export function buildQuestEventWrite(

@@ -37,7 +37,7 @@ import { buildMemoryFileWrite } from "./decide/turnWrites/memoryWrite.js";
 import { buildInjuryWrites } from "./decide/turnWrites/injuryWrite.js";
 import { buildQuestEventWrite, buildQuestCreateWrite } from "./decide/turnWrites/questWrite.js";
 import { buildSeasonStartWrite } from "./decide/turnWrites/seasonWrite.js";
-import { applyQuestCreate } from "./decide/coachIntents.js";
+import { applyQuestCreate } from "./decide/coachSeasonQuestIntents.js";
 import {
   buildProfileUpdateWrite,
   projectProfileCompletion,

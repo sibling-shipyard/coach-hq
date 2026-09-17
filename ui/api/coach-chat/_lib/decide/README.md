@@ -19,7 +19,9 @@ what changed and produce the next JSON for each affected file. The appliers here
 | `coachContext.ts`               | Render the athlete/season/quest/milestone prompt sections                                     |
 | `coachDay.ts`                   | Timezone dates, thread offsets, and `coach_since` day-number math                             |
 | `coachFirstSessionBenchmark.ts` | First Session benchmark data handling                                                         |
-| `coachIntents.ts`               | Apply profile, memory, sports, injury, season, quest, and coach-log actions                   |
+| `coachProfileIntents.ts`        | Apply profile, memory, coaching-style, availability, sports, and coach-log actions            |
+| `coachInjuryIntents.ts`         | Apply injury flag/event actions                                                               |
+| `coachSeasonQuestIntents.ts`    | Apply season-start, quest-create, and quest-event actions                                     |
 | `coachWeekFiles.ts`             | Validate and apply full week plans, session reconciliation, dated edits                       |
 | `coachWorkoutFiles.ts`          | Select/generate templates; validate template edits and today's modified session               |
 | `coachSinceStamp.ts`            | Stamp `coach_since` once when First Session completes                                         |

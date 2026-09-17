@@ -4,7 +4,11 @@
 import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import { applyMemoryUpdate, applyCoachingStyleUpdate, applySportsUpdate } from "../coachIntents.js";
+import {
+  applyMemoryUpdate,
+  applyCoachingStyleUpdate,
+  applySportsUpdate,
+} from "../coachProfileIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
 import { capText, MEMORY_NOTE_TEXT_CAP } from "../../_generated/text-caps.bundle.js";
 
