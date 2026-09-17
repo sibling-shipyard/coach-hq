@@ -18,7 +18,7 @@
  * own log entry already carries, confidence: "observed"), not raw reply action fields the way
  * eval-coach-chat.ts's transcripts do - eval calls askGemini() directly and gets the raw parsed
  * reply back; this tool goes through the full commitTurn() response, which deliberately does not
- * echo action fields (see coachTurn.ts's commitTurn success response) - only reply text, thread
+ * echo action fields (see turnCompletion.ts's commitTurn success response) - only reply text, thread
  * state, and repoSha. Checking the observed diff instead is not a downgrade: it's the ground-truth
  * side of the derived/observed distinction coach-chat-testing.md already draws, and it's the same
  * thing a human verifying a manual run by hand is told to check.
@@ -156,7 +156,7 @@ function resolveLocalPath(scenario: Scenario): string | undefined {
  * standing regression library.
  *
  * fsp.json runs against coach-skanda-testing, not coach-skanda/coach-akash - a First Session
- * Protocol scenario needs an athlete who hasn't done FSP yet (coachTurn.ts's `firstSession` gate
+ * Protocol scenario needs an athlete who hasn't done FSP yet (turnRequest.ts's `firstSession` gate
  * checks `isFirstSessionRitualDone`), and coach-skanda-testing is the one repo
  * docs/eng-docs/coach-chat-testing.md authorizes resetting to a blank state for exactly this. This
  * driver does not reset it itself - that's a separate, explicit step (same doc, "Resetting an
@@ -457,7 +457,11 @@ const SCENARIOS: Scenario[] = [
 /** coach-hq paths that, if changed, could invalidate a scenario's last pass - coverage-index.json's watched_paths. */
 const WATCHED_PATHS = [
   "ui/api/coach-chat.ts",
-  "ui/api/coach-chat/_lib/coachTurn.ts",
+  "ui/api/coach-chat/_lib/turnRequest.ts",
+  "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+  "ui/api/coach-chat/_lib/requestCoachReply.ts",
+  "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+  "ui/api/coach-chat/_lib/turnCompletion.ts",
   "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
   "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
   "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
@@ -470,7 +474,7 @@ interface ManualLogEntry extends TestLogEntry {
   turnIndex: number;
   filesChanged: FilesChanged;
   // #1053 gap 2: real per-turn cost, written by run-manual-coach-chat-test.ts now that
-  // coachTurn.ts surfaces real usage - summed here so a scenario's console output shows real
+  // requestCoachReply.ts surfaces real usage - summed here so a scenario's console output shows real
   // spend, same number a day-doc's Simulation suite section reports.
   costUsd?: number;
 }

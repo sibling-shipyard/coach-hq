@@ -25,14 +25,10 @@ vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
   return { ...original, captureServerException };
 });
 
-import {
-  loadTurnState,
-  requestCoachReply,
-  buildTurnWrites,
-  commitTurn,
-  TURN_USAGE_HEADER,
-  type TurnRequest,
-} from "../../_lib/coachTurn.js";
+import { loadTurnState, type TurnRequest } from "../../_lib/turnRequest.js";
+import { requestCoachReply, TURN_USAGE_HEADER } from "../../_lib/requestCoachReply.js";
+import { buildTurnWrites } from "../../_lib/buildTurnWrites.js";
+import { commitTurn } from "../../_lib/turnCompletion.js";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });

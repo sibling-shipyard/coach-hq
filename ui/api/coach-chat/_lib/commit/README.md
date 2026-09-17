@@ -10,5 +10,6 @@ batch rather than per message.
 | --------------------- | -------------------------------------------------------------------------------------------------- |
 | `activitySyncTurn.ts` | Build context, call the LLM seam, assemble writes, and commit atomically for a sync-triggered turn |
 
-The ordinary chat turn's own orchestration (`coachTurn.ts`) lives one level up in `_lib/`, not
-here — this folder is specifically the sync-triggered path.
+The ordinary chat turn's own orchestration (`turnRequest.ts`, `requestCoachReply.ts`,
+`buildTurnWrites.ts`, `turnCompletion.ts`) lives one level up in `_lib/`, not here — this folder
+is specifically the sync-triggered path.

@@ -31,7 +31,9 @@ vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
   };
 });
 
-import { buildTurnWrites, commitTurn, parseTurnRequest } from "../../_lib/coachTurn.js";
+import { buildTurnWrites } from "../../_lib/buildTurnWrites.js";
+import { commitTurn } from "../../_lib/turnCompletion.js";
+import { parseTurnRequest } from "../../_lib/turnRequest.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {
   return {

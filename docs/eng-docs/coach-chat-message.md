@@ -68,7 +68,7 @@ Generation fires immediately after sync - before the athlete has usually opened 
 written a note in its `description` field. So even though `projectActivity` reads that field, it's
 typically empty at generation time. Worse: when the athlete then replies inside the seeded thread,
 that reply goes through the *ordinary* chat-turn pipeline (`loadTurnState` in
-`ui/api/coach-chat/_lib/coachTurn.ts`), which never re-reads activity files at all - only chat
+`ui/api/coach-chat/_lib/turnRequest.ts`), which never re-reads activity files at all - only chat
 history plus profile/memory/injuries/insights. A note written after sync, even several replies
 into the conversation, never reached the coach in either place.
 

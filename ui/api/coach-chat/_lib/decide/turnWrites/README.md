@@ -21,7 +21,7 @@ pure; this layer is where fetch-then-apply happens.
 | `workoutWrite.ts`   | `template_edit`, `session_plan`                           | template / session snapshot files                        |
 | `weekWrite.ts`      | `week_update`                                             | `current_week.json`                                      |
 
-`coachTurn.ts`'s `buildTurnWrites` calls these in sequence and assembles the results - it owns
+`buildTurnWrites.ts`'s `buildTurnWrites` calls these in sequence and assembles the results - it owns
 turn-level bookkeeping (thread merge, the `profile_update`/`coach_since` resolver merge,
 `optionalWrites`/`validUpdates` assembly), not any single write's content.
 
@@ -30,7 +30,7 @@ returns a `{ seasonWrite, questWrite }` pair, not a single write - the new seaso
 share one minted id, computed together. `questWrite` reuses `seasonWrite`'s own computation
 rather than recomputing it, so `seasonWrite` must resolve first wherever this pair lands in a
 write array. When `quest_create`'s own habit-quest write targets `quests.json` in the same turn,
-`coachTurn.ts` merges it onto `seasonWrite`'s `questWrite` resolver instead of adding a second
+`buildTurnWrites.ts` merges it onto `seasonWrite`'s `questWrite` resolver instead of adding a second
 entry for the same path - `commitFilesAtomic` doesn't merge duplicate paths on its own.
 
 New action field on `GeminiReply`? Add a file here, not a branch in `buildTurnWrites`.

@@ -30,7 +30,7 @@ vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
   return { ...original, captureStillUnresolvedGuard };
 });
 
-import { requestCoachReply } from "../../_lib/coachTurn.js";
+import { requestCoachReply } from "../../_lib/requestCoachReply.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/_generated/text-caps.bundle.js";
 import { buildDynamicText } from "../../_lib/gemini/coachPromptText.js";
 

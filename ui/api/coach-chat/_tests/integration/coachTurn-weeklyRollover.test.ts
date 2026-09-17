@@ -27,7 +27,7 @@ vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
   return { ...original, loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })) };
 });
 
-import { buildTurnWrites } from "../../_lib/coachTurn.js";
+import { buildTurnWrites } from "../../_lib/buildTurnWrites.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {
   return {

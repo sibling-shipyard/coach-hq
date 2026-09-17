@@ -29,7 +29,7 @@ vi.mock("../_lib/chatThreads.js", async (importOriginal) => {
   return { ...original, loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })) };
 });
 
-import { buildTurnWrites } from "../_lib/coachTurn.js";
+import { buildTurnWrites } from "../_lib/buildTurnWrites.js";
 import { TEMPLATES_MANIFEST_PATH } from "../_lib/decide/coachWorkoutFiles.js";
 import { CURRENT_WEEK_PATH } from "../_lib/decide/coachWeekFiles.js";
 

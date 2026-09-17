@@ -1,6 +1,7 @@
 # integration
 
-Tests the full turn pipeline in `coachTurn.ts`, wiring layers 1-3 together.
+Tests the full turn pipeline across `turnRequest.ts`, `requestCoachReply.ts`, `buildTurnWrites.ts`,
+and `turnCompletion.ts`, wiring layers 1-3 together.
 
 **`fullTurnPipeline.test.ts`** is the one true end-to-end test in this suite: `fetchWithTimeout`
 is the only mock, routed between the Gemini and GitHub endpoints. Real prompt building, real
@@ -11,7 +12,7 @@ here to see the three layers wired together, and to see #609 (template_edit sent
 end to end.
 
 **`coachTurn.test.ts`** and **`coachTurn-reprompt.test.ts`** mock `commitFilesAtomic` and
-`askGemini` directly instead - they check `coachTurn.ts`'s own stage logic (which writes get
+`askGemini` directly instead - they check the turn pipeline's own stage logic (which writes get
 built, the text-cap reprompt) without needing a real backend behind them. Faster, but they don't
 prove the layers hand off to each other correctly the way `fullTurnPipeline.test.ts` does.
 

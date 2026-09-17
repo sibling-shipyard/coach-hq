@@ -1,4 +1,4 @@
-/** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/coachTurn.ts and activitySyncTurn.ts. */
+/** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/turnRequest.ts, requestCoachReply.ts, buildTurnWrites.ts, turnCompletion.ts, and activitySyncTurn.ts. */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
@@ -36,17 +36,16 @@ import {
 } from "./coach-chat/_lib/gemini/coachPromptText.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { onboardingChanges } from "./coach-chat/_lib/decide/onboardingWrites.js";
+import { buildTurnWrites } from "./coach-chat/_lib/buildTurnWrites.js";
+import { commitTurn } from "./coach-chat/_lib/turnCompletion.js";
 import {
-  buildTurnWrites,
-  commitTurn,
   handleHistory,
   isActivitySyncRequest,
   isGreetRequest,
   loadTurnState,
   parseTurnRequest,
-  requestCoachReply,
-  usageResponseInit,
-} from "./coach-chat/_lib/coachTurn.js";
+} from "./coach-chat/_lib/turnRequest.js";
+import { requestCoachReply, usageResponseInit } from "./coach-chat/_lib/requestCoachReply.js";
 import { handleActivitySync } from "./coach-chat/_lib/commit/activitySyncTurn.js";
 
 async function handleGreet(
