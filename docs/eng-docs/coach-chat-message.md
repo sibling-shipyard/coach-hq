@@ -1,6 +1,6 @@
 # Coach message — proactive post-sync generation
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18
 
 The one Coach-authored message the athlete gets without asking for it: written right after an
 activity syncs, stored as the athlete's single current notification, and seeded into a chat

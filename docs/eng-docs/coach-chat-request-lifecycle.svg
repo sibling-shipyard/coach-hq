@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1082" height="602" viewBox="0 0 1082 602">
+<rect width="100%" height="100%" fill="#ffffff" rx="8"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#59636e"/></marker></defs>
+<text x="24" y="30" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#1f2328">Coach Chat — request lifecycle</text>
+<text x="24" y="50" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#59636e">one endpoint, one turn, one atomic commit</text>
+<text x="24" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#59636e">API ENDPOINTS</text>
+<text x="390.7692307692308" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#59636e">TURN PIPELINE</text>
+<text x="769.3846153846154" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#59636e">COMMIT</text>
+<line x1="664.6" y1="456.0" x2="766.4" y2="292.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="717.0" y="368.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0969da" text-anchor="middle">atomic write</text>
+<line x1="253.4" y1="169.0" x2="766.4" y2="292.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="511.4" y="224.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0969da" text-anchor="middle">reads threads, 7 newest</text>
+<line x1="250.4" y1="251.0" x2="402.6" y2="456.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="328.0" y="347.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0969da" text-anchor="middle">onboarding fields only; thread stays local</text>
+<line x1="643.8" y1="128.0" x2="387.8" y2="210.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="623.1" y1="292.0" x2="414.4" y2="374.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="679.4" y1="210.0" x2="444.0" y2="292.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="286.0" y1="415.0" x2="402.6" y2="456.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="345.8" y="429.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0969da" text-anchor="middle">persist-on-sync turn; duplicate batch → existing thread</text>
+<line x1="300.8" y1="333.0" x2="423.3" y2="128.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="652.7" y1="374.0" x2="402.6" y2="456.0" stroke="#59636e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="71.4" y="139.0" width="182.0" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="162.4" y="161.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">GET</text>
+<text x="162.4" y="181.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">history · newest 7 threads</text>
+<rect x="74.3" y="221.0" width="176.1" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="162.4" y="243.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">POST action=greet</text>
+<text x="162.4" y="263.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">opener · no thread commit</text>
+<rect x="24.0" y="303.0" width="276.8" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="162.4" y="325.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">POST message</text>
+<text x="162.4" y="345.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">ordinary turn: threadId, messages, message</text>
+<rect x="38.8" y="385.0" width="247.2" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="162.4" y="407.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">POST action=activity_sync</text>
+<text x="162.4" y="427.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">idempotent · one Coach turn per batch</text>
+<rect x="426.3" y="98.0" width="217.5" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="535.1" y="120.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">parseTurnRequest</text>
+<text x="535.1" y="140.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">auth + dispatch (turnRequest.ts)</text>
+<rect x="390.8" y="180.0" width="288.6" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="535.1" y="202.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">loadTurnState</text>
+<text x="535.1" y="222.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">knownSha vs HEAD · 60s cache bypass on stale</text>
+<rect x="447.0" y="262.0" width="176.1" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="535.1" y="284.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">requestCoachReply</text>
+<text x="535.1" y="304.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">LLM call + reprompt loops</text>
+<rect x="417.4" y="344.0" width="235.3" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="535.1" y="366.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">buildTurnWrites</text>
+<text x="535.1" y="386.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">semantic actions → validated writes</text>
+<rect x="405.6" y="426.0" width="259.0" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="535.1" y="448.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">commitTurn</text>
+<text x="535.1" y="468.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">commitFilesAtomic · one commit per turn</text>
+<rect x="769.4" y="262.0" width="288.6" height="60" rx="8" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
+<text x="913.7" y="284.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">athlete repo</text>
+<text x="913.7" y="304.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e" text-anchor="middle">chat_history.json + split records (ADR 0012)</text>
+<text x="24" y="528.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e">Stage order grepped from handle() in ui/api/coach-chat.ts: parse → loadTurnState → requestCoachReply → buildTurnWrites → commitTurn.</text>
+<text x="24" y="546.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e">Response-time cap: pruneForResponse slices the newest 7 threads (MAX_RETAINED_THREADS) in chatThreads.ts; storage retains every thread (ADR 0037).</text>
+<text x="24" y="564.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e">activity_sync batch id = first 16 hex of sha256 over sorted unique activity ids (activitySync.ts); missing hist files → 422; duplicate set → duplicate:true, no second LLM call.</text>
+<text x="24" y="582.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#59636e">Provider is resolved per request (resolveProviderName): OpenRouter when LLM_PROVIDER=openrouter, else Gemini — so the LLM is not always Gemini.</text>
+</svg>

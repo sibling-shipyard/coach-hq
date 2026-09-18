@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18
 
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This is the entry point —
 the detailed content that used to live in this one file is now split by concern:
