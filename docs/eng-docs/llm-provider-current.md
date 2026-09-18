@@ -9,9 +9,7 @@ Vercel dashboard, then cross-checked against real runtime data (`get_runtime_err
 `get_runtime_logs`): one isolated rate-limit 429 cluster 2026-09-05 through 2026-09-10. Nothing
 since, clean in the last 24h. This was a real switch, not a dev-account credit workaround - the
 paragraph below describing `gemini-pro-latest` as the production default is stale and describes
-the state before this switch. No ADR exists for this change yet. It's a locked/architectural
-decision (provider + model, not just a dev testing workaround) and should get one - see
-`kdb/decisions/README.md`.
+the state before this switch. Recorded as ADR 0046 — `kdb/decisions/0046-coach-chat-prod-on-openrouter-flash.md` (Status: Accepted, 2026-09-15).
 
 This dev environment's own `GEMINI_API_KEY` (in `ui/.env.local`, separate from Vercel's) also has
 no credit right now. Local live/manual/eval/simulation-suite runs need `LLM_PROVIDER=openrouter`
