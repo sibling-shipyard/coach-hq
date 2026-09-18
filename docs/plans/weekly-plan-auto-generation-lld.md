@@ -134,7 +134,8 @@ should bias which sessions get planned, not just which weekday. Reuse
 `activeTemplatesContext`/`activeWeekSessionsContext` and `renderQuestContext` from
 `coachPromptText.ts`/`coachContext.ts`, consumed by `requestCoachReply.ts`/`turnRequest.ts` - the same helpers the real chat-driven kickoff prompt
 already builds `questContext` from, so the auto prompt sees identical goal/quest state.
-No `cachePrefix` - single-shot call, same as `generateProactiveBody`, not a multi-turn conversation.
+Caching: see "Prompt caching (PR3)" below - `buildWeeklyPlanAutoPrompt` returns a stable prefix and a
+per-athlete tail from day one.
 
 **LLM call:** `selectLlmAdapter()`, generic seam, no coach-chat-specific adapter logic. On failure,
 `captureLlmFailure(err, { model, upstreamStatus, turnMode: "weekly_plan_auto", athleteMessage: "" })`
@@ -160,6 +161,43 @@ constructed as a `TurnMode` - it isn't; `activitySyncTurn.ts` calls `generatePro
 `gave_up` captured). Manual live test on a scratch/test athlete repo per the standing rule
 (`feedback_verify-coach-chat-on-scratch-branch`) before calling this PR done - real LLM call, real
 commit, read back and confirm the plan reflects that repo's actual weekday pattern.
+
+## Prompt caching (PR3)
+
+Gate: `docs/plans/openrouter-caching.md` (chat) must have shipped and shown cached tokens in Sentry.
+The prompt shape below costs nothing to build in, so PR3 builds it either way.
+
+**Shape.** `buildWeeklyPlanAutoPrompt` returns `{ prefix, tail }`, not one string.
+- `prefix` (identical for every athlete): soul, fixed planning instructions, the output contract,
+  few-shot examples. Nothing dated, nothing athlete-specific.
+- `tail` (per athlete, per week): week dates, `memory.json`, `profile.json`, the insights
+  histogram, active templates, `renderQuestContext` output.
+- The call passes `cachePrefix: prefix` and puts `tail` in the user turn, exactly as
+  `docs/plans/openrouter-caching-coach-message.md` does for coach-message. The OpenRouter adapter
+  (chat PR) turns that into a marked block, so this PR needs no adapter change.
+
+**What I verified, and what I did not.**
+- Verified: the call is single-shot through `selectLlmAdapter()`, once per athlete per stale week,
+  plus up to 3 failed attempts (this doc, PR3). ROADMAP lists 4 live athletes, holding at 5.
+- Verified: a retry is fired by the next trigger (app open or chat turn), not by a timer, so
+  attempts are not seconds apart.
+- Not verified: whether one athlete's call warms the cache for another's. The prefix is shared,
+  the tail is not, which is the varying-tail shape the bench measured. Volume is about one call
+  per athlete per week, so the saving is small either way. I would not add code beyond the shape
+  above to chase it.
+- Not verified: `geminiAdapter.ts:169` and `:179` make any `cachePrefix` trigger the explicit soul
+  cache and a retry on the direct-Gemini path. PR3 already owns its retry, so check that the two
+  do not stack before merge.
+
+**Tests.**
+1. Unit: the same `prefix` string is produced for two different athlete contexts. This is the test
+   that stops athlete data leaking into the cached part.
+2. Unit: mocked adapter receives `cachePrefix` equal to `prefix`, tail in the user turn.
+3. Live, two scratch athletes: run one, then the other straight after, then one again after a gap.
+   Read `gen_ai.usage.input_tokens.cached` and `llm.cache_marker` on the `weekly_plan_auto` spans.
+   Report zeros as zeros.
+4. Sentry: these spans are `turnMode: "weekly_plan_auto"`. Add how to read their cache hit rate to
+   the `sentry-runbook.md` Coverage boundary when PR3 lands.
 
 ## PR 4 - app-open trigger
 

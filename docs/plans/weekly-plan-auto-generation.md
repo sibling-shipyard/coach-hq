@@ -83,6 +83,7 @@ every turn already re-reads `current_week.json` fresh (same mechanism as
 
 - OpenRouter per-call-type API keys for cost visibility - filed separately, #1173, not blocking
   this stack.
+- Cache tuning beyond the prefix/tail split - see the LLD's "Prompt caching (PR3)".
 - Any confirmation/approval UI before the plan takes effect - the athlete explicitly wants chat
   editing as the only correction path.
 - Splitting weekday pattern detection into a general-purpose scheduling engine - this stays scoped
