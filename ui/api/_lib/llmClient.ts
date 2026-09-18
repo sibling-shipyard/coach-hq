@@ -78,11 +78,10 @@ export interface LlmRequest {
    * business (docs/plans/openrouter-m2-chat-lld.md, "What the seam has to grow" #2). The Gemini
    * adapter tries its explicit soul cache for this text and, on a hit, moves `system` into
    * `contents` instead (Gemini rejects `cachedContent` + `systemInstruction` together); on a miss
-   * it concatenates `cachePrefix + "\n" + system` into one `systemInstruction`, byte-identical to
-   * the pre-#713 cache-inactive path. The OpenRouter adapter never has an active cache - it always
-   * concatenates the same way, since `cachePrefix` is otherwise inert there (locked decision:
-   * OpenRouter owns its own caching, its adapter does not emulate Gemini cache names). Presence of
-   * this field (not whether the cache actually hit) is also what gates the Gemini adapter's
+   * it concatenates `cachePrefix + "\n" + system` into one `systemInstruction`. The OpenRouter
+   * adapter has no cache of its own: it sends `cachePrefix` as the first system block with a
+   * `cache_control` marker and `system` as the second, and the provider decides what to cache.
+   * Presence of this field (not whether the cache actually hit) is also what gates the Gemini adapter's
    * retry-on-400/503/504 - a caller with no cache prefix (coach-message) gets no retry, matching
    * its pre-#713 behavior exactly.
    */
