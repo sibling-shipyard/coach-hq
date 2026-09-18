@@ -598,7 +598,7 @@ export async function captureLlmFailure(
  * D1 (#736): what a rejected/dropped structured-fact write must carry to see the pattern from
  * Sentry alone - an applier throw (bad quest/injury reference surviving layer 1's enum and
  * layer 2's corrective retry) or the whole facts commit failing after commitFilesAtomic's own
- * retries. Never the whole-turn Gemini failure path above - captureLlmFailure covers that.
+ * retries. Never the whole-turn LLM failure path above - captureLlmFailure covers that.
  */
 export interface ValidationFailureDetails {
   traceId?: string;

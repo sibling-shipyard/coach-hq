@@ -1,6 +1,6 @@
 # layer1-llm
 
-Tests `_lib/coachLlmClient.ts::askLlm` end to end through the seam - the only place coach-chat
+Tests `_lib/llm/coachLlmClient.ts::askLlm` end to end through the seam - the only place coach-chat
 calls the selected LLM API. #713 M2 PR 2 moved the actual HTTP call, the explicit-cache lookup, and the
 retry logic out of `coachLlmClient.ts` into `_lib/llmAdapters/geminiAdapter.ts` (reached via
 `selectLlmAdapter`); `askLlm` itself now only builds the prompt/request and parses the reply.

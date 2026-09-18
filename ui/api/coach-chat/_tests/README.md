@@ -8,7 +8,7 @@ Full design rationale: `docs/eng-docs/coach-chat-testing.md`.
 
 ## Layers
 
-- **`layer1-llm/`** - the Gemini HTTP call (`_lib/coachLlmClient.ts::askLlm`). Mocks
+- **`layer1-llm/`** - the Gemini HTTP call (`_lib/llm/coachLlmClient.ts::askLlm`). Mocks
   `fetch`/`fetchWithTimeout` only; real request building and real JSON/schema parsing run.
 - **`layer2-fields/`** - decision -> file content. Pure appliers (`coachProfileIntents.ts`,
   `coachInjuryIntents.ts`, `coachSeasonQuestIntents.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
