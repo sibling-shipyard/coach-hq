@@ -153,7 +153,8 @@ provider-decision angle below, not the suite's own shape.
 
 ~~4 athletes can chat-test without hitting a rate ceiling~~ — **done**, billing is live (see
 Context above). Eval scores + real usage data to make the long-term provider call are still
-pending — that's the one thing left before this doc's job is finished.
+pending — that's the one thing left before this doc's job is finished. Pricing and quota figures move fast — re-check provider
+dashboards before trusting exact numbers more than a few months old.
 
 ## Next steps
 
@@ -174,4 +175,12 @@ pending — that's the one thing left before this doc's job is finished.
 - DeepSeek — revisit only if cost becomes decisive at real scale. The rate-limit and data-residency
   questions now have partial answers (see Options); what is still missing is a contract probe and a
   provider allow-list, tracked under #713.
+- Kimi K2.5/K2.6 (Moonshot) — the cheapest viable fallback if cost ever becomes the
+  binding constraint: real JSON schema support + prompt caching at roughly half Haiku's price
+  ($0.60/$3.00–$0.95/$4.00, Aug 2026 — re-check), and it exposes OpenAI- and
+  Anthropic-compatible endpoints, so it trial-swaps without a new client shape.
+- Model routing (cheap model for easy turns, expensive for hard ones) — doesn't cleanly apply
+  here: one call already does reply + structured file-updates + commit message in a single
+  shot. Splitting that into a classify/reply pipeline is a real redesign, not a config
+  change — a later look, not a near-term win.
 - Committing to Haiku/GPT-5-mini/Gemini-paid long-term — decided after the eval, not now.
