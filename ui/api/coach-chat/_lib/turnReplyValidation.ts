@@ -434,7 +434,7 @@ const PERMANENT_EDIT_LANGUAGE_PATTERN =
 const EDIT_TARGET_LANGUAGE_PATTERN = /\b(routine|workout|template|phase|exercise)s?\b/i;
 const EDIT_VERB_LANGUAGE_PATTERN = /\b(swap|remove|drop|take out|cut|skip|delete|get rid of)\b/i;
 const EDIT_DONE_CLAIM_LANGUAGE_PATTERN =
-  /\bi(?:'ve| have)?\s+(?:took|taken|pulled|removed|dropped|swapped|cut|updated|saved)\b|\b(?:has|have)\s+been\s+(?:removed|dropped|updated|saved)\b|\b(?:it's|that's|it is)\s+(?:saved|locked in|done)\b/i;
+  /\bi(?:'ve| have)?\s+(?:took|taken|pulled|removed|dropped|swapped|cut|updated|saved|set|made|changed|stripped)\b|\b(?:has|have)\s+been\s+(?:removed|dropped|updated|saved)\b|\b(?:it's|that's|it is)\s+(?:saved|locked in|done)\b/i;
 
 export function findMissedTemplateEditLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;
@@ -450,20 +450,47 @@ export function findMissedTemplateEditLanguage(turn: TurnState, reply: LlmReply)
 // phase pulled out" with no session_plan written and nothing correcting the reply. The today-only
 // twin of the template_edit guard above: a one-day wording, a routine target and a skip verb in
 // the athlete's message, plus a first-person done-claim in the reply.
-const TODAY_ONLY_LANGUAGE_PATTERN = /\b(today|today's|just for today|this session|for now)\b/i;
+const TODAY_ONLY_LANGUAGE_PATTERN =
+  /(?<!not just )(?<!not only )\b(today|today's|just for today|this session|for now)\b/i;
 const SESSION_EDIT_VERB_LANGUAGE_PATTERN =
   /\b(skip|drop|remove|cut|take out|swap|lighten|leave out|without)\b/i;
 const SESSION_DONE_CLAIM_LANGUAGE_PATTERN =
-  /\bi(?:'ve| have)?\s+(?:set up|stripped|adjusted|pulled|removed|dropped|skipped|cut|updated|swapped|taken|took)\b/i;
+  /\bi(?:'ve| have)?\s+(?:set(?: up)?|stripped|adjusted|pulled|removed|dropped|skipped|cut|updated|swapped|taken|took|kept|left|made|changed|trimmed)\b/i;
 
 export function findMissedSessionPlanLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;
   if (reply.session_plan || reply.template_edit || reply.week_update) return null;
+  // A permanent wording belongs to the template_edit guard, even when "today" appears in it.
+  if (PERMANENT_EDIT_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   const today = firstMatch(turn.athleteMessage, TODAY_ONLY_LANGUAGE_PATTERN);
   if (!today) return null;
   if (!EDIT_TARGET_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   if (!SESSION_EDIT_VERB_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   return SESSION_DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? today : null;
+}
+
+// Round-2 retest: "add a 20 minute mobility session on Saturday, just for this week" got "I've added
+// a 20-minute mobility session onto Saturday's plan" with no week_update written and nothing
+// correcting the reply. isProseOnlyWeekPlan only catches a full seven-day narration, so a
+// single-session change slipped past. A this-week or named-day wording, a schedule verb and a
+// session target in the athlete's message, plus a first-person done-claim in the reply.
+const WEEK_CHANGE_DAY_LANGUAGE_PATTERN =
+  /\b(this week|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+const WEEK_CHANGE_VERB_LANGUAGE_PATTERN =
+  /\b(add|move|swap|shift|reschedule|restructure|change|put|schedule)\b/i;
+const WEEK_CHANGE_TARGET_LANGUAGE_PATTERN =
+  /\b(sessions?|workouts?|runs?|rides?|rest day|plan|schedule)\b/i;
+const WEEK_DONE_CLAIM_LANGUAGE_PATTERN =
+  /\bi(?:'ve| have)?\s+(?:added|moved|swapped|shifted|rescheduled|put|scheduled|updated|changed|restructured)\b/i;
+
+export function findMissedWeekUpdateLanguage(turn: TurnState, reply: LlmReply): string | null {
+  if (turn.firstSession) return null;
+  if (reply.week_update) return null;
+  const day = firstMatch(turn.athleteMessage, WEEK_CHANGE_DAY_LANGUAGE_PATTERN);
+  if (!day) return null;
+  if (!WEEK_CHANGE_VERB_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  if (!WEEK_CHANGE_TARGET_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  return WEEK_DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? day : null;
 }
 
 // #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport

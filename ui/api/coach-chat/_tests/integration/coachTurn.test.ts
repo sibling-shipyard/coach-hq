@@ -293,6 +293,20 @@ describe("coach turn stages", () => {
     );
   });
 
+  it("appends a same-turn correction when a week schedule change was claimed but never written", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        stillMissedWeekUpdate: true,
+        reply: { reply: "I've added the session.", coach_note: "Added mobility." },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe(
+      "I've added the session.\n\n" +
+        "(Note: that change to your week wasn't saved - ask again and I'll put it in.)",
+    );
+  });
+
   it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
     const turn = await buildTurnWrites(
       baseTurn({

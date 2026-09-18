@@ -53,6 +53,7 @@ import {
   formatDroppedActionsNote,
   formatDroppedActionsCorrection,
   formatMissedSessionPlanCorrection,
+  formatMissedWeekUpdateCorrection,
   formatMissedTemplateEditCorrection,
   formatMissedWorkoutCreateCorrection,
   formatProseOnlyWeekPlanCorrection,
@@ -502,12 +503,16 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const missedSessionPlanCorrection = formatMissedSessionPlanCorrection(
     turn.stillMissedSessionPlan ?? false,
   );
+  const missedWeekUpdateCorrection = formatMissedWeekUpdateCorrection(
+    turn.stillMissedWeekUpdate ?? false,
+  );
   const correctionSuffix = [
     droppedActionsCorrection,
     proseOnlyWeekPlanCorrection,
     missedWorkoutCreateCorrection,
     missedTemplateEditCorrection,
     missedSessionPlanCorrection,
+    missedWeekUpdateCorrection,
     synthesizedQuestEventNote,
   ]
     .filter(Boolean)

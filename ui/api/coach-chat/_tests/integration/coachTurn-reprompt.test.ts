@@ -2983,3 +2983,120 @@ describe("requestCoachReply missed session_plan guard", () => {
     expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
+
+// Round-2 retest: "add a 20 minute mobility session on Saturday, just for this week" got "I've added
+// a 20-minute mobility session onto Saturday's plan" with no week_update written. isProseOnlyWeekPlan
+// only catches a full seven-day narration.
+describe("requestCoachReply missed week_update guard", () => {
+  const weekAsk = {
+    trimmed: "Add a 20 minute mobility session on Saturday, just for this week.",
+    athleteMessage: "Add a 20 minute mobility session on Saturday, just for this week.",
+  };
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts once when the reply claims the schedule change was made but no week_update was set", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "I've added a 20-minute mobility session onto Saturday's plan.",
+        coach_note: "Added mobility.",
+      })
+      .mockResolvedValueOnce({
+        reply: "I've added a 20-minute mobility session onto Saturday's plan.",
+        coach_note: "Added mobility.",
+        week_update: { days: [] },
+      });
+
+    await requestCoachReply(baseTurnState(weekAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("flags a correction and reports to Sentry when the reprompt still misses", async () => {
+    askLlm.mockResolvedValue({
+      reply: "I've moved that to Saturday.",
+      coach_note: "Moved session.",
+    });
+
+    const result = await requestCoachReply(baseTurnState(weekAsk));
+
+    expect("stillMissedWeekUpdate" in result && result.stillMissedWeekUpdate).toBe(true);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detectors: expect.arrayContaining(["missedWeekUpdateLanguage"]),
+      }),
+    );
+  });
+
+  it.each([
+    "Nothing is planned on Saturday yet - what would you like to do that day?",
+    "I can't move a session that isn't on your plan - tell me which one you mean.",
+  ])("does not reprompt an honest decline or question: %s", async (reply) => {
+    askLlm.mockResolvedValueOnce({ reply, coach_note: "Asked before changing." });
+
+    await requestCoachReply(baseTurnState(weekAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt a message with no schedule change in it", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "I've noted that.", coach_note: "Noted." });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "My Saturday run felt great.",
+        athleteMessage: "My Saturday run felt great.",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Round-2 retest: a bare "I set today's session ... and cut the core phase out" was not read as a
+// done-claim, and "not just today" in a permanent request wrongly tripped the today-only guard.
+describe("requestCoachReply session_plan guard wording", () => {
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts on a bare 'I set today's session' done-claim", async () => {
+    askLlm.mockResolvedValue({
+      reply: "I set today's session from your routine and cut the core phase out completely.",
+      coach_note: "Skipped core today.",
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "For today's session use that routine but skip the core phase, just for today.",
+        athleteMessage:
+          "For today's session use that routine but skip the core phase, just for today.",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not treat 'not just today' in a permanent request as a today-only change", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "I've updated the routine and dropped the core phase.",
+      coach_note: "Removed core.",
+      template_edit: { template_id: "q1", skip_phases: ["core"] },
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Permanently swap the core phase out of that routine, every time, not just today.",
+        athleteMessage:
+          "Permanently swap the core phase out of that routine, every time, not just today.",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
