@@ -3,31 +3,33 @@
 # Source of truth: AGENTS.md §The Team + .github/agents/*.md §Scope
 # Cyclops is read-only and owns no paths (intentionally absent).
 #
-# Note: Owners are internal agent roles, not GitHub users/teams. 
+# Note: Owners are internal agent roles, not GitHub users/teams.
 # This file is for agent and CI boundaries, not GitHub UI enforcement.
+# Global reviewers (GLOBAL_REVIEWERS in the script) are real GitHub handles
+# appended to every rule so they are always requested, regardless of path.
 
-*                                      Tech-Lead
-ui/client/                             UI-Expert
-ui/api/                                Bob-the-Builder
-engine/core/                           Bob-the-Builder
-engine/lib/                            Bob-the-Builder
-engine/scripts/                        Bob-the-Builder
-scripts/                               Bob-the-Builder
-ui/observability/                      Bob-the-Builder
-ui/scripts/                            Bob-the-Builder
-user_data/                             Bob-the-Builder
-ios/                                   iOS-Builder
-ui/eval/                               Vade-the-Tester
-ui/scripts/run-tests-logged.ts         Vade-the-Tester
-ui/scripts/lib/llmPricing.ts           Vade-the-Tester
-test-results/                          Vade-the-Tester
-kdb/test-doc-style.md                  Vade-the-Tester
-user_data/coach/                       Coach-Phelps
-user_data/ledger/challenge_v2.json     Coach-Phelps
-sessions/                              Coach-Phelps
-shared/warm-instrument/                UI-Expert
-shared/golden-dataset/                 Tech-Lead
-shared/workout-library/                Tech-Lead
-platform/                              Tech-Lead
-.github/workflows/                     Tech-Lead
-kdb/scripts/                           Tech-Lead
+*                                      Tech-Lead @ajji-in-london
+ui/client/                             UI-Expert @ajji-in-london
+ui/api/                                Bob-the-Builder @ajji-in-london
+engine/core/                           Bob-the-Builder @ajji-in-london
+engine/lib/                            Bob-the-Builder @ajji-in-london
+engine/scripts/                        Bob-the-Builder @ajji-in-london
+scripts/                               Bob-the-Builder @ajji-in-london
+ui/observability/                      Bob-the-Builder @ajji-in-london
+ui/scripts/                            Bob-the-Builder @ajji-in-london
+user_data/                             Bob-the-Builder @ajji-in-london
+ios/                                   iOS-Builder @ajji-in-london
+ui/eval/                               Vade-the-Tester @ajji-in-london
+ui/scripts/run-tests-logged.ts         Vade-the-Tester @ajji-in-london
+ui/scripts/lib/llmPricing.ts           Vade-the-Tester @ajji-in-london
+test-results/                          Vade-the-Tester @ajji-in-london
+kdb/test-doc-style.md                  Vade-the-Tester @ajji-in-london
+user_data/coach/                       Coach-Phelps @ajji-in-london
+user_data/ledger/challenge_v2.json     Coach-Phelps @ajji-in-london
+sessions/                              Coach-Phelps @ajji-in-london
+shared/warm-instrument/                UI-Expert @ajji-in-london
+shared/golden-dataset/                 Tech-Lead @ajji-in-london
+shared/workout-library/                Tech-Lead @ajji-in-london
+platform/                              Tech-Lead @ajji-in-london
+.github/workflows/                     Tech-Lead @ajji-in-london
+kdb/scripts/                           Tech-Lead @ajji-in-london
