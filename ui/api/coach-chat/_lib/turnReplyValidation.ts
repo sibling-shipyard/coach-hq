@@ -382,6 +382,26 @@ export function findMissedRemovalLanguage(turn: TurnState, reply: LlmReply): str
   return firstMatch(turn.athleteMessage, REMOVAL_LANGUAGE_PATTERN);
 }
 
+// Round-2 live pass: "build me a new routine" got a reply claiming "the routine is built and saved"
+// with no workout_create set, and the model's own unrecorded_facts stayed empty, so no other guard
+// had anything to catch. Fires only when the athlete asked for a new routine AND the reply claims
+// it was done AND no workout action landed. A clarifying question ("which days?") has no
+// done-claim, so it never trips this.
+const BUILD_ROUTINE_LANGUAGE_PATTERN =
+  /\b(build|create|make|design|put together|set up)\b.{0,30}\b(routine|workout|template)\b/i;
+const DONE_CLAIM_LANGUAGE_PATTERN =
+  /\b(built|saved|created|added|locked in|set up|all set|ready)\b/i;
+
+export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply): string | null {
+  if (turn.firstSession) return null;
+  if (reply.workout_create || reply.template_edit || reply.session_plan || reply.week_update) {
+    return null;
+  }
+  const asked = firstMatch(turn.athleteMessage, BUILD_ROUTINE_LANGUAGE_PATTERN);
+  if (!asked) return null;
+  return DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? asked : null;
+}
+
 // #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport
 // name risks matching an ordinary session report with no update intent at all ("badminton was
 // rough today" is not a sports_update moment), so this keys only on explicit new-activity

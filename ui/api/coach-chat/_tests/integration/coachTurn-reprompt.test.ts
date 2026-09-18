@@ -2565,3 +2565,59 @@ describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
     }
   });
 });
+
+// Round-2 live pass: "build me a routine" got a reply claiming the routine was saved with no
+// workout_create set and an empty unrecorded_facts, so no other guard had anything to catch.
+describe("requestCoachReply missed workout_create guard", () => {
+  const buildAsk = { athleteMessage: "build me a new bodyweight strength routine, no equipment" };
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts once when the reply claims a routine was saved but no workout action was set", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "The routine is built and saved to your plan.",
+        coach_note: "Built a routine.",
+      })
+      .mockResolvedValueOnce({
+        reply: "The routine is built and saved to your plan.",
+        coach_note: "Built a routine.",
+        workout_create: { name: "Bodyweight", phases: [] },
+      });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("flags it for a correction and reports to Sentry when the reprompt still misses", async () => {
+    askLlm.mockResolvedValue({
+      reply: "The routine is built and saved to your plan.",
+      coach_note: "Built a routine.",
+    });
+
+    const result = await requestCoachReply(baseTurnState(buildAsk));
+
+    expect("stillMissedWorkoutCreate" in result && result.stillMissedWorkoutCreate).toBe(true);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detectors: expect.arrayContaining(["missedWorkoutCreateLanguage"]),
+      }),
+    );
+  });
+
+  it("does not reprompt a clarifying question that claims nothing was saved", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "Happy to - how many days a week can you train?",
+      coach_note: "Asked about frequency before building.",
+    });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});

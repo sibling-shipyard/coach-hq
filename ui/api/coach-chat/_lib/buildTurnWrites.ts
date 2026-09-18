@@ -52,6 +52,7 @@ import type { RepliedTurn } from "./requestCoachReply.js";
 import {
   formatDroppedActionsNote,
   formatDroppedActionsCorrection,
+  formatMissedWorkoutCreateCorrection,
   formatProseOnlyWeekPlanCorrection,
   formatSynthesizedQuestEventNote,
 } from "./requestCoachReply.js";
@@ -484,9 +485,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const proseOnlyWeekPlanCorrection = formatProseOnlyWeekPlanCorrection(
     turn.stillProseOnlyWeekPlan ?? false,
   );
+  const missedWorkoutCreateCorrection = formatMissedWorkoutCreateCorrection(
+    turn.stillMissedWorkoutCreate ?? false,
+  );
   const correctionSuffix = [
     droppedActionsCorrection,
     proseOnlyWeekPlanCorrection,
+    missedWorkoutCreateCorrection,
     synthesizedQuestEventNote,
   ]
     .filter(Boolean)

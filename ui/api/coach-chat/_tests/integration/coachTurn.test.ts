@@ -251,6 +251,20 @@ describe("coach turn stages", () => {
     );
   });
 
+  it("appends a same-turn correction when a routine was claimed but never created", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        stillMissedWorkoutCreate: true,
+        reply: { reply: "The routine is built and saved.", coach_note: "Built a routine." },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe(
+      "The routine is built and saved.\n\n" +
+        "(Note: that routine wasn't saved - ask again and I'll build it properly.)",
+    );
+  });
+
   it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
     const turn = await buildTurnWrites(
       baseTurn({
