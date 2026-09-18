@@ -31,3 +31,10 @@ You two steer; the agents build.
 2. **`kdb/decisions/`** — the big calls and why, one short note each.
 3. **`docs/eng-docs/`** — only your area, via the folder README. Never the full listing.
 4. **The `*-history.md` docs** — only when asking "why did we do it that way".
+
+## The two repos
+
+What lives in coach-hq vs what the carve stamps into athlete repos:
+
+![Two-repo topology](./docs/eng-docs/two-repo-topology.svg#gh-light-mode-only)
+![Two-repo topology](./docs/eng-docs/two-repo-topology.dark.svg#gh-dark-mode-only)

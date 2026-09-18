@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1609" height="648" viewBox="0 0 1609 648">
+<rect width="100%" height="100%" fill="#0d1117" rx="8"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#9198a1"/></marker></defs>
+<text x="24" y="30" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#e6edf3">Coach data — entity map</text>
+<text x="24" y="50" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#9198a1">From docs/eng-docs/coach-data-schema.md, claims verified against main</text>
+<text x="24" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">FILES COACH OWNS / READS</text>
+<text x="509.2307692307692" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">TURN-PIPELINE WRITERS</text>
+<text x="1284.6923076923076" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">ENUMS / SHARED VOCAB</text>
+<line x1="1194.7" y1="251.0" x2="29.9" y2="128.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="613.8" y="183.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes</text>
+<line x1="1194.7" y1="251.0" x2="21.0" y2="210.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="609.3" y="224.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes</text>
+<line x1="1194.7" y1="251.0" x2="89.1" y2="292.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="643.4" y="265.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes</text>
+<line x1="1194.7" y1="251.0" x2="74.3" y2="374.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="636.0" y="306.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes</text>
+<line x1="993.3" y1="333.0" x2="74.3" y2="374.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="535.3" y="347.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes (first-session benchmark)</text>
+<line x1="1120.7" y1="415.0" x2="92.1" y2="538.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="607.9" y="470.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes</text>
+<line x1="1120.7" y1="415.0" x2="89.1" y2="292.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="606.4" y="347.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">writes (reconcile/rollover)</text>
+<line x1="1194.7" y1="251.0" x2="1311.3" y2="210.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1254.5" y="224.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">reads</text>
+<line x1="1194.7" y1="251.0" x2="1354.9" y2="292.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1276.3" y="265.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">reads</text>
+<line x1="1194.7" y1="251.0" x2="1293.5" y2="456.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1245.6" y="347.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">reads (via coachWeekFiles)</text>
+<line x1="993.3" y1="333.0" x2="80.2" y2="456.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="538.3" y="388.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">reads (catalog)</text>
+<line x1="1585.2" y1="374.0" x2="74.3" y2="374.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="831.2" y="368.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">validates</text>
+<rect x="32.9" y="98.0" width="377.5" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="120.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">user_data/coach/</text>
+<text x="221.6" y="140.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">profile.json · memory.json · injuries.json · coach_log.json</text>
+<rect x="24.0" y="180.0" width="395.2" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="202.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">user_data/ledger/</text>
+<text x="221.6" y="222.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">seasons.json · quests.json · progress.json · progressions.json</text>
+<rect x="92.1" y="262.0" width="259.0" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="284.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">current_week.json</text>
+<text x="221.6" y="304.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">user_data/ledger/ — the dated week plan</text>
+<rect x="77.3" y="344.0" width="288.6" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="366.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">workout_plans/</text>
+<text x="221.6" y="386.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">user_data/activities/ — templates &amp; sessions</text>
+<rect x="83.2" y="426.0" width="276.8" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="448.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">exercises.json</text>
+<text x="221.6" y="468.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">shared/workout-library/ — exercise catalog</text>
+<rect x="95.1" y="508.0" width="253.1" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="221.6" y="530.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">gen/athlete_insights.json</text>
+<text x="221.6" y="550.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">pipeline-generated, read-only for chat</text>
+<rect x="509.2" y="221.0" width="685.5" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="852.0" y="243.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">decide/turnWrites/</text>
+<text x="852.0" y="263.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">profileWrite · memoryWrite · injuryWrite · coachNoteWrite · seasonWrite · questWrite · weekWrite · workoutWrite</text>
+<rect x="710.6" y="303.0" width="282.7" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="852.0" y="325.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">turnCompletion.ts</text>
+<text x="852.0" y="345.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">generateFirstSessionWorkoutsAfterCompletion</text>
+<rect x="583.3" y="385.0" width="537.4" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="852.0" y="407.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">engine/scripts/</text>
+<text x="852.0" y="427.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">generate-athlete-insights.mjs · reconcile-current-week.mjs · rollover-current-week.mjs</text>
+<rect x="1314.3" y="180.0" width="241.2" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="1434.9" y="202.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">coachMemoryFiles.ts</text>
+<text x="1434.9" y="222.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">MEMORY_NOTE_LABELS · COACHING_STYLES</text>
+<rect x="1357.9" y="262.0" width="154.0" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="1434.9" y="284.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">coachQuestFiles.ts</text>
+<text x="1434.9" y="304.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">QuestType</text>
+<rect x="1284.7" y="344.0" width="300.5" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="1434.9" y="366.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">workoutSchema.ts</text>
+<text x="1434.9" y="386.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">validateWorkout · workout_type · Exercise.type</text>
+<rect x="1296.5" y="426.0" width="276.8" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="1434.9" y="448.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">engine/lib/current-week.mts</text>
+<text x="1434.9" y="468.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">parseCurrentWeek — strict schema validator</text>
+<text x="24" y="610.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1">Source paths in the doc live under ui/api/coach-chat/_lib/decide/, not _lib/ directly.</text>
+<text x="24" y="628.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1">progress.json &#x27;pipeline&#x27;/&#x27;athlete&#x27; sources have no confirmed writer today (issue #565) — not shown.</text>
+</svg>

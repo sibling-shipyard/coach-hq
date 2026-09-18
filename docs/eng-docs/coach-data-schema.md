@@ -2,6 +2,8 @@
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-09-16
 
+> **Entity map:** [one picture of the files, writers, and enums](./coach-data-schema-entity-map.svg#gh-light-mode-only) ([dark mode](./coach-data-schema-entity-map.dark.svg#gh-dark-mode-only)).
+
 ## Context
 
 The coach-chat/SOUL redesign replaced `state.md`/`coach_notes.md`/`challenge_v2.json` with a set
