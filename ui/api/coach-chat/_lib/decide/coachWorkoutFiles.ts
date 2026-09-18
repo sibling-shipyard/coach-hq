@@ -186,7 +186,7 @@ function phaseWords(name: string): string[] {
 function findPhaseByName(
   phases: Workout["phases"],
   name: string,
-): Workout["phases"][number] | undefined {
+): Workout["phases"][number] | "ambiguous" | undefined {
   const target = name.trim().toLowerCase();
   const exact = phases.find((p) => p.name.trim().toLowerCase() === target);
   if (exact) return exact;
@@ -196,7 +196,8 @@ function findPhaseByName(
     const words = new Set(phaseWords(p.name));
     return wanted.every((word) => words.has(word));
   });
-  return matches.length === 1 ? matches[0] : undefined;
+  if (matches.length > 1) return "ambiguous";
+  return matches[0];
 }
 
 // Resolves plain-language phase names (skip_phases) to exercise nums, matched case-insensitively
@@ -214,6 +215,13 @@ function resolvePhaseNames(
   const nums: number[] = [];
   for (const name of phaseNames) {
     const phase = findPhaseByName(phases, name);
+    if (phase === "ambiguous") {
+      console.warn(
+        `[coach-chat] session_plan: "${name}" matches more than one phase in this template - ignoring`,
+        { traceId },
+      );
+      continue;
+    }
     if (!phase) {
       console.warn(
         `[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`,

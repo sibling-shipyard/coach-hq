@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   applySessionPlan,
   renumberAfterSkip,
@@ -282,6 +282,7 @@ describe("applySessionPlan", () => {
           ],
         }),
       );
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const { content } = applySessionPlan(
         twoSets,
         { template_id: "strength_b", session_date: "2026-08-18", skip_phases: ["main"] },
@@ -289,6 +290,10 @@ describe("applySessionPlan", () => {
         "t1",
       );
       expect(JSON.parse(content).phases).toHaveLength(2);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("matches more than one phase"), {
+        traceId: "t1",
+      });
+      warn.mockRestore();
     });
   });
 });
