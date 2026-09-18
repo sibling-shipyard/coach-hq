@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4031" height="402" viewBox="0 0 4031 402">
+<rect width="100%" height="100%" fill="#0d1117" rx="8"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#9198a1"/></marker></defs>
+<text x="24" y="30" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#e6edf3">LLM adapter seam — coach-hq</text>
+<text x="24" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">CALLERS — ALL THREE REACH THE SEAM VIA SELECTLLMADAPTER</text>
+<text x="1006.7692307692307" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">THE SEAM</text>
+<text x="1497.923076923077" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">ADAPTERS — WIRE SHAPE, CACHE, RETRIES, SCHEMA</text>
+<text x="3227.0" y="76" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#9198a1">PROVIDERS</text>
+<line x1="916.8" y1="128.0" x2="1003.8" y2="210.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="961.8" y="163.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">LlmRequest: cachePrefix + system + messages (last 40)</text>
+<line x1="836.8" y1="210.0" x2="1003.8" y2="210.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="921.8" y="204.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">system:&#x27;&#x27;, one user turn, no cachePrefix</text>
+<line x1="750.9" y1="292.0" x2="1003.8" y2="210.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="878.8" y="245.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">generateProactiveBody path</text>
+<line x1="1407.9" y1="210.0" x2="1494.9" y2="169.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1452.9" y="183.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">LLM_PROVIDER unset / &#x27;gemini&#x27; / typo</text>
+<line x1="1407.9" y1="210.0" x2="1604.5" y2="251.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1507.7" y="224.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">LLM_PROVIDER=openrouter</text>
+<line x1="3137.0" y1="169.0" x2="3224.0" y2="169.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="3182.0" y="163.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">POST models/{model}:generateContent</text>
+<line x1="3027.4" y1="251.0" x2="3280.3" y2="251.0" stroke="#9198a1" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="3155.3" y="245.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#58a6ff" text-anchor="middle">POST chat/completions</text>
+<rect x="24.0" y="98.0" width="892.8" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="470.4" y="120.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">coach-chat: askLlm()</text>
+<text x="470.4" y="140.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">prompt built in coachLlmClient.ts + coachPromptText.ts; cachePrefix = static persona + instructions, system = dynamic block, last 40 history turns</text>
+<rect x="104.0" y="180.0" width="732.8" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="470.4" y="202.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">coach-message route</text>
+<text x="470.4" y="222.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">generateProactiveBody(adapter, prompt): one user turn, empty system, no cachePrefix → no cache lookup, no adapter retry</text>
+<rect x="189.8" y="262.0" width="561.1" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="470.4" y="284.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">activitySyncTurn.ts</text>
+<text x="470.4" y="304.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">post-sync thread&#x27;s opening reply; same generateProactiveBody adapter path as coach-message</text>
+<rect x="1006.8" y="180.0" width="401.2" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="1207.3" y="202.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">selectLlmAdapter(env) — ui/api/_lib/llmClient.ts</text>
+<text x="1207.3" y="222.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">exactly one adapter runs per call; no shadow call, no dual-send</text>
+<rect x="1497.9" y="139.0" width="1639.1" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="2317.5" y="161.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">geminiAdapter</text>
+<text x="2317.5" y="181.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">WHERE the cache lives: tries geminiSoulCache.ts; WHERE retries live: 1× on stale-cache 400 (invalidate + no-cache) or 503/504 (500ms backoff), gated on cachePrefix; strips additionalProperties recursively; MAX_TOKENS guard + no-content guard; usage into Sentry gen_ai span</text>
+<rect x="1607.5" y="221.0" width="1419.9" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="2317.5" y="243.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">openRouterAdapter</text>
+<text x="2317.5" y="263.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">never emulates the Gemini cache (concatenates prefix+system); remaps model→assistant roles; WHERE the schema is enforced: json_schema strict:true; WHERE its retry lives: 1× on finish_reason=length; real costUsd + cached tokens in usage</text>
+<rect x="3227.0" y="139.0" width="780.2" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="3617.1" y="161.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">Gemini direct</text>
+<text x="3617.1" y="181.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">x-goog-api-key header; model gemini-pro-latest (ui/api/_lib/geminiModel.ts); responseSchema + responseMimeType application/json</text>
+<rect x="3283.3" y="221.0" width="667.7" height="60" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="3617.1" y="243.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#e6edf3" text-anchor="middle">OpenRouter → google-vertex only</text>
+<text x="3617.1" y="263.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1" text-anchor="middle">model google/gemini-3.8-flash; provider.only google-vertex, data_collection deny (ZDR); reasoning effort low</text>
+<text x="24" y="364.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1">The adapter returns raw JSON text; the caller parses and validates it — JSON.parse + LlmReply in coachLlmClient (with one ≤20s JSON-parse retry), {body} shape check in generateProactiveBody.</text>
+<text x="24" y="382.0" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#9198a1">All claims verified by grep against main on 2026-09-18.</text>
+</svg>
