@@ -84,13 +84,17 @@ function isTransientReadFailure(err: unknown): boolean {
   return status >= 500 || status === 429;
 }
 
+// `commitRef` pins the read to one commit sha instead of the branch name. A read by branch name
+// right after a commit can return the previous tree, so the next turn would not see a routine the
+// last turn just wrote. A commit sha is immutable and always contains everything up to it.
 export async function getFileRaw(
   repo: string,
   path: string,
   token: string,
   attempts = 3,
+  commitRef?: string,
 ): Promise<string | null> {
-  const ref = encodeURIComponent(resolveCoachChatBranch());
+  const ref = encodeURIComponent(commitRef ?? resolveCoachChatBranch());
   return withGithubSpan("contents/read", async (setStatus) => {
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
@@ -267,7 +271,7 @@ export function invalidateCoachContext(repo: string): void {
 export async function loadCoachContext(
   repo: string,
   token: string,
-  opts?: { fresh?: boolean },
+  opts?: { fresh?: boolean; ref?: string },
 ): Promise<CoachContext> {
   const cached = contextCache.get(repo);
   if (!opts?.fresh && cached && cached.expiresAt > Date.now()) {
@@ -294,15 +298,15 @@ export async function loadCoachContext(
       progressionsRaw,
       athleteInsightsRaw,
     ] = await Promise.all([
-      getFileRaw(repo, PROFILE_PATH, token),
-      getFileRaw(repo, MEMORY_PATH, token),
-      getFileRaw(repo, INJURIES_PATH, token),
-      getFileRaw(repo, COACH_LOG_PATH, token),
-      getFileRaw(repo, SEASONS_PATH, token),
-      getFileRaw(repo, QUESTS_PATH, token),
-      getFileRaw(repo, PROGRESS_PATH, token),
-      getFileRaw(repo, PROGRESSIONS_PATH, token),
-      getFileRaw(repo, ATHLETE_INSIGHTS_PATH, token),
+      getFileRaw(repo, PROFILE_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, MEMORY_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, INJURIES_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, COACH_LOG_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, SEASONS_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, QUESTS_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, PROGRESS_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, PROGRESSIONS_PATH, token, undefined, opts?.ref),
+      getFileRaw(repo, ATHLETE_INSIGHTS_PATH, token, undefined, opts?.ref),
     ]);
     const value: CoachContext = {
       soul: SOUL,

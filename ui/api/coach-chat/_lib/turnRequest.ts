@@ -181,7 +181,10 @@ export async function loadTurnState(
 ): Promise<Response | TurnState> {
   const currentSha = await getHeadShaOrNull(repo, token);
   const stale = request.knownSha != null && currentSha != null && request.knownSha !== currentSha;
-  const context = await loadCoachContext(repo, token, { fresh: stale });
+  const context = await loadCoachContext(repo, token, {
+    fresh: stale,
+    ref: currentSha ?? undefined,
+  });
   const {
     soul,
     profile,

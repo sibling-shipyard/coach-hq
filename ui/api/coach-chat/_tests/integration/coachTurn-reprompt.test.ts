@@ -11,7 +11,10 @@ vi.mock("../../_lib/llm/coachLlmClient.js", () => ({
 // "does not-first-session-context-fetching break anything else" question, so the default is empty
 // (no templates, no sessions) and the one test that cares about real content sets its own return.
 const { getFileRaw } = vi.hoisted(() => ({
-  getFileRaw: vi.fn(async (_repo: string, _path: string, _token: string) => null as string | null),
+  getFileRaw: vi.fn(
+    async (_repo: string, _path: string, _token: string, _attempts?: number, _ref?: string) =>
+      null as string | null,
+  ),
 }));
 vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
@@ -2742,5 +2745,35 @@ describe("requestCoachReply missed template_edit guard", () => {
     );
 
     expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The next turn must see a routine the last turn just committed, so the per-turn templates
+// manifest and current week are read at this turn's head commit, not the branch name.
+describe("requestCoachReply pins per-turn reads to the head sha", () => {
+  beforeEach(() => {
+    askLlm.mockReset();
+  });
+
+  it("reads the templates manifest and current_week.json at turn.currentSha", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(baseTurnState({ currentSha: "head-sha-1" }));
+
+    const reads = getFileRaw.mock.calls.map((call) => [call[1], call[4]]);
+    expect(reads).toEqual(
+      expect.arrayContaining([
+        [expect.stringContaining("_manifest.json"), "head-sha-1"],
+        [expect.stringContaining("current_week.json"), "head-sha-1"],
+      ]),
+    );
+  });
+
+  it("falls back to the branch name when the head sha is unknown", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(baseTurnState({ currentSha: null }));
+
+    expect(getFileRaw.mock.calls.every((call) => call[4] === undefined)).toBe(true);
   });
 });

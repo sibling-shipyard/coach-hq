@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   ATHLETE_INSIGHTS_PATH,
+  getFileRaw,
   invalidateCoachContext,
   isAthleteProfileComplete,
   isFirstSessionRitualDone,
@@ -238,5 +239,42 @@ describe("loadCoachContext in-flight de-dup", () => {
     });
     await expect(loadCoachContext(repo, "token")).resolves.toMatchObject({ athleteInsights: null });
     expect(fetchMock).toHaveBeenCalledTimes(9);
+  });
+});
+
+// A read by branch name right after a commit can return the previous tree, so a routine written
+// last turn was invisible this turn. A commit sha is immutable and always includes it.
+describe("pinning reads to a commit sha", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn(async () => new Response("content", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const urls = () => fetchMock.mock.calls.map((call) => String(call[0]));
+
+  it("getFileRaw reads at the given commit sha instead of the branch name", async () => {
+    await getFileRaw("owner/repo", "user_data/coach/profile.json", "token", undefined, "abc123");
+    expect(urls()).toEqual([
+      "https://api.github.com/repos/owner/repo/contents/user_data/coach/profile.json?ref=abc123",
+    ]);
+  });
+
+  it("getFileRaw falls back to the branch name when no sha is given", async () => {
+    await getFileRaw("owner/repo", "user_data/coach/profile.json", "token");
+    expect(urls()[0]).not.toContain("ref=abc123");
+    expect(urls()[0]).toMatch(/\?ref=[^&]+$/);
+  });
+
+  it("loadCoachContext pins all nine context files to the sha", async () => {
+    const repo = `owner/repo-pinned-${Date.now()}`;
+    await loadCoachContext(repo, "token", { fresh: true, ref: "abc123" });
+    expect(urls()).toHaveLength(9);
+    expect(urls().every((url) => url.endsWith("?ref=abc123"))).toBe(true);
   });
 });
