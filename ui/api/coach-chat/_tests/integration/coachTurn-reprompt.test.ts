@@ -1620,6 +1620,39 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
     warnSpy.mockRestore();
   });
 
+  // Round-2 live pass: "starting rock climbing this week too" narrated the sport as recorded with
+  // no sports_update, and the pattern only knew "started".
+  it.each([
+    "Actually starting rock climbing this week too, flagging it as a new thing",
+    "I'm taking up climbing alongside running",
+    "I've been getting into climbing lately",
+    "I joined a local climbing gym",
+  ])("reprompts on new-activity phrasing: %s", async (message) => {
+    askLlm
+      .mockResolvedValueOnce({ reply: "Nice.", coach_note: "Athlete added climbing." })
+      .mockResolvedValueOnce({
+        reply: "Nice.",
+        coach_note: "Athlete added climbing.",
+        sports_update: ["running", "climbing"],
+      });
+
+    await requestCoachReply(newSportTurnState({ trimmed: message, athleteMessage: message }));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    "starting my run at 6 tomorrow, feeling good",
+    "starting weight is 76kg this morning",
+    "starting to feel better after the rest day",
+  ])("does not reprompt on non-sport 'starting' phrasing: %s", async (message) => {
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(newSportTurnState({ trimmed: message, athleteMessage: message }));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
   it("does not reprompt when sports_update was already captured this turn", async () => {
     askLlm.mockResolvedValueOnce({
       reply: "ok",
