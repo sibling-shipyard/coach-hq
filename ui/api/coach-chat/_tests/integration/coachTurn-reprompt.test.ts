@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { askLlm } = vi.hoisted(() => ({ askLlm: vi.fn() }));
 vi.mock("../../_lib/llm/coachLlmClient.js", () => ({
   askLlm,
-  GEMINI_MODEL: "gemini-flash-latest",
 }));
 
 // Every test below runs a non-first-session turn, which now means requestCoachReply fetches the
