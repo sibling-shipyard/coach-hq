@@ -1,21 +1,38 @@
 name: UI Tests
 
-# Runs the ui/ Vitest suite (client components + api/auth serverless handlers). Added after
-# a web-auth regression (issue #194) shipped with no CI catching it - tests existed locally
-# but nothing ran them automatically.
+# Runs the full UI Vitest suite (client components + API/auth serverless handlers). Changes to
+# scripts/build are included because Vercel executes those files during the production build.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'ui/**'
-      - 'engine/lib/**'
-      - '.github/workflows/ui-tests.yml'
+      - "ui/api/**"
+      - "ui/client/**"
+      - "ui/observability/**"
+      - "ui/scripts/build/**"
+      - "ui/index.html"
+      - "ui/package.json"
+      - "ui/package-lock.json"
+      - "ui/tsconfig*.json"
+      - "ui/vite.config.ts"
+      - "ui/vitest.config.ts"
+      - "engine/lib/**"
+      - ".github/workflows/ui-tests.yml"
   pull_request:
     paths:
-      - 'ui/**'
-      - 'engine/lib/**'
-      - '.github/workflows/ui-tests.yml'
+      - "ui/api/**"
+      - "ui/client/**"
+      - "ui/observability/**"
+      - "ui/scripts/build/**"
+      - "ui/index.html"
+      - "ui/package.json"
+      - "ui/package-lock.json"
+      - "ui/tsconfig*.json"
+      - "ui/vite.config.ts"
+      - "ui/vitest.config.ts"
+      - "engine/lib/**"
+      - ".github/workflows/ui-tests.yml"
 
 concurrency:
   group: ui-tests-${{ github.head_ref || github.ref }}

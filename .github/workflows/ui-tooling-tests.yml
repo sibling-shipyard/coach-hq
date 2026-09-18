@@ -1,0 +1,51 @@
+name: UI Tooling Tests
+
+# Keeps checks for manual and CI-only tooling separate from the deployed UI/API suite. The
+# build scripts stay in ui-tests.yml because Vercel runs them as part of its production build.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ui/eval/**"
+      - "ui/scripts/checks/**"
+      - "ui/scripts/dev/**"
+      - "ui/scripts/lib/**"
+      - "ui/scripts/run-tests-logged.ts"
+      - ".github/workflows/ui-tooling-tests.yml"
+  pull_request:
+    paths:
+      - "ui/eval/**"
+      - "ui/scripts/checks/**"
+      - "ui/scripts/dev/**"
+      - "ui/scripts/lib/**"
+      - "ui/scripts/run-tests-logged.ts"
+      - ".github/workflows/ui-tooling-tests.yml"
+
+concurrency:
+  group: ui-tooling-tests-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-tooling-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Run script unit tests
+        run: npx vitest run scripts/lib
