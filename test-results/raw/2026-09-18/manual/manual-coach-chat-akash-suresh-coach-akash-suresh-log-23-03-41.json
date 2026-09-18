@@ -1,0 +1,205 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-03-30-906Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-03-30-906Z",
+    "input": {
+      "messages": [],
+      "message": "My weight is 72kg today."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "1s8lftp9"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-03-30-906Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772616025",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772616025",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1789772616025",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "8p4bqhe4"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-03-30-906Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772616025",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772616025",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1789772616025",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772617655",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1789772617655",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "13katx0y"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-03-30-906Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772616025",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772616025",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1789772616025",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772617655",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1789772617655",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772619713",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1789772619713",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "1pha6tjf"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  }
+]

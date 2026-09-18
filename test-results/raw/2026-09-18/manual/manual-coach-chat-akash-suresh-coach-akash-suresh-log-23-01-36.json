@@ -1,0 +1,409 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-multi-field-success-1789772478865",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (402): {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3IrA1ypDlidlNjaSYTV7Ska0yqS\"}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-multi-field-success-1789772478865",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "wzg22uvq"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-multi-field-success-1789772478865",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772486410",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772486410",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772486410",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "reply": "Look, today is Saturday and you're already in your Sep 17-20 travel window. We don't build a Monday-to-Sunday week plan from scratch when the week is almost over. For today and tomorrow, stick to the travel bodyweight work or recovery, and we'll sit down tomorrow for the Sunday session to lock in next week clean. How's the body feeling right now?",
+      "threadId": "t-1789772487403",
+      "threads": [
+        {
+          "id": "t-1789772487403",
+          "createdAt": 1789772487403,
+          "title": "I don't have a plan for this…",
+          "preview": "Look, today is Saturday and you're already in your Sep 17-20 travel window. We d",
+          "messages": [
+            {
+              "id": "d-1789772486410",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789772486410",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789772486410",
+              "role": "coach",
+              "paragraphs": [
+                ""
+              ]
+            },
+            {
+              "id": "u-1789772487403",
+              "role": "user",
+              "text": "That looks good, let's go with that."
+            },
+            {
+              "id": "c-1789772487403",
+              "role": "coach",
+              "paragraphs": [
+                "Look, today is Saturday and you're already in your Sep 17-20 travel window. We don't build a Monday-to-Sunday week plan from scratch when the week is almost over. For today and tomorrow, stick to the travel bodyweight work or recovery, and we'll sit down tomorrow for the Sunday session to lock in next week clean. How's the body feeling right now?"
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        },
+        {
+          "id": "t-1789598017467",
+          "createdAt": 1789598017467,
+          "title": "Hi coach",
+          "preview": "Hey Sky. Good to see you. How's the body feeling today?",
+          "messages": [
+            {
+              "id": "d-1789598017467",
+              "role": "divider",
+              "label": "TODAY · 11:33 PM"
+            },
+            {
+              "id": "u-1789598017467",
+              "role": "user",
+              "text": "Hi coach"
+            },
+            {
+              "id": "c-1789598017467",
+              "role": "coach",
+              "paragraphs": [
+                "Hey Sky. Good to see you. How's the body feeling today?"
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "t-1789492343180",
+          "createdAt": 1789492343180,
+          "title": "Ride #114",
+          "preview": "Look, that 36-minute ride is in the log. Just quiet, steady movement to bridge t",
+          "messages": [
+            {
+              "id": "d-1789492343180",
+              "role": "divider",
+              "label": "TODAY · 6:12 PM"
+            },
+            {
+              "id": "c-1789492343180",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that 36-minute ride is in the log. Just quiet, steady movement to bridge the day."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "5818989704533eee",
+                  "activities": [
+                    {
+                      "id": "4E7B2176-952C-43B8-A3E3-198783EB9B6E",
+                      "title": "Ride #114",
+                      "sport": "Ride",
+                      "start": "2026-09-15T17:29:16",
+                      "duration_s": 2167,
+                      "load": 45
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 4,
+          "ageLabel": "D-4",
+          "status": "active"
+        },
+        {
+          "id": "t-1789419127800",
+          "createdAt": 1789419127800,
+          "title": "Badminton #58",
+          "preview": "I can't see the specific match numbers on this screen, but Rank 1 speaks for its",
+          "messages": [
+            {
+              "label": "TODAY · 9:52 PM",
+              "role": "divider",
+              "id": "d-1789419127800"
+            },
+            {
+              "role": "coach",
+              "id": "c-1789419127800",
+              "paragraphs": [
+                "Look, that was another big court shift tonight with some real spikes up in the top zones. No scores on my screen, so I just see the honest effort logged. How did it feel out there?"
+              ],
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "EDFC2909-D17C-4FEF-9F2D-F9726CA4686B",
+                      "duration_s": 10020,
+                      "load": 360,
+                      "title": "Badminton #58",
+                      "sport": "Badminton",
+                      "start": "2026-09-14T19:01:33"
+                    }
+                  ],
+                  "batch_id": "119899e2329db2f0",
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "text": "Added scores now. Felt good coach. I was great today. Shots were in control. Played a calm game and enjoyed the session",
+              "role": "user",
+              "id": "u-1789421472846"
+            },
+            {
+              "id": "c-1789421472846",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that calm control under game speed is exactly what we're after. When your shots are dialed and you're actually enjoying the fight out there, that free state isn't an accident anymore, it's becoming who you are on court. Get your food in, hydrate, and let the body recover tonight."
+              ]
+            },
+            {
+              "id": "u-1789421505702",
+              "role": "user",
+              "text": "Thanks coach. Did you see the scores? I was rank 1 today"
+            },
+            {
+              "id": "c-1789421505702",
+              "role": "coach",
+              "paragraphs": [
+                "I can't see the specific match numbers on this screen, but Rank 1 speaks for itself. Walking into Hit and Run, staying calm when it gets chaotic, and coming out on top without forcing it - that's huge. That's what happens when you trust your game. Bank the confidence, get your protein in, and get some sleep."
+              ]
+            }
+          ],
+          "dayOffset": 5,
+          "ageLabel": "D-5",
+          "status": "active"
+        },
+        {
+          "id": "t-1789388953764",
+          "createdAt": 1789388953764,
+          "title": "WeightTraining #161",
+          "preview": "Look, that 18-minute session was short and quiet. The clock logged the time, but",
+          "messages": [
+            {
+              "id": "d-1789388953764",
+              "role": "divider",
+              "label": "TODAY · 1:29 PM"
+            },
+            {
+              "id": "c-1789388953764",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that 18-minute session was short and quiet. The clock logged the time, but only you know if you got what you needed out of it. How's the body feeling?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "e4f5f39b63cde66b",
+                  "activities": [
+                    {
+                      "id": "ABC42A33-CB38-4269-B9C8-B4FC5B5A12EC",
+                      "title": "WeightTraining #161",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-14T10:10:39",
+                      "duration_s": 1096,
+                      "load": 20
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 5,
+          "ageLabel": "D-5",
+          "status": "active"
+        },
+        {
+          "id": "t-1789260626962",
+          "createdAt": 1789260626962,
+          "title": "Ride #111",
+          "preview": "Look, that was a smooth, easy ride. Just steady movement and nothing forced, whi",
+          "messages": [
+            {
+              "id": "d-1789260626962",
+              "role": "divider",
+              "label": "TODAY · 1:50 AM"
+            },
+            {
+              "id": "c-1789260626962",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that was a smooth, easy ride. Just steady movement and nothing forced, which is solid."
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "dfa6dc16a554ab8b",
+                  "activities": [
+                    {
+                      "id": "E64FA52B-8E20-420D-8DBF-16005F02078E",
+                      "title": "Ride #111",
+                      "sport": "Ride",
+                      "start": "2026-09-12T17:27:55",
+                      "duration_s": 2576,
+                      "load": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 6,
+          "ageLabel": "D-6",
+          "status": "active"
+        },
+        {
+          "id": "t-1789209488510",
+          "createdAt": 1789209488510,
+          "title": "WeightTraining #159",
+          "preview": "Got it. Good to prime with foundation. Lock it in, warm up that right glute with",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY · 11:38 AM",
+              "id": "d-1789209488510"
+            },
+            {
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "9F158139-C60C-40CD-B140-E79FEB973297",
+                      "title": "WeightTraining #159",
+                      "load": 20,
+                      "duration_s": 1271,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-12T10:00:21"
+                    }
+                  ],
+                  "batch_id": "da134d67ef976896",
+                  "version": 1
+                }
+              ],
+              "id": "c-1789209488510",
+              "role": "coach",
+              "paragraphs": [
+                "Look, another short piece of work logged. Did you end up getting into the full Workout A, or did today turn into something lighter?"
+              ]
+            },
+            {
+              "id": "u-1789209605593",
+              "role": "user",
+              "text": "That was foundation. I'll do actual workout in 1 hour"
+            },
+            {
+              "id": "c-1789209605593",
+              "role": "coach",
+              "paragraphs": [
+                "Got it. Good to prime with foundation. Lock it in, warm up that right glute with the single-leg bridge, and make Workout A count. Talk to you right after."
+              ]
+            }
+          ],
+          "dayOffset": 7,
+          "ageLabel": "D-7",
+          "status": "active"
+        }
+      ],
+      "repoSha": "9f382ab3138ab186221a9b6fb1b12de427815ce6",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "88a255b0",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 42db59d..931518e 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,10 +1,47 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-16T22:33:39.910Z\",\n+    \"updated_at\": \"2026-09-18T23:01:31.599Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"9l5rgxy6\"\n+    \"trace_id\": \"88a255b0\"\n   },\n   \"threads\": [\n+    {\n+      \"id\": \"t-1789772487403\",\n+      \"createdAt\": 1789772487403,\n+      \"title\": \"I don't have a plan for this…\",\n+      \"preview\": \"Look, today is Saturday and you're already in your Sep 17-20 travel window. We d\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789772486410\",\n+          \"role\": \"divider\",\n+          \"label\": \"Today\"\n+        },\n+        {\n+          \"id\": \"u-1789772486410\",\n+          \"role\": \"user\",\n+          \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n+        },\n+        {\n+          \"id\": \"c-1789772486410\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"\"\n+          ]\n+        },\n+        {\n+          \"id\": \"u-1789772487403\",\n+          \"role\": \"user\",\n+          \"text\": \"That looks good, let's go with that.\"\n+        },\n+        {\n+          \"id\": \"c-1789772487403\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, today is Saturday and you're already in your Sep 17-20 travel window. We don't build a Monday-to-Sunday week plan from scratch when the week is almost over. For today and tomorrow, stick to the travel bodyweight work or recovery, and we'll sit down tomorrow for the Sunday session to lock in next week clean. How's the body feeling right now?\"\n+          ]\n+        }\n+      ]\n+    },\n     {\n       \"id\": \"t-1789598017467\",\n       \"createdAt\": 1789598017467,\n"
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "9f382ab3138ab186221a9b6fb1b12de427815ce6",
+    "usage": {
+      "promptTokens": 16625,
+      "completionTokens": 90,
+      "totalTokens": 16715,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.01280625
+    },
+    "costUsd": 0.01280625
+  }
+]

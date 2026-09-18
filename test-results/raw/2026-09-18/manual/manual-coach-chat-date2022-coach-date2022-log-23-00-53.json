@@ -1,0 +1,87 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772443298",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (402): {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3IrA1ypDlidlNjaSYTV7Ska0yqS\"}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772443298",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "85hqvw8y"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772443298",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772450507",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772450507",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772450507",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "88vhtvg0"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  }
+]

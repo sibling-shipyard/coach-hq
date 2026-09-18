@@ -1,0 +1,140 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "messages": [],
+      "message": "I want to permanently swap the core phase out of that routine going forward, every time - it's not working for my lower back. Also, quick heads up, I only got about 5 hours of sleep last night so I might be dragging today."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "nolyywan"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772605380",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772605380",
+          "role": "user",
+          "text": "I want to permanently swap the core phase out of that routine going forward, every time - it's not working for my lower back. Also, quick heads up, I only got about 5 hours of sleep last night so I might be dragging today."
+        },
+        {
+          "id": "c-1789772605380",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Can you move this week's long run from Sunday to Saturday - my running group shifted their schedule this week. Also, the weather's been brutal here all week, feels like it's never going to cool down."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "566i4gqm"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772605380",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772605380",
+          "role": "user",
+          "text": "I want to permanently swap the core phase out of that routine going forward, every time - it's not working for my lower back. Also, quick heads up, I only got about 5 hours of sleep last night so I might be dragging today."
+        },
+        {
+          "id": "c-1789772605380",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772607043",
+          "role": "user",
+          "text": "Can you move this week's long run from Sunday to Saturday - my running group shifted their schedule this week. Also, the weather's been brutal here all week, feels like it's never going to cool down."
+        },
+        {
+          "id": "c-1789772607043",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "e6upvolc"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  }
+]

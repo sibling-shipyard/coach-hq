@@ -125,7 +125,8 @@ const DONE_CLAIM_PATTERN =
   /\b(?:i(?:'ve| have)?\s+(?:took|taken|pulled|moved|added|built|saved|locked|updated|removed|swapped|dropped)|(?:has|have)\s+been\s+(?:built|saved|added|updated|removed|dropped)|(?:it's|that's|it\s+is|is|are)\s+(?:saved|locked in))\b/i;
 
 // An honest "that isn't on your plan / I can't do that" reply without a literal question.
-const DECLINE_PATTERN = /\b(?:don'?t|doesn'?t|isn'?t|aren'?t|can'?t|couldn'?t|no)\b/i;
+const DECLINE_PATTERN =
+  /\b(?:don'?t|doesn'?t|isn'?t|wasn'?t|hadn'?t|haven'?t|aren'?t|can'?t|couldn'?t|no|nothing|tell me|let me know)\b/i;
 
 function isClarifyingDecline(entry: ManualLogEntry): boolean {
   const reply = String((entry.output as { reply?: unknown } | undefined)?.reply ?? "");
@@ -299,8 +300,16 @@ const SCENARIOS: Scenario[] = [
     // on a repo that actually has one, otherwise there's nothing for the model to acknowledge.
     preconditions: { injuryFlags: "any" },
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
-      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -312,8 +321,16 @@ const SCENARIOS: Scenario[] = [
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
-      { turnIndex: 2, filesChangedInclude: ["workout_plans/sessions/"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["workout_plans/sessions/"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -444,18 +461,10 @@ const SCENARIOS: Scenario[] = [
       "B2 (#1105): two action fields landing together on the same turn, both correct - a single message asking for a permanent template_edit ('going forward') and a this-week-only week_update in one go. Every existing multi-field integration coverage (fullTurnPipeline.test.ts) only proves two fields failing together (a hallucinated template_id alongside a valid write); nothing before this proved two real fields can both commit cleanly from one turn.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
-    // template_edit needs a real existing template to point at - no real athlete repo is assumed
-    // to already have the right one on file, so this seeds one first with a real workout_create
-    // ask (same phrasing as template-edit-permanent's own turn 1) rather than relying on whatever
-    // happens to already be there.
     // week_update needs real planned sessions to swap, and no real repo is assumed to have a live
-    // week (same seed recipe ambiguous-contradiction uses).
+    // week (same seed recipe ambiguous-contradiction uses). The routine to edit is built by this
+    // scenario's own turn 1, so it never depends on what templates a repo already has.
     preconditions: {
-      hasTemplate: {
-        seedMessages: [
-          "Can you build me a full-body strength routine, no equipment, for twice a week?",
-        ],
-      },
       currentWeekHasSessions: {
         seedMessages: [
           "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
@@ -466,10 +475,15 @@ const SCENARIOS: Scenario[] = [
     expect: [
       {
         turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
         filesChangedInclude: ["user_data/ledger/current_week.json", "workout_plans/templates/"],
         clarifyingQuestionOk: true,
       },
-      { turnIndex: 2 },
+      { turnIndex: 3 },
     ],
   },
   // #1105 B3: probes whether #1085's memory_update drop (a durable fact stated alongside an

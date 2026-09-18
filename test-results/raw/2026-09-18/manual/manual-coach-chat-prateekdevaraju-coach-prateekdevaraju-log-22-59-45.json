@@ -1,0 +1,140 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-18T22-59-34-069Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (402): {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3IrA1ypDlidlNjaSYTV7Ska0yqS\"}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-18T22-59-34-069Z",
+    "input": {
+      "messages": [],
+      "message": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "3yan8s4d"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-18T22-59-34-069Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772380392",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772380392",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772380392",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "For today's session, use that new routine, but skip the core phase - my lower back's a bit tired. Just for today."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "bvdhch13"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-18T22-59-34-069Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772380392",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772380392",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772380392",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772382576",
+          "role": "user",
+          "text": "For today's session, use that new routine, but skip the core phase - my lower back's a bit tired. Just for today."
+        },
+        {
+          "id": "c-1789772382576",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "ch9n5m3y"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  }
+]

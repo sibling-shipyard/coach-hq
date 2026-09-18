@@ -271,7 +271,7 @@
     ],
     "status": "seed-failed",
     "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
-    "last_cost_usd": 0.05019825
+    "last_cost_usd": 0
   },
   "manual:ambiguous-contradiction:akash": {
     "type": "manual",
@@ -314,7 +314,7 @@
     ],
     "status": "seed-failed",
     "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
-    "last_cost_usd": 0.026467499999999998
+    "last_cost_usd": 0
   },
   "manual:ambiguous-contradiction:prateek": {
     "type": "manual",
@@ -381,7 +381,7 @@
   },
   "manual:session-plan:skanda": {
     "type": "manual",
-    "last_pass_sha": "7c984089683c12be097b2ad56186921145655585",
+    "last_pass_sha": "85da0914e8d938bfa214f00d80ab7e133d4c8e10",
     "last_run_date": "2026-09-18",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -397,12 +397,12 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.050454
+    "status": "fail",
+    "last_cost_usd": 0.0081195
   },
   "manual:session-plan:akash": {
     "type": "manual",
-    "last_pass_sha": "7c984089683c12be097b2ad56186921145655585",
+    "last_pass_sha": "85da0914e8d938bfa214f00d80ab7e133d4c8e10",
     "last_run_date": "2026-09-18",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -418,8 +418,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.05033475
+    "status": "fail",
+    "last_cost_usd": 0.065178075
   },
   "manual:session-plan:prateek": {
     "type": "manual",
@@ -439,8 +439,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.04119
+    "status": "fail",
+    "last_cost_usd": 0
   },
   "manual:session-plan:date2022": {
     "type": "manual",
@@ -481,8 +481,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.02093175
+    "status": "fail",
+    "last_cost_usd": 0
   },
   "manual:injury-resolve-by-bodypart:date2022": {
     "type": "manual",
@@ -651,7 +651,7 @@
     ],
     "status": "seed-failed",
     "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
-    "last_cost_usd": 0.035238
+    "last_cost_usd": 0
   },
   "manual:multi-field-success:akash": {
     "type": "manual",
@@ -671,8 +671,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.03475125
+    "status": "fail",
+    "last_cost_usd": 0
   },
   "manual:multi-field-success:prateek": {
     "type": "manual",
@@ -692,8 +692,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.038913750000000004
+    "status": "fail",
+    "last_cost_usd": 0
   },
   "manual:multi-field-success:shreyas": {
     "type": "manual",
@@ -715,7 +715,7 @@
     ],
     "status": "seed-failed",
     "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
-    "last_cost_usd": 0.030838499999999998
+    "last_cost_usd": 0
   },
   "manual:compound-narration-probe:skanda": {
     "type": "manual",
@@ -735,8 +735,9 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.04729875
+    "status": "seed-failed",
+    "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
+    "last_cost_usd": 0
   },
   "manual:compound-narration-probe:akash": {
     "type": "manual",
@@ -756,8 +757,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "pass",
-    "last_cost_usd": 0.04873125
+    "status": "fail",
+    "last_cost_usd": 0
   },
   "manual:compound-narration-probe:prateek": {
     "type": "manual",
@@ -822,5 +823,70 @@
     "status": "seed-failed",
     "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
     "last_cost_usd": 0.033410999999999996
+  },
+  "manual:multi-field-success:date2022": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-18",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/turnRequest.ts",
+      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+      "ui/api/coach-chat/_lib/requestCoachReply.ts",
+      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+      "ui/api/coach-chat/_lib/turnCompletion.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "seed-failed",
+    "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
+    "last_cost_usd": 0
+  },
+  "manual:ambiguous-contradiction:shreyas": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-18",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/turnRequest.ts",
+      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+      "ui/api/coach-chat/_lib/requestCoachReply.ts",
+      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+      "ui/api/coach-chat/_lib/turnCompletion.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "seed-failed",
+    "reason": "currentWeekHasSessions: wanted true, repo's current_week.json has 0 session(s)",
+    "last_cost_usd": 0
+  },
+  "manual:daily-basic:akash": {
+    "type": "manual",
+    "last_pass_sha": null,
+    "last_run_date": "2026-09-18",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/turnRequest.ts",
+      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+      "ui/api/coach-chat/_lib/requestCoachReply.ts",
+      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+      "ui/api/coach-chat/_lib/turnCompletion.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "fail",
+    "last_cost_usd": 0
   }
 }
