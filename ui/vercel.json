@@ -2,7 +2,7 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "ignoreCommand": "python3 ../kdb/scripts/stack_ci_gate.py --vercel --paths 'ui/**'",
+  "ignoreCommand": "python3 ../kdb/scripts/stack_ci_gate.py --vercel --paths 'ui/api/**,ui/client/**,ui/observability/**,ui/scripts/build/**,ui/index.html,ui/package.json,ui/package-lock.json,ui/tsconfig*.json,ui/vite.config.ts,ui/vitest.config.ts,engine/lib/**'",
   "functions": {
     "api/coach-chat.ts": { "maxDuration": 300 }
   },
