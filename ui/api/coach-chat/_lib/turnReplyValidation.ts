@@ -455,7 +455,7 @@ const TODAY_ONLY_LANGUAGE_PATTERN =
 const SESSION_EDIT_VERB_LANGUAGE_PATTERN =
   /\b(skip|drop|remove|cut|take out|swap|lighten|leave out|without)\b/i;
 const SESSION_DONE_CLAIM_LANGUAGE_PATTERN =
-  /\bi(?:'ve| have)?\s+(?:set(?: up)?|stripped|adjusted|pulled|removed|dropped|skipped|cut|updated|swapped|taken|took|kept|left|made|changed|trimmed)\b/i;
+  /\bi(?:'ve| have)?\s+(?:set(?: up)?|stripped|adjusted|pulled|removed|dropped|skipped|cut|updated|swapped|taken|took|made|changed|trimmed)\b/i;
 
 export function findMissedSessionPlanLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;

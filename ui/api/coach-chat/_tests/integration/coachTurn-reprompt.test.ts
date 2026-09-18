@@ -3082,6 +3082,22 @@ describe("requestCoachReply session_plan guard wording", () => {
     expect(askLlm).toHaveBeenCalledTimes(2);
   });
 
+  it("does not read an explicit no-change reply as a done-claim", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "I've kept everything the same for today, your plan is untouched.",
+      coach_note: "No change.",
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "Should I skip the core phase for today's session?",
+        athleteMessage: "Should I skip the core phase for today's session?",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
   it("does not treat 'not just today' in a permanent request as a today-only change", async () => {
     askLlm.mockResolvedValueOnce({
       reply: "I've updated the routine and dropped the core phase.",
