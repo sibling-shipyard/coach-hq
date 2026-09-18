@@ -18,14 +18,25 @@ import os
 import textwrap
 
 # ---------------------------------------------------------------------------
+# Global reviewers — real GitHub handles appended to every rule.
+# These users are requested as reviewers on every PR regardless of which
+# paths changed. A single catch-all entry at the top would be overridden by
+# every specific path rule below it (CODEOWNERS last-match-wins), so the only
+# correct way to enforce a universal reviewer is to append them to every line.
+# ---------------------------------------------------------------------------
+GLOBAL_REVIEWERS: list[str] = [
+    "@ajji-in-london",
+]
+
+# ---------------------------------------------------------------------------
 # Scope map — mirrors AGENTS.md §The Team.
-# Order matters: top-to-bottom and the last matching rule wins, so list the 
+# Order matters: top-to-bottom and the last matching rule wins, so list the
 # catch-all (*) first and specific paths last.
 # ---------------------------------------------------------------------------
 #
 # Format: list of (glob_pattern, agent_role) tuples, in file order.
 # Cyclops is intentionally absent — it is read-only and owns no paths.
-# We use agent role names (e.g. Tech-Lead) rather than GitHub @teams so 
+# We use agent role names (e.g. Tech-Lead) rather than GitHub @teams so
 # we don't create the illusion of GitHub-native enforcement for unresolvable teams.
 #
 SCOPE_MAP: list[tuple[str, str]] = [
@@ -38,8 +49,8 @@ SCOPE_MAP: list[tuple[str, str]] = [
     # Backend API, engine core, scripts, user data — Bob the Builder
     ("ui/api/",                            "Bob-the-Builder"),
     ("engine/core/",                       "Bob-the-Builder"),
-    ("engine/lib/",                         "Bob-the-Builder"),
-    ("engine/scripts/",                     "Bob-the-Builder"),
+    ("engine/lib/",                        "Bob-the-Builder"),
+    ("engine/scripts/",                    "Bob-the-Builder"),
     ("scripts/",                           "Bob-the-Builder"),
     ("ui/observability/",                  "Bob-the-Builder"),
     ("ui/scripts/",                        "Bob-the-Builder"),
@@ -59,7 +70,7 @@ SCOPE_MAP: list[tuple[str, str]] = [
     ("user_data/coach/",                   "Coach-Phelps"),
     ("user_data/ledger/challenge_v2.json", "Coach-Phelps"),
     ("sessions/",                          "Coach-Phelps"),
-    
+
     # ADR 0048 — explicit Tech Lead / UI Expert shared paths (last match wins)
     ("shared/warm-instrument/",            "UI-Expert"),
     ("shared/golden-dataset/",             "Tech-Lead"),
@@ -79,17 +90,20 @@ HEADER = textwrap.dedent("""\
     # Source of truth: AGENTS.md §The Team + .github/agents/*.md §Scope
     # Cyclops is read-only and owns no paths (intentionally absent).
     #
-    # Note: Owners are internal agent roles, not GitHub users/teams. 
+    # Note: Owners are internal agent roles, not GitHub users/teams.
     # This file is for agent and CI boundaries, not GitHub UI enforcement.
+    # Global reviewers (GLOBAL_REVIEWERS in the script) are real GitHub handles
+    # appended to every rule so they are always requested, regardless of path.
 
 """)
 
 
-def generate(scope_map: list[tuple[str, str]]) -> str:
+def generate(scope_map: list[tuple[str, str]], global_reviewers: list[str]) -> str:
     """Return the full CODEOWNERS file content."""
+    suffix = (" " + " ".join(global_reviewers)) if global_reviewers else ""
     lines = [HEADER]
     for pattern, team in scope_map:
-        lines.append(f"{pattern:<38} {team}\n")
+        lines.append(f"{pattern:<38} {team}{suffix}\n")
     return "".join(lines)
 
 
@@ -99,7 +113,7 @@ def main() -> None:
     repo_root = os.path.normpath(os.path.join(script_dir, "..", ".."))
     output_path = os.path.join(repo_root, "CODEOWNERS")
 
-    content = generate(SCOPE_MAP)
+    content = generate(SCOPE_MAP, GLOBAL_REVIEWERS)
 
     # Read existing file (if any) to check idempotency
     existing: str | None = None
@@ -108,7 +122,7 @@ def main() -> None:
             existing = fh.read()
 
     if existing == content:
-        print(f"CODEOWNERS is already up to date — no changes written.")
+        print("CODEOWNERS is already up to date - no changes written.")
         return
 
     with open(output_path, "w", encoding="utf-8") as fh:
