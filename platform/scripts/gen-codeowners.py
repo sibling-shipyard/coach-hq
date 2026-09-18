@@ -25,7 +25,7 @@ import textwrap
 # correct way to enforce a universal reviewer is to append them to every line.
 # ---------------------------------------------------------------------------
 GLOBAL_REVIEWERS: list[str] = [
-    "@ajji-in-london",
+    "@the-third-sibling",
 ]
 
 # ---------------------------------------------------------------------------
