@@ -8,6 +8,10 @@ import {
 } from "./_generated/text-caps.bundle.js";
 import { hasConfirmationCue, questNameReferencedIn } from "./decide/turnWrites/validateActions.js";
 import { isFullWeekKickoff } from "./decide/coachWeekFiles.js";
+import {
+  workoutCreateProgressionViolations,
+  type WorkoutCreateSpec,
+} from "./decide/coachWorkoutFiles.js";
 import { exerciseTypeFieldViolation, computeUnackedInjuryFlags } from "./decide/workoutSchema.js";
 
 // Layer 2 of the text-caps design (issue #462): the Gemini schema's maxLength (layer 1) and the
@@ -132,6 +136,22 @@ export function findMalformedWorkoutCreateExercises(reply: LlmReply): string[] |
       if (violation) violations.push(`"${ex.name}" ${violation}`);
     }
   }
+  return violations.length > 0 ? violations : null;
+}
+
+// Round-2 retest: a routine dosed a 35s hold x 3 sets against a progression sitting at 2s, so
+// applyWorkoutCreate dropped it and the athlete got a routine that only existed in chat. The
+// model can fix that in one more pass if it is told exactly which dose broke which progression,
+// the same reprompt-before-finalizing pattern as the structural check above.
+export function findWorkoutCreateProgressionViolations(
+  turn: TurnState,
+  reply: LlmReply,
+): string[] | null {
+  if (!reply.workout_create) return null;
+  const violations = workoutCreateProgressionViolations(
+    reply.workout_create as WorkoutCreateSpec,
+    turn.context?.progressions ?? null,
+  );
   return violations.length > 0 ? violations : null;
 }
 

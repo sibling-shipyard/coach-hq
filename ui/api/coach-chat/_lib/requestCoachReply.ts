@@ -39,6 +39,7 @@ import {
   findUncountedInjuryLanguage,
   findUnconfirmedAssumption,
   findMalformedWorkoutCreateExercises,
+  findWorkoutCreateProgressionViolations,
   isProseOnlyWeekPlan,
   findMissingWorkoutCreateInjuryAck,
   findInvalidReferences,
@@ -229,6 +230,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
     const unconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
     const malformedExercises = findMalformedWorkoutCreateExercises(reply);
+    const workoutCreateProgressionViolations = findWorkoutCreateProgressionViolations(turn, reply);
     const proseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
     const missingWorkoutCreateInjuryAck = findMissingWorkoutCreateInjuryAck(turn, reply);
     // Finding E: set only when the reprompt below actually fires and unrecordedFacts is still
@@ -263,6 +265,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       uncountedInjuryLanguage ||
       unconfirmedAssumption ||
       malformedExercises ||
+      workoutCreateProgressionViolations ||
       proseOnlyWeekPlan ||
       missingWorkoutCreateInjuryAck
     ) {
@@ -284,6 +287,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         uncountedInjuryLanguage,
         unconfirmedAssumption,
         malformedExercises,
+        workoutCreateProgressionViolations,
         proseOnlyWeekPlan,
         missingWorkoutCreateInjuryAck,
         traceId: turn.traceId,
@@ -419,6 +423,15 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " keep everything else the same",
         );
       }
+      if (workoutCreateProgressionViolations) {
+        notes.push(
+          `your workout_create breaks ${workoutCreateProgressionViolations.length} dose rule(s)` +
+            ` the server enforces: ${workoutCreateProgressionViolations.join("; ")} - fix each one` +
+            " by lowering that exercise's reps or duration_secs (or sets) so its total dose is at or" +
+            " below the progression's current value, or, if it is genuinely a new movement, give it a" +
+            " new progression_id and set scaled_from; keep everything else the same",
+        );
+      }
       if (proseOnlyWeekPlan) {
         notes.push(
           "your reply describes a full week's plan (multiple named weekdays) but week_update" +
@@ -474,6 +487,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
       const stillUnconfirmedAssumption = findUnconfirmedAssumption(turn, reply);
       const stillMalformedExercises = findMalformedWorkoutCreateExercises(reply);
+      const stillWorkoutCreateProgressionViolations = findWorkoutCreateProgressionViolations(
+        turn,
+        reply,
+      );
       const stillProseOnlyWeekPlan = isProseOnlyWeekPlan(reply, turn.firstSession);
       const stillMissingWorkoutCreateInjuryAck = findMissingWorkoutCreateInjuryAck(turn, reply);
       // Bug found live (2026-09-10): using the SECOND pass's own unrecorded_facts here was wrong
@@ -505,6 +522,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillUncountedInjuryLanguage ||
         stillUnconfirmedAssumption ||
         stillMalformedExercises ||
+        stillWorkoutCreateProgressionViolations ||
         stillProseOnlyWeekPlan ||
         stillMissingWorkoutCreateInjuryAck
       ) {
@@ -528,6 +546,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUncountedInjuryLanguage,
             stillUnconfirmedAssumption,
             stillMalformedExercises,
+            stillWorkoutCreateProgressionViolations,
             stillProseOnlyWeekPlan,
             stillMissingWorkoutCreateInjuryAck,
           },
@@ -556,6 +575,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
             stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
             stillMalformedExercises ? "malformedExercises" : null,
+            stillWorkoutCreateProgressionViolations ? "workoutCreateProgression" : null,
             stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
             stillMissingWorkoutCreateInjuryAck ? "missingWorkoutCreateInjuryAck" : null,
           ].filter((detector): detector is string => detector !== null),

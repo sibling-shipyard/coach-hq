@@ -2777,3 +2777,102 @@ describe("requestCoachReply pins per-turn reads to the head sha", () => {
     expect(getFileRaw.mock.calls.every((call) => call[4] === undefined)).toBe(true);
   });
 });
+
+// Round-2 retest: a routine dosed a 35s hold x 3 sets against a progression at 2s was dropped by
+// the server, so the athlete got a routine that only existed in chat. The reprompt names the
+// exact dose that broke the rule and gives the model one chance to fix it.
+describe("requestCoachReply workout_create dose reprompt", () => {
+  const progressions = {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "coach", trace_id: "t1" },
+    progressions: [
+      {
+        id: "handstand_free",
+        name: "Handstand",
+        current: "2s",
+        target: "30s",
+        unit: "s",
+        history: [],
+      },
+    ],
+  };
+  const routine = (duration_secs: number) => ({
+    title: "Home routine",
+    workout_type: "strength",
+    phases: [
+      {
+        name: "Main",
+        exercises: [
+          {
+            name: "Wall handstand hold",
+            type: "timed",
+            duration_secs,
+            sets: 3,
+            form_cue: "Tall.",
+            why: "Shoulders.",
+            progression_id: "handstand_free",
+          },
+        ],
+      },
+    ],
+  });
+  const state = () => baseTurnState({ context: { soul: "soul", progressions } });
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts once with the exact violation, then commits the re-dosed routine", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "Built.",
+        coach_note: "Built a routine.",
+        workout_create: routine(35),
+      })
+      .mockResolvedValueOnce({
+        reply: "Built.",
+        coach_note: "Built a routine.",
+        workout_create: routine(0.6),
+      });
+
+    const result = await requestCoachReply(state());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain('doses 105 above progression "handstand_free"');
+    expect(
+      "reply" in result && result.reply.workout_create?.phases[0]?.exercises[0]?.duration_secs,
+    ).toBe(0.6);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("reports to Sentry when the reprompt still breaks the rule", async () => {
+    askLlm.mockResolvedValue({
+      reply: "Built.",
+      coach_note: "Built a routine.",
+      workout_create: routine(35),
+    });
+
+    await requestCoachReply(state());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detectors: expect.arrayContaining(["workoutCreateProgression"]),
+      }),
+    );
+  });
+
+  it("does not reprompt a dose within the progression's current value", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "Built.",
+      coach_note: "Built a routine.",
+      workout_create: routine(0.5),
+    });
+
+    await requestCoachReply(state());
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
