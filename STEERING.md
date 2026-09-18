@@ -24,3 +24,10 @@ You two steer; the agents build.
 - **Issues** — the work record: planned, in progress, done.
 - **kdb/decisions** — the big calls and why we made them, one short write-up each.
 - **docs/** — deeper dives on how things work, when you want them.
+
+## Start here — the reading order
+
+1. **This file** — 2 minutes. What the repo is, how we work, where to look.
+2. **`kdb/decisions/`** — the big calls and why, one short note each.
+3. **`docs/eng-docs/`** — only your area, via the folder README. Never the full listing.
+4. **The `*-history.md` docs** — only when asking "why did we do it that way".
