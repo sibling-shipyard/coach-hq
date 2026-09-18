@@ -23,11 +23,11 @@ terminal state behind `LlmAdapter` for Gemini/OpenRouter).
 instead (#713). Its separate message-only schema gets bounded repo-owned activity context,
 including `effort_shape` but never raw HR points; it does not use chat actions, history, or the
 explicit chat cache. `activitySyncTurn.ts`'s post-sync thread now generates its opening reply
-through this same path (#918) instead of its own `askGemini()` call — activity_sync is no longer
-one of the `askGemini()` modes above.
+through this same path (#918) instead of its own `askLlm()` call — activity_sync is no longer
+one of the `askLlm()` modes above.
 
-Chat moved onto `llmClient` too (#713 M2 PR 2). `coach-chat/_lib/gemini/geminiClient.ts`'s
-`askGemini()` now only builds the prompt/request and parses the reply. The actual
+Chat moved onto `llmClient` too (#713 M2 PR 2). `coach-chat/_lib/llm/coachLlmClient.ts`'s
+`askLlm()` now only builds the prompt/request and parses the reply. The actual
 `generateContent` call, the explicit soul cache, and the retry logic described below live instead
 in `ui/api/_lib/llmAdapters/geminiAdapter.ts`, reached via `selectLlmAdapter` like every other
 caller. `LLM_PROVIDER` stays unset/`gemini` in production throughout M2, so this is a plumbing
@@ -58,10 +58,10 @@ flowchart LR
     history["conversation history\n(last 40 msgs)"] --> call
 ```
 
-`geminiClient.ts`'s `askGemini()` builds these as two separate strings (`coachPromptText.ts`'s
+`coachLlmClient.ts`'s `askLlm()` builds these as two separate strings (`coachPromptText.ts`'s
 `staticSystemText()` and `buildDynamicText()`). It hands them to the seam as
 `LlmRequest.cachePrefix` (static) and `LlmRequest.system` (dynamic) — still two strings, not one
-array, because of a hard API constraint below. Since #713 M2 PR 2, `askGemini()` itself no longer
+array, because of a hard API constraint below. Since #713 M2 PR 2, `askLlm()` itself no longer
 knows whether the cache is actually active; that decision, and the resulting wire-shape split, is
 `geminiAdapter.ts`'s.
 
@@ -75,7 +75,7 @@ first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md 
 that ~6x over.
 
 **Explicit caching** (`ui/api/_lib/llmAdapters/geminiSoulCache.ts`, called by `geminiAdapter.ts` -
-moved behind the seam by #713 M2 PR 2, was `coach-chat/_lib/gemini/soulCache.ts`) is the primary
+moved behind the seam by #713 M2 PR 2, was `coach-chat/_lib/llm/soulCache.ts`) is the primary
 path: the static prefix is
 uploaded once via `POST /v1beta/cachedContents`, returning a `cachedContents/...` name. Every
 subsequent call passes `cachedContent: <name>` instead of resending the text at all — cached
@@ -115,7 +115,7 @@ to that, it never blocks a reply.
 return a name that's since gone stale or been evicted server-side between its own read and the
 actual `generateContent` call. This is a different failure mode than *creating* a cache failing
 (which falls back to `null`/no-cache before the call even happens). If the actual call comes back
-`400` with a cache name set, `geminiAdapter.ts` (`coach-chat/_lib/gemini/geminiClient.ts` before
+`400` with a cache name set, `geminiAdapter.ts` (`coach-chat/_lib/llm/coachLlmClient.ts` before
 #713 M2 PR 2) invalidates the stored record and retries once as a plain no-cache call. This never
 surfaces to the athlete as a failed reply — it costs one extra round-trip, silently. Gated on the
 request carrying a cache prefix at all (`LlmRequest.cachePrefix`) — coach-message and template
@@ -147,7 +147,7 @@ adjustment never set one, so they never pay for this lookup or retry.
   also catch this, but checking up front avoids paying that round-trip when it's knowable
   earlier.
 - Usage, including whether the cache was actually hit, reports through the shared
-  `gen_ai.generate_content` Sentry span (`withGeminiSpan`/`recordUsage`, `_lib/sentry.ts`).
+  `gen_ai.generate_content` Sentry span (`withLlmSpan`/`recordUsage`, `_lib/sentry.ts`).
   `gen_ai.usage.input_tokens.cached` is the attribute to check — every adapter populates it, not
   just chat's Gemini path. See "Done when" below.
 - Known, accepted race (not fixed): `getCachedSoulName`'s read-then-write isn't atomic, so
@@ -249,7 +249,7 @@ write path only rejects data it receives, and a skipped field sends nothing to r
    carries a real confirmation or "this is a distinct extra" cue.
 
 **Verification for any of these:** unit tests exercising `requestCoachReply` directly with a
-mocked `askGemini` are the reliable check. A live rerun can prove a fix doesn't false-positive,
+mocked `askLlm` are the reliable check. A live rerun can prove a fix doesn't false-positive,
 but can't reliably reproduce an intermittent model mistake on demand
 (`WORKOUTS_AND_CURRENT_WEEK_LIVE_TEST_RESULTS.md` and `LIVE_VERIFICATION_REVIEW_FIXES_727.md`
 document several live attempts that never reproduced an already-fixed, already-unit-tested case).
@@ -460,7 +460,7 @@ guard - see the coverage table above for the current state.
 ## Retries, timeouts, rate limits
 
 - The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
-  60s, `geminiClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
+  60s, `coachLlmClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
   `ui/api/_lib/httpTimeout.ts`). Raised from 45s (2026-09-10) alongside `CHAT_MAX_OUTPUT_TOKENS`
   doubling to 8192 (`coachReplySchema.ts`). The live evidence behind that bump measured ~3930
   thinking tokens alone on the dense-message scenario it targets. The call needs enough time to
@@ -473,21 +473,21 @@ guard - see the coverage table above for the current state.
   demand") triggers exactly one retry with a short fixed backoff inside `geminiAdapter.ts`'s
   `callGemini` — both were previously fatal on the first hit. Confirmed via production Runtime
   Logs as a dominant cause of turns failing outright with nothing committed (the failure happens
-  inside `askGemini`, before `commitFilesAtomic` is ever reached, so the athlete's message
+  inside `askLlm`, before `commitFilesAtomic` is ever reached, so the athlete's message
   silently does nothing). This is additive to the existing stale-cache retry (a `400` when
   `cachedContent` has expired/was evicted — see Cache lifecycle above), but capped at one retry
   **total**, not one per failure kind. The 400-retry and the 504/503-retry are mutually exclusive
   branches (`if`/`else if`) on the same call, not independent checks that can both fire. Capped
   like this, the worst case for one `adapter.generate()` call is 2 attempts (~120s at the current
   60s timeout).
-- `geminiClient.ts`'s `askGemini()` adds one more retry on top of that, at the seam level: a
+- `coachLlmClient.ts`'s `askLlm()` adds one more retry on top of that, at the seam level: a
   malformed/truncated JSON response that OpenRouter's own `finish_reason` check can miss. This
   retry deliberately reuses a *shorter* 20s timeout, not the full 60s again. A fifth call stacking
   on top of four others that already ran was itself a review finding (2026-09-10). Its own worst
   case (2 attempts at 20s, if the retry attempt also hits a transport-level 503/504) adds up to
   ~40s, not another ~120s.
 - Separately, `requestCoachReply` (`requestCoachReply.ts`) does its own single combined reprompt: a
-  second, full `askGemini()` invocation. Six checks can each trigger it on one turn:
+  second, full `askLlm()` invocation. Six checks can each trigger it on one turn:
   - A text field over its `maxLength` cap (issue #462).
   - A missing required `coach_note`.
   - An invalid quest/injury reference.
@@ -501,7 +501,7 @@ guard - see the coverage table above for the current state.
   logged and left as-is. For `quest_event`/schedule-changing fields specifically, a deterministic
   layer-3 fallback in `buildTurnWrites` handles it instead of a third model call - see
   `docs/eng-docs/coach-chat-testing.md` and the PR #955 findings log for the specific mechanisms.
-- **True worst case for one turn**, every layer stacking: the initial `askGemini()` invocation at
+- **True worst case for one turn**, every layer stacking: the initial `askLlm()` invocation at
   up to ~160s (120s adapter retry + 40s JSON-parse retry), plus `requestCoachReply.ts`'s one reprompt at
   up to another ~160s. That's ~320s total - over the 300s `maxDuration` ceiling. Reaching it needs
   several independent transient failures in one turn at once: a 503/504 on both calls of the

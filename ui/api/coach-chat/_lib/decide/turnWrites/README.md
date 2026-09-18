@@ -34,4 +34,4 @@ write array. When `quest_create`'s own habit-quest write targets `quests.json` i
 `buildTurnWrites.ts` merges it onto `seasonWrite`'s `questWrite` resolver instead of adding a second
 entry for the same path - `commitFilesAtomic` doesn't merge duplicate paths on its own.
 
-New action field on `GeminiReply`? Add a file here, not a branch in `buildTurnWrites`.
+New action field on `LlmReply`? Add a file here, not a branch in `buildTurnWrites`.

@@ -9,7 +9,7 @@ either of those. Owned by vade-the-tester (ADR 0044) - mechanics for all four te
 
 | Path                               | What it is                                                                                                                                  |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `eval-coach-chat.ts`               | Golden-transcript eval - real `askGemini()` call per transcript, structural rubric only, no repo writes                                     |
+| `eval-coach-chat.ts`               | Golden-transcript eval - real `askLlm()` call per transcript, structural rubric only, no repo writes                                        |
 | `run-manual-coach-chat-test.ts`    | Drives a real conversation through the hosted coach-chat handler against a real athlete repo, on a scratch branch                           |
 | `run-manual-coach-message-test.ts` | Same, against the coach-message (post-sync proactive) handler                                                                               |
 | `run-manual-simulation-suite.ts`   | Runs the tracked `SCENARIOS` library through `run-manual-coach-chat-test.ts`'s real pipeline, scored against each scenario's `expect` block |

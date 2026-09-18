@@ -18,10 +18,10 @@
  * runs and tests have no request context, so they await the same promise instead.
  *
  * `withContinuedTrace` owns the flush that sends the **spans**: a child span is only sent when
- * its root span ends, so `withGeminiSpan` deliberately does not flush — its span rides out
+ * its root span ends, so `withLlmSpan` deliberately does not flush — its span rides out
  * inside the route's `http.server` transaction. Open a Gemini span outside a wrapped route and
  * nothing sends it. Error events are separate and flush themselves, in `captureServerException`
- * and `captureGeminiFailure`, so a failed request still waits for that error flush.
+ * and `captureLlmFailure`, so a failed request still waits for that error flush.
  */
 import * as Sentry from "@sentry/node";
 import { waitUntil } from "@vercel/functions";
@@ -81,7 +81,7 @@ function configuredSecrets(): string[] {
 /**
  * Never record an outbound request as a span.
  *
- * The URL is the whole problem: `geminiClient.ts` puts the API key in the query string, and both
+ * The URL is the whole problem: `coachLlmClient.ts` puts the API key in the query string, and both
  * outbound instrumentations copy the full URL onto the span (`url.full`) before anything gets a
  * chance to filter it. `ignoreOutgoingRequests` runs first and returns before a span or a
  * breadcrumb exists, so the credential is never captured rather than captured and redacted.
@@ -336,7 +336,7 @@ export function setAthleteScope(repoFullName: string): void {
  * to, which is the whole point of provider routing, so it has to reach the span (locked decision,
  * docs/plans/chat-openrouter-migration.md).
  */
-export interface GeminiUsage {
+export interface LlmUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
@@ -351,7 +351,7 @@ export interface GeminiUsage {
 /**
  * Adds two optional counts the absent-vs-zero-safe way: undefined only when neither side ever
  * reported a value, otherwise a real sum. The shared primitive both openRouterAdapter.ts's own
- * truncation-retry accumulation and sumUsage below use - defined here, next to GeminiUsage itself,
+ * truncation-retry accumulation and sumUsage below use - defined here, next to LlmUsage itself,
  * so neither adapter file nor requestCoachReply.ts has to duplicate it (#1053 review finding).
  */
 export function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
@@ -360,17 +360,14 @@ export function sumDefined(a: number | undefined, b: number | undefined): number
 }
 
 /**
- * Sums two GeminiUsage snapshots field by field - shared by requestCoachReply.ts (accumulating usage
- * across a turn's initial call plus up to two reprompts) and geminiClient.ts (accumulating usage
+ * Sums two LlmUsage snapshots field by field - shared by requestCoachReply.ts (accumulating usage
+ * across a turn's initial call plus up to two reprompts) and coachLlmClient.ts (accumulating usage
  * across its own JSON-parse-failure retry), so a real bug in this math gets fixed once, not twice.
  * costUsd sums too (OpenRouter reports it per call); resolvedProvider/resolvedModel keep the
  * latest call's value since they don't change mid-turn in practice. Either side missing just
  * returns the other unchanged.
  */
-export function sumUsage(
-  a: GeminiUsage | undefined,
-  b: GeminiUsage | undefined,
-): GeminiUsage | undefined {
+export function sumUsage(a: LlmUsage | undefined, b: LlmUsage | undefined): LlmUsage | undefined {
   if (!a) return b;
   if (!b) return a;
   return {
@@ -395,7 +392,7 @@ export function sumUsage(
  */
 const GEN_AI_OPERATION = "generate_content";
 
-function usageAttributes(usage: GeminiUsage): Record<string, number | string> {
+function usageAttributes(usage: LlmUsage): Record<string, number | string> {
   const numberPairs: [string, number | undefined][] = [
     ["gen_ai.usage.input_tokens", usage.promptTokens],
     ["gen_ai.usage.output_tokens", usage.completionTokens],
@@ -430,9 +427,9 @@ function usageAttributes(usage: GeminiUsage): Record<string, number | string> {
  * else. A turn that works is already in `chat_history.json`, so this span carries counts and
  * model metadata and no text, ever.
  */
-export function withGeminiSpan<T>(
+export function withLlmSpan<T>(
   model: string,
-  run: (recordUsage: (usage: GeminiUsage) => void) => Promise<T>,
+  run: (recordUsage: (usage: LlmUsage) => void) => Promise<T>,
   // Static, known before the call starts — e.g. `{"llm.adapter": "openrouter"}` (#713). Response
   // data that's only known after the call (OpenRouter's resolved provider/model) goes through
   // `recordUsage` instead, since `usageAttributes` runs once the response is parsed.
@@ -528,7 +525,7 @@ export interface CaptureResult {
  *
  * Idempotent per error object: the SDK marks an exception it has captured and drops a second
  * capture of the same one. That is what holds a Gemini failure to a single event when
- * `captureGeminiFailure` records it and the caller then rethrows into a route's generic catch -
+ * `captureLlmFailure` records it and the caller then rethrows into a route's generic catch -
  * the detailed event wins, because it went first.
  *
  * Route-caught errors use this public helper because they return a response after capture and need
@@ -549,7 +546,7 @@ export function queueServerException(error: unknown): string | undefined {
 }
 
 /** What a failed LLM call must carry to be debuggable from the Sentry UI alone. */
-export interface GeminiFailureDetails {
+export interface LlmFailureDetails {
   /**
    * coach-chat's own id, for grepping the Vercel logs of the same turn. Tagged
    * `vercel_trace_id`, not `trace_id`: Sentry's trace id is its own thing on this event and two
@@ -561,7 +558,7 @@ export interface GeminiFailureDetails {
   /** Upstream HTTP status, or 500 when the throw carried none. */
   upstreamStatus: number;
   /**
-   * `TurnMode` — greeting, ordinary, activity_sync — for the three `askGemini` call
+   * `TurnMode` — greeting, ordinary, activity_sync — for the three `askLlm` call
    * sites in coach-chat. Two more paths call `generateContent` directly and are not turns at
    * all: `proactive_message` (coach-message's `generateProactiveBody`) and `template_adjust`
    * (coach-chat's First Session template-adjustment pass in `coachWorkoutFiles.ts`).
@@ -579,9 +576,9 @@ export interface GeminiFailureDetails {
  * record it happened. It rides in the event context rather than a tag because Sentry truncates
  * tag values near 200 characters and would cut a real message without saying so.
  */
-export async function captureGeminiFailure(
+export async function captureLlmFailure(
   error: unknown,
-  details: GeminiFailureDetails,
+  details: LlmFailureDetails,
 ): Promise<CaptureResult> {
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error, {
@@ -601,7 +598,7 @@ export async function captureGeminiFailure(
  * D1 (#736): what a rejected/dropped structured-fact write must carry to see the pattern from
  * Sentry alone - an applier throw (bad quest/injury reference surviving layer 1's enum and
  * layer 2's corrective retry) or the whole facts commit failing after commitFilesAtomic's own
- * retries. Never the whole-turn Gemini failure path above - captureGeminiFailure covers that.
+ * retries. Never the whole-turn Gemini failure path above - captureLlmFailure covers that.
  */
 export interface ValidationFailureDetails {
   traceId?: string;

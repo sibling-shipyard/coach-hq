@@ -43,7 +43,7 @@ plan for the live coach.
 ## Architecture — what's actually being sent, verified against the code
 
 `coach-chat.ts` makes exactly **one Gemini call per turn** — greeting, ordinary reply, and
-session close all go through the same `askGemini()` (`coach-chat.ts:335-532`), a plain REST POST
+session close all go through the same `askLlm()` (`coach-chat.ts:335-532`), a plain REST POST
 to `generateContent` with the API key as a query param, no SDK. There's no second, cheaper call
 for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
 `coach-chat.ts:216-217`), not a model call. It only sets the prompt's `mode` - the model's own

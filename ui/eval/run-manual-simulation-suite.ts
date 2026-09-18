@@ -16,7 +16,7 @@
  *
  * `expect` here checks observed files changed (the real git diff run-manual-coach-chat-test.ts's
  * own log entry already carries, confidence: "observed"), not raw reply action fields the way
- * eval-coach-chat.ts's transcripts do - eval calls askGemini() directly and gets the raw parsed
+ * eval-coach-chat.ts's transcripts do - eval calls askLlm() directly and gets the raw parsed
  * reply back; this tool goes through the full commitTurn() response, which deliberately does not
  * echo action fields (see turnCompletion.ts's commitTurn success response) - only reply text, thread
  * state, and repoSha. Checking the observed diff instead is not a downgrade: it's the ground-truth
@@ -462,9 +462,9 @@ const WATCHED_PATHS = [
   "ui/api/coach-chat/_lib/requestCoachReply.ts",
   "ui/api/coach-chat/_lib/buildTurnWrites.ts",
   "ui/api/coach-chat/_lib/turnCompletion.ts",
-  "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
-  "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
-  "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+  "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+  "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+  "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
   "ui/api/coach-chat/_lib/decide/turnWrites/",
   "ui/api/_lib/llmClient.ts",
   "ui/api/_lib/llmAdapters/",

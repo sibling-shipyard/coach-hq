@@ -25,7 +25,7 @@ flowchart LR
     B -->|yes| C["commit placeholder +\nweekly_plan_pending: true"]
     C --> D["waitUntil: LLM call\n(16w pattern + memory.json + season goal/quests)"]
     D -->|success| E["applyFullWeekKickoff\nclears pending, origin: auto"]
-    D -->|3 failures| F["give up, leave placeholder\ncaptureGeminiFailure"]
+    D -->|3 failures| F["give up, leave placeholder\ncaptureLlmFailure"]
     B -->|no| G[no-op]
 ```
 
@@ -51,7 +51,7 @@ season, not just their habitual schedule.
 **Idempotency:** `weekly_plan_pending: true` written in the same atomic commit as the placeholder,
 before the LLM call starts - any other trigger that fires while it's set no-ops. Give up after 3
 attempts (`FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS` in `turnCompletion.ts` is the precedent), leave the
-placeholder, `captureGeminiFailure` with `outcome: "gave_up"`.
+placeholder, `captureLlmFailure` with `outcome: "gave_up"`.
 
 **Execution:** `waitUntil` (`@vercel/functions`, already used in `sentry.ts`) - real LLM latency
 must not delay the athlete's own reply or the context-fetch response.

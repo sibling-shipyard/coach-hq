@@ -1,4 +1,4 @@
-/** Gemini prompt text and per-turn context helpers. Pure text-building, no I/O. */
+/** LLM prompt text and per-turn context helpers. Pure text-building, no I/O. */
 import type { ChatMessage } from "../chatThreads.js";
 import { todayContextLine } from "../decide/coachDay.js";
 import type { TurnMode } from "./coachReplySchema.js";
@@ -292,7 +292,7 @@ export function buildDynamicText(
   ].join("\n");
 }
 
-// Returns the seam's own LlmMessage shape (#713 M2 PR 2) - geminiClient.ts hands these straight
+// Returns the seam's own LlmMessage shape (#713 M2 PR 2) - coachLlmClient.ts hands these straight
 // to LlmRequest.messages, no intermediate Gemini-specific `parts` wrapper.
 export function buildHistoryContents(
   history: ChatMessage[],

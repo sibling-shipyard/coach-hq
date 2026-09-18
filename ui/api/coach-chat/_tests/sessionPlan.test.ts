@@ -187,7 +187,7 @@ describe("applySessionPlan", () => {
     expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
   });
 
-  // skip_phases: Gemini is never shown exercise numbers (see GeminiReply's own comment on
+  // skip_phases: Gemini is never shown exercise numbers (see LlmReply's own comment on
   // session_plan), so a real athlete request like "skip the warmup" or "skip the shoulder phase"
   // has to be resolved server-side from the phase's plain-language name, not a number Gemini could
   // never actually know.

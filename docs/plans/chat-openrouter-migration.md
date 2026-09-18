@@ -45,8 +45,8 @@ One external dependency, outside this plan:
 **#638 (PR 823) is no longer a PR 1 dependency.** PR 1's Gemini adapter writes the
 `x-goog-api-key` header natively, so 823 gates nothing here. #831 merged while 823 was open,
 leaving 823's `coachMessage.test.ts` hunk conflicting. #821 (J2) also moves every file 823
-touches (`coachWorkoutFiles.ts` to `_lib/decide/`; `geminiClient.ts` and `soulCache.ts` to
-`_lib/gemini/`) — landing 823 before J2 is a rename-vs-edit conflict, after is a small patch.
+touches (`coachWorkoutFiles.ts` to `_lib/decide/`; `coachLlmClient.ts` and `soulCache.ts` to
+`_lib/llm/`) — landing 823 before J2 is a rename-vs-edit conflict, after is a small patch.
 823 lands after J2, by its own owner.
 
 ## OpenRouter readiness gate

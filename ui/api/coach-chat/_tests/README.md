@@ -8,7 +8,7 @@ Full design rationale: `docs/eng-docs/coach-chat-testing.md`.
 
 ## Layers
 
-- **`layer1-gemini/`** - the Gemini HTTP call (`_lib/geminiClient.ts::askGemini`). Mocks
+- **`layer1-llm/`** - the Gemini HTTP call (`_lib/coachLlmClient.ts::askLlm`). Mocks
   `fetch`/`fetchWithTimeout` only; real request building and real JSON/schema parsing run.
 - **`layer2-fields/`** - decision -> file content. Pure appliers (`coachProfileIntents.ts`,
   `coachInjuryIntents.ts`, `coachSeasonQuestIntents.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
@@ -46,17 +46,17 @@ mishandled that input, not a guess about what Gemini or GitHub would do.
 ## Adding a test
 
 Pick the layer that owns the code you're changing. Changing what a Gemini response looks like or
-how it's parsed -> `layer1-gemini/`. Changing how a decision becomes file content -> `layer2-fields/`.
+how it's parsed -> `layer1-llm/`. Changing how a decision becomes file content -> `layer2-fields/`.
 Changing the git commit sequence -> `ui/api/_lib/_tests/githubGitData.test.ts`. Changing how the
 layers wire together -> `integration/`. If unsure, run `npm test` after adding a test in your
 best-guess layer and see which other layers stay green - if only your layer's tests fail on a
 deliberate break, you picked the right spot.
 
-Note: this directory's `layer1-gemini`/`layer2-fields`/`integration` names are pipeline-stage
+Note: this directory's `layer1-llm`/`layer2-fields`/`integration` names are pipeline-stage
 numbers (input -> decision -> file content -> git commit), unrelated to issue #462's own
 "layer 0/1/2/3" text-cap-enforcement numbering referenced in `layer2-fields/coachReplySchema.test.ts`
 and `layer2-fields/textCapsWrites.test.ts`. Same word, two unrelated numbering schemes - don't
-conflate a "layer 1" comment inside a test file with this directory's `layer1-gemini/`.
+conflate a "layer 1" comment inside a test file with this directory's `layer1-llm/`.
 
 ## Running and logging
 

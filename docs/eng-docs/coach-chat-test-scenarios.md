@@ -96,7 +96,7 @@ follow-up together added 9 more turns files and 9 more `SCENARIOS` entries, for 
 
 ## Coverage matrix (coverage-audit phase 1, 2026-09-15; closed out by #1066 same day)
 
-Cross-references every action field `GeminiReply` (`ui/api/coach-chat/_lib/gemini/coachReplySchema.ts`)
+Cross-references every action field `LlmReply` (`ui/api/coach-chat/_lib/llm/coachReplySchema.ts`)
 can actually emit today against the schema file(s) it writes (`docs/eng-docs/coach-data-schema.md`)
 and against this catalog's own eval/simulation tables above. "Gap → closed" means a fixture now
 exists that exercises it. `pending_clarification`/`unrecorded_facts` aren't in this table - they're

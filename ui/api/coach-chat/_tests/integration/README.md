@@ -12,12 +12,12 @@ here to see the three layers wired together, and to see #609 (template_edit sent
 end to end.
 
 **`coachTurn.test.ts`** and **`coachTurn-reprompt.test.ts`** mock `commitFilesAtomic` and
-`askGemini` directly instead - they check the turn pipeline's own stage logic (which writes get
+`askLlm` directly instead - they check the turn pipeline's own stage logic (which writes get
 built, the text-cap reprompt) without needing a real backend behind them. Faster, but they don't
 prove the layers hand off to each other correctly the way `fullTurnPipeline.test.ts` does.
 
 **`activitySyncTurn.test.ts`** covers the separate `activity_sync` action path
-(`activitySyncTurn.ts`), same commitFilesAtomic/askGemini mocking style as `coachTurn.test.ts`.
+(`activitySyncTurn.ts`), same commitFilesAtomic/askLlm mocking style as `coachTurn.test.ts`.
 
 ## A real finding from writing this file
 

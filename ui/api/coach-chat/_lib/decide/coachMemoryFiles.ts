@@ -73,7 +73,7 @@ export type CoachingStyle = (typeof COACHING_STYLES)[number];
 // coachFirstSessionBenchmark.ts, same keyword-parsing spirit the deleted template-selection
 // helpers used) at the profile-complete transition, so the first-week compiler has something to read
 // besides free text. Not written directly by Gemini - there's no schema field for it, since this
-// PR's file column doesn't touch ui/api/coach-chat/_lib/gemini/. `days_per_week: 0` is a real,
+// PR's file column doesn't touch ui/api/coach-chat/_lib/llm/. `days_per_week: 0` is a real,
 // legal answer (an athlete who trains zero days a week still gets a valid week); `null` means
 // nothing parseable was ever said.
 export const WEEKDAYS = [

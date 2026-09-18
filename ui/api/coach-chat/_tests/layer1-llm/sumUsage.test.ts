@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { sumUsage } from "../../_lib/requestCoachReply.js";
-import type { GeminiUsage } from "../../../_lib/sentry.js";
+import type { LlmUsage } from "../../../_lib/sentry.js";
 
 // sumUsage is the #1053 gap 1 fix: it's what accumulates real token usage across a turn's
-// initial call plus up to two reprompts (requestCoachReply.ts calls it after every askGemini() result).
+// initial call plus up to two reprompts (requestCoachReply.ts calls it after every askLlm() result).
 // These tests exercise the pure function directly rather than through a full mocked turn, per
 // Tech Lead's review request - a bug here would silently mis-report cost on every turn.
 
 describe("sumUsage", () => {
   it("returns b unchanged when a is undefined", () => {
-    const b: GeminiUsage = { promptTokens: 10 };
+    const b: LlmUsage = { promptTokens: 10 };
     expect(sumUsage(undefined, b)).toBe(b);
   });
 
   it("returns a unchanged when b is undefined", () => {
-    const a: GeminiUsage = { promptTokens: 10 };
+    const a: LlmUsage = { promptTokens: 10 };
     expect(sumUsage(a, undefined)).toBe(a);
   });
 
@@ -23,7 +23,7 @@ describe("sumUsage", () => {
   });
 
   it("sums every numeric field when both sides have all fields set", () => {
-    const a: GeminiUsage = {
+    const a: LlmUsage = {
       promptTokens: 100,
       completionTokens: 50,
       totalTokens: 150,
@@ -31,7 +31,7 @@ describe("sumUsage", () => {
       thinkingTokens: 30,
       costUsd: 0.01,
     };
-    const b: GeminiUsage = {
+    const b: LlmUsage = {
       promptTokens: 200,
       completionTokens: 75,
       totalTokens: 275,
@@ -53,8 +53,8 @@ describe("sumUsage", () => {
   });
 
   it("treats a field present on only one side as 0 on the other, per addOpt", () => {
-    const a: GeminiUsage = { promptTokens: 100 };
-    const b: GeminiUsage = { promptTokens: 50, thinkingTokens: 15 };
+    const a: LlmUsage = { promptTokens: 100 };
+    const b: LlmUsage = { promptTokens: 50, thinkingTokens: 15 };
 
     const result = sumUsage(a, b);
 
@@ -63,8 +63,8 @@ describe("sumUsage", () => {
   });
 
   it("leaves a field undefined when neither side has it, not 0", () => {
-    const a: GeminiUsage = { promptTokens: 100 };
-    const b: GeminiUsage = { promptTokens: 50 };
+    const a: LlmUsage = { promptTokens: 100 };
+    const b: LlmUsage = { promptTokens: 50 };
 
     const result = sumUsage(a, b);
 
@@ -72,8 +72,8 @@ describe("sumUsage", () => {
   });
 
   it("takes b's resolvedProvider/resolvedModel when both sides set them", () => {
-    const a: GeminiUsage = { resolvedProvider: "openrouter", resolvedModel: "model-a" };
-    const b: GeminiUsage = { resolvedProvider: "openrouter", resolvedModel: "model-b" };
+    const a: LlmUsage = { resolvedProvider: "openrouter", resolvedModel: "model-a" };
+    const b: LlmUsage = { resolvedProvider: "openrouter", resolvedModel: "model-b" };
 
     const result = sumUsage(a, b);
 
@@ -81,8 +81,8 @@ describe("sumUsage", () => {
   });
 
   it("falls back to a's resolvedProvider/resolvedModel when b doesn't set them", () => {
-    const a: GeminiUsage = { resolvedProvider: "openrouter", resolvedModel: "model-a" };
-    const b: GeminiUsage = { promptTokens: 10 };
+    const a: LlmUsage = { resolvedProvider: "openrouter", resolvedModel: "model-a" };
+    const b: LlmUsage = { promptTokens: 10 };
 
     const result = sumUsage(a, b);
 
@@ -91,11 +91,11 @@ describe("sumUsage", () => {
   });
 
   it("composes correctly across three calls, simulating initial + two reprompts", () => {
-    const initial: GeminiUsage = { promptTokens: 1000, completionTokens: 100, costUsd: 0.01 };
-    const reprompt1: GeminiUsage = { promptTokens: 1100, completionTokens: 50, costUsd: 0.011 };
-    const reprompt2: GeminiUsage = { promptTokens: 1200, completionTokens: 60, costUsd: 0.012 };
+    const initial: LlmUsage = { promptTokens: 1000, completionTokens: 100, costUsd: 0.01 };
+    const reprompt1: LlmUsage = { promptTokens: 1100, completionTokens: 50, costUsd: 0.011 };
+    const reprompt2: LlmUsage = { promptTokens: 1200, completionTokens: 60, costUsd: 0.012 };
 
-    let usageAccum: GeminiUsage | undefined;
+    let usageAccum: LlmUsage | undefined;
     usageAccum = sumUsage(usageAccum, initial);
     usageAccum = sumUsage(usageAccum, reprompt1);
     usageAccum = sumUsage(usageAccum, reprompt2);

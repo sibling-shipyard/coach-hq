@@ -17,7 +17,7 @@ vi.mock("../../_lib/sentry.js", async (importOriginal) => {
   return {
     ...original,
     captureServerException,
-    captureGeminiFailure: vi.fn(async () => ({ sent: true })),
+    captureLlmFailure: vi.fn(async () => ({ sent: true })),
     withProcessingSpan: async <T>(_name: string, fn: () => Promise<T>) => fn(),
     withSentryRoute: async (
       _req: Request,

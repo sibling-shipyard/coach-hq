@@ -1,5 +1,5 @@
 import type { MemoryJson, ProfileJson } from "./coachMemoryFiles.js";
-import type { OnboardingHints } from "../gemini/coachPromptText.js";
+import type { OnboardingHints } from "../llm/coachPromptText.js";
 
 export interface OnboardingChanges {
   name?: string;

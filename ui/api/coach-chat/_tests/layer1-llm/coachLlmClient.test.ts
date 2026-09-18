@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Only the network edge is faked: fetchWithTimeout is the sole boundary askGemini crosses to
+// Only the network edge is faked: fetchWithTimeout is the sole boundary askLlm crosses to
 // the outside world - unchanged by #713 M2 PR 2, which moved cache-name lookup, retry logic, and
-// response parsing out of geminiClient.ts and into _lib/llmAdapters/geminiAdapter.ts (reached via
+// response parsing out of coachLlmClient.ts and into _lib/llmAdapters/geminiAdapter.ts (reached via
 // selectLlmAdapter). Since fetchWithTimeout is mocked at its own physical module path, not at
 // whichever file imports it, these assertions exercise the real seam end to end: prompt/request
-// building in geminiClient.ts, the explicit-cache lookup and retry-on-400/503/504 in
-// geminiAdapter.ts, and JSON.parse of the model's response text back in geminiClient.ts.
+// building in coachLlmClient.ts, the explicit-cache lookup and retry-on-400/503/504 in
+// geminiAdapter.ts, and JSON.parse of the model's response text back in coachLlmClient.ts.
 const { fetchWithTimeout } = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
 }));
@@ -15,7 +15,7 @@ vi.mock("../../../_lib/httpTimeout.js", () => ({
   UPSTREAM_TIMEOUT_MS: 25_000,
 }));
 
-import { askGemini } from "../../_lib/gemini/geminiClient.js";
+import { askLlm } from "../../_lib/llm/coachLlmClient.js";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
@@ -28,7 +28,7 @@ function geminiEnvelope(reply: unknown): Response {
   });
 }
 
-// Every geminiEnvelope() above reports this same usageMetadata - askGemini now surfaces it
+// Every geminiEnvelope() above reports this same usageMetadata - askLlm now surfaces it
 // straight through on the returned object (#1044 PR1), so every reply-shape assertion below
 // carries it too.
 const EXPECTED_USAGE = {
@@ -51,8 +51,8 @@ function routeByUrl(cachedContentsRes: Response, generateContentRes: Response) {
   });
 }
 
-// Typed as askGemini's own parameters so the fixture cannot drift from the signature.
-const args: Parameters<typeof askGemini> = [
+// Typed as askLlm's own parameters so the fixture cannot drift from the signature.
+const args: Parameters<typeof askLlm> = [
   "test-api-key",
   "soul text",
   "athlete context",
@@ -66,23 +66,23 @@ const args: Parameters<typeof askGemini> = [
   "UTC",
 ];
 
-describe("askGemini", () => {
+describe("askLlm", () => {
   beforeEach(() => {
     fetchWithTimeout.mockReset();
   });
 
-  it("parses a well-formed reply into a GeminiReply", async () => {
+  it("parses a well-formed reply into a LlmReply", async () => {
     const reply = { reply: "Nice work this week." };
     routeByUrl(jsonResponse(500, {}), geminiEnvelope(reply));
 
-    const result = await askGemini(...args);
+    const result = await askLlm(...args);
 
     expect(result).toEqual({ ...reply, usage: EXPECTED_USAGE });
   });
 
   it("passes a schema-optional field through unmodified, even a semantically bad value (issue #609)", async () => {
     // Gemini can emit template_edit: { template_id: "none" } as a null-ish placeholder instead
-    // of omitting the field. askGemini does no runtime validation beyond JSON.parse - it is not
+    // of omitting the field. askLlm does no runtime validation beyond JSON.parse - it is not
     // this layer's job to reject a schema-shaped-but-semantically-wrong value. The actual crash
     // (applyTemplateEdit throwing on an unknown id) happens one layer down, in coachWorkoutFiles.ts.
     // This test documents that the fix belongs there, not here.
@@ -92,7 +92,7 @@ describe("askGemini", () => {
     };
     routeByUrl(jsonResponse(500, {}), geminiEnvelope(reply));
 
-    const result = await askGemini(...args);
+    const result = await askLlm(...args);
 
     expect(result).toEqual({ ...reply, usage: EXPECTED_USAGE });
   });
@@ -100,7 +100,7 @@ describe("askGemini", () => {
   it("throws when Gemini returns no text content", async () => {
     routeByUrl(jsonResponse(500, {}), jsonResponse(200, { candidates: [] }));
 
-    await expect(askGemini(...args)).rejects.toThrow("Gemini returned no content");
+    await expect(askLlm(...args)).rejects.toThrow("Gemini returned no content");
   });
 
   it("throws when the response text isn't valid JSON on both attempts", async () => {
@@ -109,7 +109,7 @@ describe("askGemini", () => {
       jsonResponse(200, { candidates: [{ content: { parts: [{ text: "not json" }] } }] }),
     );
 
-    await expect(askGemini(...args)).rejects.toThrow();
+    await expect(askLlm(...args)).rejects.toThrow();
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
       (url as string).includes(":generateContent"),
     );
@@ -134,7 +134,7 @@ describe("askGemini", () => {
       return geminiEnvelope({ reply: "Recovered after malformed JSON." });
     });
 
-    const result = await askGemini(...args);
+    const result = await askLlm(...args);
 
     expect(result).toEqual({
       reply: "Recovered after malformed JSON.",
@@ -164,7 +164,7 @@ describe("askGemini", () => {
       return geminiEnvelope({ reply: "Recovered after malformed JSON." });
     });
 
-    const result = await askGemini(...args);
+    const result = await askLlm(...args);
 
     expect(result.usage?.promptTokens).toBe(150); // 50 (discarded call) + 100 (retry)
     expect(result.usage?.completionTokens).toBe(20); // discarded call only - retry reports none
@@ -186,7 +186,7 @@ describe("askGemini", () => {
       return geminiEnvelope({ reply: "Recovered after malformed JSON." });
     });
 
-    await askGemini(...args);
+    await askLlm(...args);
 
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
       (url as string).includes(":generateContent"),
@@ -200,17 +200,17 @@ describe("askGemini", () => {
   it("throws a 429-tagged error on rate limit", async () => {
     routeByUrl(jsonResponse(500, {}), jsonResponse(429, { error: "rate limited" }));
 
-    await expect(askGemini(...args)).rejects.toMatchObject({ status: 429 });
+    await expect(askLlm(...args)).rejects.toMatchObject({ status: 429 });
   });
 
-  // Every captureGeminiFailure call site outside coach-message.ts reports whichever model this
+  // Every captureLlmFailure call site outside coach-message.ts reports whichever model this
   // constant names, not whatever adapter actually ran - wrong the moment LLM_PROVIDER=openrouter
-  // picks a different one. askGemini must tag the real adapter's model onto the throw so those
+  // picks a different one. askLlm must tag the real adapter's model onto the throw so those
   // call sites can read it back instead of assuming direct Gemini unconditionally.
   it("tags the resolved adapter's model onto a thrown error", async () => {
     routeByUrl(jsonResponse(500, {}), jsonResponse(429, { error: "rate limited" }));
 
-    await expect(askGemini(...args)).rejects.toMatchObject({ model: "gemini-pro-latest" });
+    await expect(askLlm(...args)).rejects.toMatchObject({ model: "gemini-pro-latest" });
   });
 
   it("retries once as no-cache when a cached-content name is rejected with 400", async () => {
@@ -226,7 +226,7 @@ describe("askGemini", () => {
       return geminiEnvelope({ reply: "Recovered without cache." });
     });
 
-    const result = await askGemini(...args);
+    const result = await askLlm(...args);
 
     expect(result).toEqual({ reply: "Recovered without cache.", usage: EXPECTED_USAGE });
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
@@ -236,11 +236,11 @@ describe("askGemini", () => {
   });
 
   it("retries once on a 504 timeout and surfaces the 504-tagged error if the retry also times out", async () => {
-    // fetchWithTimeout's real implementation throws a { status: 504 } Error on abort; geminiClient
+    // fetchWithTimeout's real implementation throws a { status: 504 } Error on abort; coachLlmClient
     // converts that into a Response so both attempts hit the same status===504 retry branch.
     routeByUrl(jsonResponse(500, {}), jsonResponse(504, {}));
 
-    await expect(askGemini(...args)).rejects.toMatchObject({ status: 504 });
+    await expect(askLlm(...args)).rejects.toMatchObject({ status: 504 });
     const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
       (url as string).includes(":generateContent"),
     );

@@ -9,7 +9,7 @@ import {
 import { buildWorkoutCreateAndRemoveWrites } from "../../_lib/decide/turnWrites/workoutWrite.js";
 import { validateWorkout } from "../../_lib/decide/workoutSchema.js";
 import type { ProgressionsJson } from "../../_lib/decide/coachQuestFiles.js";
-import { generationConfigFor } from "../../_lib/gemini/coachReplySchema.js";
+import { generationConfigFor } from "../../_lib/llm/coachReplySchema.js";
 
 // A2 (#727): unit coverage for workout_create/workout_remove - the mid-conversation "make me a
 // routine"/"remove that routine" actions. Same discipline as coachWorkoutFiles.test.ts's existing

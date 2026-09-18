@@ -1,9 +1,9 @@
 #!/usr/bin/env -S npx tsx
 /**
  * eval-coach-chat.ts — runs the golden transcripts in
- * ui/eval/transcripts/ through the real askGemini() logic against
+ * ui/eval/transcripts/ through the real askLlm() logic against
  * a live model - direct Gemini by default, or OpenRouter when `LLM_PROVIDER=openrouter` is set
- * (#713 M2 PR 2 put askGemini() on the same seam every other caller uses) - and checks the
+ * (#713 M2 PR 2 put askLlm() on the same seam every other caller uses) - and checks the
  * structural rubric: valid schema, no fabricated "saved" language, session_closed only true when
  * the transcript expects it, coach_note present when expected.
  *
@@ -26,9 +26,9 @@
  * per run, so it stays a manual/human read for now. This script only catches objective
  * regressions.
  *
- * **Scope warning:** askGemini() is called with `soul: ""` below. SOUL is NOT in the prompt this
+ * **Scope warning:** askLlm() is called with `soul: ""` below. SOUL is NOT in the prompt this
  * script sends, so this eval cannot catch a SOUL content regression of any kind - it exercises
- * askGemini's own logic only. ADR 0024 says a paid check runs where it can actually fail; for a
+ * askLlm's own logic only. ADR 0024 says a paid check runs where it can actually fail; for a
  * SOUL-only change, that is nowhere in this file.
  *
  * Every call costs money and Gemini 503s non-deterministically, so a red run is usually
@@ -43,7 +43,7 @@
  *   npm run eval:coach-chat -- --only 03                       # run transcripts whose file/name matches a substring
  *   LLM_PROVIDER=openrouter npm run eval:coach-chat -- --fresh # OpenRouter instead of direct Gemini
  *
- * Needs GEMINI_API_KEY in ui/.env.local or env always (askGemini()'s own signature takes one
+ * Needs GEMINI_API_KEY in ui/.env.local or env always (askLlm()'s own signature takes one
  * regardless of provider - see its header comment); OPENROUTER_API_KEY too when running with
  * LLM_PROVIDER=openrouter.
  *
@@ -51,7 +51,7 @@
  * <repo-root>/test-results/raw/<YYYY-MM-DD>/eval/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not
  * every filesystem accepts them) with one entry per transcript that actually called Gemini this run (a
  * CACHED transcript has no fresh input/output, so it's skipped). Each entry carries exactly what
- * was sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of
+ * was sent to askLlm(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of
  * the real repo files that reply's action fields would touch if a live turn ever committed it -
  * this harness never writes those files itself, so the list is derived from
  * turnWrites/README.md, not observed I/O. It exists so a run can be audited afterwards (what did
@@ -66,9 +66,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { selectLlmAdapter } from "../api/_lib/llmClient.js";
-import { askGemini } from "../api/coach-chat/_lib/gemini/geminiClient.js";
+import { askLlm } from "../api/coach-chat/_lib/llm/coachLlmClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
-import type { TurnMode } from "../api/coach-chat/_lib/gemini/coachReplySchema.js";
+import type { TurnMode } from "../api/coach-chat/_lib/llm/coachReplySchema.js";
 import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -85,7 +85,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-// #713 M2 PR 2: askGemini() now reaches the model through selectLlmAdapter, which reads
+// #713 M2 PR 2: askLlm() now reaches the model through selectLlmAdapter, which reads
 // LLM_PROVIDER. Default to direct Gemini (this harness's original target) only when nothing is
 // already set, rather than forcing it - an explicit ambient LLM_PROVIDER=openrouter must actually
 // select the OpenRouter adapter (e.g. `LLM_PROVIDER=openrouter npm run eval:coach-chat -- --fresh`
@@ -122,7 +122,7 @@ interface Transcript {
   description: string;
   stateMd: string;
   questLog: string;
-  // Optional per-turn extra context block - mirrors askGemini()'s extraContext parameter
+  // Optional per-turn extra context block - mirrors askLlm()'s extraContext parameter
   // (first-session, template, and week-session context, concatenated). Needed for any transcript exercising an action
   // field that references a real id (template_edit/session_plan/session_reconcile/plan_edit),
   // since Gemini is instructed to only ever use an id that's actually listed in context.
@@ -169,9 +169,9 @@ function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
 }
 
 // A transcript testing "swap tomorrow's session" needs its embedded session date to actually be
-// tomorrow relative to whatever "today" the real live call resolves to - askGemini's own
+// tomorrow relative to whatever "today" the real live call resolves to - askLlm's own
 // todayContextLine reads real wall-clock time (this script never threads a fixed date through
-// AskParams/askGemini, and askGemini's timezone parameter defaults to UTC when omitted, as it is
+// AskParams/askLlm, and askLlm's timezone parameter defaults to UTC when omitted, as it is
 // here). A hardcoded date in extraContext rots the moment the calendar moves past it - #807 hit
 // this once, and the exact same transcript (now 05-plan-edit-vs-template-edit-disambiguation, renumbered
 // in the 2026-09-14 eval-audit pass) rotted
@@ -222,9 +222,9 @@ const PROMPT_SOURCES = [
   path.join(uiRoot, "api", "_lib", "llmClient.ts"),
   path.join(uiRoot, "api", "_lib", "llmAdapters", "geminiAdapter.ts"),
   path.join(uiRoot, "api", "_lib", "llmAdapters", "geminiSoulCache.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachPromptText.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachReplySchema.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "geminiClient.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "llm", "coachPromptText.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "llm", "coachReplySchema.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "llm", "coachLlmClient.ts"),
 ];
 
 interface CacheEntry {
@@ -281,11 +281,11 @@ interface AskParams {
   extraContext?: string;
 }
 
-async function askWithRetry(params: AskParams): Promise<Awaited<ReturnType<typeof askGemini>>> {
+async function askWithRetry(params: AskParams): Promise<Awaited<ReturnType<typeof askLlm>>> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= TRANSIENT_ATTEMPTS; attempt++) {
     try {
-      return await askGemini(
+      return await askLlm(
         apiKey!,
         "", // see the scope warning at the top of this file - SOUL is deliberately not sent
         params.stateMd,
@@ -332,7 +332,7 @@ function isSet(record: Record<string, unknown>, field: string): boolean {
 /**
  * Derives which real repo files a reply's action fields would touch, per
  * ui/api/coach-chat/_lib/decide/turnWrites/README.md's field-to-file table. This harness never commits
- * anything - askGemini() runs in memory only - so this is a projection for audit reading, not an
+ * anything - askLlm() runs in memory only - so this is a projection for audit reading, not an
  * observation of actual writes. Kept as a pure function so the table can be unit-tested without
  * a live Gemini call; re-check against the README if a new turnWrites file appears.
  */
@@ -373,7 +373,7 @@ function filesForReply(reply: unknown): string[] {
 
 function checkTranscript(
   expect: TranscriptExpect,
-  reply: Awaited<ReturnType<typeof askGemini>>,
+  reply: Awaited<ReturnType<typeof askLlm>>,
 ): string[] {
   const failures: string[] = [];
 

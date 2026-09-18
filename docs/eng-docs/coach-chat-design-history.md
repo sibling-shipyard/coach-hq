@@ -21,7 +21,7 @@ planned" and "what actually happened since," not two files that drift apart.
 Re-verified `coach-chat-flow.md` (split into `coach-chat-daily.md`/`coach-chat-fsp.md`),
 `gemini-flow.md`, and the new `coach-data-schema.md` against current source directly — every
 claim checked against the actual TypeScript/Swift, not carried forward from the prior write-up.
-Backend (`coachTurn.ts`, `geminiClient.ts`, `coachPromptText.ts`, `closeSignal.ts`,
+Backend (`coachTurn.ts`, `coachLlmClient.ts`, `coachPromptText.ts`, `closeSignal.ts`,
 `chatThreads.ts`, `coachChatFiles.ts`) held up exactly as documented. Client side did not:
 
 Found a real, previously undocumented regression — the absolute day-count badge ("D-101") on
@@ -142,7 +142,7 @@ athlete-facing surface). ADR 0021.
   genuinely being hit turn-to-turn, not just configured.
 
 **Diagnostic logging (PR #274, #275):** standing `[coach-chat] Gemini usage: prompt=... cached=...`
-log line on every reply; four previously-silent `catch` blocks in `coach-chat.ts` (askGemini
+log line on every reply; four previously-silent `catch` blocks in `coach-chat.ts` (askLlm
 failures in both greet and message-send paths, both `commitFilesAtomic` call sites) now log the
 real error instead of returning a bare status code with zero trace.
 
@@ -243,7 +243,7 @@ Real-world report (both athlete accounts, iOS and web): "bye"/"wrap" either did 
 (iOS showed the generic "GitHub is having issues" 500-class error, the typed message stuck unsent)
 or committed but skipped the mandated sleep/side-quest questions, plus one thread title came back
 with literal Chinese characters mixed into English text. Diagnosed against real production Vercel
-Runtime Logs rather than guessing — the logs showed the actual failures were `askGemini` itself
+Runtime Logs rather than guessing — the logs showed the actual failures were `askLlm` itself
 throwing (`Request to generativelanguage.googleapis.com timed out`, and a couple of genuine Gemini
 503 "high demand" responses), not anything GitHub/commit-related; the "GitHub is having issues"
 message is a shared generic string in `UserFacingError.swift`'s 500-599 case, unrelated to the
@@ -254,7 +254,7 @@ actual failing service.
 Closing turns send the largest prompts in the system (54k-64k tokens seen in the log sample, vs
 ~18-19k for ordinary turns — 5 extra files plus full chat history) and ask for the hardest
 generation (structured close-out JSON), making them the turn most likely to legitimately exceed
-25s. When it did, `askGemini` threw before `commitFilesAtomic` was ever reached — nothing
+25s. When it did, `askLlm` threw before `commitFilesAtomic` was ever reached — nothing
 committed, and the athlete just saw a generic failure. Confirmed this is not a billing/quota
 issue: paid tier raises the requests/tokens-per-minute ceiling, not per-request latency or 503
 immunity.
@@ -378,7 +378,7 @@ Root-caused from a live repro (traceId `xuij2ft9`) where `reasoning` explicitly 
 alone (moving `file_updates` ahead of `reply` in the declared property order) wasn't sufficient.
 - `hasUnsavedContentMismatch()`: true when `reasoning` is substantial, doesn't match a "nothing to
   save" phrase pattern, and both `file_updates` and `coach_note` are empty/too short.
-- On a mismatch, `askGemini` fires exactly one automatic follow-up call, replaying the model's own
+- On a mismatch, `askLlm` fires exactly one automatic follow-up call, replaying the model's own
   prior raw response plus a nudge to actually populate `file_updates` or `coach_note` (whichever
   fits) — kept fully separate from the transport-level 504/503 retry logic (different failure
   class: content mismatch, not a network error).
@@ -405,7 +405,7 @@ there's no known code fix yet.
 `coach-chat.ts` mixed HTTP handling, Gemini prompt/transport, thread persistence, day/timezone
 math, close-signal detection, and write authority in one file (1614 lines at peak, ~1049 after
 the reliability-debug strip-down above). Split into `ui/api/coach-chat/_lib/`: `coachDay.ts`,
-`closeSignal.ts`, `chatThreads.ts`, `coachPrompt.ts`, `geminiClient.ts`, `coachSinceStamp.ts`, plus
+`closeSignal.ts`, `chatThreads.ts`, `coachPrompt.ts`, `coachLlmClient.ts`, `coachSinceStamp.ts`, plus
 the two pre-existing coach-chat-specific `_lib` files (`coachChatFiles.ts`, `soulCache.ts`)
 moved in alongside them. `coach-chat.ts` itself is now just the HTTP handler. Pure move - no
 behavior change, verified via `tsc`, the full test suite (same 102 tests, only import lines
@@ -491,7 +491,7 @@ profile change, injury, or quest update outside a formal close. Fixing that casc
 - **I1** - a cycling "thinking/parsing/updating" progress indicator (web + iOS) replacing plain
   dots, with failure messages accurate to the real stage that failed.
 - **J1-J2** - confirmed-dead files removed (three retired coach-memory migration scripts, the
-  unused `fspWrites.ts`), and `coach-chat/_lib/` restructured into `gemini/`/`decide/`/`commit/`
+  unused `fspWrites.ts`), and `coach-chat/_lib/` restructured into `llm/`/`decide/`/`commit/`
   subdirectories mirroring the test suite's own three-layer split.
 - **H1 (this pass)** - closed #735 (SOUL §2's writable-set bullet listed 7 paths as bare
   filenames sharing an earlier item's prefix in prose; `validate-soul.mjs`'s parser silently

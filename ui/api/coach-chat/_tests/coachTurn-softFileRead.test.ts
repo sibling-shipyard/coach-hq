@@ -38,7 +38,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     threadId: "thread-1",
     priorMessages: [],
     trimmed: "plan",
-    geminiMessage: "plan",
+    athleteMessage: "plan",
     repo: "owner/repo",
     token: "token",
     apiKey: "key",

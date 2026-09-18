@@ -20,13 +20,13 @@ import {
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
 import {
-  askGemini,
+  askLlm,
   GEMINI_MODEL,
-  type GeminiReplyWithUsage,
-} from "./coach-chat/_lib/gemini/geminiClient.js";
+  type LlmReplyWithUsage,
+} from "./coach-chat/_lib/llm/coachLlmClient.js";
 import { resolveProviderName } from "./_lib/llmClient.js";
 import {
-  captureGeminiFailure,
+  captureLlmFailure,
   captureServerException,
   withProcessingSpan,
   withSentryRoute,
@@ -36,7 +36,7 @@ import {
   firstSessionContext,
   onboardingHintsContext,
   type OnboardingHints,
-} from "./coach-chat/_lib/gemini/coachPromptText.js";
+} from "./coach-chat/_lib/llm/coachPromptText.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { onboardingChanges } from "./coach-chat/_lib/decide/onboardingWrites.js";
 import { buildTurnWrites } from "./coach-chat/_lib/buildTurnWrites.js";
@@ -135,9 +135,9 @@ async function handleGreet(
     today: todayDateString(timezone, new Date()),
   });
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
-  let reply: GeminiReplyWithUsage;
+  let reply: LlmReplyWithUsage;
   try {
-    reply = await askGemini(
+    reply = await askLlm(
       apiKey,
       soul,
       athleteContext,
@@ -156,9 +156,9 @@ async function handleGreet(
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[coach-chat] greet askGemini failed:", err);
-    await captureGeminiFailure(err, {
-      // geminiClient.ts tags the resolved adapter's real model onto the error before it
+    console.error("[coach-chat] greet askLlm failed:", err);
+    await captureLlmFailure(err, {
+      // coachLlmClient.ts tags the resolved adapter's real model onto the error before it
       // propagates here - falls back to the direct-Gemini constant only if that never ran (e.g.
       // a failure before the adapter was even selected).
       model: (err as { model?: string }).model ?? GEMINI_MODEL,

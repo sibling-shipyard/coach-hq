@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { estimateCostUsd, formatCostUsd } from "./llmPricing.js";
-import type { GeminiUsage } from "../../api/_lib/sentry.js";
+import type { LlmUsage } from "../../api/_lib/sentry.js";
 
 // GEMINI_RATE_PER_MILLION_TOKENS isn't exported - the file's own doc comment flags its input/
 // output split as a still-open pricing question, so I duplicate the exact split here rather than
@@ -13,7 +13,7 @@ describe("estimateCostUsd", () => {
   });
 
   it("prices direct Gemini from the table rate, matching the source constant's own math", () => {
-    const usage: GeminiUsage = { promptTokens: 2_000_000, completionTokens: 500_000 };
+    const usage: LlmUsage = { promptTokens: 2_000_000, completionTokens: 500_000 };
 
     const expected =
       (usage.promptTokens! / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.input +
@@ -27,7 +27,7 @@ describe("estimateCostUsd", () => {
     // Reproduces the real bug: completionTokens and thinkingTokens are genuinely separate fields
     // on the Gemini side (candidatesTokenCount vs thoughtsTokenCount) - a version of this function
     // that only priced completionTokens would under-count every call with real thinking tokens.
-    const usage: GeminiUsage = {
+    const usage: LlmUsage = {
       promptTokens: 1_000_000,
       completionTokens: 0,
       thinkingTokens: 500_000,
@@ -41,7 +41,7 @@ describe("estimateCostUsd", () => {
   it("trusts OpenRouter's wire-reported costUsd directly instead of recomputing from tokens", () => {
     // These token counts would price very differently from costUsd under the Gemini table rate -
     // confirms the function isn't quietly ignoring costUsd and recomputing anyway.
-    const usage: GeminiUsage = {
+    const usage: LlmUsage = {
       promptTokens: 2_000_000,
       completionTokens: 500_000,
       costUsd: 0.0042,
@@ -51,7 +51,7 @@ describe("estimateCostUsd", () => {
   });
 
   it("falls back to the table rate for OpenRouter when the wire never reported a costUsd", () => {
-    const usage: GeminiUsage = { promptTokens: 1_000_000, completionTokens: 1_000_000 };
+    const usage: LlmUsage = { promptTokens: 1_000_000, completionTokens: 1_000_000 };
 
     const expected =
       (usage.promptTokens! / 1_000_000) * GEMINI_RATE_PER_MILLION_TOKENS.input +

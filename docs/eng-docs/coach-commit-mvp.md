@@ -75,7 +75,7 @@ does today.
 
 ## Build
 
-- Add `coach_note: { type: "string" }` to the `responseSchema` in `askGemini` (`coach-chat.ts:404`).
+- Add `coach_note: { type: "string" }` to the `responseSchema` in `askLlm` (`coach-chat.ts:404`).
 - Closing-turn prompt: ask for a short plain-English note of what actually happened this session.
   Delete nothing else from the prompt yet.
 - Server-side: append `\n\n## <YYYY-MM-DD>\n<coach_note>` to `user_data/coach/coach_notes.md`,

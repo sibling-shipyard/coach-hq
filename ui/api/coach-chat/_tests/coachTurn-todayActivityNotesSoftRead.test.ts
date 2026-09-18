@@ -73,7 +73,7 @@ function todaySyncedRequest(today: string): TurnRequest {
       },
     ],
     trimmed: "How did that look?",
-    geminiMessage: "How did that look?",
+    athleteMessage: "How did that look?",
   };
 }
 

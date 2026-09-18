@@ -39,11 +39,11 @@
  * conversation - use `--turns turns.json` for real multi-turn continuity in one thread. The
  * script prints a warning to stderr every time `--message` is used, since this is easy to miss.
  *
- * **--debug (or `DEBUG=1` in the environment)** dumps the full assembled prompt geminiClient.ts's
- * askGemini actually sends (cachePrefix + system + messages), not just mode/userMessage, for
+ * **--debug (or `DEBUG=1` in the environment)** dumps the full assembled prompt coachLlmClient.ts's
+ * askLlm actually sends (cachePrefix + system + messages), not just mode/userMessage, for
  * every turn - alongside the parsed JSON reply, which already logs unconditionally. This was the
  * single most-requested addition across the OpenRouter K1 retest's root-cause sessions: without
- * it, seeing the real prompt meant editing geminiClient.ts by hand and remembering to revert it.
+ * it, seeing the real prompt meant editing coachLlmClient.ts by hand and remembering to revert it.
  *
  * `--activity-ids` drives a real activity_sync turn (mode: "activity_sync" in coach-chat.ts) -
  * comma-separated real ids, format "hk:<uuid>", the uuid segment of a real
@@ -92,7 +92,7 @@ import { resolveProviderName } from "../api/_lib/llmClient.js";
 import { slugify } from "../api/_lib/slugify.js";
 import { handle } from "../api/coach-chat.js";
 import { TURN_USAGE_HEADER } from "../api/coach-chat/_lib/requestCoachReply.js";
-import type { GeminiUsage } from "../api/_lib/sentry.js";
+import type { LlmUsage } from "../api/_lib/sentry.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "../scripts/lib/testLog.js";
 import { estimateCostUsd, formatCostUsd } from "../scripts/lib/llmPricing.js";
@@ -140,11 +140,11 @@ interface ManualLogEntry extends TestLogEntry {
   branch: string;
   shaBefore: string | null;
   shaAfter: string | null;
-  // #1053 gap 2 (revised after review): real token usage for this turn's askGemini call(s), read
+  // #1053 gap 2 (revised after review): real token usage for this turn's askLlm call(s), read
   // off the real Response's x-coach-chat-turn-usage header (requestCoachReply.ts's usageResponseInit) -
   // no module-level state, so it can't leak between concurrent requests. Undefined on a turn that
   // threw before any model call happened.
-  usage?: GeminiUsage;
+  usage?: LlmUsage;
   costUsd?: number;
 }
 
@@ -188,7 +188,7 @@ async function getHeadShaWithRetry(repo: string, token: string, branch?: string)
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  // Set before any handle() call so askGemini (geminiClient.ts) picks it up on every turn, not
+  // Set before any handle() call so askLlm (coachLlmClient.ts) picks it up on every turn, not
   // just the first - see this script's header comment. Never set outside a --debug/DEBUG=1 run,
   // so this can't leak into a normal invocation's output.
   if (args.debug) {
@@ -427,8 +427,8 @@ async function main() {
       // Real per-request data on the real Response - no module state to leak across turns/requests.
       // Absent on a turn that threw before any model call happened (no header was ever attached).
       const usageHeader = res.headers.get(TURN_USAGE_HEADER);
-      const usage: GeminiUsage | undefined = usageHeader
-        ? (JSON.parse(usageHeader) as GeminiUsage)
+      const usage: LlmUsage | undefined = usageHeader
+        ? (JSON.parse(usageHeader) as LlmUsage)
         : undefined;
       const providerName = usingOpenRouter ? "openrouter" : "gemini";
       const costUsd = estimateCostUsd(usage, providerName);

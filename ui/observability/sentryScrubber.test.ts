@@ -96,7 +96,7 @@ describe("scrubSentryEvent", () => {
             stacktrace: {
               frames: [
                 {
-                  filename: "geminiClient.ts",
+                  filename: "coachLlmClient.ts",
                   vars: {
                     url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
                   },
@@ -119,8 +119,8 @@ describe("scrubSentryEvent", () => {
   });
 
   it("keeps a GEMINI_API_KEY out of a captured coach-message proactive-body failure", () => {
-    // generateProactiveBody (coachMessage.ts) bypasses askGemini and builds its own request URL
-    // and error message the same way geminiClient.ts does - same two leak points apply.
+    // generateProactiveBody (coachMessage.ts) bypasses askLlm and builds its own request URL
+    // and error message the same way coachLlmClient.ts does - same two leak points apply.
     const apiKey = `AIza${"D".repeat(35)}`;
     const upstreamBody = JSON.stringify({
       error: { message: `API key not valid: ${apiKey}`, status: "INVALID_ARGUMENT" },

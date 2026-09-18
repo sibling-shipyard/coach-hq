@@ -1,5 +1,5 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
-import { captureGeminiFailure } from "../../_lib/sentry.js";
+import { captureLlmFailure } from "../../_lib/sentry.js";
 import { isObject, requestedIdParts } from "../../_lib/activityLookup.js";
 import type { LlmAdapter, LlmJsonSchema } from "../../_lib/llmClient.js";
 import {
@@ -346,7 +346,7 @@ export async function generateProactiveBody(adapter: LlmAdapter, prompt: string)
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     console.error("[coach-message] generateProactiveBody failed:", err);
-    await captureGeminiFailure(err, {
+    await captureLlmFailure(err, {
       model: adapter.model,
       upstreamStatus: status,
       turnMode: "proactive_message",

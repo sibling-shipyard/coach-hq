@@ -74,11 +74,11 @@ async function drainWaitUntil(): Promise<void> {
 }
 
 const {
-  captureGeminiFailure,
+  captureLlmFailure,
   captureServerException,
   setAthleteScope,
   withContinuedTrace,
-  withGeminiSpan,
+  withLlmSpan,
   withGithubSpan,
   withProcessingSpan,
 } = await import("../sentry.js");
@@ -315,7 +315,7 @@ describe("withContinuedTrace server span", () => {
   });
 });
 
-describe("withGeminiSpan", () => {
+describe("withLlmSpan", () => {
   const USAGE = {
     promptTokens: 13_004,
     completionTokens: 412,
@@ -339,14 +339,14 @@ describe("withGeminiSpan", () => {
   };
 
   /** A Gemini span only ships inside a route transaction — that is the shape production uses. */
-  async function geminiSpanFrom(
+  async function llmSpanFrom(
     run: (
       record: (usage: Partial<typeof USAGE & typeof OPENROUTER_USAGE>) => void,
     ) => Promise<unknown>,
     extraAttributes?: Record<string, string>,
   ) {
     await withContinuedTrace(request(), async () => {
-      await withGeminiSpan("gemini-flash-latest", run, extraAttributes).catch(() => undefined);
+      await withLlmSpan("gemini-flash-latest", run, extraAttributes).catch(() => undefined);
       return Response.json({ ok: true });
     });
     await drainWaitUntil();
@@ -354,7 +354,7 @@ describe("withGeminiSpan", () => {
   }
 
   it("carries the model and Sentry's gen_ai token attributes", async () => {
-    const span = await geminiSpanFrom(async (record) => {
+    const span = await llmSpanFrom(async (record) => {
       record(USAGE);
       return "reply";
     });
@@ -375,7 +375,7 @@ describe("withGeminiSpan", () => {
   });
 
   it("carries the adapter tag and OpenRouter's resolved provider and model (#713)", async () => {
-    const span = await geminiSpanFrom(
+    const span = await llmSpanFrom(
       async (record) => {
         record({ ...USAGE, ...OPENROUTER_USAGE });
         return "reply";
@@ -396,7 +396,7 @@ describe("withGeminiSpan", () => {
   });
 
   it("omits the resolved provider and model on the direct Gemini path", async () => {
-    const span = await geminiSpanFrom(async (record) => {
+    const span = await llmSpanFrom(async (record) => {
       record(USAGE);
       return "reply";
     });
@@ -410,7 +410,7 @@ describe("withGeminiSpan", () => {
   });
 
   it("never carries prompt or reply text on a turn that worked (ADR 0032)", async () => {
-    const span = await geminiSpanFrom(async (record) => {
+    const span = await llmSpanFrom(async (record) => {
       record(USAGE);
       return "legs felt heavy on the last interval";
     });
@@ -419,7 +419,7 @@ describe("withGeminiSpan", () => {
   });
 
   it("omits the counts Gemini did not return rather than sending zeros", async () => {
-    const span = await geminiSpanFrom(async (record) => {
+    const span = await llmSpanFrom(async (record) => {
       record({ promptTokens: 10 });
       return "reply";
     });
@@ -430,7 +430,7 @@ describe("withGeminiSpan", () => {
   });
 
   it("marks the span an error and rethrows when the call fails", async () => {
-    const span = await geminiSpanFrom(async () => {
+    const span = await llmSpanFrom(async () => {
       throw new Error("Gemini request failed (503)");
     });
 
@@ -440,7 +440,7 @@ describe("withGeminiSpan", () => {
 
   it("rides out inside the route transaction, which is what flushes it", async () => {
     await withContinuedTrace(request(), async () => {
-      await withGeminiSpan("gemini-flash-latest", async (record) => record(USAGE));
+      await withLlmSpan("gemini-flash-latest", async (record) => record(USAGE));
       return Response.json({ ok: true });
     });
     await drainWaitUntil();
@@ -597,7 +597,7 @@ describe("captureServerException on a route that answers with a status", () => {
     // reaches the route's generic catch. Only the first, detailed event may go out.
     await routeThatCatches(async () => {
       const err = Object.assign(new Error("Gemini request failed (503)"), { status: 503 });
-      await captureGeminiFailure(err, {
+      await captureLlmFailure(err, {
         model: "gemini-flash-latest",
         upstreamStatus: 503,
         turnMode: "proactive_message",
