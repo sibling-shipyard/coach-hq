@@ -1,3 +1,5 @@
+> **Research, not a decision.** Background research from August 2026. No decision was ever filed from it — read as context, not as the plan.
+
 # Research: Backend options to replace GitHub-as-datastore
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-08-16
