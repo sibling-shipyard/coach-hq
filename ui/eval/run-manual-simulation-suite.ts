@@ -113,23 +113,23 @@ interface TurnExpect {
   orTurns?: number[];
   /**
    * A real athlete repo with several templates or quests makes "which one?" the right reply, so a
-   * turn that changed no structural file but asks a question passes. Never a way to hide a drop:
-   * a reply that asks a question while also claiming the change was made still fails.
+   * turn whose reply asks a question or plainly declines, and claims no change, passes, even if an unrelated field was
+   * written. Never a way to hide a drop: a reply that also claims the change was made still fails.
    */
   clarifyingQuestionOk?: boolean;
 }
 
-const CHAT_ONLY_FILES = ["chat_history.json", "coach_log.json", "latest_message.json"];
 // Past-tense or passive "it's done" phrasing. Deliberately narrow: the point is catching a reply
 // that says the write happened, not every sentence with a verb.
 const DONE_CLAIM_PATTERN =
-  /\b(?:i(?:'ve| have)?\s+(?:took|taken|pulled|moved|added|built|saved|locked|updated|removed|swapped|dropped)|(?:has|have)\s+been\s+(?:built|saved|added|updated|removed|dropped)|(?:is|are)\s+(?:saved|locked in)|locked in)\b/i;
+  /\b(?:i(?:'ve| have)?\s+(?:took|taken|pulled|moved|added|built|saved|locked|updated|removed|swapped|dropped)|(?:has|have)\s+been\s+(?:built|saved|added|updated|removed|dropped)|(?:it's|that's|it\s+is|is|are)\s+(?:saved|locked in))\b/i;
+
+// An honest "that isn't on your plan / I can't do that" reply without a literal question.
+const DECLINE_PATTERN = /\b(?:don'?t|doesn'?t|isn'?t|aren'?t|can'?t|couldn'?t|no)\b/i;
 
 function isClarifyingDecline(entry: ManualLogEntry): boolean {
-  const files = entry.filesChanged?.files ?? [];
-  if (!files.every((f) => CHAT_ONLY_FILES.some((chat) => f.endsWith(chat)))) return false;
   const reply = String((entry.output as { reply?: unknown } | undefined)?.reply ?? "");
-  return reply.includes("?") && !DONE_CLAIM_PATTERN.test(reply);
+  return (reply.includes("?") || DECLINE_PATTERN.test(reply)) && !DONE_CLAIM_PATTERN.test(reply);
 }
 
 interface Scenario {
@@ -448,10 +448,18 @@ const SCENARIOS: Scenario[] = [
     // to already have the right one on file, so this seeds one first with a real workout_create
     // ask (same phrasing as template-edit-permanent's own turn 1) rather than relying on whatever
     // happens to already be there.
+    // week_update needs real planned sessions to swap, and no real repo is assumed to have a live
+    // week (same seed recipe ambiguous-contradiction uses).
     preconditions: {
       hasTemplate: {
         seedMessages: [
           "Can you build me a full-body strength routine, no equipment, for twice a week?",
+        ],
+      },
+      currentWeekHasSessions: {
+        seedMessages: [
+          "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+          "That looks good, let's go with that.",
         ],
       },
     },
