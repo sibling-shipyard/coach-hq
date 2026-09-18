@@ -1645,6 +1645,9 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
     "starting my run at 6 tomorrow, feeling good",
     "starting weight is 76kg this morning",
     "starting to feel better after the rest day",
+    "I was getting into the car when my knee twinged",
+    "that session took up too much time today",
+    "I joined a Zoom call right after my run",
   ])("does not reprompt on non-sport 'starting' phrasing: %s", async (message) => {
     askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
@@ -2661,6 +2664,82 @@ describe("requestCoachReply missed workout_create guard", () => {
     });
 
     await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Round-2 retest: "permanently swap the core phase out" got "I took the core phase out" with no
+// template_edit written and no correction, the same narrated-not-written shape as workout_create.
+describe("requestCoachReply missed template_edit guard", () => {
+  const editAsk = {
+    trimmed: "I want to permanently swap the core phase out of that routine going forward",
+    athleteMessage: "I want to permanently swap the core phase out of that routine going forward",
+  };
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts once when the reply claims the edit was made but no template_edit was set", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "I took the core phase out of that routine permanently.",
+        coach_note: "Removed core phase.",
+      })
+      .mockResolvedValueOnce({
+        reply: "I took the core phase out of that routine permanently.",
+        coach_note: "Removed core phase.",
+        template_edit: { template_id: "q1", skip_phases: ["core"] },
+      });
+
+    await requestCoachReply(baseTurnState(editAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("flags a correction and reports to Sentry when the reprompt still misses", async () => {
+    askLlm.mockResolvedValue({
+      reply: "I took the core phase out of that routine permanently.",
+      coach_note: "Removed core phase.",
+    });
+
+    const result = await requestCoachReply(baseTurnState(editAsk));
+
+    expect("stillMissedTemplateEdit" in result && result.stillMissedTemplateEdit).toBe(true);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detectors: expect.arrayContaining(["missedTemplateEditLanguage"]),
+      }),
+    );
+  });
+
+  it.each([
+    "Which routine do you mean - Strength A or Strength B?",
+    "Template edits can permanently drop a phase like core, but I need to know which routine.",
+    "I can't drop that phase without knowing the routine.",
+  ])("does not reprompt an honest decline or question: %s", async (reply) => {
+    askLlm.mockResolvedValueOnce({ reply, coach_note: "Asked which routine." });
+
+    await requestCoachReply(baseTurnState(editAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt a one-day change with no permanent wording", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "I took the core phase out for today.",
+      coach_note: "Skipped core today.",
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "skip the core phase in that routine today",
+        athleteMessage: "skip the core phase in that routine today",
+      }),
+    );
 
     expect(askLlm).toHaveBeenCalledTimes(1);
   });

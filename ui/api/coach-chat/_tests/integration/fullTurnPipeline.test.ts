@@ -12,9 +12,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * injects a prebuilt TurnWrites and mocks commitFilesAtomic directly) - that file checks each
  * stage's own logic; this file checks the layers are wired together correctly end to end.
  */
-const { fetchWithTimeout, captureServerException } = vi.hoisted(() => ({
+const { fetchWithTimeout, captureServerException, captureServerMessage } = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
   captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+  captureServerMessage: vi.fn(async (_message: string, _options?: unknown) => ({ sent: true })),
 }));
 vi.mock("../../../_lib/httpTimeout.js", () => ({
   fetchWithTimeout,
@@ -22,7 +23,7 @@ vi.mock("../../../_lib/httpTimeout.js", () => ({
 }));
 vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../../_lib/sentry.js")>();
-  return { ...original, captureServerException };
+  return { ...original, captureServerException, captureServerMessage };
 });
 
 import { loadTurnState, type TurnRequest } from "../../_lib/turnRequest.js";
@@ -329,6 +330,38 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     );
     expect(updatedTemplate.phases).toHaveLength(1);
     expect(updatedTemplate.phases[0].name).toBe("Main set");
+  });
+
+  it("an unmatched skip_phases name still commits but is reported to Sentry once", async () => {
+    captureServerMessage.mockClear();
+    const repo = createFakeRepo(
+      repoFixture({
+        "user_data/activities/workout_plans/templates/_manifest.json": JSON.stringify({
+          template_ids: ["strength_b"],
+        }),
+        "user_data/activities/workout_plans/templates/strength_b.json": VALID_TEMPLATE,
+      }),
+    );
+    const gemini = createFakeLlm([
+      {
+        reply: "Dropped the cooldown from Strength B going forward.",
+        template_edit: { template_id: "strength_b", skip_phases: ["Cooldown Stretch"] },
+      },
+    ]);
+
+    const response = await runTurn("owner/repo-sentry-phase", repo, gemini, {
+      threadId: "thread-sentry-phase",
+      priorMessages: [],
+      trimmed: "Drop the cooldown from my strength template for good",
+      athleteMessage: "Drop the cooldown from my strength template for good",
+    });
+
+    expect((await response.json()).reply).toContain("Dropped the cooldown");
+    expect(captureServerMessage).toHaveBeenCalledTimes(1);
+    expect(captureServerMessage).toHaveBeenCalledWith(
+      expect.stringContaining("phase_no_match"),
+      expect.objectContaining({ level: "warning" }),
+    );
   });
 
   it('issue #609/D1 (#736): a template_edit sentinel of "none" no longer costs the chat message', async () => {

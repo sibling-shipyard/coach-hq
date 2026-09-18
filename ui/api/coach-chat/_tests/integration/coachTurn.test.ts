@@ -265,6 +265,20 @@ describe("coach turn stages", () => {
     );
   });
 
+  it("appends a same-turn correction when a permanent routine edit was claimed but never written", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        stillMissedTemplateEdit: true,
+        reply: { reply: "I took the core phase out.", coach_note: "Removed core." },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe(
+      "I took the core phase out.\n\n" +
+        "(Note: that change to your routine wasn't saved - ask again and I'll make it.)",
+    );
+  });
+
   it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
     const turn = await buildTurnWrites(
       baseTurn({
