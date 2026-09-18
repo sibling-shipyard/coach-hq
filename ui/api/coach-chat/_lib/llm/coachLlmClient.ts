@@ -16,21 +16,21 @@ import {
   chatResponseSchema,
   CHAT_MAX_OUTPUT_TOKENS,
   type AthleteReferenceIds,
-  type GeminiReply,
+  type LlmReply,
   type TurnMode,
 } from "./coachReplySchema.js";
 
 export { GEMINI_MODEL };
 
 /**
- * `GeminiReply` plus the real token usage the adapter already computed for this call (#1044
- * PR1). Additive only, on purpose - every existing caller stays typed against plain `GeminiReply`
- * (a `GeminiReplyWithUsage` satisfies that structurally, extra field ignored) and nothing that
+ * `LlmReply` plus the real token usage the adapter already computed for this call (#1044
+ * PR1). Additive only, on purpose - every existing caller stays typed against plain `LlmReply`
+ * (a `LlmReplyWithUsage` satisfies that structurally, extra field ignored) and nothing that
  * persists a turn's reply spreads the whole object, so `usage` never leaks into committed
  * athlete data. `usage` is absent only in the rare case the provider's own response carried no
  * usage data at all.
  */
-export type GeminiReplyWithUsage = GeminiReply & { usage?: LlmResult["usage"] };
+export type LlmReplyWithUsage = LlmReply & { usage?: LlmResult["usage"] };
 
 // A turn with a long conversation history carries a larger prompt than the shared
 // UPSTREAM_TIMEOUT_MS (25s, sized for file reads) can comfortably fit - give generateContent its
@@ -39,11 +39,11 @@ export type GeminiReplyWithUsage = GeminiReply & { usage?: LlmResult["usage"] };
 // dense-message scenario it was raised for, so a call that legitimately needs the fuller budget
 // must have time to actually finish generating it - trading a MAX_TOKENS truncation for a 45s
 // timeout on the exact same scenario would not be a fix. Kept well under the shared 300s Vercel
-// budget alongside the other retry layers geminiClient.ts's JSON-parse retry and requestCoachReply.ts's
+// budget alongside the other retry layers coachLlmClient.ts's JSON-parse retry and requestCoachReply.ts's
 // reprompts already account for.
 const GEMINI_GENERATE_TIMEOUT_MS = 60_000;
 
-export async function askGemini(
+export async function askLlm(
   apiKey: string,
   soul: string,
   athleteContext: string,
@@ -56,7 +56,7 @@ export async function askGemini(
   traceId?: string,
   timezone = "UTC",
   referenceIds?: AthleteReferenceIds,
-): Promise<GeminiReplyWithUsage> {
+): Promise<LlmReplyWithUsage> {
   // Ordered for implicit-caching fallback: stable content (persona, instructions, few-shots)
   // first, volatile today's-date last. See docs/eng-docs/gemini-flow.md. `cachePrefix` carries
   // this to the seam; the Gemini adapter decides whether it's actually cached this call.
@@ -102,7 +102,7 @@ export async function askGemini(
     timeoutMs: GEMINI_GENERATE_TIMEOUT_MS,
   };
   // Tags the resolved adapter's real model onto any throw from here down, so a caller's
-  // captureGeminiFailure({ model: ... }) reports what actually ran (gemini-pro-latest or
+  // captureLlmFailure({ model: ... }) reports what actually ran (gemini-pro-latest or
   // OpenRouter's pinned model) instead of a caller-side constant that assumes direct Gemini even
   // when LLM_PROVIDER=openrouter picked a different adapter entirely.
   const withModelTag = <T>(err: T): T => {
@@ -126,7 +126,7 @@ export async function askGemini(
   // One retry, same cap this codebase already uses everywhere for a transient model failure.
   // A MAX_TOKENS throw from the adapter never reaches this catch - adapter.generate() above is
   // not itself inside this try block, so that failure propagates straight past this function to
-  // whatever calls askGemini, same as any other adapter-level throw.
+  // whatever calls askLlm, same as any other adapter-level throw.
   //
   // This retry, requestCoachReply.ts's up to two reprompt calls, and each adapter's own 503/504/
   // truncation retry all stack independently of one another and of the 300s Vercel budget - none
@@ -134,9 +134,9 @@ export async function askGemini(
   // own timeout, rather than reusing the full budget again, keeps its worst-case addition small
   // instead of letting a fifth 45s call stack on top of four others that already ran.
   const jsonParseRetryTimeoutMs = Math.min(GEMINI_GENERATE_TIMEOUT_MS, 20_000);
-  let parsed: GeminiReply;
+  let parsed: LlmReply;
   try {
-    parsed = JSON.parse(result.text) as GeminiReply;
+    parsed = JSON.parse(result.text) as LlmReply;
   } catch (err) {
     console.warn("[coach-chat] reply text failed to parse as JSON, retrying once:", {
       error: err instanceof Error ? err.message : String(err),
@@ -145,7 +145,7 @@ export async function askGemini(
     try {
       const firstUsage = result.usage;
       result = await adapter.generate({ ...generateRequest, timeoutMs: jsonParseRetryTimeoutMs });
-      parsed = JSON.parse(result.text) as GeminiReply;
+      parsed = JSON.parse(result.text) as LlmReply;
       // The first call's tokens were real and billed even though its text didn't parse -
       // summing here (instead of letting the reassignment above silently drop firstUsage)
       // keeps the reported cost honest about both calls this retry actually made. Same

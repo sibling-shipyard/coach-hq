@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { askGemini } = vi.hoisted(() => ({ askGemini: vi.fn() }));
-vi.mock("../../_lib/gemini/geminiClient.js", () => ({
-  askGemini,
+const { askLlm } = vi.hoisted(() => ({ askLlm: vi.fn() }));
+vi.mock("../../_lib/llm/coachLlmClient.js", () => ({
+  askLlm,
   GEMINI_MODEL: "gemini-flash-latest",
 }));
 
 // Every test below runs a non-first-session turn, which now means requestCoachReply fetches the
-// templates manifest and current_week.json before calling askGemini (Finding A fix). Stubbed here
+// templates manifest and current_week.json before calling askLlm (Finding A fix). Stubbed here
 // instead of letting it hit real GitHub - most tests below don't care about the content, only the
 // "does not-first-session-context-fetching break anything else" question, so the default is empty
 // (no templates, no sessions) and the one test that cares about real content sets its own return.
@@ -19,7 +19,7 @@ vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
   return { ...original, getFileRaw };
 });
 
-// #1009 Sentry gap: real captureGeminiFailure/captureValidationFailure stay wired to the real
+// #1009 Sentry gap: real captureLlmFailure/captureValidationFailure stay wired to the real
 // module (no-op without SENTRY_DSN, which the test env never sets) - only captureStillUnresolvedGuard
 // is stubbed, so the still-unresolved describe block below can assert on it directly.
 const { captureStillUnresolvedGuard } = vi.hoisted(() => ({
@@ -32,14 +32,14 @@ vi.mock("../../../_lib/sentry.js", async (importOriginal) => {
 
 import { requestCoachReply } from "../../_lib/requestCoachReply.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/_generated/text-caps.bundle.js";
-import { buildDynamicText } from "../../_lib/gemini/coachPromptText.js";
+import { buildDynamicText } from "../../_lib/llm/coachPromptText.js";
 
 function baseTurnState(overrides: Record<string, unknown> = {}) {
   return {
     threadId: "thread-1",
     priorMessages: [],
     trimmed: "how's my week looking",
-    geminiMessage: "how's my week looking",
+    athleteMessage: "how's my week looking",
     repo: "owner/repo",
     token: "token",
     apiKey: "key",
@@ -70,13 +70,13 @@ beforeEach(() => {
 // reprompt reason it names.
 describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts exactly once when a capped field comes back oversized, then returns the corrected reply", async () => {
     const oversized = "x".repeat(COACH_LOG_TEXT_CAP + 500);
     const corrected = "A short note within budget.";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         memory_update: { label: "baseline", text: oversized },
         coach_note: "note",
@@ -90,13 +90,13 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.memory_update?.text).toBe(corrected);
   });
 
   it("does not reprompt a second time if the reprompt also comes back oversized, but logs it", async () => {
     const oversized = "x".repeat(COACH_LOG_TEXT_CAP + 500);
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         memory_update: { label: "baseline", text: oversized },
         coach_note: "note",
@@ -111,7 +111,7 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.memory_update?.text).toBe(oversized);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
@@ -125,7 +125,7 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
   });
 
   it("does not reprompt when the reply is already within every cap and coach_note is present", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       memory_update: { label: "baseline", text: "Fine." },
       coach_note: "note",
       reply: "ok",
@@ -133,7 +133,7 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -141,11 +141,11 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
 // this turn. Same reprompt mechanism as the size-cap check above, exercised in isolation here.
 describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts exactly once when profile_update fires with no coach_note, then commits the corrected reply", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         profile_update: [{ field: "weight_kg", value: "76" }],
         reply: "ok",
@@ -158,20 +158,20 @@ describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.coach_note).toBe("Athlete reported new weight: 76kg.");
   });
 
   it("does not reprompt a filler turn with no other structured writes and no coach_note", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "Heavy legs happen, keep it honest today." });
+    askLlm.mockResolvedValueOnce({ reply: "Heavy legs happen, keep it honest today." });
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when profile_update fires alongside a coach_note", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       profile_update: [{ field: "weight_kg", value: "76" }],
       coach_note: "Athlete reported new weight: 76kg.",
       reply: "ok",
@@ -179,7 +179,7 @@ describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -187,11 +187,11 @@ describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
 // naming the actual valid ids, before layer 3 (buildTurnWrites) would have to drop the action.
 describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once on an invalid quest_id and commits the retry's corrected id", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Logged it.",
         coach_note: "Marked the quest.",
@@ -205,14 +205,14 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event).toEqual([
       { quest_id: "q1", status: "completed" },
     ]);
   });
 
   it("reprompts once on an invalid flag_id and commits the retry's corrected id", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted.",
         coach_note: "Updated an injury.",
@@ -226,7 +226,7 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_event).toEqual([
       { status: "resolved", flag_id: "inj_1" },
     ]);
@@ -234,7 +234,7 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
   it("does not reprompt a second time if the retry is still bad, but logs it for layer 3 to drop", async () => {
     const stillBad = { quest_id: "q99", status: "completed" as const };
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Logged it.",
         coach_note: "Marked the quest.",
@@ -249,7 +249,7 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event).toEqual([stillBad]);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still referenced invalid id(s) after reprompt, layer 3 will drop it:",
@@ -262,7 +262,7 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
   // #1037 PR F: used to `.find` and name only the first bad id, so a second bad reference in the
   // same reply had no chance of being fixed in the one corrective round.
   it("reprompts once naming BOTH bad quest_ids when 2 quest_event entries are invalid", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Logged both.",
         coach_note: "Marked two quests.",
@@ -282,14 +282,14 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("q98");
     expect(repromptMessage).toContain("q99");
   });
 
   it("does not reprompt when every referenced id is valid", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Logged it.",
       coach_note: "Marked the quest.",
       quest_event: [{ quest_id: "q1", status: "completed" }],
@@ -297,7 +297,7 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -305,11 +305,11 @@ describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () =
 // one-retry-cap discipline as the other reprompts above - exercised in isolation here.
 describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once when unrecorded_facts is non-empty, then commits the corrected reply", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Got it, I've logged the new knee soreness.",
         coach_note: "Athlete mentioned new knee soreness.",
@@ -324,15 +324,15 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag).toEqual([{ text: "New knee soreness" }]);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("mentioned a new knee injury but set no injury_flag");
   });
 
   it("does not reprompt a second time if unrecorded_facts is still non-empty, but logs it", async () => {
     const stillFlagged = ["mentioned a new goal but set no season_start"];
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Sounds like a great goal.",
         coach_note: "Discussed a new goal.",
@@ -347,7 +347,7 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.unrecorded_facts).toEqual(stillFlagged);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
@@ -358,18 +358,18 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
   });
 
   it("ignores an unrecorded_facts array containing only blank entries", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       unrecorded_facts: ["   ", ""],
     });
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a non-string entry in unrecorded_facts instead of throwing (review finding)", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "ok",
         coach_note: "note",
@@ -387,12 +387,12 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
 
     const result = await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(result).not.toBeInstanceOf(Response);
   });
 
   it("does not reprompt when unrecorded_facts is empty or absent", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       profile_update: [{ field: "weight_kg", value: "76" }],
@@ -401,7 +401,7 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -410,46 +410,44 @@ describe("requestCoachReply unrecorded-facts reprompt (Finding D mitigation)", (
 // it sits mid-word - so the safety net silently never fired on exactly this phrasing.
 describe("requestCoachReply missed-injury-language reprompt, compound ache words (review finding)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it.each(["I have a bad headache", "my back has a dull backache", "stomachache since lunch"])(
     "reprompts on %j (a first-session turn with no injury_flag set)",
     async (message) => {
-      askGemini
-        .mockResolvedValueOnce({ reply: "noted", coach_note: "note" })
-        .mockResolvedValueOnce({
-          reply: "noted",
-          coach_note: "note",
-          injury_flag: [{ text: "headache" }],
-        });
+      askLlm.mockResolvedValueOnce({ reply: "noted", coach_note: "note" }).mockResolvedValueOnce({
+        reply: "noted",
+        coach_note: "note",
+        injury_flag: [{ text: "headache" }],
+      });
 
       await requestCoachReply(
         baseTurnState({
           firstSession: true,
           validInjuryFlagIds: new Set<string>(),
           trimmed: message,
-          geminiMessage: message,
+          athleteMessage: message,
         }),
       );
 
-      expect(askGemini).toHaveBeenCalledTimes(2);
+      expect(askLlm).toHaveBeenCalledTimes(2);
     },
   );
 
   it('does not false-positive on a word that merely contains "ach" mid-word', async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       baseTurnState({
         firstSession: true,
         validInjuryFlagIds: new Set<string>(),
         trimmed: "still reaching my weekly mileage target",
-        geminiMessage: "still reaching my weekly mileage target",
+        athleteMessage: "still reaching my weekly mileage target",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -459,7 +457,7 @@ describe("requestCoachReply missed-injury-language reprompt, compound ache words
 // built for (a fresh athlete's dense first message).
 describe("requestCoachReply missed-habit-language reprompt (Finding D, habit extension)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function firstSessionTurnState(overrides: Record<string, unknown> = {}) {
@@ -467,13 +465,13 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
       firstSession: true,
       validQuestIds: new Set<string>(),
       trimmed: "Also I want to build a daily stretching habit.",
-      geminiMessage: "Also I want to build a daily stretching habit.",
+      athleteMessage: "Also I want to build a daily stretching habit.",
       ...overrides,
     });
   }
 
   it("reprompts once when habit language is present but no habit was captured", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Great, let's build that in.",
         coach_note: "Athlete wants a daily stretching habit.",
@@ -486,14 +484,14 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
 
     const result = await requestCoachReply(firstSessionTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_create?.quests).toHaveLength(1);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no habit was captured this turn");
   });
 
   it("does not reprompt a second time if habit language is still uncaptured, but logs it", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Great, let's build that in.",
       coach_note: "Athlete wants a daily stretching habit.",
     });
@@ -501,7 +499,7 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
 
     await requestCoachReply(firstSessionTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedHabitLanguage: "daily" }),
@@ -511,25 +509,25 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
   });
 
   it("does not reprompt on a returning-athlete turn even with the same habit language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(
       firstSessionTurnState({ firstSession: false, validQuestIds: new Set<string>() }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when the athlete already has an active quest on file", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(firstSessionTurnState({ validQuestIds: new Set<string>(["q1"]) }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when a matching habit was already captured via season_start.new_habits", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       season_start: {
@@ -543,22 +541,22 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
 
     await requestCoachReply(firstSessionTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when the message contains no habit-shaped language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(
       firstSessionTurnState({
         // Deliberately avoids goal-declaring language too ("I want to run a marathon" is a real
         // trigger for the separate missed-season-language check below, not a false positive).
         trimmed: "Just checking in, nothing new to report today.",
-        geminiMessage: "Just checking in, nothing new to report today.",
+        athleteMessage: "Just checking in, nothing new to report today.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -569,7 +567,7 @@ describe("requestCoachReply missed-habit-language reprompt (Finding D, habit ext
 // NEW_HABIT_LANGUAGE_PATTERN instead, scoped to explicit new-habit-starting phrasing only.
 describe("requestCoachReply missed-new-habit-language reprompt, returning athlete (#1037)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function returningAthleteTurnState(overrides: Record<string, unknown> = {}) {
@@ -581,7 +579,7 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
   }
 
   it("reprompts once when explicit new-habit language is present but no quest_create was set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Love it, let's get that going.",
         coach_note: "Athlete wants a new stretching habit.",
@@ -595,18 +593,18 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
     const result = await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "I want to start a new habit of stretching every morning.",
-        geminiMessage: "I want to start a new habit of stretching every morning.",
+        athleteMessage: "I want to start a new habit of stretching every morning.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_create?.quests).toHaveLength(1);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no new habit quest was");
   });
 
   it("does not reprompt a second time if new-habit language is still uncaptured, but logs it", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Love it, let's get that going.",
       coach_note: "Athlete wants a new stretching habit.",
     });
@@ -615,11 +613,11 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
     await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "I want to start a new habit of stretching every morning.",
-        geminiMessage: "I want to start a new habit of stretching every morning.",
+        athleteMessage: "I want to start a new habit of stretching every morning.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedNewHabitLanguage: expect.any(String) }),
@@ -629,7 +627,7 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
   });
 
   it("does not reprompt when quest_create already captured the new habit", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       quest_create: { quests: [{ name: "Morning Stretching", type: "daily_streak" as const }] },
@@ -638,15 +636,15 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
     await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "I want to start a new habit of stretching every morning.",
-        geminiMessage: "I want to start a new habit of stretching every morning.",
+        athleteMessage: "I want to start a new habit of stretching every morning.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not fire the returning-athlete detector on a first-session turn (findMissedHabitLanguage's job instead)", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({ reply: "ok" })
       .mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
@@ -655,7 +653,7 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
         firstSession: true,
         validQuestIds: new Set<string>(),
         trimmed: "I want to start a new habit of stretching every morning.",
-        geminiMessage: "I want to start a new habit of stretching every morning.",
+        athleteMessage: "I want to start a new habit of stretching every morning.",
       }),
     );
 
@@ -663,7 +661,7 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
     // separately-tested behavior) - what this test isolates is that the reprompt note names
     // findMissedHabitLanguage's message, not this new detector's, confirming the two don't
     // double-fire on the same turn.
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no habit was captured this turn");
     expect(repromptMessage).not.toContain("no new habit quest was");
   });
@@ -671,29 +669,29 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
   // The exact false-positive #1009's own LLD was worried about: an established athlete describing
   // an existing routine, not starting something new. Must NOT fire.
   it("does not reprompt on ordinary existing-routine language (the #1009 false-positive case)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "I've been doing my usual strength routine, tracking it daily.",
-        geminiMessage: "I've been doing my usual strength routine, tracking it daily.",
+        athleteMessage: "I've been doing my usual strength routine, tracking it daily.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when the message contains no new-habit language at all", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "Just checking in, nothing new to report today.",
-        geminiMessage: "Just checking in, nothing new to report today.",
+        athleteMessage: "Just checking in, nothing new to report today.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // Review finding: this detector only checked reply.quest_create?.quests before this fix, but its
@@ -704,7 +702,7 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
   // spurious reprompt even though nothing was actually missed. Written to fail against the old
   // code (which only checked quest_create) and pass against the fix.
   it("does not reprompt when the new habit landed via season_start.new_habits instead of quest_create", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "New season locked in, added that habit.",
       coach_note: "Started a new season with a daily stretching habit.",
       season_start: {
@@ -719,11 +717,11 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
     await requestCoachReply(
       returningAthleteTurnState({
         trimmed: "I want to start a new habit of stretching every morning this season.",
-        geminiMessage: "I want to start a new habit of stretching every morning this season.",
+        athleteMessage: "I want to start a new habit of stretching every morning this season.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -736,8 +734,8 @@ describe("requestCoachReply missed-new-habit-language reprompt, returning athlet
 // them.
 describe("requestCoachReply supplies real template/session context (Finding A fix)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
-    askGemini.mockResolvedValue({ reply: "ok" });
+    askLlm.mockReset();
+    askLlm.mockResolvedValue({ reply: "ok" });
   });
 
   it("fetches the templates manifest and current_week.json and folds real ids into extraContext", async () => {
@@ -758,7 +756,7 @@ describe("requestCoachReply supplies real template/session context (Finding A fi
 
     await requestCoachReply(baseTurnState({ trimmed: "swap tomorrow's session for a walk" }));
 
-    const extraContext = askGemini.mock.calls[0]?.[8] as string;
+    const extraContext = askLlm.mock.calls[0]?.[8] as string;
     expect(extraContext).toContain("tpl-strength-a");
     expect(extraContext).toContain("sess_20260910_1");
   });
@@ -774,11 +772,11 @@ describe("requestCoachReply supplies real template/session context (Finding A fi
 // tracking - see turnReplyValidation.ts's findUnconfirmedAssumption for the full story.
 describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once when a pending clarification exists and the reply touches a schedule field", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Done, swapped it.",
         coach_note: "Swapped Saturday.",
@@ -802,18 +800,18 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
       baseTurnState({
         pendingClarification: "dropping football or doing both?",
         trimmed: "That covers it, wrap this up.",
-        geminiMessage: "That covers it, wrap this up.",
+        athleteMessage: "That covers it, wrap this up.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.week_update).toBeUndefined();
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("dropping football or doing both?");
   });
 
   it("does not reprompt when the athlete's message contains a confirmation cue", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Done, swapped it.",
       coach_note: "Swapped Saturday.",
       week_update: {
@@ -832,15 +830,15 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
       baseTurnState({
         pendingClarification: "dropping football or doing both?",
         trimmed: "Yes, drop the football and do the walk.",
-        geminiMessage: "Yes, drop the football and do the walk.",
+        athleteMessage: "Yes, drop the football and do the walk.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when there is no pending clarification", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Done, swapped it.",
       coach_note: "Swapped Saturday.",
       week_update: {
@@ -857,11 +855,11 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
 
     await requestCoachReply(baseTurnState({ pendingClarification: null }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when the reply touches no schedule-changing field", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Sure thing.",
       coach_note: "note",
       profile_update: [{ field: "weight_kg", value: "76" }],
@@ -871,11 +869,11 @@ describe("requestCoachReply unconfirmed-assumption reprompt (Bug 3 Primary)", ()
       baseTurnState({
         pendingClarification: "dropping football or doing both?",
         trimmed: "That covers it, wrap this up.",
-        geminiMessage: "That covers it, wrap this up.",
+        athleteMessage: "That covers it, wrap this up.",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -907,11 +905,11 @@ function malformedRepsSpec() {
 
 describe("requestCoachReply malformed workout_create reprompt (#727 live-test finding)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once when a reps-type exercise has no reps field", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Here's an upper body session.",
         coach_note: "Built a routine.",
@@ -934,11 +932,11 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
     const result = await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(
       (
         result as {
@@ -978,7 +976,7 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
         },
       ],
     };
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Here's a full body session.",
         coach_note: "Built a routine.",
@@ -1004,12 +1002,12 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
     const result = await requestCoachReply(
       baseTurnState({
         trimmed: "Build me a full body workout",
-        geminiMessage: "Build me a full body workout",
+        athleteMessage: "Build me a full body workout",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Dumbbell row");
     expect(repromptMessage).toContain("Plank hold");
     expect(
@@ -1029,7 +1027,7 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
   });
 
   it("does not reprompt when workout_create is well-formed", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Here's your session.",
       coach_note: "Built a routine.",
       workout_create: {
@@ -1046,19 +1044,19 @@ describe("requestCoachReply malformed workout_create reprompt (#727 live-test fi
     await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when there is no workout_create at all", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "Sure, tell me more about what you want." });
+    askLlm.mockResolvedValueOnce({ reply: "Sure, tell me more about what you want." });
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1094,11 +1092,11 @@ function workoutSpecWithAck(injuryAck: { flag: string; accommodation: string }[]
 
 describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once when an active injury flag has no matching injury_ack entry", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Built you an upper body session, saved to your page.",
         coach_note: "Built a routine.",
@@ -1115,13 +1113,13 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     const result = await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
         activeInjuryFlagIds: new Set<string>(["inj_1"]),
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("injury_ack");
     expect(repromptMessage).toContain("inj_1");
     expect(
@@ -1131,7 +1129,7 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
   });
 
   it("names every unacked flag when 2+ active flags are missing from injury_ack", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Built you a session.",
       coach_note: "Built a routine.",
       workout_create: workoutSpecWithAck([]),
@@ -1140,18 +1138,18 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
         activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
       }),
     );
 
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("inj_1");
     expect(repromptMessage).toContain("inj_2");
   });
 
   it("does not reprompt when injury_ack already covers every active flag", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Built you a session.",
       coach_note: "Built a routine.",
       workout_create: workoutSpecWithAck([
@@ -1162,16 +1160,16 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
         activeInjuryFlagIds: new Set<string>(["inj_1"]),
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when there are no active injury flags", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Built you a session.",
       coach_note: "Built a routine.",
       workout_create: workoutSpecWithAck([]),
@@ -1180,16 +1178,16 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
         activeInjuryFlagIds: new Set<string>(),
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when workout_create was never set at all, even with active flags", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Let's talk more about what you want first.",
       coach_note: "Discussing options.",
     });
@@ -1200,11 +1198,11 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("logs and captures to Sentry, but does not reprompt twice, when injury_ack is still missing after the reprompt", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Built you a session.",
       coach_note: "Built a routine.",
       workout_create: workoutSpecWithAck([]),
@@ -1215,12 +1213,12 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     await requestCoachReply(
       baseTurnState({
         trimmed: "Build me an upper body workout",
-        geminiMessage: "Build me an upper body workout",
+        athleteMessage: "Build me an upper body workout",
         activeInjuryFlagIds: new Set<string>(["inj_1"]),
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissingWorkoutCreateInjuryAck: "inj_1" }),
@@ -1242,20 +1240,20 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
 // keyed on goal-declaring language in the athlete's own message.
 describe("requestCoachReply missed-season-language reprompt (#727 live-test finding)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function firstSessionGoalTurnState(overrides: Record<string, unknown> = {}) {
     return baseTurnState({
       firstSession: true,
       trimmed: "By end of 2026 I want to be stronger overall.",
-      geminiMessage: "By end of 2026 I want to be stronger overall.",
+      athleteMessage: "By end of 2026 I want to be stronger overall.",
       ...overrides,
     });
   }
 
   it("reprompts once when goal language is present but season_start was never set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Season locked in.",
         coach_note: "Athlete committed to a strength season through end of 2026.",
@@ -1274,14 +1272,14 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
 
     const result = await requestCoachReply(firstSessionGoalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.season_start?.name).toBe("Strength Build");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no season_start was set");
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Season locked in.",
       coach_note: "Athlete committed to a strength season through end of 2026.",
     });
@@ -1290,7 +1288,7 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
 
     await requestCoachReply(firstSessionGoalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedSeasonLanguage: expect.any(String) }),
@@ -1308,15 +1306,15 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
   });
 
   it("does not reprompt on a returning-athlete turn even with the same goal language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(firstSessionGoalTurnState({ firstSession: false }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when season_start was already captured", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       season_start: {
@@ -1330,40 +1328,40 @@ describe("requestCoachReply missed-season-language reprompt (#727 live-test find
 
     await requestCoachReply(firstSessionGoalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on ordinary training chat with no goal-declaring language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       firstSessionGoalTurnState({
         trimmed: "still reaching my weekly mileage target",
-        geminiMessage: "still reaching my weekly mileage target",
+        athleteMessage: "still reaching my weekly mileage target",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function firstSessionAgeTurnState(overrides: Record<string, unknown> = {}) {
     return baseTurnState({
       firstSession: true,
       trimmed: "I just turned 29 years old",
-      geminiMessage: "I just turned 29 years old",
+      athleteMessage: "I just turned 29 years old",
       context: { soul: "soul", profile: null },
       ...overrides,
     });
   }
 
   it("reprompts once when age language is present but profile_update was never set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Got it, noted your age.",
         coach_note: "Athlete is 29.",
@@ -1376,14 +1374,14 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
 
     const result = await requestCoachReply(firstSessionAgeTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.profile_update?.[0]?.field).toBe("dob");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no matching profile_update was set");
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Got it, noted your age.",
       coach_note: "Athlete is 29.",
     });
@@ -1392,7 +1390,7 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
 
     await requestCoachReply(firstSessionAgeTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedProfileLanguage: expect.any(String) }),
@@ -1408,15 +1406,15 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
   });
 
   it("does not reprompt on a returning-athlete turn even with the same age language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(firstSessionAgeTurnState({ firstSession: false }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when profile_update was already captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       profile_update: [{ field: "dob", value: "1997-01-01" }],
@@ -1424,24 +1422,24 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
 
     await requestCoachReply(firstSessionAgeTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on adjacent-but-different phrasing (a distance, not a body metric)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       firstSessionAgeTurnState({
         trimmed: "ran 10km today, felt great",
-        geminiMessage: "ran 10km today, felt great",
+        athleteMessage: "ran 10km today, felt great",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("reprompts for weight_kg when the athlete states both height and weight but the model only captures height_cm", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Got it, noted your height.",
         coach_note: "Athlete is 180cm and 75kg.",
@@ -1459,35 +1457,35 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
     const result = await requestCoachReply(
       firstSessionAgeTurnState({
         trimmed: "I'm 180cm and 75kg",
-        geminiMessage: "I'm 180cm and 75kg",
+        athleteMessage: "I'm 180cm and 75kg",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(
       "reply" in result && result.reply.profile_update?.some((u) => u.field === "weight_kg"),
     ).toBe(true);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no matching profile_update was set");
   });
 });
 
 describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function returningRemovalTurnState(overrides: Record<string, unknown> = {}) {
     return baseTurnState({
       firstSession: false,
       trimmed: "delete my old strength routine, I don't use it anymore",
-      geminiMessage: "delete my old strength routine, I don't use it anymore",
+      athleteMessage: "delete my old strength routine, I don't use it anymore",
       ...overrides,
     });
   }
 
   it("reprompts once when removal language is present but workout_remove was never set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Done, that routine is gone.",
         coach_note: "Removed the old strength routine.",
@@ -1500,14 +1498,14 @@ describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
 
     const result = await requestCoachReply(returningRemovalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.workout_remove?.routine_id).toBe("routine_1");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no workout_remove was");
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Done, that routine is gone.",
       coach_note: "Removed the old strength routine.",
     });
@@ -1516,7 +1514,7 @@ describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
 
     await requestCoachReply(returningRemovalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedRemovalLanguage: expect.any(String) }),
@@ -1532,15 +1530,15 @@ describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
   });
 
   it("does not reprompt on a first-session turn even with the same removal language", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok" });
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
 
     await requestCoachReply(returningRemovalTurnState({ firstSession: true }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when workout_remove was already captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       workout_remove: { routine_id: "routine_1" },
@@ -1548,38 +1546,38 @@ describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
 
     await requestCoachReply(returningRemovalTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on adjacent-but-different phrasing (skipping a session, not removing a routine)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       returningRemovalTurnState({
         trimmed: "skip today's run, I'm not feeling it",
-        geminiMessage: "skip today's run, I'm not feeling it",
+        athleteMessage: "skip today's run, I'm not feeling it",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function newSportTurnState(overrides: Record<string, unknown> = {}) {
     return baseTurnState({
       trimmed: "I started climbing this month alongside my usual running",
-      geminiMessage: "I started climbing this month alongside my usual running",
+      athleteMessage: "I started climbing this month alongside my usual running",
       ...overrides,
     });
   }
 
   it("reprompts once when new-activity language is present but sports_update was never set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Nice, climbing sounds fun.",
         coach_note: "Athlete picked up climbing.",
@@ -1592,14 +1590,14 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
 
     const result = await requestCoachReply(newSportTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.sports_update).toEqual(["running", "climbing"]);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no sports_update was set");
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Nice, climbing sounds fun.",
       coach_note: "Athlete picked up climbing.",
     });
@@ -1608,7 +1606,7 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
 
     await requestCoachReply(newSportTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedSportsLanguage: expect.any(String) }),
@@ -1624,7 +1622,7 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
   });
 
   it("does not reprompt when sports_update was already captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       sports_update: ["running", "climbing"],
@@ -1632,52 +1630,52 @@ describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
 
     await requestCoachReply(newSportTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on an ordinary session report naming an existing sport with no update intent", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       newSportTurnState({
         trimmed: "badminton was rough today, legs are still tired",
-        geminiMessage: "badminton was rough today, legs are still tired",
+        athleteMessage: "badminton was rough today, legs are still tired",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on adjacent-but-different phrasing (a PR, not a new sport)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       newSportTurnState({
         trimmed: "hit a new 5k PR this morning",
-        geminiMessage: "hit a new 5k PR this morning",
+        athleteMessage: "hit a new 5k PR this morning",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function oneActiveFlagTurnState(overrides: Record<string, unknown> = {}) {
     return baseTurnState({
       trimmed: "my knee's still a little sore but it's definitely improving",
-      geminiMessage: "my knee's still a little sore but it's definitely improving",
+      athleteMessage: "my knee's still a little sore but it's definitely improving",
       activeInjuryFlagIds: new Set<string>(["inj_1"]),
       ...overrides,
     });
   }
 
   it("reprompts once when injury language is present, exactly one active flag exists, but neither injury_event nor injury_flag was set", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Great to hear the knee is coming along.",
         coach_note: "Knee improving.",
@@ -1690,14 +1688,14 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
 
     const result = await requestCoachReply(oneActiveFlagTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_event?.[0]?.flag_id).toBe("inj_1");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no injury_event or");
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
-    askGemini.mockResolvedValue({
+    askLlm.mockResolvedValue({
       reply: "Great to hear the knee is coming along.",
       coach_note: "Knee improving.",
     });
@@ -1706,7 +1704,7 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
 
     await requestCoachReply(oneActiveFlagTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissedInjuryUpdateLanguage: expect.any(String) }),
@@ -1722,7 +1720,7 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
   });
 
   it("does not reprompt when injury_event was already captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       injury_event: [{ status: "resolved", flag_id: "inj_1" }],
@@ -1730,11 +1728,11 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
 
     await requestCoachReply(oneActiveFlagTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when injury_flag was already captured this turn (a genuinely new injury)", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       injury_flag: [{ text: "new shoulder tweak" }],
@@ -1742,20 +1740,20 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
 
     await requestCoachReply(oneActiveFlagTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on adjacent-but-different phrasing (no injury language at all)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       oneActiveFlagTurnState({
         trimmed: "had a great tempo run today, feeling strong",
-        geminiMessage: "had a great tempo run today, feeling strong",
+        athleteMessage: "had a great tempo run today, feeling strong",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // Deliberate scope boundary, not an oversight to fix later (see the code comment above
@@ -1766,7 +1764,7 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
   // was said, nothing landed" case even with 2+ flags, without needing to resolve which flag - so
   // a reprompt now DOES fire here, just from the newer, broader detector rather than this one.
   it("findMissedInjuryUpdateLanguage itself stays silent with 2+ active flags, but findUncountedInjuryLanguage still reprompts (#1037)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
       reply: "Noted, thanks for the update.",
       coach_note: "Knee still sore.",
       injury_event: [{ status: "active", flag_id: "inj_1" }],
@@ -1778,9 +1776,9 @@ describe("requestCoachReply missed-injury-update-language reprompt (#1009)", () 
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_event?.[0]?.flag_id).toBe("inj_1");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     // Fired by the new detector, not the old one - the note text is generic ("fewer
     // injury_flag/injury_event entries..."), never a specific flag_id, since which of the 2+
     // flags is meant is still genuinely ambiguous.
@@ -1813,11 +1811,11 @@ function weekPlanProseReply(overrides: Record<string, unknown> = {}) {
 
 describe("requestCoachReply prose-only week plan reprompt (#727 live-test finding)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("reprompts once when the reply narrates 5+ weekdays but week_update is absent", async () => {
-    askGemini.mockResolvedValueOnce(weekPlanProseReply()).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce(weekPlanProseReply()).mockResolvedValueOnce({
       coach_note: "Full weekly plan laid out for the week ahead.",
       reply: "Plan is locked in for the week ahead.",
       week_update: {
@@ -1837,16 +1835,16 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
     const result = await requestCoachReply(
       baseTurnState({
         trimmed: "Lay out the full week for me",
-        geminiMessage: "Lay out the full week for me",
+        athleteMessage: "Lay out the full week for me",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect((result as { reply: { week_update?: unknown } }).reply.week_update).toBeDefined();
   });
 
   it("does not reprompt when week_update is already set alongside the weekday narration", async () => {
-    askGemini.mockResolvedValueOnce(
+    askLlm.mockResolvedValueOnce(
       weekPlanProseReply({
         week_update: {
           focus: "Aerobic build",
@@ -1865,23 +1863,23 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
     await requestCoachReply(
       baseTurnState({
         trimmed: "Lay out the full week for me",
-        geminiMessage: "Lay out the full week for me",
+        athleteMessage: "Lay out the full week for me",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt on a firstSession turn even with 5+ weekdays mentioned", async () => {
-    askGemini.mockResolvedValueOnce(weekPlanProseReply());
+    askLlm.mockResolvedValueOnce(weekPlanProseReply());
 
     await requestCoachReply(baseTurnState({ firstSession: true }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("does not reprompt when fewer than 5 weekdays are mentioned", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       coach_note: "Noted.",
       reply: "Let's plan Monday and Tuesday first, then see how it goes.",
       unrecorded_facts: [],
@@ -1889,7 +1887,7 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
 
     await requestCoachReply(baseTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // #1075: real live recurrence on coach-akash-suresh - the model narrated the week with
@@ -1897,7 +1895,7 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
   // list alone that's 1 match, well under the threshold, so the reprompt never fired and the
   // athlete read an unsaved week plan. Reproduces the exact shape here.
   it("reprompts when the reply uses 7 abbreviated weekdays plus one full name (#1075 live recurrence)", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         coach_note: "Full weekly plan laid out for the week ahead.",
         reply:
@@ -1932,11 +1930,11 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
     const result = await requestCoachReply(
       baseTurnState({
         trimmed: "Lay out the full week for me",
-        geminiMessage: "Lay out the full week for me",
+        athleteMessage: "Lay out the full week for me",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect((result as { reply: { week_update?: unknown } }).reply.week_update).toBeDefined();
   });
 
@@ -1945,7 +1943,7 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
   // weekday mention. An ordinary reply using those words, plus a few genuine full weekday
   // mentions that don't clear the threshold on their own, must not trigger the reprompt.
   it("does not reprompt on ordinary text using sat/sun/wed as common words, not weekday abbreviations", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       coach_note: "Checked in on the week.",
       reply:
         "Sounds like a good stretch - I sat down for a proper rest yesterday, the sun was out " +
@@ -1957,11 +1955,11 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
     await requestCoachReply(
       baseTurnState({
         trimmed: "Just checking in",
-        geminiMessage: "Just checking in",
+        athleteMessage: "Just checking in",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1970,7 +1968,7 @@ describe("requestCoachReply prose-only week plan reprompt (#727 live-test findin
 // detector doesn't gate on firstSession at all, it only cares about active quests on file.
 describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   function twoQuestTurnState(overrides: Record<string, unknown> = {}) {
@@ -1993,7 +1991,7 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
   }
 
   it("fires when 2 of 2 active quests are mentioned with status language but only 1 has a quest_event", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Nice work today.",
         coach_note: "Logged the run.",
@@ -2011,21 +2009,21 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
     const result = await requestCoachReply(
       twoQuestTurnState({
         trimmed: "finished my long run and did my mobility work today",
-        geminiMessage: "finished my long run and did my mobility work today",
+        athleteMessage: "finished my long run and did my mobility work today",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort()).toEqual([
       "q1",
       "q2",
     ]);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Mobility Work");
   });
 
   it("fires when 1 of 1 mentioned quest has no quest_event at all", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       quest_event: [{ quest_id: "q3", status: "completed" }],
@@ -2039,26 +2037,26 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
         },
         validQuestIds: new Set<string>(["q3"]),
         trimmed: "finished my strength quest today",
-        geminiMessage: "finished my strength quest today",
+        athleteMessage: "finished my strength quest today",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event?.[0]?.quest_id).toBe("q3");
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Strength Quest");
   });
 
   it("stays silent when the message has no quest-status language at all (ordinary chat)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(twoQuestTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("stays silent when all mentioned quests already have a quest_event this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       quest_event: [
@@ -2070,15 +2068,15 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
     await requestCoachReply(
       twoQuestTurnState({
         trimmed: "finished my long run and did my mobility work today",
-        geminiMessage: "finished my long run and did my mobility work today",
+        athleteMessage: "finished my long run and did my mobility work today",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("stays silent when a quest name is mentioned with no status language nearby (purely descriptive)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       baseTurnState({
@@ -2087,11 +2085,11 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
           quests: { quests: [{ id: "q3", name: "Strength Quest", status: "active" }] },
         },
         trimmed: "my strength quest usually happens Tuesdays",
-        geminiMessage: "my strength quest usually happens Tuesdays",
+        athleteMessage: "my strength quest usually happens Tuesdays",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // The actual bug this fixes (#1037): a dense multi-fact turn where the model captures some but
@@ -2099,7 +2097,7 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
   // only backstop (synthesizeQuestEventFromUnrecordedFacts) bails entirely once 2+ dropped facts
   // each name-match a distinct quest - the exact case here.
   it("fires and names every uncaptured quest when a dense multi-quest turn only partially lands", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Solid day of training.",
         coach_note: "Run done, strength skipped.",
@@ -2129,17 +2127,17 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
         },
         validQuestIds: new Set<string>(["q1", "q2", "q3"]),
         trimmed: "did my long run and my mobility work today, but skipped my strength quest",
-        geminiMessage: "did my long run and my mobility work today, but skipped my strength quest",
+        athleteMessage: "did my long run and my mobility work today, but skipped my strength quest",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.quest_event?.map((e) => e.quest_id).sort()).toEqual([
       "q1",
       "q2",
       "q3",
     ]);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("Mobility Work");
     expect(repromptMessage).toContain("Strength Quest");
   });
@@ -2150,7 +2148,7 @@ describe("requestCoachReply missed-quest-language reprompt (#1037)", () => {
 // why one detector covers both. Every test below is a returning-athlete turn.
 describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   const twoDistinctInjuryMessage =
@@ -2161,13 +2159,13 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     return baseTurnState({
       activeInjuryFlagIds: new Set<string>(["inj_1", "inj_2"]),
       trimmed: twoDistinctInjuryMessage,
-      geminiMessage: twoDistinctInjuryMessage,
+      athleteMessage: twoDistinctInjuryMessage,
       ...overrides,
     });
   }
 
   it("fires when injury language describes more than was captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
       reply: "Sorry to hear that - noted both.",
       coach_note: "New ankle tweak and shoulder strain.",
       injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
@@ -2175,25 +2173,25 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 
     const result = await requestCoachReply(injuryTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
   });
 
   it("stays silent on a first-session turn (covered by findMissedInjuryLanguage instead)", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     // Keep the default validInjuryFlagIds (non-empty) so findMissedInjuryLanguage's own
     // zero-flags gate stays closed too - this test isolates findUncountedInjuryLanguage's
     // firstSession gate specifically.
     await requestCoachReply(injuryTurnState({ firstSession: true }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("stays silent when everything described was already captured this turn", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "ok",
       coach_note: "note",
       injury_flag: [{ text: "tweaked ankle" }, { text: "strained shoulder" }],
@@ -2201,24 +2199,24 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 
     await requestCoachReply(injuryTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("stays silent when the message has no injury language at all", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
     await requestCoachReply(
       injuryTurnState({
         trimmed: "had a great tempo run today, feeling strong",
-        geminiMessage: "had a great tempo run today, feeling strong",
+        athleteMessage: "had a great tempo run today, feeling strong",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   it("fires and names the uncaptured injury on a partial-capture (2 injuries named, 1 landed)", async () => {
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the ankle.",
         coach_note: "New ankle tweak.",
@@ -2232,9 +2230,9 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 
     const result = await requestCoachReply(injuryTurnState());
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
   });
 
@@ -2242,7 +2240,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   // close together ("still hurts" ... "pretty sore" a few words later) must NOT be double-counted
   // as two separate injuries once it's already been captured once.
   it("does not fire on one injury restated with 2 nearby keyword hits, already captured once", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Glad it's improving.",
       coach_note: "Knee still sore, watching it.",
       injury_event: [{ status: "active", flag_id: "inj_1" }],
@@ -2251,11 +2249,11 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     await requestCoachReply(
       injuryTurnState({
         trimmed: "my knee still hurts, and honestly it's been pretty sore all week",
-        geminiMessage: "my knee still hurts, and honestly it's been pretty sore all week",
+        athleteMessage: "my knee still hurts, and honestly it's been pretty sore all week",
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // The athlete's own original scenario (#1037's origin question): 2 pre-existing active flags
@@ -2271,7 +2269,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     " shoulder's still bugging me too";
 
   it("the athlete's original scenario: fires only when the model captures 0 of the 3 real facts", async () => {
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
       reply: "Got it, noted the ankle.",
       coach_note: "New ankle tweak.",
       injury_flag: [{ text: "tweaked ankle" }],
@@ -2280,16 +2278,16 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     const result = await requestCoachReply(
       injuryTurnState({
         trimmed: athleteOriginalMessage,
-        geminiMessage: athleteOriginalMessage,
+        athleteMessage: athleteOriginalMessage,
       }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(1);
   });
 
   it("the athlete's original scenario: stays silent once the model captures even 1 of the 3 real facts", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Got it, noted the ankle.",
       coach_note: "New ankle tweak.",
       injury_flag: [{ text: "tweaked ankle" }],
@@ -2298,7 +2296,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     await requestCoachReply(
       injuryTurnState({
         trimmed: athleteOriginalMessage,
-        geminiMessage: athleteOriginalMessage,
+        athleteMessage: athleteOriginalMessage,
       }),
     );
 
@@ -2306,7 +2304,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     // the count check is already satisfied - even though the knee-resolving and shoulder facts
     // are still missing. This is the detector's known lower-bound limitation, not a bug: it can
     // only count what has injury-keyword language, and this phrasing only gives it one hit.
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // Code review finding on the #1037 PR D collapsing logic: the original word-distance-only
@@ -2318,7 +2316,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   // would have silently dropped 2 of them. The location-word-based rewrite must count all 3.
   it("counts three distinct injuries named close together (review's own counterexample)", async () => {
     const threeInjuryMessage = "My ankle hurts, my knee hurts too, and my shoulder is sore";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the ankle and knee.",
         coach_note: "Ankle and knee soreness.",
@@ -2331,14 +2329,14 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: threeInjuryMessage, geminiMessage: threeInjuryMessage }),
+      injuryTurnState({ trimmed: threeInjuryMessage, athleteMessage: threeInjuryMessage }),
     );
 
     // 2 captured against 3 real distinct mentions - only detectable if the detector counts all 3
     // rather than collapsing them down to 1 the way the old word-distance-only design did.
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(3);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
   });
 
@@ -2351,7 +2349,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
     const message =
       "my knee's still sore, but I think I tweaked my ankle earlier and my shoulder's" +
       " still bugging me too";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the ankle.",
         coach_note: "New ankle tweak.",
@@ -2365,10 +2363,10 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     const injuryFlagCount = ("reply" in result && result.reply.injury_flag?.length) || 0;
     const injuryEventCount = ("reply" in result && result.reply.injury_event?.length) || 0;
     expect(injuryFlagCount + injuryEventCount).toBe(2);
@@ -2385,19 +2383,19 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       "it's really been hurting a lot today and I genuinely don't know why, it's been going" +
       " on like this for weeks now and honestly it just started hurting again in a totally" +
       " different way this afternoon";
-    askGemini.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" }).mockResolvedValueOnce({
       reply: "Noted.",
       coach_note: "Ongoing discomfort, unclear cause.",
       injury_event: [{ status: "active", flag_id: "inj_1" }],
     });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
     // 1 captured against 2 fallback-counted mentions - only fires if the word-distance fallback
     // still recognizes these as 2 distinct hits rather than collapsing them to 1.
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     const injuryEventCount = ("reply" in result && result.reply.injury_event?.length) || 0;
     expect(injuryEventCount).toBe(1);
   });
@@ -2409,7 +2407,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   // phrases each side with its own hit ("hurts" ... "hurts too").
   it("counts left and right sides of the same body part as 2 distinct mentions", async () => {
     const message = "my left knee hurts and my right knee hurts too";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the left knee.",
         coach_note: "Left knee soreness.",
@@ -2422,12 +2420,12 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
-    const repromptMessage = askGemini.mock.calls[1]?.[5] as string;
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("fewer injury_flag/injury_event entries");
   });
 
@@ -2435,15 +2433,15 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   // the other side must still behave exactly as before the fix (1 distinct mention).
   it("still counts a single-sided mention as 1 distinct mention (laterality unchanged when absent)", async () => {
     const message = "my left knee hurts";
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply: "Noted.",
       coach_note: "Left knee soreness.",
       injury_flag: [{ text: "left knee" }],
     });
 
-    await requestCoachReply(injuryTurnState({ trimmed: message, geminiMessage: message }));
+    await requestCoachReply(injuryTurnState({ trimmed: message, athleteMessage: message }));
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
   // Vocabulary fix: body-part terms outside the original ~40-word list (including 2-word terms
@@ -2453,7 +2451,7 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
   // tests above.
   it("counts distinct mentions using newly-added vocabulary, including multi-word terms", async () => {
     const message = "my IT band is sore and my glute also hurts";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the IT band.",
         coach_note: "IT band soreness.",
@@ -2466,16 +2464,16 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
   });
 
   it("counts distinct mentions across rotator cuff and plantar fascia (multi-word vocabulary)", async () => {
     const message = "my rotator cuff is sore and my plantar fascia also hurts";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the rotator cuff.",
         coach_note: "Rotator cuff soreness.",
@@ -2488,16 +2486,16 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
   });
 
   it("counts distinct mentions across tendinitis and meniscus (false-plural-suffix vocabulary)", async () => {
     const message = "my tendinitis flared up and now my meniscus hurts too";
-    askGemini
+    askLlm
       .mockResolvedValueOnce({
         reply: "Noted the tendinitis.",
         coach_note: "Tendinitis flare.",
@@ -2510,10 +2508,10 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
       });
 
     const result = await requestCoachReply(
-      injuryTurnState({ trimmed: message, geminiMessage: message }),
+      injuryTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect(askLlm).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.injury_flag?.length).toBe(2);
   });
 });
@@ -2533,11 +2531,11 @@ describe("requestCoachReply uncounted-injury-language reprompt (#1037)", () => {
 // already rejected for (see gemini-flow.md). Shipped as prompt reinforcement only instead.
 describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
   beforeEach(() => {
-    askGemini.mockReset();
+    askLlm.mockReset();
   });
 
   it("does not reprompt when memory_update is dropped alongside another action field and the model's own unrecorded_facts self-audit stays empty (documented prompt-only mitigation, no safe reprompt signal found)", async () => {
-    askGemini.mockResolvedValueOnce({
+    askLlm.mockResolvedValueOnce({
       reply:
         "Got it, I'll be more direct from now on. Noted on the evening runs too - that pace gap is real data worth tracking.",
       coach_note:
@@ -2549,10 +2547,10 @@ describe("requestCoachReply memory_update compound-turn drop (#1085)", () => {
     const message =
       "Also be more direct with me from now on. I always run better in the evening, worth keeping in mind.";
     const result = await requestCoachReply(
-      baseTurnState({ trimmed: message, geminiMessage: message }),
+      baseTurnState({ trimmed: message, athleteMessage: message }),
     );
 
-    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(askLlm).toHaveBeenCalledTimes(1);
     expect("reply" in result && result.reply.memory_update).toBeUndefined();
   });
 

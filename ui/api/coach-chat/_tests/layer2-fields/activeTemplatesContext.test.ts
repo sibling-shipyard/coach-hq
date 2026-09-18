@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { activeTemplatesContext } from "../../_lib/gemini/coachPromptText.js";
+import { activeTemplatesContext } from "../../_lib/llm/coachPromptText.js";
 
 // #727 live-test finding: a real "remove that routine" request went unanswered in the model's
 // structured reply (Coach's own text falsely claimed success, nothing was deleted) because this

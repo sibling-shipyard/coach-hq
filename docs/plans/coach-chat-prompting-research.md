@@ -16,7 +16,7 @@ happened, one is now moot, two are still real open questions.
 | 1 | Per-athlete cache tier for `profile.json`/`memory.json`, pulled forward into the memory-file split | **Not built.** `soulCache.ts` is still one shared cache entry for the static SOUL prefix only — "Not per-athlete - one entry (keyed by content hash) serves every call." | `ui/api/coach-chat/_lib/soulCache.ts:6-7` |
 | 2 | Sequential-smaller-calls vs. one-wide-schema for closing turns | **Partially addressed, differently than proposed.** #446 shipped mode-specific schemas (`generationConfigFor(mode, firstSession)` in `coachReplySchema.ts`) — closing gets a wider property set than greeting/ordinary, but it's still one call, not sequential per-fact-type calls. The original question (is one wide schema per closing turn reliable enough) is still open; the answer chosen was "narrow the schema by mode," not "split into multiple calls." | `ui/api/coach-chat/_lib/coachReplySchema.ts:317-339` |
 | 3 | Windowed `sessions.json`/`coach_log.json` reads instead of sending the whole log every turn | **Shipped**, via a different route than named. Recent session notes are windowed (`RECENT_SESSION_WINDOW = 5`, most-recent-first) rather than sending the full log. #437 ("widen coach-log window") is the PR that did this. | `ui/api/coach-chat/_lib/coachContext.ts` (`RECENT_SESSION_WINDOW`) |
-| 4 | Retry-with-repair for JSON-truncation, instead of blind retry | **Not built.** `geminiClient.ts`'s retry is still blind — same request replayed once on a stale-cache 400 or a 503/504, no re-ask-with-the-malformed-output-and-fix-this variant. | `ui/api/coach-chat/_lib/geminiClient.ts:92-104` |
+| 4 | Retry-with-repair for JSON-truncation, instead of blind retry | **Not built.** `coachLlmClient.ts`'s retry is still blind — same request replayed once on a stale-cache 400 or a 503/504, no re-ask-with-the-malformed-output-and-fix-this variant. | `ui/api/coach-chat/_lib/llm/coachLlmClient.ts:92-104` |
 
 So of the four, one shipped (#3, windowing), one shipped but via a different mechanism than
 proposed (#2, mode-narrowing instead of call-splitting), two are still open (#1 per-athlete
@@ -56,7 +56,7 @@ data shows up.
 ### 3. Retry-with-repair for JSON truncation
 
 Still a small, isolated, low-risk change to the response-parsing error handling. It now lives in
-`_lib/llmAdapters/geminiAdapter.ts` (moved there from `geminiClient.ts`'s `finishGeminiResponse`
+`_lib/llmAdapters/geminiAdapter.ts` (moved there from `coachLlmClient.ts`'s `finishGeminiResponse`
 by #713 M2 PR 2). The idea: re-ask with the malformed output plus "fix this, keep it short"
 instead of blindly replaying the same request, specifically for the JSON-truncation failure mode
 ("Unterminated string in JSON"). Doesn't touch the schema. Good P2 pickup whenever someone's in

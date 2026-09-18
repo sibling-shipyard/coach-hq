@@ -166,17 +166,17 @@ export async function parseActivityIdsRequest(req: Request): Promise<string[]> {
 
 export function validateGeneratedBody(value: unknown): string {
   if (typeof value !== "string") {
-    throw new CoachMessageError("Gemini response body must be a string", 502);
+    throw new CoachMessageError("LLM response body must be a string", 502);
   }
   const body = value.trim();
   if (!body || body.length > MAX_MESSAGE_LENGTH || /[\r\n]/.test(body)) {
     throw new CoachMessageError(
-      `Gemini response must be one paragraph of 1-${MAX_MESSAGE_LENGTH} characters`,
+      `LLM response must be one paragraph of 1-${MAX_MESSAGE_LENGTH} characters`,
       502,
     );
   }
   if (body.includes("—")) {
-    throw new CoachMessageError("Gemini response must not contain an em dash", 502);
+    throw new CoachMessageError("LLM response must not contain an em dash", 502);
   }
   const sentences = body.split(/(?<=[.!?])\s+/).filter(Boolean);
   if (
@@ -184,7 +184,7 @@ export function validateGeneratedBody(value: unknown): string {
     sentences.length > 3 ||
     sentences.some((sentence) => sentence.length > MAX_SENTENCE_LENGTH)
   ) {
-    throw new CoachMessageError("Gemini response must contain 1-3 short sentences", 502);
+    throw new CoachMessageError("LLM response must contain 1-3 short sentences", 502);
   }
   return body;
 }

@@ -1,6 +1,6 @@
 /**
  * llmPricing.ts - turns a real usage count (llmClient.ts's `LlmResult["usage"]`, now returned by
- * askGemini() - #1044 PR1) into a real dollar figure, per docs/eng-docs/llm-provider-current.md's
+ * askLlm() - #1044 PR1) into a real dollar figure, per docs/eng-docs/llm-provider-current.md's
  * Options table. This is the "real prerequisite" the vade-the-tester plan named: usage was already
  * computed by both adapters for their Sentry spans, it just never reached a caller that could
  * price it until now.
@@ -10,7 +10,7 @@
  * table rate would be wrong twice over. Use the wire cost when it's there; fall back to the table
  * only for the provider that doesn't report one itself.
  */
-import type { GeminiUsage } from "../../api/_lib/sentry.js";
+import type { LlmUsage } from "../../api/_lib/sentry.js";
 import type { LlmProviderName } from "../../api/_lib/llmClient.js";
 
 /**
@@ -37,7 +37,7 @@ const GEMINI_RATE_PER_MILLION_TOKENS = { input: 1.5, output: 7.5 } as const;
  * own response ever omits it (e.g. `usage: {include: true}` didn't round-trip).
  */
 export function estimateCostUsd(
-  usage: GeminiUsage | undefined,
+  usage: LlmUsage | undefined,
   provider: LlmProviderName,
 ): number | undefined {
   if (!usage) return undefined;

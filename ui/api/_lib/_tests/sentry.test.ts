@@ -75,7 +75,7 @@ async function loadSentry() {
   return import("../sentry.js");
 }
 
-describe("captureGeminiFailure", () => {
+describe("captureLlmFailure", () => {
   beforeEach(() => {
     captureException.mockClear();
     flush.mockClear();
@@ -88,10 +88,10 @@ describe("captureGeminiFailure", () => {
   });
 
   it("tags the searchable fields and carries the athlete message in context", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
     const error = Object.assign(new Error("Gemini request failed (503)"), { status: 503 });
 
-    const result = await captureGeminiFailure(error, DETAILS);
+    const result = await captureLlmFailure(error, DETAILS);
 
     expect(captureException).toHaveBeenCalledWith(error, {
       tags: {
@@ -106,10 +106,10 @@ describe("captureGeminiFailure", () => {
   });
 
   it("keeps the athlete message out of the tags, which Sentry truncates", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
     const long = "a".repeat(400);
 
-    await captureGeminiFailure(new Error("boom"), { ...DETAILS, athleteMessage: long });
+    await captureLlmFailure(new Error("boom"), { ...DETAILS, athleteMessage: long });
 
     const [, context] = captureException.mock.calls[0] as [
       unknown,
@@ -120,27 +120,27 @@ describe("captureGeminiFailure", () => {
   });
 
   it("omits vercel_trace_id on the paths that mint no trace id", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
 
-    await captureGeminiFailure(new Error("boom"), { ...DETAILS, traceId: undefined });
+    await captureLlmFailure(new Error("boom"), { ...DETAILS, traceId: undefined });
 
     const [, context] = captureException.mock.calls[0] as [unknown, { tags: object }];
     expect(context.tags).not.toHaveProperty("vercel_trace_id");
   });
 
   it("never tags the Vercel log id as trace_id, which is Sentry's own trace", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
 
-    await captureGeminiFailure(new Error("boom"), DETAILS);
+    await captureLlmFailure(new Error("boom"), DETAILS);
 
     const [, context] = captureException.mock.calls[0] as [unknown, { tags: object }];
     expect(context.tags).not.toHaveProperty("trace_id");
   });
 
   it("flushes before returning, because Vercel freezes the function on return", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
 
-    await captureGeminiFailure(new Error("boom"), DETAILS);
+    await captureLlmFailure(new Error("boom"), DETAILS);
 
     expect(flush).toHaveBeenCalledWith(2000);
     expect(captureException.mock.invocationCallOrder[0]).toBeLessThan(
@@ -149,10 +149,10 @@ describe("captureGeminiFailure", () => {
   });
 
   it("reports the event lost when the queue does not drain inside the timeout", async () => {
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
     flush.mockResolvedValueOnce(false);
 
-    expect(await captureGeminiFailure(new Error("boom"), DETAILS)).toEqual({
+    expect(await captureLlmFailure(new Error("boom"), DETAILS)).toEqual({
       eventId: "event-id",
       sent: false,
     });
@@ -160,9 +160,9 @@ describe("captureGeminiFailure", () => {
 
   it("captures nothing without a DSN, so local runs and fork deploys stay silent", async () => {
     delete process.env.SENTRY_DSN;
-    const { captureGeminiFailure } = await loadSentry();
+    const { captureLlmFailure } = await loadSentry();
 
-    expect(await captureGeminiFailure(new Error("boom"), DETAILS)).toEqual({ sent: false });
+    expect(await captureLlmFailure(new Error("boom"), DETAILS)).toEqual({ sent: false });
     expect(init).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
   });
@@ -183,7 +183,7 @@ describe("captureGeminiFailure", () => {
 });
 
 // D1 (#736): a rejected/dropped structured-fact action (layer 3's applier/commit failure) must
-// be visible from Sentry alone, the same discipline captureGeminiFailure gives a whole-turn
+// be visible from Sentry alone, the same discipline captureLlmFailure gives a whole-turn
 // failure above - this is the applier/commit half issue #736 called out as uninstrumented.
 describe("captureValidationFailure", () => {
   const VALIDATION_DETAILS = {
@@ -558,14 +558,14 @@ describe("withContinuedTrace", () => {
   });
 });
 
-describe("withGeminiSpan without a DSN", () => {
+describe("withLlmSpan without a DSN", () => {
   it("runs the call untouched, so local runs and fork deploys open no span", async () => {
     init.mockClear();
     delete process.env.SENTRY_DSN;
-    const { withGeminiSpan } = await loadSentry();
+    const { withLlmSpan } = await loadSentry();
 
     await expect(
-      withGeminiSpan("gemini-flash-latest", async (recordUsage) => {
+      withLlmSpan("gemini-flash-latest", async (recordUsage) => {
         recordUsage({ promptTokens: 10 });
         return "reply";
       }),

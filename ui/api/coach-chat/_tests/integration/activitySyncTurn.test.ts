@@ -7,7 +7,7 @@ import type { ActivityFileEntry } from "../../../coach-message/_lib/activityRequ
 import type { LlmAdapter } from "../../../_lib/llmClient.js";
 
 const {
-  captureGeminiFailure,
+  captureLlmFailure,
   captureServerException,
   commitFilesAtomic,
   getFileRaw,
@@ -41,7 +41,7 @@ const {
     athleteInsights: null,
   })),
   loadChatHistory: vi.fn(async (): Promise<ChatHistoryFile> => ({ threads: [] })),
-  captureGeminiFailure: vi.fn(async (_error: unknown, _details: unknown) => ({
+  captureLlmFailure: vi.fn(async (_error: unknown, _details: unknown) => ({
     eventId: "event-id",
     sent: true,
   })),
@@ -50,7 +50,7 @@ const {
     sent: true,
   })),
   // generateProactiveBody's own contract: a strict-schema `{body}` string, not the old
-  // coach-chat askGemini conversational reply shape.
+  // coach-chat askLlm conversational reply shape.
   generate: vi.fn(async () => ({
     text: JSON.stringify({ body: "Nice work on Easy Run." }),
     telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
@@ -58,7 +58,7 @@ const {
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure, captureServerException }));
+vi.mock("../../../_lib/sentry.js", () => ({ captureLlmFailure, captureServerException }));
 vi.mock("../../../_lib/llmClient.js", () => ({
   selectLlmAdapter: vi.fn(
     (): LlmAdapter => ({ name: "gemini", model: "gemini-pro-latest", generate }),
@@ -183,7 +183,7 @@ describe("activity-sync turn contract", () => {
       text: JSON.stringify({ body: "Nice work on Easy Run." }),
       telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
     });
-    captureGeminiFailure.mockClear();
+    captureLlmFailure.mockClear();
     captureServerException.mockClear();
     getFileRaw.mockReset();
     getFileRaw.mockResolvedValue(null);
@@ -432,7 +432,7 @@ describe("activity-sync turn contract", () => {
       fresh: true,
     });
     // The same {body}-schema call /api/coach-message makes - not the old conversational
-    // askGemini(...) activity_sync mode.
+    // askLlm(...) activity_sync mode.
     expect(generate).toHaveBeenCalledExactlyOnceWith({
       system: "",
       messages: [{ role: "user", text: expect.stringContaining("Easy Run") }],
@@ -621,8 +621,8 @@ describe("activity-sync turn contract", () => {
     expect(commitFilesAtomic).not.toHaveBeenCalled();
     // generateProactiveBody itself captures the failure - handleActivitySync just shapes the
     // Response, it doesn't double-report.
-    expect(captureGeminiFailure).toHaveBeenCalledTimes(1);
-    expect(captureGeminiFailure.mock.calls[0][1]).toMatchObject({
+    expect(captureLlmFailure).toHaveBeenCalledTimes(1);
+    expect(captureLlmFailure.mock.calls[0][1]).toMatchObject({
       model: "gemini-pro-latest",
       upstreamStatus: 503,
       turnMode: "proactive_message",

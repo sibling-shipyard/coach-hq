@@ -178,7 +178,7 @@ test of an inherited decision silently proves nothing.
    Sentry's own trace id to `/api/...` on `sentry-trace` and `baggage`, so both halves of one
    interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
    locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the athlete's message**
-   (ADR 0032). `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
+   (ADR 0032). `captureLlmFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
    `model`, `upstream_status` and `turn_mode`. It also attaches `vercel_trace_id` — coach-chat's own
    id, for grepping the Vercel logs of the same turn. The scrubber (`ui/observability/sentryScrubber.ts`) still runs
    first, so any credential in that text still shows as `[Filtered]`.
@@ -322,7 +322,7 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
   doing, since no credential is at risk on that path any more, but it has not been done - the rule
   as written still drops everything. The cost as things stand: GitHub call durations never reach a
   trace either. Gemini/OpenRouter is the one outbound call we time, by opening a span ourselves
-  (`withGeminiSpan`).
+  (`withLlmSpan`).
 - **GitHub success totals**, for the same reason.
 - **iOS dSYM upload**, still parked.
 - **Chat text on a successful turn.** It reaches Sentry only when a Gemini call fails; a turn that

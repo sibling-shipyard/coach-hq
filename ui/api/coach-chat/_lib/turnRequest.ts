@@ -11,7 +11,7 @@ import { loadChatHistory, pruneForResponse, type ChatMessage } from "./chatThrea
 import { type ClosingFileContext } from "./decide/coachSinceStamp.js";
 import { renderCoachContext, renderQuestContext } from "./decide/coachContext.js";
 import { captureServerException } from "../../_lib/sentry.js";
-import { type OnboardingHints } from "./gemini/coachPromptText.js";
+import { type OnboardingHints } from "./llm/coachPromptText.js";
 import { capText } from "./_generated/text-caps.bundle.js";
 import type { CoachLogJson } from "./decide/coachMemoryFiles.js";
 
@@ -40,7 +40,7 @@ export interface TurnRequest {
   threadId?: string;
   priorMessages: ChatMessage[];
   trimmed: string;
-  geminiMessage: string;
+  athleteMessage: string;
   knownSha?: string;
 }
 
@@ -54,7 +54,7 @@ export interface TurnState extends TurnRequest {
   timezone: string;
   // Computed once here and reused everywhere this turn needs "today" (athleteContext,
   // questContext, and later buildCoachNoteWrite's day-keyed overwrite) - recomputing it
-  // independently at commit time, after an askGemini round trip (or a reprompt's second one),
+  // independently at commit time, after an askLlm round trip (or a reprompt's second one),
   // can land on a different day than what Gemini was actually shown if the turn straddles local
   // midnight.
   today: string;
@@ -65,7 +65,7 @@ export interface TurnState extends TurnRequest {
   traceId: string;
   userMsg?: Extract<ChatMessage, { role: "user" }>;
   closingFiles?: ClosingFileContext;
-  // D1 layer 1 (#736): extracted here, before the askGemini call, instead of only after (as
+  // D1 layer 1 (#736): extracted here, before the askLlm call, instead of only after (as
   // buildTurnWrites did pre-D1) - generationConfigFor needs these to build the request's
   // enum-constrained quest_id/flag_id fields, not just to validate the reply afterward.
   validQuestIds: ReadonlySet<string>;
@@ -111,7 +111,7 @@ export async function parseTurnRequest(
     threadId: body.threadId,
     priorMessages: body.messages ?? [],
     trimmed,
-    geminiMessage: trimmed,
+    athleteMessage: trimmed,
     knownSha: body.knownSha,
   };
 }

@@ -302,9 +302,9 @@ that data.
 The static persona/instruction/few-shot half of the prompt is separate from this per-athlete
 dynamic half — see `gemini-flow.md` for the caching split.
 
-## What Gemini can write (`GeminiReply` action fields)
+## What Gemini can write (`LlmReply` action fields)
 
-Every field on `GeminiReply` (`coachReplySchema.ts`) is filtered per turn mode by
+Every field on `LlmReply` (`coachReplySchema.ts`) is filtered per turn mode by
 `responsePropertiesFor()` — the response schema structurally omits any field the current
 mode/session-state combination shouldn't expose, rather than just discouraging it in prose.
 

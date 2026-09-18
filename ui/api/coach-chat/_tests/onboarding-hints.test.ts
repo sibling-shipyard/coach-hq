@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { onboardingHintsContext } from "../_lib/gemini/coachPromptText.js";
+import { onboardingHintsContext } from "../_lib/llm/coachPromptText.js";
 
 // Native onboarding fields are already committed before the greeting call. This context gives
 // Gemini the same-request snapshot, especially the name it cannot re-read from profile.json yet.

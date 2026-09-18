@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * The full turn pipeline, layers 1-3 wired together, with `fetch` mocked only at the true
  * network edge: Gemini's generateContent/cachedContents endpoints and GitHub's contents + git
- * data API. Everything else - prompt building (geminiClient.ts), schema-optional field handling,
+ * data API. Everything else - prompt building (coachLlmClient.ts), schema-optional field handling,
  * every turnWrites/* builder, and commitFilesAtomic's real blob->tree->commit->ref sequence -
  * runs unmodified. A fake in-memory GitHub repo (below) tracks committed file content so tests
  * can assert on what actually landed, the same way a real athlete repo would show it.
@@ -107,7 +107,7 @@ function createFakeRepo(initialFiles: Record<string, string>) {
   return { files, handle, committedMessages, headSha: () => headSha };
 }
 
-function createFakeGemini(replies: unknown[]) {
+function createFakeLlm(replies: unknown[]) {
   let index = 0;
   async function handle(url: string): Promise<Response> {
     if (url.includes("cachedContents"))
@@ -157,7 +157,7 @@ function repoFixture(overrides: Record<string, string> = {}) {
 async function runTurn(
   repoName: string,
   repo: ReturnType<typeof createFakeRepo>,
-  gemini: ReturnType<typeof createFakeGemini>,
+  gemini: ReturnType<typeof createFakeLlm>,
   request: TurnRequest,
 ) {
   fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
@@ -186,7 +186,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     const repo = createFakeRepo({
       "user_data/coach/profile.json": JSON.stringify({ name: "Skanda", timezone: "UTC" }),
     });
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       {
         reply: "Got it, noted your birthday.",
         profile_update: [{ field: "dob", value: "1995-01-01" }],
@@ -198,7 +198,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-1",
       priorMessages: [],
       trimmed: "I was born Jan 1 1995",
-      geminiMessage: "I was born Jan 1 1995",
+      athleteMessage: "I was born Jan 1 1995",
     });
 
     const body = await response.json();
@@ -215,7 +215,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
 
   it("an ordinary turn with a profile_update lands immediately for a returning (complete-profile) athlete (#616)", async () => {
     const repo = createFakeRepo(repoFixture());
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       {
         reply: "Got it, updated your weight.",
         profile_update: [{ field: "weight_kg", value: "76" }],
@@ -227,7 +227,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-1b",
       priorMessages: [],
       trimmed: "I'm 76kg now",
-      geminiMessage: "I'm 76kg now",
+      athleteMessage: "I'm 76kg now",
     });
 
     const body = await response.json();
@@ -296,7 +296,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         "user_data/activities/workout_plans/templates/strength_b.json": VALID_TEMPLATE,
       }),
     );
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       {
         reply: "Dropped the warmup from Strength B going forward.",
         template_edit: { template_id: "strength_b", skip_phases: ["Warmup"] },
@@ -307,7 +307,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-2",
       priorMessages: [],
       trimmed: "Drop the warmup from my strength template for good",
-      geminiMessage: "Drop the warmup from my strength template for good",
+      athleteMessage: "Drop the warmup from my strength template for good",
     });
 
     const body = await response.json();
@@ -338,7 +338,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     // applier's throw aborting the whole atomic commit on one bad id); the chat message lands
     // either way, and the failure surfaces as a validation-kind dropped action.
     const repo = createFakeRepo(repoFixture());
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       { reply: "All set for today.", template_edit: { template_id: "none" } },
     ]);
 
@@ -346,7 +346,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-3",
       priorMessages: [],
       trimmed: "Change my template",
-      geminiMessage: "Change my template",
+      athleteMessage: "Change my template",
     });
 
     expect(response.status).toBe(200);
@@ -381,13 +381,13 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       profile_update: [{ field: "weight_kg", value: "77" }],
       quest_event: [{ quest_id: "q99", status: "completed" }],
     };
-    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+    const gemini = createFakeLlm([badQuestReply, badQuestReply]);
 
     const response = await runTurn("owner/repo-4", repo, gemini, {
       threadId: "thread-4",
       priorMessages: [],
       trimmed: "Did my run and I'm 77kg now",
-      geminiMessage: "Did my run and I'm 77kg now",
+      athleteMessage: "Did my run and I'm 77kg now",
     });
 
     const body = await response.json();
@@ -404,7 +404,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
 
   it("D1 (#736): a forced chat-commit failure still returns Coach's reply", async () => {
     const repo = createFakeRepo(repoFixture());
-    const gemini = createFakeGemini([{ reply: "Got it, noted." }]);
+    const gemini = createFakeLlm([{ reply: "Got it, noted." }]);
     fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
       if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
       // The only write on this turn is chatWrite - failing every blob upload forces the chat
@@ -418,7 +418,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         threadId: "thread-5",
         priorMessages: [],
         trimmed: "Just checking in",
-        geminiMessage: "Just checking in",
+        athleteMessage: "Just checking in",
       },
       "owner/repo-5",
       "test-token",
@@ -448,7 +448,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     delete process.env.VERCEL_ENV;
     try {
       const repo = createFakeRepo(repoFixture());
-      const gemini = createFakeGemini([{ reply: "Got it, noted." }]);
+      const gemini = createFakeLlm([{ reply: "Got it, noted." }]);
       fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
         if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
         if (url.endsWith("/git/blobs")) return jsonResponse(500, { message: "forced failure" });
@@ -460,7 +460,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
           threadId: "thread-usage-on-failure",
           priorMessages: [],
           trimmed: "Just checking in",
-          geminiMessage: "Just checking in",
+          athleteMessage: "Just checking in",
         },
         "owner/repo-usage-on-failure",
         "test-token",
@@ -495,13 +495,13 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       coach_note: "Reported a quest completion.",
       quest_event: [{ quest_id: "q99", status: "completed" }],
     };
-    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+    const gemini = createFakeLlm([badQuestReply, badQuestReply]);
 
     const firstTurn = await runTurn("owner/repo-d1-context", repo, gemini, {
       threadId: "thread-6",
       priorMessages: [],
       trimmed: "Finished the run quest",
-      geminiMessage: "Finished the run quest",
+      athleteMessage: "Finished the run quest",
     });
     const firstBody = await firstTurn.json();
     expect(firstBody.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
@@ -509,7 +509,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     // Not just committed - readable back as coach_log.json's own content.
     expect(repo.files.get("user_data/coach/coach_log.json")).toContain("quest_event");
 
-    // The real proof: the *next* turn's loadTurnState (which is what feeds askGemini's prompt -
+    // The real proof: the *next* turn's loadTurnState (which is what feeds askLlm's prompt -
     // requestCoachReply.ts's requestCoachReply passes turn.athleteContext straight through) actually
     // contains the dropped-action detail, not just something committed nobody reads.
     const secondTurnState = await loadTurnState(
@@ -517,7 +517,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         threadId: "thread-6",
         priorMessages: [],
         trimmed: "Did I get credit for that?",
-        geminiMessage: "Did I get credit for that?",
+        athleteMessage: "Did I get credit for that?",
       },
       "owner/repo-d1-context",
       "test-token",
@@ -613,7 +613,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         "user_data/ledger/current_week.json": currentWeek,
       }),
     );
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       {
         reply: "Updated your weight and looked into those.",
         coach_note: "Logged a weight update.",
@@ -631,7 +631,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-808",
       priorMessages: [],
       trimmed: "I'm 78kg now, also drop the warmup and mark today's run done",
-      geminiMessage: "I'm 78kg now, also drop the warmup and mark today's run done",
+      athleteMessage: "I'm 78kg now, also drop the warmup and mark today's run done",
     });
 
     const body = await response.json();
@@ -695,7 +695,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
         }),
       }),
     );
-    const gemini = createFakeGemini([
+    const gemini = createFakeLlm([
       {
         reply: "New season locked in.",
         season_start: {
@@ -714,7 +714,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       threadId: "thread-4",
       priorMessages: [],
       trimmed: "New season - I want to run a marathon, and I'll stretch daily too",
-      geminiMessage: "New season - I want to run a marathon, and I'll stretch daily too",
+      athleteMessage: "New season - I want to run a marathon, and I'll stretch daily too",
     });
 
     const body = await response.json();

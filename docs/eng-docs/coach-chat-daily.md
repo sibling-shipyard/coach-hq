@@ -141,9 +141,9 @@ Generation itself (prompt input, schema, storage) is documented once in
 [`coach-chat-message.md`](coach-chat-message.md), shared with the backgrounded `coach-message.ts`
 fallback path.
 
-### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/gemini/geminiClient.ts`)
+### 3a. Prompt construction (`askLlm()`, `ui/api/coach-chat/_lib/llm/coachLlmClient.ts`)
 
-`askGemini()` builds the prompt/request and parses the reply. The actual `generateContent` call,
+`askLlm()` builds the prompt/request and parses the reply. The actual `generateContent` call,
 the explicit soul cache, and the retry logic live behind the seam instead, in
 `ui/api/_lib/llmAdapters/geminiAdapter.ts`, reached via `selectLlmAdapter` (#713 M2 PR 2).
 `LLM_PROVIDER` stays unset/`gemini` in production, so this is plumbing, not a behavior change.
@@ -207,7 +207,7 @@ On every returning-athlete turn:
   id just fails validation and drops that one write; it doesn't corrupt anything.
 - If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
   back over its length cap, `requestCoachReply()` (`requestCoachReply.ts`) reprompts Gemini once for that
-  field before proceeding — one extra `askGemini()` round trip on this turn only. See
+  field before proceeding — one extra `askLlm()` round trip on this turn only. See
   `gemini-flow.md`'s "Text-field length caps" and "Retries" sections for the full three-layer
   design (schema `maxLength`, this reprompt, and the deterministic `capText` truncation backstop in
   `turnWrites/*.ts` if the reprompt still overshoots). The same reprompt also fires when a reply
@@ -356,9 +356,9 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/decide/activitySync.ts` | activity-sync batch id, hist lookup, attachment rows |
 | `ui/api/coach-chat/_lib/commit/activitySyncTurn.ts` | persist-on-sync Coach turn |
 | `ui/api/_lib/llmAdapters/geminiSoulCache.ts` | explicit Gemini caching for the static prompt prefix, called by `geminiAdapter.ts` — see `gemini-flow.md` |
-| `ui/api/coach-chat/_lib/gemini/geminiClient.ts` | `askGemini()` — builds the prompt/request, parses the reply; the actual call and retry logic live in `_lib/llmAdapters/geminiAdapter.ts` |
-| `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | prompt text and dynamic context construction |
-| `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | reply types and mode-specific response schemas |
+| `ui/api/coach-chat/_lib/llm/coachLlmClient.ts` | `askLlm()` — builds the prompt/request, parses the reply; the actual call and retry logic live in `_lib/llmAdapters/geminiAdapter.ts` |
+| `ui/api/coach-chat/_lib/llm/coachPromptText.ts` | prompt text and dynamic context construction |
+| `ui/api/coach-chat/_lib/llm/coachReplySchema.ts` | reply types and mode-specific response schemas |
 | `ui/api/coach-chat/_lib/decide/coachContext.ts` | renders athlete/quest context into prompt sections |
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, response-time display cap |
 | `ui/api/coach-chat/_lib/decide/coachDay.ts` | timezone/day-number math |

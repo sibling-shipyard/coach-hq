@@ -19,8 +19,8 @@ test` run never means "Gemini is up" or "GitHub commits are working right now."
 The layered suite exists because the pipeline itself has three layers: input -> decision, decision
 -> file content, file content -> git commit. A test suite shaped the same way tells you which
 layer broke. That beats just hearing "something in coach-chat is wrong." No formal
-`LlmClient`/`RepoBackend` interface exists yet for a future Supabase/other-LLM swap - `askGemini`'s
-`(apiKey, ..., mode, ...) => Promise<GeminiReply>` signature and `commitFilesAtomic`'s
+`LlmClient`/`RepoBackend` interface exists yet for a future Supabase/other-LLM swap - `askLlm`'s
+`(apiKey, ..., mode, ...) => Promise<LlmReply>` signature and `commitFilesAtomic`'s
 `(FileEntry[], message, ctx) => Promise<{ commitSha }>` signature are the documented seam. Add a
 real interface only once a second implementation of either actually exists.
 
@@ -31,9 +31,9 @@ coaching prompt and it doesn't:
 
 | Test type                                        | SOUL value                                      | Why                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Layered suite (`layer1-gemini/`, `integration/`) | `"soul"` / `"soul text"` - a placeholder string | These tests prove pipeline mechanics (schema handling, reprompt logic, commit payloads), not coaching quality. Real SOUL content would be dead weight in every fixture and a maintenance burden every time SOUL's prose changes.                                                                                         |
+| Layered suite (`layer1-llm/`, `integration/`) | `"soul"` / `"soul text"` - a placeholder string | These tests prove pipeline mechanics (schema handling, reprompt logic, commit payloads), not coaching quality. Real SOUL content would be dead weight in every fixture and a maintenance burden every time SOUL's prose changes.                                                                                         |
 | `layer2-fields/`, `layer3-commit`                | N/A - no prompt built at all                    | These layers test pure appliers and commit logic; neither touches SOUL or prompt construction.                                                                                                                                                                                                                           |
-| `eval:coach-chat`                                | `""` - genuinely empty, not even a placeholder  | Deliberate (`eval-coach-chat.ts`'s own header comment). ADR 0024: a paid check runs only where it can actually catch something in the diff. This eval exercises `askGemini`'s own logic (schema compliance, retries, JSON parsing) against a live model - a SOUL wording change can't fail here, so SOUL isn't paid for. |
+| `eval:coach-chat`                                | `""` - genuinely empty, not even a placeholder  | Deliberate (`eval-coach-chat.ts`'s own header comment). ADR 0024: a paid check runs only where it can actually catch something in the diff. This eval exercises `askLlm`'s own logic (schema compliance, retries, JSON parsing) against a live model - a SOUL wording change can't fail here, so SOUL isn't paid for. |
 | `test:coach-chat-manual`                         | The real, current composed SOUL                 | This tool calls the real production `handle()` (`ui/api/coach-chat.ts`) unmodified, which calls `loadCoachContext()`, which sets `soul: SOUL` straight from `ui/api/_generated/soul.ts` - the same build artifact a real athlete's request gets. Nothing is stubbed.                                                     |
 
 **SOUL's own correctness is checked by neither.** Two separate, non-LLM structural linters do
@@ -49,14 +49,14 @@ dry-run carve as the check, not a hand-maintained list, and neither makes a mode
 on every commit. Never asks whether Gemini or GitHub actually behave a certain way - only whether
 our code handles a given input correctly.
 
-**Mechanics.** `layer1-gemini/`, `layer2-fields/`, and `integration/` live under
+**Mechanics.** `layer1-llm/`, `layer2-fields/`, and `integration/` live under
 `ui/api/coach-chat/_tests/`, see that directory's own `README.md` for the map. `layer3-commit`'s
 real test file is `ui/api/_lib/_tests/githubGitData.test.ts`, outside `coach-chat/` entirely -
 `commitFilesAtomic` is shared beyond coach-chat (also used by `coach-message.ts`/`waitlist.ts`), so
 its test stays with its source rather than moving under a `coach-chat/_tests/layer3-commit/`
 directory.
 
-- **`layer1-gemini/`** - the Gemini call end to end through `geminiClient.ts::askGemini` (prompt
+- **`layer1-llm/`** - the Gemini call end to end through `coachLlmClient.ts::askLlm` (prompt
   building) into `_lib/llmAdapters/geminiAdapter.ts` (the actual HTTP call, explicit cache, retry -
   moved there by #713 M2 PR 2). Mocks `fetch` only.
 - **`layer2-fields/`** - decision -> file content, the pure appliers (`coachProfileIntents.ts`,
@@ -66,7 +66,7 @@ directory.
   `fetch` only.
 - **`integration/`** - `fullTurnPipeline.test.ts` wires all three together, `fetch` mocked only at
   the Gemini/GitHub boundary. `coachTurn.test.ts` / `coachTurn-reprompt.test.ts` /
-  `activitySyncTurn.test.ts` mock `commitFilesAtomic`/`askGemini` directly to check the turn
+  `activitySyncTurn.test.ts` mock `commitFilesAtomic`/`askLlm` directly to check the turn
   pipeline's own stage logic in isolation - `turnRequest.ts`, `requestCoachReply.ts`,
   `turnReplyValidation.ts`, `buildTurnWrites.ts`, `turnCompletion.ts`.
 
@@ -96,7 +96,7 @@ that would need a second, more expensive judge-model call per transcript, deferr
 
 **Mechanics** (`ui/eval/eval-coach-chat.ts`) - runs golden transcripts
 (`ui/eval/transcripts/`) against a live Gemini call. No real repo
-writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
+writes happen; it calls `askLlm()` directly, not the full commit pipeline - so it never
 exercises `requestCoachReply.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
 single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
 real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024/0047), so it's manual only,
@@ -146,7 +146,7 @@ guard once deferred pending D1 is in now too (`#40`), D1 having landed.
   `18` in `docs/eng-docs/coach-chat-test-scenarios.md`) plus a simulation-suite scenario for
   real-write coverage. This closes the gap this bullet used to name - see that doc's coverage
   matrix for the full cross-reference.
-- Because this tool calls `askGemini()` directly, it structurally cannot exercise `requestCoachReply.ts`'s
+- Because this tool calls `askLlm()` directly, it structurally cannot exercise `requestCoachReply.ts`'s
   reprompt mechanism - a false PASS here says nothing about whether the reprompt/guard layer
   (see `gemini-flow.md`'s "Narration-vs-action reliability guards" coverage table) is working.
   Only `test:coach-chat-manual` and the layered `coachTurn-reprompt.test.ts` suite can.
@@ -235,7 +235,7 @@ against it.
 
 **Testing a change that lives on an unmerged PR branch - use a worktree of that branch, not HQ's
 own `main` checkout.** HQ's `main` lags every open PR stack. Concretely: `requestCoachReply.ts` on `main`
-may still call `askGemini`/direct-Gemini unconditionally, bypassing `selectLlmAdapter` entirely.
+may still call `askLlm`/direct-Gemini unconditionally, bypassing `selectLlmAdapter` entirely.
 Setting `LLM_PROVIDER=openrouter` against `main` can then silently no-op, or silently ignore the
 setting and hit direct Gemini anyway, instead of erroring. That's worse than a crash - it looks
 like a clean pass. Always confirm which checkout you're actually running against before trusting a
@@ -284,7 +284,7 @@ still in the repo, or whatever findings doc it got folded into) - a clean OpenRo
 prove the same thing a clean direct-Gemini run does.
 
 **Seeing what actually got sent.** Add `--debug` (or set `DEBUG=1`) to dump the full assembled
-prompt - `cachePrefix` + `system` + `messages`, the exact object `askGemini` sends - not just the
+prompt - `cachePrefix` + `system` + `messages`, the exact object `askLlm` sends - not just the
 parsed JSON reply, which already prints unconditionally. Use this before guessing at a prompt-text
 fix; reading the real prompt is faster than re-deriving it from the source.
 

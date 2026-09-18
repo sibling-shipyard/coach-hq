@@ -1,4 +1,4 @@
-import type { GeminiReply } from "./gemini/coachReplySchema.js";
+import type { LlmReply } from "./llm/coachReplySchema.js";
 import type { TurnState } from "./turnRequest.js";
 import { WEEKDAYS, type Weekday } from "./decide/coachMemoryFiles.js";
 import {
@@ -16,7 +16,7 @@ import { exerciseTypeFieldViolation, computeUnackedInjuryFlags } from "./decide/
 // layer 3 (capText in turnWrites/*) is the deterministic backstop if this and the reprompt below
 // both fail.
 export function findOversizedTextField(
-  reply: GeminiReply,
+  reply: LlmReply,
 ): { field: string; length: number; cap: number } | null {
   if (reply.coach_note && reply.coach_note.length > COACH_LOG_TEXT_CAP) {
     return { field: "coach_note", length: reply.coach_note.length, cap: COACH_LOG_TEXT_CAP };
@@ -65,9 +65,9 @@ const ACTIONS_REQUIRING_COACH_NOTE = [
   "quest_event",
   "quest_create",
   "season_start",
-] as const satisfies readonly (keyof GeminiReply)[];
+] as const satisfies readonly (keyof LlmReply)[];
 
-export function missingRequiredCoachNote(reply: GeminiReply): boolean {
+export function missingRequiredCoachNote(reply: LlmReply): boolean {
   if (reply.coach_note && reply.coach_note.trim()) return false;
   return ACTIONS_REQUIRING_COACH_NOTE.some((field) => {
     const value = reply[field];
@@ -89,7 +89,7 @@ export function missingRequiredCoachNote(reply: GeminiReply): boolean {
 // not guarantee" caveat as every other field here - the self-audit call could itself be
 // unreliable - but it's the strongest single signal available without a second full extraction
 // pass.
-export function findUnrecordedFacts(reply: GeminiReply): string[] | null {
+export function findUnrecordedFacts(reply: LlmReply): string[] | null {
   // Same null/type guard as findOversizedTextField's injury_flag/memory_update checks above -
   // the schema declares this as string[], but that's a request to Gemini, not a runtime
   // guarantee; a non-string element here must not throw and turn a usable reply into a false 500.
@@ -117,7 +117,7 @@ export function findUnrecordedFacts(reply: GeminiReply): string[] | null {
 // violation across every phase/exercise instead, same idea as workout_create.injury_ack's
 // existing all-violations check (applyWorkoutCreate above, "active injury flag(s) not
 // acknowledged" - already the one place in this codebase that reports every violation at once).
-export function findMalformedWorkoutCreateExercises(reply: GeminiReply): string[] | null {
+export function findMalformedWorkoutCreateExercises(reply: LlmReply): string[] | null {
   const spec = reply.workout_create;
   if (!spec) return null;
   const violations: string[] = [];
@@ -146,10 +146,7 @@ export function findMalformedWorkoutCreateExercises(reply: GeminiReply): string[
 // check above - give the model one chance to add the missing injury_ack before the applier ever
 // sees (and has to drop) the write, instead of narrating success and getting silently corrected
 // after the fact.
-export function findMissingWorkoutCreateInjuryAck(
-  turn: TurnState,
-  reply: GeminiReply,
-): string | null {
+export function findMissingWorkoutCreateInjuryAck(turn: TurnState, reply: LlmReply): string | null {
   const activeFlags = turn.activeInjuryFlagIds ?? new Set();
   if (activeFlags.size === 0) return null;
   if (!reply.workout_create) return null;
@@ -202,7 +199,7 @@ function countMentionedWeekdays(replyText: string): number {
   }).length;
 }
 
-export function isProseOnlyWeekPlan(reply: GeminiReply, firstSession: boolean): boolean {
+export function isProseOnlyWeekPlan(reply: LlmReply, firstSession: boolean): boolean {
   if (firstSession || reply.week_update) return false;
   return countMentionedWeekdays(reply.reply) >= PROSE_ONLY_WEEK_PLAN_WEEKDAY_THRESHOLD;
 }
@@ -231,11 +228,11 @@ function firstMatch(text: string, pattern: RegExp): string | null {
   return text.match(pattern)?.[0] ?? null;
 }
 
-export function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedInjuryLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (!turn.firstSession) return null;
   if (turn.validInjuryFlagIds.size > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
-  return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, INJURY_LANGUAGE_PATTERN);
 }
 
 // Finding D (2026-09-10 pro baseline): findMissedInjuryLanguage above closes the dense-message
@@ -252,12 +249,12 @@ export function findMissedInjuryLanguage(turn: TurnState, reply: GeminiReply): s
 const HABIT_LANGUAGE_PATTERN =
   /\b(every ?day|daily|habit|routine|track(?:ing)?|log(?:ging)?|streak)\b/i;
 
-export function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedHabitLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (!turn.firstSession) return null;
   if (turn.validQuestIds.size > 0) return null;
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
-  return firstMatch(turn.geminiMessage, HABIT_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, HABIT_LANGUAGE_PATTERN);
 }
 
 // #1037 PR F: returning-athlete counterpart to findMissedHabitLanguage above. That check is safe
@@ -275,11 +272,11 @@ export function findMissedHabitLanguage(turn: TurnState, reply: GeminiReply): st
 const NEW_HABIT_LANGUAGE_PATTERN =
   /\b(start(?:ing)? a new habit|want to start (?:tracking|doing)|going to start (?:a )?new (?:daily )?habit|new daily habit)\b/i;
 
-export function findMissedNewHabitLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedNewHabitLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null; // covered by findMissedHabitLanguage above
   if ((reply.season_start?.new_habits ?? []).length > 0) return null;
   if ((reply.quest_create?.quests ?? []).length > 0) return null;
-  return firstMatch(turn.geminiMessage, NEW_HABIT_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, NEW_HABIT_LANGUAGE_PATTERN);
 }
 
 // Live-verified (#727 review, 2026-09-13): reproduced live twice - the athlete stated a goal
@@ -298,10 +295,10 @@ export function findMissedNewHabitLanguage(turn: TurnState, reply: GeminiReply):
 const GOAL_LANGUAGE_PATTERN =
   /\b(my goal|the goal is|want to (?:be|get|reach|run|hit|lift|lose|gain|become)|by (?:the )?end of)\b/i;
 
-export function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedSeasonLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (!turn.firstSession) return null;
   if (reply.season_start) return null;
-  return firstMatch(turn.geminiMessage, GOAL_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, GOAL_LANGUAGE_PATTERN);
 }
 
 // #1037 PR D: quest_event had no dedicated guard at all before this - its only backstop
@@ -319,12 +316,12 @@ export function findMissedSeasonLanguage(turn: TurnState, reply: GeminiReply): s
 const QUEST_STATUS_LANGUAGE_PATTERN =
   /\b(complet(?:ed|ing)|done|finish(?:ed)?|hit|nailed|crushed|missed|skip(?:ped)?|excused)\b/i;
 
-export function findMissedQuestLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedQuestLanguage(turn: TurnState, reply: LlmReply): string | null {
   const activeQuests = (turn.context.quests?.quests ?? []).filter((q) => q.status === "active");
   if (activeQuests.length === 0) return null;
-  if (!QUEST_STATUS_LANGUAGE_PATTERN.test(turn.geminiMessage)) return null;
+  if (!QUEST_STATUS_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   const mentionedNames = activeQuests.filter((q) =>
-    questNameReferencedIn(q.name, turn.geminiMessage),
+    questNameReferencedIn(q.name, turn.athleteMessage),
   );
   const capturedIds = new Set((reply.quest_event ?? []).map((e) => e.quest_id));
   const uncaptured = mentionedNames.filter((q) => !capturedIds.has(q.id));
@@ -346,24 +343,24 @@ const AGE_LANGUAGE_PATTERN = /\b\d{1,2}\s*(?:years?\s*old|yo)\b|\bborn\b/i;
 const BODY_METRIC_PATTERN = /\b\d{2,3}\s*(?:cm|kg|lbs?|ft|feet|inches)\b/i;
 const TIMEZONE_LANGUAGE_PATTERN = /\bbased in\b|\btime ?zone\b|\bIST\b|\bGMT\b|\bUTC\b/i;
 
-export function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedProfileLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (!turn.firstSession) return null;
   const updatedFields = new Set((reply.profile_update ?? []).map((u) => u.field));
   const profile = turn.context.profile;
   if (!profile?.dob && !updatedFields.has("dob")) {
-    const hit = firstMatch(turn.geminiMessage, AGE_LANGUAGE_PATTERN);
+    const hit = firstMatch(turn.athleteMessage, AGE_LANGUAGE_PATTERN);
     if (hit) return hit;
   }
   if (!profile?.height_cm && !updatedFields.has("height_cm")) {
-    const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
+    const hit = firstMatch(turn.athleteMessage, BODY_METRIC_PATTERN);
     if (hit) return hit;
   }
   if (!profile?.weight_kg && !updatedFields.has("weight_kg")) {
-    const hit = firstMatch(turn.geminiMessage, BODY_METRIC_PATTERN);
+    const hit = firstMatch(turn.athleteMessage, BODY_METRIC_PATTERN);
     if (hit) return hit;
   }
   if (!profile?.timezone && !updatedFields.has("timezone")) {
-    const hit = firstMatch(turn.geminiMessage, TIMEZONE_LANGUAGE_PATTERN);
+    const hit = firstMatch(turn.athleteMessage, TIMEZONE_LANGUAGE_PATTERN);
     if (hit) return hit;
   }
   return null;
@@ -379,10 +376,10 @@ export function findMissedProfileLanguage(turn: TurnState, reply: GeminiReply): 
 const REMOVAL_LANGUAGE_PATTERN =
   /\b(delete|remove|get rid of|don'?t want)\b.{0,20}\b(routine|workout|template)\b/i;
 
-export function findMissedRemovalLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedRemovalLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;
   if (reply.workout_remove) return null;
-  return firstMatch(turn.geminiMessage, REMOVAL_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, REMOVAL_LANGUAGE_PATTERN);
 }
 
 // #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport
@@ -392,9 +389,9 @@ export function findMissedRemovalLanguage(turn: TurnState, reply: GeminiReply): 
 // returning - a new/changed sport can arrive on either.
 const NEW_ACTIVITY_LANGUAGE_PATTERN = /\b(started|new sport|picked up|also (?:play|do|doing))\b/i;
 
-export function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedSportsLanguage(turn: TurnState, reply: LlmReply): string | null {
   if ((reply.sports_update ?? []).length > 0) return null;
-  return firstMatch(turn.geminiMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
 }
 
 // #1009 (injury_event hardening): the opposite scoping problem from findMissedInjuryLanguage
@@ -411,11 +408,11 @@ export function findMissedSportsLanguage(turn: TurnState, reply: GeminiReply): s
 // athlete clearly describes an injury changing, because there's no safe way to tell which flag
 // they mean without risking a reprompt on an ordinary 1-of-many mention. See the dedicated test
 // below confirming this is deliberate.
-export function findMissedInjuryUpdateLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findMissedInjuryUpdateLanguage(turn: TurnState, reply: LlmReply): string | null {
   if ((turn.activeInjuryFlagIds ?? new Set()).size !== 1) return null;
   if ((reply.injury_event ?? []).length > 0) return null;
   if ((reply.injury_flag ?? []).length > 0) return null;
-  return firstMatch(turn.geminiMessage, INJURY_LANGUAGE_PATTERN);
+  return firstMatch(turn.athleteMessage, INJURY_LANGUAGE_PATTERN);
 }
 
 // #1037 PR D: returning-athlete counterpart to findMissedInjuryLanguage, and also the fix for
@@ -637,9 +634,9 @@ function countDistinctInjuryMentions(text: string): string[] {
   return distinct.map((counted) => counted.keyword);
 }
 
-export function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply): string | null {
+export function findUncountedInjuryLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null; // covered by findMissedInjuryLanguage above
-  const mentions = countDistinctInjuryMentions(turn.geminiMessage);
+  const mentions = countDistinctInjuryMentions(turn.athleteMessage);
   if (mentions.length === 0) return null;
   const captured = (reply.injury_flag ?? []).length + (reply.injury_event ?? []).length;
   return mentions.length > captured ? mentions[captured] : null;
@@ -650,7 +647,7 @@ export function findUncountedInjuryLanguage(turn: TurnState, reply: GeminiReply)
 // separately-maintained copies would silently change what gets reprompted vs. what gets blocked.
 // Named fields, not just a boolean, since buildTurnWrites also needs to report which ones it held
 // back.
-export function scheduleChangingFieldNames(reply: GeminiReply): string[] {
+export function scheduleChangingFieldNames(reply: LlmReply): string[] {
   return [
     reply.template_edit != null && "template_edit",
     reply.session_plan != null && "session_plan",
@@ -662,7 +659,7 @@ export function scheduleChangingFieldNames(reply: GeminiReply): string[] {
 }
 
 // Bug 3 Primary (2026-09-10 pro baseline): the reprompt-side enforcement of pending_clarification
-// tracking - see parsePendingClarification (read side) and GeminiReply.pending_clarification's
+// tracking - see parsePendingClarification (read side) and LlmReply.pending_clarification's
 // comment for the full story. If last turn left a real question open, and this turn's reply
 // touches a schedule-changing field at all, and the athlete's raw message this turn carries no
 // affirmative confirmation cue, treat the pending question as still unanswered - deliberately not
@@ -671,10 +668,10 @@ export function scheduleChangingFieldNames(reply: GeminiReply): string[] {
 // sits unanswered is worth a reprompt. If the reprompt doesn't resolve it either,
 // buildTurnWrites's own layer (see the "still" check below) leaves it to layer 3's defense-in-depth
 // content-diff guard (validateActions.ts) as the final backstop.
-export function findUnconfirmedAssumption(turn: TurnState, reply: GeminiReply): string | null {
+export function findUnconfirmedAssumption(turn: TurnState, reply: LlmReply): string | null {
   if (!turn.pendingClarification) return null;
   if (scheduleChangingFieldNames(reply).length === 0) return null;
-  if (hasConfirmationCue(turn.geminiMessage)) return null;
+  if (hasConfirmationCue(turn.athleteMessage)) return null;
   return turn.pendingClarification;
 }
 
@@ -691,7 +688,7 @@ export function findUnconfirmedAssumption(turn: TurnState, reply: GeminiReply): 
 // regardless of what the reprompt says - this only makes the reprompt message Gemini sees more
 // complete, so its retry has full information instead of playing whack-a-mole one id at a time.
 export function findInvalidReferences(
-  reply: GeminiReply,
+  reply: LlmReply,
   validQuestIds: ReadonlySet<string>,
   validInjuryFlagIds: ReadonlySet<string>,
 ): { field: string; badId: string; validIds: readonly string[] }[] | null {
@@ -717,7 +714,7 @@ export function findInvalidReferences(
 // shape distinct from a commit failure ("Coach replied but I couldn't save it") - the raw
 // upstream error text (e.g. "Gemini request failed (503): ...") is not something a non-technical
 // athlete should see verbatim.
-export function friendlyGeminiErrorMessage(status: number): string {
+export function friendlyLlmErrorMessage(status: number): string {
   if (status === 429) return "Coach is getting a lot of requests right now - try again shortly.";
   if (status === 503 || status === 504) {
     return "Coach couldn't respond in time - try again in a moment.";

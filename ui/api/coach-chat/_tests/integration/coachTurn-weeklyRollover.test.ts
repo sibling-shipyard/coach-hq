@@ -34,7 +34,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     threadId: "thread-1",
     priorMessages: [],
     trimmed: "Done for today",
-    geminiMessage: "Done for today",
+    athleteMessage: "Done for today",
     repo: "owner/repo",
     token: "token",
     apiKey: "key",

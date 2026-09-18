@@ -6,7 +6,7 @@ import { Sentry } from "./sentry.js";
  * Replaces standalone console.log() calls so that when an error escapes, the Sentry event
  * carries the timeline of what the request did before it failed. `data` is copied onto the
  * breadcrumb as-is, so it must not hold chat text — ADR 0032 scopes that capture to failed
- * Gemini calls (`captureGeminiFailure`), and the scrubber does not strip messages.
+ * Gemini calls (`captureLlmFailure`), and the scrubber does not strip messages.
  */
 export function log(category: string, message: string, data?: Record<string, unknown>): void {
   // Output to standard console for Vercel/local debugging

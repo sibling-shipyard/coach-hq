@@ -4,22 +4,22 @@
  * the caller — the whole point of provider routing (docs/plans/chat-openrouter-migration.md).
  */
 import { describe, expect, it, vi } from "vitest";
-import type { GeminiUsage } from "../../sentry.js";
+import type { LlmUsage } from "../../sentry.js";
 
 /**
- * `withGeminiSpan` owns the `recordUsage` callback, so the only way to see what the adapter
+ * `withLlmSpan` owns the `recordUsage` callback, so the only way to see what the adapter
  * actually hands the span is to stand in for it. The stand-in still runs the callback and
  * returns its value, so every other test in this file behaves exactly as it did against the
  * real one.
  */
-const { withGeminiSpan, recordedUsage } = vi.hoisted(() => {
-  const recordedUsage: GeminiUsage[] = [];
+const { withLlmSpan, recordedUsage } = vi.hoisted(() => {
+  const recordedUsage: LlmUsage[] = [];
   return {
     recordedUsage,
-    withGeminiSpan: vi.fn(
+    withLlmSpan: vi.fn(
       async (
         _model: string,
-        run: (record: (usage: GeminiUsage) => void) => Promise<string>,
+        run: (record: (usage: LlmUsage) => void) => Promise<string>,
         _attributes?: Record<string, string>,
       ) => run((usage) => void recordedUsage.push(usage)),
     ),
@@ -28,7 +28,7 @@ const { withGeminiSpan, recordedUsage } = vi.hoisted(() => {
 
 vi.mock("../../sentry.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../sentry.js")>()),
-  withGeminiSpan,
+  withLlmSpan,
 }));
 
 import {

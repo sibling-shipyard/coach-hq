@@ -40,7 +40,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     threadId: "thread-1",
     priorMessages: [],
     trimmed: "Done for today",
-    geminiMessage: "Done for today",
+    athleteMessage: "Done for today",
     repo: "owner/repo",
     token: "token",
     apiKey: "key",
@@ -406,7 +406,7 @@ describe("coach turn stages", () => {
           // Fallback content-diff guard (validateActions.ts), which would otherwise also drop a
           // category-changing edit with no confirmation cue regardless of this field.
           trimmed: "Yes, swap it for a walk instead.",
-          geminiMessage: "Yes, swap it for a walk instead.",
+          athleteMessage: "Yes, swap it for a walk instead.",
           prefetchedCurrentWeekContent: currentWeekContent,
           reply: {
             reply: "Done, swapped it for a walk.",

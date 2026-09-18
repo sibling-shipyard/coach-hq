@@ -4,10 +4,10 @@ import {
   TEMPLATES_MANIFEST_PATH,
 } from "./decide/coachWorkoutFiles.js";
 import { CURRENT_WEEK_PATH, weekSessionsFromCurrentWeek } from "./decide/coachWeekFiles.js";
-import { askGemini, GEMINI_MODEL } from "./gemini/geminiClient.js";
-import { sumUsage, type GeminiUsage } from "../../_lib/sentry.js";
+import { askLlm, GEMINI_MODEL } from "./llm/coachLlmClient.js";
+import { sumUsage, type LlmUsage } from "../../_lib/sentry.js";
 import {
-  captureGeminiFailure,
+  captureLlmFailure,
   captureServerException,
   captureStillUnresolvedGuard,
 } from "../../_lib/sentry.js";
@@ -16,8 +16,8 @@ import {
   activeWeekSessionsContext,
   combineExtraContext,
   firstSessionContext,
-} from "./gemini/coachPromptText.js";
-import type { GeminiReply, TurnMode } from "./gemini/coachReplySchema.js";
+} from "./llm/coachPromptText.js";
+import type { LlmReply, TurnMode } from "./llm/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import type { DroppedAction } from "./decide/turnWrites/validateActions.js";
 import type { TurnState } from "./turnRequest.js";
@@ -40,12 +40,12 @@ import {
   isProseOnlyWeekPlan,
   findMissingWorkoutCreateInjuryAck,
   findInvalidReferences,
-  friendlyGeminiErrorMessage,
+  friendlyLlmErrorMessage,
 } from "./turnReplyValidation.js";
 
 export interface RepliedTurn extends TurnState {
-  reply: GeminiReply;
-  // Fetched in requestCoachReply, before askGemini, so the prompt can supply real template/
+  reply: LlmReply;
+  // Fetched in requestCoachReply, before askLlm, so the prompt can supply real template/
   // session ids (Finding A, OpenRouter K1 retest - see requestCoachReply's own comment). Carried
   // forward here so buildTurnWrites reuses this same read for validation instead of fetching
   // twice. Undefined on a first-session turn, where it's never fetched at all.
@@ -70,17 +70,17 @@ export interface RepliedTurn extends TurnState {
   // the athlete never sees - so they'd read a full week plan that was never actually saved with no
   // indication anything went wrong (live-reproduced on coach-akash-suresh, traceId tkxjxkzd).
   stillProseOnlyWeekPlan?: boolean;
-  // #1053 gap 2: real token usage summed across every askGemini() call this turn made (the first
+  // #1053 gap 2: real token usage summed across every askLlm() call this turn made (the first
   // call plus up to two reprompts - content-violation and bad-reference). Additive-only field, so
   // every caller still typed against a plain RepliedTurn/TurnWrites keeps working; nothing that
   // persists a turn's reply spreads the whole object into committed athlete data, so this never
   // reaches a file write. See usageResponseInit() below for how a test harness reads it back, via
   // a response header - deliberately not part of commitTurn's athlete-facing JSON response body.
-  usage?: GeminiUsage;
+  usage?: LlmUsage;
 }
 
-// sumUsage now lives in sentry.ts (next to GeminiUsage itself, imported above) so
-// geminiClient.ts's own JSON-parse retry can reuse the exact same merge instead of hand-rolling a
+// sumUsage now lives in sentry.ts (next to LlmUsage itself, imported above) so
+// coachLlmClient.ts's own JSON-parse retry can reuse the exact same merge instead of hand-rolling a
 // second copy - re-exported here so sumUsage.test.ts's existing import keeps working unchanged.
 export { sumUsage };
 
@@ -104,7 +104,7 @@ export { sumUsage };
 export const TURN_USAGE_HEADER = "x-coach-chat-turn-usage";
 
 export function usageResponseInit(
-  usage: GeminiUsage | undefined,
+  usage: LlmUsage | undefined,
   init: ResponseInit = {},
 ): ResponseInit {
   const exposeRequested = process.env.COACH_CHAT_EXPOSE_USAGE === "1";
@@ -170,13 +170,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     activeInjuryFlagIds: [...(turn.activeInjuryFlagIds ?? [])],
   };
   try {
-    let reply = await askGemini(
+    let reply = await askLlm(
       turn.apiKey,
       turn.context.soul!,
       turn.athleteContext,
       turn.questContext,
       turn.priorMessages,
-      turn.geminiMessage,
+      turn.athleteMessage,
       mode,
       turn.firstSession,
       extraContext,
@@ -184,8 +184,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       turn.timezone,
       referenceIds,
     );
-    let usageAccum: GeminiUsage | undefined = reply.usage;
-    // Content-triggered retry, not a transport one (that's geminiClient.ts's own retry on
+    let usageAccum: LlmUsage | undefined = reply.usage;
+    // Content-triggered retry, not a transport one (that's coachLlmClient.ts's own retry on
     // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt,
     // covering both content violations findOversizedTextField and missingRequiredCoachNote can
     // find - a turn could in principle trip both at once, and one combined reprompt naming both
@@ -391,10 +391,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
       const repromptMessage = [
-        turn.geminiMessage,
+        turn.athleteMessage,
         `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
       ].join(" ");
-      reply = await askGemini(
+      reply = await askLlm(
         turn.apiKey,
         turn.context.soul!,
         turn.athleteContext,
@@ -535,11 +535,11 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         )
         .join("; also, ");
       const repromptMessage = [
-        turn.geminiMessage,
+        turn.athleteMessage,
         `\n[System note: ${badReferenceNotes}. Redo each field using only a valid id, or omit it`,
         "if none apply; keep everything else the same.]",
       ].join(" ");
-      reply = await askGemini(
+      reply = await askLlm(
         turn.apiKey,
         turn.context.soul!,
         turn.athleteContext,
@@ -579,18 +579,18 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
-    console.error("[coach-chat] askGemini failed:", err);
-    await captureGeminiFailure(err, {
+    console.error("[coach-chat] askLlm failed:", err);
+    await captureLlmFailure(err, {
       traceId: turn.traceId,
-      // geminiClient.ts tags the resolved adapter's real model onto the error before it
+      // coachLlmClient.ts tags the resolved adapter's real model onto the error before it
       // propagates here - falls back to the direct-Gemini constant only if that never ran.
       model: (err as { model?: string }).model ?? GEMINI_MODEL,
       upstreamStatus: status,
       turnMode: mode,
-      athleteMessage: turn.geminiMessage,
+      athleteMessage: turn.athleteMessage,
     });
     return Response.json(
-      { error: friendlyGeminiErrorMessage(status), traceId: turn.traceId },
+      { error: friendlyLlmErrorMessage(status), traceId: turn.traceId },
       { status },
     );
   }

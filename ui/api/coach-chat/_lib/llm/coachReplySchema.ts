@@ -18,7 +18,7 @@ import {
 } from "../_generated/text-caps.bundle.js";
 import type { LlmJsonSchema, LlmJsonSchemaNode } from "../../../_lib/llmClient.js";
 
-export interface GeminiReply {
+export interface LlmReply {
   reply: string;
   // See responseSchema's coach_note and coachProfileIntents.ts's applyCoachNote.
   coach_note?: string;
@@ -487,11 +487,11 @@ const RESPONSE_PROPERTIES = {
     additionalProperties: false,
   },
   reply: { type: "string" },
-  // Bug 3 - see the GeminiReply.pending_clarification comment above. Declared right after reply,
+  // Bug 3 - see the LlmReply.pending_clarification comment above. Declared right after reply,
   // same reasoning as unrecorded_facts below: it needs reply's own text already generated to
   // judge against ("did I just leave a question open in what I wrote").
   pending_clarification: { type: "string" },
-  // Finding D (OpenRouter K1 retest) mitigation - see the GeminiReply.unrecorded_facts comment
+  // Finding D (OpenRouter K1 retest) mitigation - see the LlmReply.unrecorded_facts comment
   // above. Declared last in responsePropertiesFor, after reply, on purpose: it's a self-audit of
   // everything else in this same response including reply's own text, so it needs those already
   // "written" (in generation order) to check against.

@@ -76,7 +76,7 @@ hints.
 
 First Session uses the same endpoint as day-to-day chat, with two narrow server differences:
 `handleGreet()` commits native onboarding fields directly, and ordinary turns commit FSP facts as
-soon as each one is stated, not held for later. `askGemini()`'s greeting-mode call includes
+soon as each one is stated, not held for later. `askLlm()`'s greeting-mode call includes
 `onboardingHintsContext()` so the opener can use the just-recorded name and sports.
 The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 

@@ -148,7 +148,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   // C1: session artifacts (template_edit/session_plan/week_update) are available on every
   // returning-athlete turn, so their template_id references need validating here regardless of
-  // which one fired. requestCoachReply already fetched the templates manifest before askGemini on
+  // which one fired. requestCoachReply already fetched the templates manifest before askLlm on
   // any non-first-session turn (Finding A fix, so the prompt itself can supply real ids) - reuse
   // that same read via turn.prefetchedTemplatesManifestContent instead of fetching it twice; only
   // a first-session turn (where that prefetch never ran) falls back to fetching here, and only
@@ -325,7 +325,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validDayDates,
     validSessionIds,
     existingSessionsForDiff,
-    turn.geminiMessage,
+    turn.athleteMessage,
     plannedSessionsByDate,
   );
   droppedActions.push(...droppedWeekUpdate);
@@ -456,7 +456,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // whenever this turn didn't produce a fresh one, unless the athlete's own message this turn
   // reads as an answer to it.
   const carriedPendingClarification =
-    turn.pendingClarification && !hasConfirmationCue(turn.geminiMessage)
+    turn.pendingClarification && !hasConfirmationCue(turn.athleteMessage)
       ? turn.pendingClarification
       : undefined;
   const pendingClarificationMarker = formatPendingClarificationMarker(

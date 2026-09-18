@@ -160,7 +160,7 @@ function getIsoWeekId(dateString: string): string {
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
 
-// The small shape Gemini reports for week_update - see coachReplySchema.ts's GeminiReply. One
+// The small shape Gemini reports for week_update - see coachReplySchema.ts's LlmReply. One
 // entry per session that changed; omitting session_id creates a new planned session on that day,
 // same as week_plan's old per-day sessions array did. move_to_date relocates an existing session
 // to a different day in the same week - the missing piece the old three-action split never had a

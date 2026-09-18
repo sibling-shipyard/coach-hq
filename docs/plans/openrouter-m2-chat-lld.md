@@ -16,12 +16,12 @@ socket, and neither looks like the other.
 
 | | `coach-message` | coach-chat turn | template adjustment |
 |---|---|---|---|
-| Reaches the model via | `selectLlmAdapter` (`_lib/llmClient.ts:68`) | raw `fetch` (`coach-chat/_lib/gemini/geminiClient.ts:113`) | raw `fetch` (`coach-chat/_lib/decide/coachWorkoutFiles.ts:340`) |
+| Reaches the model via | `selectLlmAdapter` (`_lib/llmClient.ts:68`) | raw `fetch` (`coach-chat/_lib/llm/coachLlmClient.ts:113`) | raw `fetch` (`coach-chat/_lib/decide/coachWorkoutFiles.ts:340`) |
 | Auth | header, per adapter | `?key=` in the URL | `?key=` in the URL |
 | Prompt shape | one flat string | `systemInstruction` + multi-turn `contents` + history | one `contents` block |
 | Schema | 1 property, required | built per turn, ~19 optional actions, per-athlete enums | static, nested |
 | `additionalProperties` | `false` | absent, 19 objects | absent |
-| Explicit cache | none | `gemini/soulCache.ts`, Global Config, 4 env vars | none |
+| Explicit cache | none | `llmAdapters/geminiSoulCache.ts`, Global Config, 4 env vars | none |
 | Retry | none | 400 → drop cache, 503/504 → one backoff | none |
 | Telemetry | tokens, cost, resolved provider | tokens only | tokens only |
 | Timeout | 45s | 45s | 20s |
@@ -44,7 +44,7 @@ flowchart LR
 ## The question that branches this design — probe before building
 
 Chat's schema declares roughly 19 actions and requires exactly one of them: `required: ["reply"]`.
-`generationConfigFor` (`gemini/coachReplySchema.ts:494`) does that on purpose, so an action a turn
+`generationConfigFor` (`llm/coachReplySchema.ts:494`) does that on purpose, so an action a turn
 must not take is absent from the schema rather than merely discouraged.
 
 OpenAI-style `strict` JSON Schema takes the opposite position: every property must appear in
@@ -85,7 +85,7 @@ one belongs in the adapter rather than the caller:
 4. **Timeout per request.** 45s for a chat turn, 20s for template adjustment, today hardcoded per
    adapter.
 
-Chat gets one thing back for free: `GeminiUsage` already carries `costUsd` and `resolvedProvider`,
+Chat gets one thing back for free: `LlmUsage` already carries `costUsd` and `resolvedProvider`,
 and the adapters already populate them. Chat's own client does not. After this, a chat turn reports
 what it cost.
 
@@ -94,7 +94,7 @@ what it cost.
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | 1 | 2 | Seam carries system + turns + per-request timeout; `coach-message` moves onto the new shape with no behaviour change | `fix/808-quest-create-flaky` (#824 stack tip) | `ui/api/_lib/llmClient.ts`, `ui/api/_lib/llmAdapters/`, `ui/api/_lib/_tests/`, `ui/api/coach-message/_lib/coachMessage.ts`, `ui/api/coach-message/_tests/` | Bob the Builder | — | [#917](https://github.com/sibling-shipyard/coach-hq/pull/917), merged |
-| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/gemini/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | [#920](https://github.com/sibling-shipyard/coach-hq/pull/920), merged |
+| 2 | 2 | Chat turn runs through `llmClient`; cache and retry move into the Gemini adapter; schema gains `additionalProperties` | PR 1 | `ui/api/coach-chat/_lib/llm/`, `ui/api/_lib/llmAdapters/geminiAdapter.ts`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts` | Bob the Builder | — | [#920](https://github.com/sibling-shipyard/coach-hq/pull/920), merged |
 | 3 | 2 | Template adjustment stops opening its own socket | PR 2 | `ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts`, `ui/api/coach-chat/_tests/` | Bob the Builder | — | [#921](https://github.com/sibling-shipyard/coach-hq/pull/921), merged |
 
 All three merged 2026-09-11, as part of the larger chat-commit-redesign stack (PR #956 and

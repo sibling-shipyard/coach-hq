@@ -5,7 +5,7 @@
 ## Context
 
 We cannot say whether a cheaper model is good enough for Coach, because nothing measures the
-part that matters. `ui/scripts/eval-coach-chat.ts:27` calls `askGemini` with `soul: ""`, so the
+part that matters. `ui/scripts/eval-coach-chat.ts:27` calls `askLlm` with `soul: ""`, so the
 22 transcripts grade schema and action fields while the persona goes untested. Priority is P1:
 `chat-openrouter-migration.md` ships first and runs on Gemini as its own baseline.
 
@@ -44,7 +44,7 @@ self-preference trap. Two judges from different families; keep the cases where t
 
 **Output** is one table, and it is the decision:
 `| model | gate | win-rate vs reference | $/1k turns | p95 latency |`. Cost and latency come
-free — `withGeminiSpan` (`ui/api/_lib/sentry.ts:338`) already records usage per call.
+free — `withLlmSpan` (`ui/api/_lib/sentry.ts:338`) already records usage per call.
 
 ## Milestones
 
@@ -61,7 +61,7 @@ free — `withGeminiSpan` (`ui/api/_lib/sentry.ts:338`) already records usage pe
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 | Judge call + pairwise scoring in the existing runner | `main` | `ui/scripts/eval-coach-chat.ts`, `ui/scripts/lib/` | UI Expert | PR 2 | |
-| 2 | 2 | Real SOUL passed to `askGemini` in the eval | `main` | `ui/scripts/eval-coach-chat.ts` | UI Expert | PR 1 | |
+| 2 | 2 | Real SOUL passed to `askLlm` in the eval | `main` | `ui/scripts/eval-coach-chat.ts` | UI Expert | PR 1 | |
 | 3 | 3 | Cases reconstructed from commit history | PR 1 | `ui/scripts/lib/`, `ui/api/coach-chat/_tests/coach-chat-eval/` | UI Expert | — | |
 | 4 | 4 | Second judge, agreement filter | PR 3 | `ui/scripts/lib/` | UI Expert | — | |
 

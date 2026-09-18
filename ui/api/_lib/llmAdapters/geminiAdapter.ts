@@ -9,14 +9,14 @@
  * tokens reaching the usage span.
  *
  * #713 M2 PR 2 moves coach-chat's explicit soul cache and its retry logic in here from
- * `coach-chat/_lib/gemini/geminiClient.ts` (docs/plans/openrouter-m2-chat-lld.md). Both are gated
+ * `coach-chat/_lib/llm/coachLlmClient.ts` (docs/plans/openrouter-m2-chat-lld.md). Both are gated
  * on `request.cachePrefix` being set, not on whether the cache lookup actually succeeds - that's
  * the signal that this is a chat-shaped request at all, and it's what keeps coach-message (which
  * never sets `cachePrefix`) on its exact pre-#713 behavior: one call, no retry.
  */
 import { GEMINI_MODEL } from "../geminiModel.js";
 import { fetchWithTimeout } from "../httpTimeout.js";
-import { withGeminiSpan } from "../sentry.js";
+import { withLlmSpan } from "../sentry.js";
 import type { LlmAdapter, LlmJsonSchemaNode, LlmRequest, LlmResult } from "../llmClient.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./geminiSoulCache.js";
 
@@ -91,7 +91,7 @@ export function createGeminiAdapter(
         });
       }
 
-      // Escapes withGeminiSpan's recordUsage callback below so generate() can return it too -
+      // Escapes withLlmSpan's recordUsage callback below so generate() can return it too -
       // recordUsage's own job is setting Sentry span attributes, not handing usage back to the
       // caller, so this is the only way this function sees what it already computed.
       let usage: LlmResult["usage"];
@@ -162,7 +162,7 @@ export function createGeminiAdapter(
           throw err;
         });
 
-      const text = await withGeminiSpan(
+      const text = await withLlmSpan(
         GEMINI_MODEL,
         async (recordUsage) => {
           let cachedName: string | null = null;
@@ -195,7 +195,7 @@ export function createGeminiAdapter(
           if (!response.ok) {
             const detail = await response.text();
             // The real upstream status always passes through - coach-chat's
-            // friendlyGeminiErrorMessage (turnReplyValidation.ts) branches on 429/503/504 specifically to
+            // friendlyLlmErrorMessage (turnReplyValidation.ts) branches on 429/503/504 specifically to
             // tell a rate limit from a timeout from a generic failure, pre-#713 behavior this
             // adapter must not collapse now that chat shares it. Collapsing everything else
             // (400/403/500) to a generic 502 was a real regression found in review: the athlete

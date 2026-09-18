@@ -51,11 +51,11 @@ Day-number design: [ADR 0018](../../../kdb/decisions/0018-coach-since-day-number
 
 ### Gemini boundary
 
-| File                  | Responsibility                                                                                                                                                    |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `coachPromptText.ts`  | Static cached prefix, dynamic mode instructions, history window, and optional context blocks                                                                      |
-| `coachReplySchema.ts` | `GeminiReply`, `TurnMode`, and the mode-specific structured-output schemas (`additionalProperties: false` at every object level, enforced by `LlmJsonSchemaNode`) |
-| `geminiClient.ts`     | Build the prompt/request and parse replies, then run it through `selectLlmAdapter` (`_lib/llmClient.ts`)                                                          |
+| File                  | Responsibility                                                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `coachPromptText.ts`  | Static cached prefix, dynamic mode instructions, history window, and optional context blocks                                                                   |
+| `coachReplySchema.ts` | `LlmReply`, `TurnMode`, and the mode-specific structured-output schemas (`additionalProperties: false` at every object level, enforced by `LlmJsonSchemaNode`) |
+| `coachLlmClient.ts`   | Build the prompt/request and parse replies, then run it through `selectLlmAdapter` (`_lib/llmClient.ts`)                                                       |
 
 The explicit soul cache and the retry-on-400/503/504 logic live behind the seam now, in
 `../../_lib/llmAdapters/geminiAdapter.ts` and its `geminiSoulCache.ts` helper (#713 M2 PR 2) - not
@@ -64,24 +64,24 @@ the schema module must not depend on prompt text.
 
 ### Server-owned actions and writes
 
-| File                         | Responsibility                                                                                            |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `coachProfileIntents.ts`     | Apply profile, memory, coaching-style, availability, sports, and coach-log actions                        |
-| `coachInjuryIntents.ts`      | Apply injury flag/event actions                                                                           |
-| `coachSeasonQuestIntents.ts` | Apply season-start, quest-create, and quest-event actions                                                 |
-| `coachWeekFiles.ts`          | Validate and apply full week plans, session reconciliation, and dated plan edits                          |
-| `coachWorkoutFiles.ts`       | Select/generate initial templates; validate template edits and today's modified session                   |
-| `workoutSchema.ts`           | Structural runtime validation for workout/template JSON                                                   |
-| `coachSinceStamp.ts`         | Load profile state and stamp `coach_since` once when First Session completes                              |
-| `turnRequest.ts`             | Parse the incoming request and load turn state (context, ids, pending clarification)                      |
-| `turnReplyValidation.ts`     | Reply-content validators the reprompt loop in `requestCoachReply.ts` checks against                       |
-| `requestCoachReply.ts`       | Call Gemini, run the one-shot reprompt loop against `turnReplyValidation.ts`'s checks                     |
-| `buildTurnWrites.ts`         | Decide→write assembly - validate reply actions and build the per-field file writes                        |
-| `turnCompletion.ts`          | Post-write cleanup (first-session benchmark generation) and the final atomic commit                       |
-| `activitySync.ts`            | Activity-sync batch id, hist lookup, and attachment rows                                                  |
-| `activitySyncTurn.ts`        | Persist-on-sync Coach turn — one committed thread per verified batch                                      |
-| `turnWrites/`                | One file per `GeminiReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
-| `onboardingWrites.ts`        | Normalize native onboarding hints and suppress duplicate greet commits                                    |
+| File                         | Responsibility                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `coachProfileIntents.ts`     | Apply profile, memory, coaching-style, availability, sports, and coach-log actions                     |
+| `coachInjuryIntents.ts`      | Apply injury flag/event actions                                                                        |
+| `coachSeasonQuestIntents.ts` | Apply season-start, quest-create, and quest-event actions                                              |
+| `coachWeekFiles.ts`          | Validate and apply full week plans, session reconciliation, and dated plan edits                       |
+| `coachWorkoutFiles.ts`       | Select/generate initial templates; validate template edits and today's modified session                |
+| `workoutSchema.ts`           | Structural runtime validation for workout/template JSON                                                |
+| `coachSinceStamp.ts`         | Load profile state and stamp `coach_since` once when First Session completes                           |
+| `turnRequest.ts`             | Parse the incoming request and load turn state (context, ids, pending clarification)                   |
+| `turnReplyValidation.ts`     | Reply-content validators the reprompt loop in `requestCoachReply.ts` checks against                    |
+| `requestCoachReply.ts`       | Call Gemini, run the one-shot reprompt loop against `turnReplyValidation.ts`'s checks                  |
+| `buildTurnWrites.ts`         | Decide→write assembly - validate reply actions and build the per-field file writes                     |
+| `turnCompletion.ts`          | Post-write cleanup (first-session benchmark generation) and the final atomic commit                    |
+| `activitySync.ts`            | Activity-sync batch id, hist lookup, and attachment rows                                               |
+| `activitySyncTurn.ts`        | Persist-on-sync Coach turn — one committed thread per verified batch                                   |
+| `turnWrites/`                | One file per `LlmReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
+| `onboardingWrites.ts`        | Normalize native onboarding hints and suppress duplicate greet commits                                 |
 
 ### Conversation lifecycle
 

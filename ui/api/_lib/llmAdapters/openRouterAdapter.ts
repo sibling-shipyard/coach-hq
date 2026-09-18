@@ -16,7 +16,7 @@
  * do not read a span as proof of it.
  */
 import { fetchWithTimeout } from "../httpTimeout.js";
-import { withGeminiSpan, sumDefined, type GeminiUsage } from "../sentry.js";
+import { withLlmSpan, sumDefined, type LlmUsage } from "../sentry.js";
 import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
 
 export const OPENROUTER_MODEL = "google/gemini-3.8-flash";
@@ -75,8 +75,8 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
   return usage?.prompt_tokens_details?.cached_tokens;
 }
 
-// sumDefined moved to sentry.ts, next to GeminiUsage itself, so it has one home instead of
-// living in a provider-specific adapter file that geminiClient.ts/requestCoachReply.ts had to reach into.
+// sumDefined moved to sentry.ts, next to LlmUsage itself, so it has one home instead of
+// living in a provider-specific adapter file that coachLlmClient.ts/requestCoachReply.ts had to reach into.
 
 /**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
@@ -121,8 +121,8 @@ export function createOpenRouterAdapter(
       // Summed across every attempt inside this call (see the truncation-retry comment below) -
       // span.setAttributes overwrites per key, so this is the only way the span ends up with the
       // real total rather than just the last attempt's numbers.
-      let cumulativeUsage: GeminiUsage = {};
-      const text = await withGeminiSpan(
+      let cumulativeUsage: LlmUsage = {};
+      const text = await withLlmSpan(
         OPENROUTER_MODEL,
         async (recordUsage) => {
           // One attempt: a fetch plus everything short of the truncation decision, which the

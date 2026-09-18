@@ -137,7 +137,7 @@ already builds `questContext` from, so the auto prompt sees identical goal/quest
 No `cachePrefix` - single-shot call, same as `generateProactiveBody`, not a multi-turn conversation.
 
 **LLM call:** `selectLlmAdapter()`, generic seam, no coach-chat-specific adapter logic. On failure,
-`captureGeminiFailure(err, { model, upstreamStatus, turnMode: "weekly_plan_auto", athleteMessage: "" })`
+`captureLlmFailure(err, { model, upstreamStatus, turnMode: "weekly_plan_auto", athleteMessage: "" })`
 - the third real `turnMode` value alongside `proactive_message` and (nominally) `template_adjust`.
 
 **Retry/give-up**, same shape as `FIRST_SESSION_BENCHMARK_MAX_ATTEMPTS`:
@@ -153,7 +153,7 @@ No `cachePrefix` - single-shot call, same as `generateProactiveBody`, not a mult
 stale claim that `template_adjust` is a live `generateContent` call site - it was removed, per
 `coachWorkoutFiles.ts`'s own header comment. Also fix its claim that `activity_sync` is ever
 constructed as a `TurnMode` - it isn't; `activitySyncTurn.ts` calls `generateProactiveBody`, not
-`askGemini`.
+`askLlm`.
 
 **Tests:** mocked-adapter unit test for the success path (asserts the commit matches
 `applyFullWeekKickoff`'s normal shape) and the give-up path (3 failures -> placeholder intact,

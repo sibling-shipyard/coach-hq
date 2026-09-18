@@ -249,7 +249,7 @@ describe("createGeminiAdapter", () => {
   });
 
   it("preserves a 503/504 upstream status rather than collapsing it to 502 (#713)", async () => {
-    // coach-chat's friendlyGeminiErrorMessage (turnReplyValidation.ts) branches on 503/504 specifically to
+    // coach-chat's friendlyLlmErrorMessage (turnReplyValidation.ts) branches on 503/504 specifically to
     // tell a timeout from a generic failure - this adapter must not flatten that distinction now
     // that chat shares it with coach-message.
     const fetcher = vi.fn(async () => new Response("overloaded", { status: 503 }));
@@ -277,7 +277,7 @@ describe("createGeminiAdapter", () => {
 });
 
 // #713 M2 PR 2: the explicit soul cache and its retry logic, moved here from coach-chat's
-// geminiClient.ts. Gated on `request.cachePrefix` being set - a request with no cachePrefix
+// coachLlmClient.ts. Gated on `request.cachePrefix` being set - a request with no cachePrefix
 // (coach-message, tested above with REQUEST which carries none) must never call the cache at all
 // and must never retry, exactly its pre-#713 behavior.
 describe("createGeminiAdapter cachePrefix (#713 M2 PR 2)", () => {

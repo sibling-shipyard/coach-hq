@@ -63,7 +63,7 @@ basically free to build.
 
 The seam is already right for this: `LlmRequest.cachePrefix` (stable) and `LlmRequest.system`
 (per-turn dynamic) are already separate fields in `ui/api/_lib/llmClient.ts`, built by
-`askGemini()` in `ui/api/coach-chat/_lib/gemini/geminiClient.ts`. The only place that erases the
+`askLlm()` in `ui/api/coach-chat/_lib/llm/coachLlmClient.ts`. The only place that erases the
 boundary is `toOpenRouterMessages()` in `ui/api/_lib/llmAdapters/openRouterAdapter.ts`, which
 today does `cachePrefix + "\n" + system` as one plain string.
 

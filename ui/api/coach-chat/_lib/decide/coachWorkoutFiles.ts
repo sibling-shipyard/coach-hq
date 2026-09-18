@@ -177,7 +177,7 @@ export function renumberAfterSkip(
 
 // Resolves plain-language phase names (skip_phases) to exercise nums, matched case-insensitively
 // against the real template's own phase names - Gemini is never shown exercise numbers (see
-// GeminiReply's comment on session_plan for why), so this is where a name like "shoulder & elbow"
+// LlmReply's comment on session_plan for why), so this is where a name like "shoulder & elbow"
 // actually becomes a set of numbers to drop. An unrecognized name is logged and skipped rather
 // than thrown - this is best-effort natural-language matching, not an id-hallucination guard like
 // template_id/quest_id; a near-miss name shouldn't fail the whole session_plan when
