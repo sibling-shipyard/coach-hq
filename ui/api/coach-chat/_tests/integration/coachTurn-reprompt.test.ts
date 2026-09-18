@@ -2620,4 +2620,15 @@ describe("requestCoachReply missed workout_create guard", () => {
 
     expect(askLlm).toHaveBeenCalledTimes(1);
   });
+
+  it("does not reprompt a clarifying question that only says it is ready to build", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "Ready when you are - how many days a week can you train?",
+      coach_note: "Asked about frequency before building.",
+    });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
 });

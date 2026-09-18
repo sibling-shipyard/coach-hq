@@ -389,8 +389,7 @@ export function findMissedRemovalLanguage(turn: TurnState, reply: LlmReply): str
 // done-claim, so it never trips this.
 const BUILD_ROUTINE_LANGUAGE_PATTERN =
   /\b(build|create|make|design|put together|set up)\b.{0,30}\b(routine|workout|template)\b/i;
-const DONE_CLAIM_LANGUAGE_PATTERN =
-  /\b(built|saved|created|added|locked in|set up|all set|ready)\b/i;
+const DONE_CLAIM_LANGUAGE_PATTERN = /\b(built|saved|created|added|locked in|set up|all set)\b/i;
 
 export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;
