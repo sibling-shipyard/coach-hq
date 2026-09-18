@@ -4,7 +4,7 @@ import {
   TEMPLATES_MANIFEST_PATH,
 } from "./decide/coachWorkoutFiles.js";
 import { CURRENT_WEEK_PATH, weekSessionsFromCurrentWeek } from "./decide/coachWeekFiles.js";
-import { askLlm, GEMINI_MODEL } from "./llm/coachLlmClient.js";
+import { askLlm } from "./llm/coachLlmClient.js";
 import { sumUsage, type LlmUsage } from "../../_lib/sentry.js";
 import {
   captureLlmFailure,
@@ -583,8 +583,8 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     await captureLlmFailure(err, {
       traceId: turn.traceId,
       // coachLlmClient.ts tags the resolved adapter's real model onto the error before it
-      // propagates here - falls back to the direct-Gemini constant only if that never ran.
-      model: (err as { model?: string }).model ?? GEMINI_MODEL,
+      // propagates here - falls back to "unknown" only if that never ran.
+      model: (err as { model?: string }).model ?? "unknown",
       upstreamStatus: status,
       turnMode: mode,
       athleteMessage: turn.athleteMessage,

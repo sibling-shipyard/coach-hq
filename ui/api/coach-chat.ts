@@ -19,11 +19,7 @@ import {
 } from "./coach-chat/_lib/decide/coachProfileIntents.js";
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
-import {
-  askLlm,
-  GEMINI_MODEL,
-  type LlmReplyWithUsage,
-} from "./coach-chat/_lib/llm/coachLlmClient.js";
+import { askLlm, type LlmReplyWithUsage } from "./coach-chat/_lib/llm/coachLlmClient.js";
 import { resolveProviderName } from "./_lib/llmClient.js";
 import {
   captureLlmFailure,
@@ -159,9 +155,9 @@ async function handleGreet(
     console.error("[coach-chat] greet askLlm failed:", err);
     await captureLlmFailure(err, {
       // coachLlmClient.ts tags the resolved adapter's real model onto the error before it
-      // propagates here - falls back to the direct-Gemini constant only if that never ran (e.g.
-      // a failure before the adapter was even selected).
-      model: (err as { model?: string }).model ?? GEMINI_MODEL,
+      // propagates here - falls back to "unknown" only if that never ran (e.g. a failure before
+      // the adapter was even selected).
+      model: (err as { model?: string }).model ?? "unknown",
       upstreamStatus: status,
       turnMode: "greeting",
       // Coach opens a greeting turn, so there is no athlete text to record.
