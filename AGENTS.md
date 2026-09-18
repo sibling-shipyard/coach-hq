@@ -146,7 +146,7 @@ standing nit-issue, to satisfy the PR issue-link contract (`.github/CONVENTIONS.
 5. Push and open the PR. Wait for every relevant GitHub check; fix failures and repeat until green.
 6. CI is authoritative. Report completion only after the pushed SHA is green.
 
-**Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
+**Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies. Human guides live in human-only files (`STEERING.md`) — never add human sections to boot files; every boot pays for them.
 
 **Comments: write the constraint, not the chronology.** A comment about what changed earns its
 place only when the past still binds the present — *"optional because history files written before
