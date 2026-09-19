@@ -166,6 +166,9 @@ both map a date to `"MON"` by different mechanisms.
 	returns nothing. Its ids (`workout_a`-`workout_d`, `foundation`) do not even match
 	`platform/skeleton-templates/` (`calisthenics_a`, `strength_a`, `recovery`, `foundation`).
 - `InstrumentHeaderView.swift:29` is referenced only by its own `#Preview` at `:99`.
+- `CoachChatView.swift:68` holds `challengeDayNumber`, the iOS copy of the web function. It is
+	renamed to `coachDayNumber`, the name ADR 0018 uses. It lives here and not in PR 12 because
+	Bob's scope does not include `ios/`.
 
 **PR 12.** `liveWeekContract.ts:77` declares `_legacyChallenge?: any` as positional param 2;
 `grep -rn _legacyChallenge ui` returns the definition only. `coachDay.ts:80-82` documents itself as
@@ -173,7 +176,8 @@ dead - "Not currently called from the turn-building pipeline" - and `coachDayNum
 production callers, only `coach-since.test.ts`. One concept carries three names:
 `coachChatModel.ts:236` `challengeDayNumber` (called from `CoachChat.tsx:96`),
 `coachDay.ts:83` `coachDayNumber`, `CoachChatView.swift:68` `challengeDayNumber`; ADR 0018 names it
-coach-day. `coachChatModel.ts:431` shows the athlete "Gemini free-tier quota exceeded" on a path
+coach-day. PR 12 deletes the uncalled server function and renames the live web one to
+`coachDayNumber`. The iOS copy is renamed in PR 11. `coachChatModel.ts:431` shows the athlete "Gemini free-tier quota exceeded" on a path
 that is no longer Gemini; same naming at `coach-chat-context.ts:2`,
 `prefetchCoachContext.ts:8`, `coachChatModel.ts:441,533`, `currentWeekAdapter.ts:189`.
 

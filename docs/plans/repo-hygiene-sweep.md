@@ -27,7 +27,7 @@ graph LR
   P12 --> P14["PR 14 type ledger"] --> P15["PR 15 silent failures"]
   P15 --> P17["PR 17 auth split"]
   P15 --> P18["PR 18 test split"]
-  P11["PR 11 iOS dead code"] --> P16["PR 16 HealthKit split"]
+  P11["PR 11 iOS cleanup"] --> P16["PR 16 HealthKit split"]
 ```
 
 Arrows show merge order, the `final base` column. Separate chains can be built in parallel.
@@ -70,8 +70,8 @@ Arrows show merge order, the `final base` column. Separate chains can be built i
 | 8 | M3 Enforcement | duplicate CI work dropped; orphan checkers resolved | 7 | `ui-tooling-tests.yml`, `ui/docs/reference_interactions_check.py`, `ui/package.json`, `platform/scripts/checks.conf` | subagent | - | one `vitest scripts/lib` run |
 | 9 | M4 UI weight | 18 unused primitives and 7 deps deleted | main | `ui/client/src/components/ui/*`, `ui/package.json`, `ui/package-lock.json` | UI Expert | - | repo-wide grep finds no reference, build green, bundle smaller |
 | 10 | M4 UI weight | one date module; 9 duplicates collapse | 9 | new `ui/client/src/lib/dates.ts`; lens models, `home-warm/*`, `lib/activities.ts`, `lib/challenge.ts` | UI Expert | 11 | one Monday formula |
-| 11 | M5 Retired names | iOS dead code deleted | main | delete `EnginePageView.swift` (keep `EnginePageMath`), `BundledTemplates.swift`; `InstrumentHeaderView.swift` | iOS Builder | 9, 10 | iOS build + tests green |
-| 12 | M5 Retired names | dead params gone; one name for coach-day | 10 | `liveWeekContract.ts`, `coachDay.ts` + test, `coachChatModel.ts`, `CoachChat.tsx`, `CoachChatView.swift` | Bob | - | no user-facing "Gemini" |
+| 11 | M5 Retired names | iOS dead code deleted; coach-day function renamed | main | delete `EnginePageView.swift` (keep `EnginePageMath`), `BundledTemplates.swift`; `InstrumentHeaderView.swift`; rename in `CoachChatView.swift` | iOS Builder | 9, 10 | iOS build + tests green |
+| 12 | M5 Retired names | dead params gone; one name for coach-day | 10 | `liveWeekContract.ts`, `coachDay.ts` + test, `coachChatModel.ts`, `CoachChat.tsx` | Bob | - | no user-facing "Gemini" |
 | 13 | M5 Retired names | back-compat states its exit; stale `fileEdits.ts` contract fixed | 12 | `repo-resolution.ts`, `fileEdits.ts` | Bob | - | every back-compat path names its exit |
 | 14 | M6 Boundary | the ledger boundary is typed | 12 | `hooks/useRepoData.ts` and `tsc` fallout | UI Expert | 15 | `SplitLedger` not bypassed at entry |
 | 15 | M6 Boundary | 2 silent failures report | 14 | `commit/activitySyncTurn.ts`, `auth/[...action].ts` | Bob | - | a GitHub outage is visible |
