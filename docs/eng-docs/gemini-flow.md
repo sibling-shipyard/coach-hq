@@ -287,6 +287,31 @@ The reprompt is one call shared by every violation. What happens when a problem 
 4. **Silent server fixups reach Sentry.** An unmatched or ambiguous `skip_phases` name, a nulled `template_id`, a coerced discipline, and a synthesized `quest_event` or `coach_note` queue in `decide/silentFixups.ts`. `commitTurn` sends one Sentry warning per turn.
 5. **Per-turn reads are pinned.** The templates manifest, `current_week.json` and the coach-context files are read at the head commit sha fetched that turn. A read by branch name right after a commit can miss the previous turn's write.
 
+### Model calls per turn, and what they cost
+
+A turn makes one model call when no check trips. It makes at most four:
+
+1. **The first call.**
+2. **One shared reprompt.** Every check that tripped is combined into a single corrective note.
+3. **One `workout_create` call.** It runs only if a routine problem survived call 2.
+4. **One invalid-id reprompt.** It runs when a quest, injury or template id doesn't exist.
+
+The client also retries once on cut-off JSON, and the adapters retry 503 and 504. Those are transport retries and are not counted above.
+
+**Cost.** Production runs `google/gemini-3.8-flash` on OpenRouter. Measured over 360 live test turns:
+
+| Measure | Cost per turn |
+|---|---|
+| One call (about 10.8k prompt tokens) | $0.008 to $0.013 |
+| Median | $0.013 |
+| Mean | $0.015 |
+| 90th percentile | $0.026 |
+| Maximum seen | $0.074 (a long history) |
+
+The shared reprompt fired on 18 percent of 151 traced test turns. Those scenarios are built to provoke actions, so real traffic should fire it less. A reprompt costs about as much as the first call, because the prompt is the same size. The worst case, four calls, is about four times one call, or $0.04 to $0.05.
+
+**Latency.** Each call takes about 5 to 12 seconds, so a four-call turn usually finishes well inside a minute. A single call times out at 60 seconds and the function limit is 300 seconds. The retry layers do not share a deadline, so four calls that all run slow could approach that limit.
+
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.
 `findMissedProfileLanguage` checks the athlete's own message for stated age, height/weight, or
