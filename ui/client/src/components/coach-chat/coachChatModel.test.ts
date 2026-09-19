@@ -34,8 +34,12 @@ import {
 // fetchWithRetry sleeps 500ms then 1s between retries of a 5xx, 429 or network failure, and many
 // tests here fail a fetch on purpose. Those real sleeps made this file take ~16s, and a test that
 // makes two failing calls sits at 3s of sleeping, so under load it could pass the default 5s
-// timeout and a different test failed each run. Backoff sleeps run at once here; the 5s
-// proactive-snapshot abort timer is left alone.
+// timeout and a different test failed each run. The backoff sleeps run at once here.
+//
+// Coupled to coachChatModel.ts's `500 * 2 ** attempt` schedule: only those exact delays are
+// skipped, so any other timer (the 5s proactive-snapshot abort, a future debounce) stays real. If
+// the schedule changes, update this list.
+const BACKOFF_DELAYS_MS = new Set([500, 1_000, 2_000, 4_000]);
 let setTimeoutSpy: MockInstance<typeof setTimeout>;
 beforeEach(() => {
   const realSetTimeout = globalThis.setTimeout;
@@ -44,7 +48,7 @@ beforeEach(() => {
     ms?: number,
     ...args: unknown[]
   ) => {
-    const isBackoff = typeof ms === "number" && ms >= 500 && ms < 5_000;
+    const isBackoff = typeof ms === "number" && BACKOFF_DELAYS_MS.has(ms);
     return realSetTimeout(handler as () => void, isBackoff ? 0 : ms, ...args);
   }) as typeof setTimeout);
 });
