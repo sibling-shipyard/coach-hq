@@ -79,6 +79,27 @@ export function missingRequiredCoachNote(reply: LlmReply): boolean {
   });
 }
 
+// Round-2 retest: the model returned no coach_note even after the reprompt, so a weight update was
+// saved but coach_log never got a row for the turn and the coach's own record had a hole. The fields
+// already carry every fact, so a plain note built from them is safe: it states only what was
+// recorded, never anything the athlete or model did not say.
+export function synthesizeRequiredCoachNote(reply: LlmReply): string | undefined {
+  if (!missingRequiredCoachNote(reply)) return undefined;
+  const parts: string[] = [];
+  for (const update of reply.profile_update ?? []) {
+    parts.push(`profile ${update.field} = ${update.value}`);
+  }
+  for (const field of ACTIONS_REQUIRING_COACH_NOTE) {
+    if (field === "profile_update") continue;
+    const value = reply[field];
+    const count = Array.isArray(value) ? value.length : value != null ? 1 : 0;
+    if (count > 0) parts.push(count > 1 ? `${field} x${count}` : field);
+  }
+  return parts.length > 0
+    ? `Auto-note (no note from the model): recorded ${parts.join("; ")}.`
+    : undefined;
+}
+
 // Finding D (OpenRouter K1 retest) mitigation: a self-audit signal, not a text heuristic. A dense
 // first message (a goal plus multiple injuries and habits in one turn) was found to make the
 // model narrate every fact in reply/coach_note while dropping almost all the matching action

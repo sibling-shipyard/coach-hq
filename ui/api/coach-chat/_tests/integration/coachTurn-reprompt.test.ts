@@ -2886,12 +2886,49 @@ describe("requestCoachReply workout_create dose reprompt", () => {
 
     await requestCoachReply(state());
 
-    expect(askLlm).toHaveBeenCalledTimes(2);
+    // The first reprompt, then one more call for the dose rule alone.
+    expect(askLlm).toHaveBeenCalledTimes(3);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledTimes(1);
     expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detectors: expect.arrayContaining(["workoutCreateProgression"]),
+      expect.objectContaining({ detectors: ["workoutCreateProgression"] }),
+    );
+  });
+
+  // Round-2 retest: the first pass had no workout_create at all, so the one reprompt was spent on
+  // that, and its reply then broke the dose rule with nothing left to fix it.
+  it("gets a second chance to re-dose when the first reprompt was spent on a missing workout_create", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "I built you a routine and locked it in.",
+        coach_note: "Built a routine.",
+      })
+      .mockResolvedValueOnce({
+        reply: "I built you a routine and locked it in.",
+        coach_note: "Built a routine.",
+        workout_create: routine(35),
+      })
+      .mockResolvedValueOnce({
+        reply: "I built you a routine and locked it in.",
+        coach_note: "Built a routine.",
+        workout_create: routine(0.5),
+      });
+
+    const result = await requestCoachReply(
+      baseTurnState({
+        trimmed: "Can you build me a bodyweight strength routine for home?",
+        athleteMessage: "Can you build me a bodyweight strength routine for home?",
+        context: { soul: "soul", progressions },
       }),
     );
+
+    expect(askLlm).toHaveBeenCalledTimes(3);
+    const thirdCallMessage = askLlm.mock.calls[2]?.[5] as string;
+    expect(thirdCallMessage).toContain('doses 105 above progression "handstand_free"');
+    expect(thirdCallMessage).toContain("drop its progression_id");
+    expect(
+      "reply" in result && result.reply.workout_create?.phases[0]?.exercises[0]?.duration_secs,
+    ).toBe(0.5);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
   });
 
   it("does not reprompt a dose within the progression's current value", async () => {
