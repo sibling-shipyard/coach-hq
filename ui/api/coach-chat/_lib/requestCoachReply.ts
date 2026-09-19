@@ -34,6 +34,7 @@ import {
   findMissedProfileLanguage,
   findMissedRemovalLanguage,
   findMissedSportsLanguage,
+  findMissedCoachingStyleLanguage,
   findMissedWorkoutCreateLanguage,
   findMissedTemplateEditLanguage,
   findMissedSessionPlanLanguage,
@@ -267,6 +268,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
+    const missedCoachingStyleLanguage = findMissedCoachingStyleLanguage(turn, reply);
     const missedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
     const missedTemplateEditLanguage = findMissedTemplateEditLanguage(turn, reply);
     const missedSessionPlanLanguage = findMissedSessionPlanLanguage(turn, reply);
@@ -305,6 +307,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedProfileLanguage ||
       missedRemovalLanguage ||
       missedSportsLanguage ||
+      missedCoachingStyleLanguage ||
       missedWorkoutCreateLanguage ||
       missedTemplateEditLanguage ||
       missedSessionPlanLanguage ||
@@ -329,6 +332,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedProfileLanguage,
         missedRemovalLanguage,
         missedSportsLanguage,
+        missedCoachingStyleLanguage,
         missedWorkoutCreateLanguage,
         missedTemplateEditLanguage,
         missedSessionPlanLanguage,
@@ -415,6 +419,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " this turn - if a new or changed sport was genuinely stated, add it now as" +
             " sports_update with the full list; if it genuinely doesn't describe a new or changed" +
             " sport, disregard this note",
+        );
+      }
+      if (missedCoachingStyleLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedCoachingStyleLanguage}" but no coaching_style_update` +
+            " was set this turn - if they described how they want to be coached, set" +
+            " coaching_style_update to the closest of accountability, encouragement or analysis; if" +
+            " it genuinely isn't a coaching-style answer, disregard this note",
         );
       }
       if (missedWorkoutCreateLanguage) {
@@ -543,6 +555,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
+      const stillMissedCoachingStyleLanguage = findMissedCoachingStyleLanguage(turn, reply);
       const stillMissedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
       const stillMissedTemplateEditLanguage = findMissedTemplateEditLanguage(turn, reply);
       const stillMissedSessionPlanLanguage = findMissedSessionPlanLanguage(turn, reply);
@@ -582,6 +595,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedProfileLanguage ||
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
+        stillMissedCoachingStyleLanguage ||
         stillMissedWorkoutCreateLanguage ||
         stillMissedTemplateEditLanguage ||
         stillMissedSessionPlanLanguage ||
@@ -608,6 +622,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage,
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
+            stillMissedCoachingStyleLanguage,
             stillMissedWorkoutCreateLanguage,
             stillMissedTemplateEditLanguage,
             stillMissedSessionPlanLanguage,
@@ -636,6 +651,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           stillMissedProfileLanguage ? "missedProfileLanguage" : null,
           stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
           stillMissedSportsLanguage ? "missedSportsLanguage" : null,
+          stillMissedCoachingStyleLanguage ? "missedCoachingStyleLanguage" : null,
           stillMissedTemplateEditLanguage ? "missedTemplateEditLanguage" : null,
           stillMissedSessionPlanLanguage ? "missedSessionPlanLanguage" : null,
           stillMissedWeekUpdateLanguage ? "missedWeekUpdateLanguage" : null,
