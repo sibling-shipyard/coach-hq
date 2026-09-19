@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-19
 
 ## Context
 
@@ -262,20 +262,30 @@ test already covers.
 
 | Field | Missed-language / narration guard | Other reprompt or write-time guard |
 |---|---|---|
-| `workout_create` | prompt reinforcement | `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), `findMissingWorkoutCreateInjuryAck` (structural, active-flag-vs-injury_ack mismatch - #1071), injury/dose invariants at write time |
+| `workout_create` | prompt reinforcement + `findMissedWorkoutCreateLanguage` (a build request, no workout action, and a reply that claims it was done or asks nothing back) | `findWorkoutCreateProgressionViolations` (the dose and unknown-progression rules, shared with the applier), one extra `workout_create`-only call after the reprompt (see "After the reprompt fails"), `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), `findMissingWorkoutCreateInjuryAck` (structural, active-flag-vs-injury_ack mismatch - #1071), injury/dose invariants at write time |
 | `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
-| `week_update` (patch) | prompt reinforcement | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment). |
+| `week_update` (patch) | prompt reinforcement + `findMissedWeekUpdateLanguage` (a this-week or named-day schedule request, a first-person done-claim, no `week_update`) | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment). |
 | `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
 | `injury_flag` | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D) | - |
 | `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
-| `template_edit`, `session_plan` | prompt reinforcement only (#1072) | `findUnconfirmedAssumption` (schedule-change gate only) |
+| `template_edit`, `session_plan` | prompt reinforcement + `findMissedTemplateEditLanguage` (permanent wording) + `findMissedSessionPlanLanguage` (today-only wording), each needing a first-person done-claim and no matching action | `findUnconfirmedAssumption` (schedule-change gate only). A `skip_phases` name matches a phase exactly or by one whole word, and an ambiguous match is ignored |
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
 | `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
 | `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
-| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
+| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only: started, starting an activity, taking up, getting into, joined - each with false-positive exclusions) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
+
+### After the reprompt fails
+
+The reprompt is one call shared by every violation. What happens when a problem survives it:
+
+1. **The athlete is told.** When a claim guard (`workout_create`, `template_edit`, `session_plan`, `week_update`) still fires, `buildTurnWrites` appends "(Note: that ... wasn't saved - ask again ...)" to the reply the athlete sees. It works like the note for a dropped action.
+2. **`workout_create` gets one more call.** After the shared reprompt, any remaining dose, structure, missing-routine or missing-`injury_ack` problem is named in one more call. Sentry reports only what survives it.
+3. **A missing `coach_note` gets a fallback.** If a required-note action still has no `coach_note`, a plain note is built from the validated recorded fields, never from an action a bad reference dropped.
+4. **Silent server fixups reach Sentry.** An unmatched or ambiguous `skip_phases` name, a nulled `template_id`, a coerced discipline, and a synthesized `quest_event` or `coach_note` queue in `decide/silentFixups.ts`. `commitTurn` sends one Sentry warning per turn.
+5. **Per-turn reads are pinned.** The templates manifest, `current_week.json` and the coach-context files are read at the head commit sha fetched that turn. A read by branch name right after a commit can miss the previous turn's write.
 
 **#1009 hardening round, PR A (2026-09-14):** `profile_update` now has the same reprompt-guard
 treatment `season_start`/`injury_flag`/`quest_create` got in the #727 round.

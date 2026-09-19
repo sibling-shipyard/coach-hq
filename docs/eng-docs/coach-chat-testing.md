@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-19
 
 ## Context
 
@@ -222,6 +222,8 @@ OpenRouter) `OPENROUTER_API_KEY`, loaded automatically via `process.loadEnvFile`
 `run-manual-coach-chat-test.ts` - no manual `export` needed. Before spending a real call, sanity
 check the key actually has credit. A depleted key fails identically whether direct or via
 `soulCache`'s caching path: `429 RESOURCE_EXHAUSTED - "Your prepayment credits are depleted"`.
+
+**The OpenRouter key in `ui/.env.local` is production's key.** A live run spends production's monthly budget, and a run that hits the cap returns `403 Budget limit exceeded` to real athletes. Check `GET https://openrouter.ai/api/v1/key` for headroom before any batch. Prefer a separate test key.
 
 ```bash
 source ui/.env.local
