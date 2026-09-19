@@ -164,7 +164,7 @@ commit, read back and confirm the plan reflects that repo's actual weekday patte
 
 ## Prompt caching (PR3)
 
-Gate: `docs/plans/openrouter-caching.md` (chat) must have shipped and shown cached tokens in Sentry.
+Gate: ADR 0053 (chat marker) must have shipped and shown cached tokens in Sentry.
 The prompt shape below costs nothing to build in, so PR3 builds it either way.
 
 **Shape.** `buildWeeklyPlanAutoPrompt` returns `{ prefix, tail }`, not one string.

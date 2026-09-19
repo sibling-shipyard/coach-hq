@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-16 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 >
 > Coverage boundary rewritten after the #1078 stack (PRs #1088–#1098).
 
@@ -252,7 +252,9 @@ React render-crash paths. Client fetches go through `captureFetchFailure`
 `http.server` span on each wrapped API route, and the Gemini spans we open by hand. On the
 OpenRouter path, that span also carries `gen_ai.usage.cost.usd` (USD for the whole call) and
 `gen_ai.usage.input_tokens.cached` (#889) — direct Gemini has neither, since Vertex reports no
-per-call cost on that path. A web report carries the SDK's own click, navigation and fetch
+per-call cost on that path. The same span carries `llm.cache_marker` (`true` when the request sent a
+`cache_control` block), so compare cached tokens for `true` against `false`. A first call can
+legitimately cache 0, so there is no alert on a zero cached count. A web report carries the SDK's own click, navigation and fetch
 breadcrumbs as its timeline, copied onto `extra.trail` when the dialog opens. `beforeBreadcrumb`
 drops the `console` ones, because those would carry arbitrary logged text on a path ADR 0032
 scoped to failed Gemini calls. Also counted: a sync whose numbers never refreshed,
