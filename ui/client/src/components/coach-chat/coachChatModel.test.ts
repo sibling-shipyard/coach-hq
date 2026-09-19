@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 vi.mock("@/lib/observability", () => ({
   captureFetchFailure: vi.fn(),
@@ -30,6 +30,27 @@ import {
   type ChatMessage,
   type ChatThread,
 } from "./coachChatModel";
+
+// fetchWithRetry sleeps 500ms then 1s between retries of a 5xx, 429 or network failure, and many
+// tests here fail a fetch on purpose. Those real sleeps made this file take ~16s, and a test that
+// makes two failing calls sits at 3s of sleeping, so under load it could pass the default 5s
+// timeout and a different test failed each run. Backoff sleeps run at once here; the 5s
+// proactive-snapshot abort timer is left alone.
+let setTimeoutSpy: MockInstance<typeof setTimeout>;
+beforeEach(() => {
+  const realSetTimeout = globalThis.setTimeout;
+  setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+    handler: TimerHandler,
+    ms?: number,
+    ...args: unknown[]
+  ) => {
+    const isBackoff = typeof ms === "number" && ms >= 500 && ms < 5_000;
+    return realSetTimeout(handler as () => void, isBackoff ? 0 : ms, ...args);
+  }) as typeof setTimeout);
+});
+afterEach(() => {
+  setTimeoutSpy.mockRestore();
+});
 
 const mockedCaptureFetchFailure = vi.mocked(captureFetchFailure);
 
