@@ -43,8 +43,8 @@
   },
   "manual:fsp-basic": {
     "type": "manual",
-    "last_pass_sha": "3b75a645f8312705983b60df3d3e28f539219535",
-    "last_run_date": "2026-09-15",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
+    "last_run_date": "2026-09-19",
     "watched_paths": [
       "ui/api/coach-chat.ts",
       "ui/api/coach-chat/_lib/turnRequest.ts",
@@ -52,15 +52,15 @@
       "ui/api/coach-chat/_lib/requestCoachReply.ts",
       "ui/api/coach-chat/_lib/buildTurnWrites.ts",
       "ui/api/coach-chat/_lib/turnCompletion.ts",
-      "ui/api/coach-chat/_lib/gemini/coachPromptText.ts",
-      "ui/api/coach-chat/_lib/gemini/coachReplySchema.ts",
-      "ui/api/coach-chat/_lib/gemini/geminiClient.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
       "ui/api/coach-chat/_lib/decide/turnWrites/",
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.062
+    "last_cost_usd": 0.06486299999999999
   },
   "manual:ambiguous-contradiction": {
     "type": "manual",
