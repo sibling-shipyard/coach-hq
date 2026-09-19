@@ -1,0 +1,140 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (402): {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3IrA1ypDlidlNjaSYTV7Ska0yqS\"}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "9ae81c02a18f002c239737929754aa187da33c7d",
+    "shaAfter": "9ae81c02a18f002c239737929754aa187da33c7d"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "messages": [],
+      "message": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "d2l3t5ce"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "9ae81c02a18f002c239737929754aa187da33c7d",
+    "shaAfter": "9ae81c02a18f002c239737929754aa187da33c7d"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772418623",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772418623",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772418623",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Two things - I want to permanently swap the core phase out of the full-body strength routine you just built me, going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - add a 20 minute mobility session on Saturday, just for this week."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "tkvpogrp"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "9ae81c02a18f002c239737929754aa187da33c7d",
+    "shaAfter": "9ae81c02a18f002c239737929754aa187da33c7d"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772418623",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772418623",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772418623",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772421242",
+          "role": "user",
+          "text": "Two things - I want to permanently swap the core phase out of the full-body strength routine you just built me, going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - add a 20 minute mobility session on Saturday, just for this week."
+        },
+        {
+          "id": "c-1789772421242",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "zmr2ykwn"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "9ae81c02a18f002c239737929754aa187da33c7d",
+    "shaAfter": "9ae81c02a18f002c239737929754aa187da33c7d"
+  }
+]

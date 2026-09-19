@@ -1,0 +1,108 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-57-46-452Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Morning, Prateek. We've got the Strength and Weight Gain season on the board, but we need to put that first session in the books. How are you feeling to get moving today?",
+      "threadId": "t-1789621071580",
+      "threads": [],
+      "repoSha": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "usage": {
+      "promptTokens": 6926,
+      "completionTokens": 45,
+      "totalTokens": 6971,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00536325
+    },
+    "costUsd": 0.00536325
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T04-57-46-452Z",
+    "input": {
+      "threadId": "t-1789621071580",
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "reply": "Look, here is the full week locked in. We've got Strength A queued up for today, light mobility tomorrow, football on Saturday, and Sunday completely off to recover. Monday through Wednesday are mapped out to frame the full spine. Let me know how today's lifting feels.",
+      "threadId": "t-1789621071580",
+      "threads": [
+        {
+          "id": "t-1789621071580",
+          "createdAt": 1789621073015,
+          "title": "I don't have a plan for this…",
+          "preview": "Look, here is the full week locked in. We've got Strength A queued up for today,",
+          "messages": [
+            {
+              "id": "d-1789621073015",
+              "role": "divider",
+              "label": "TODAY · 5:59 AM"
+            },
+            {
+              "id": "u-1789621073015",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789621073015",
+              "role": "coach",
+              "paragraphs": [
+                "Look, here is the full week locked in. We've got Strength A queued up for today, light mobility tomorrow, football on Saturday, and Sunday completely off to recover. Monday through Wednesday are mapped out to frame the full spine. Let me know how today's lifting feels."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "c0e3090f6eb75ee19465cfbff405a3e64ffd2ef9",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "tav6hru1",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex c4344e1..6fe7488 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,3 +1,34 @@\n {\n-  \"threads\": []\n-}\n+  \"_meta\": {\n+    \"updated_at\": \"2026-09-17T04:59:05.445Z\",\n+    \"updated_by\": \"coach\",\n+    \"trace_id\": \"tav6hru1\"\n+  },\n+  \"threads\": [\n+    {\n+      \"id\": \"t-1789621071580\",\n+      \"createdAt\": 1789621073015,\n+      \"title\": \"I don't have a plan for this…\",\n+      \"preview\": \"Look, here is the full week locked in. We've got Strength A queued up for today,\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789621073015\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 5:59 AM\"\n+        },\n+        {\n+          \"id\": \"u-1789621073015\",\n+          \"role\": \"user\",\n+          \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n+        },\n+        {\n+          \"id\": \"c-1789621073015\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, here is the full week locked in. We've got Strength A queued up for today, light mobility tomorrow, football on Saturday, and Sunday completely off to recover. Monday through Wednesday are mapped out to frame the full spine. Let me know how today's lifting feels.\"\n+          ]\n+        }\n+      ]\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 452e1ea..d839c8c 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -1,4 +1,13 @@\n {\n   \"version\": 1,\n-  \"rows\": []\n-}\n+  \"rows\": [\n+    {\n+      \"id\": \"sess_2026-09-17_19q3\",\n+      \"date\": \"2026-09-17\",\n+      \"ts\": \"2026-09-17T04:59:02.472Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Laid out full 7-day week (Sep 14 - Sep 20) locked with foundation, strength, football, and cycling baseline slots to establish the active week plan.\",\n+      \"trace_id\": \"tav6hru1\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex be861a2..0b1536d 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,164 @@\n {\n   \"schema_version\": 1,\n-  \"data_status\": \"placeholder\",\n-  \"timezone\": \"UTC\",\n+  \"data_status\": \"live\",\n+  \"timezone\": \"Europe/London\",\n   \"week\": {\n-    \"id\": \"2026-W37\",\n-    \"start_date\": \"2026-09-07\",\n-    \"end_date\": \"2026-09-13\",\n-    \"focus\": null,\n-    \"guardrails\": []\n+    \"id\": \"2026-W38\",\n+    \"start_date\": \"2026-09-14\",\n+    \"end_date\": \"2026-09-20\",\n+    \"focus\": \"Build consistent training rhythm across strength, cycling, and football.\",\n+    \"guardrails\": [\n+      \"No heavy strength on football match days\",\n+      \"Prioritize recovery mobility after intensity work\"\n+    ]\n+  },\n+  \"coach_read\": {\n+    \"headline\": \"Locking down the weekly spine\",\n+    \"body\": \"Establishing consistency across your sports profile with dedicated strength, recovery, and sport days.\",\n+    \"valid_from\": \"2026-09-17\",\n+    \"valid_until\": \"2026-09-20\"\n   },\n-  \"coach_read\": null,\n   \"days\": [\n     {\n-      \"date\": \"2026-09-07\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-14\",\n+      \"intent\": \"Foundation strength to set up the week\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260914_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"foundation\",\n+          \"kind\": \"workout\",\n+          \"title\": \"Foundation Strength\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-08\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-15\",\n+      \"intent\": \"Aerobic base ride\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260915_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"cycling\",\n+          \"kind\": \"ride\",\n+          \"title\": \"Zone 2 Base Ride\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-09\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-16\",\n+      \"intent\": \"Recovery and mobility reset\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260916_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Mobility & Bodyweight Reset\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 30,\n+          \"template_id\": \"recovery_mobility_bodyweight\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-10\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-17\",\n+      \"intent\": \"Primary strength session\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260917_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"strength\",\n+          \"kind\": \"workout\",\n+          \"title\": \"Strength A\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 50,\n+          \"template_id\": \"strength_a\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-11\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-18\",\n+      \"intent\": \"Pre-match mobility and rest\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260918_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Pre-Match Mobility\",\n+          \"priority\": \"optional\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 30,\n+          \"template_id\": \"recovery_mobility_bodyweight\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-12\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-19\",\n+      \"intent\": \"Football match or scrimmage\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260919_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"football\",\n+          \"kind\": \"match\",\n+          \"title\": \"Football Session\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-13\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-20\",\n+      \"intent\": \"Full rest day\",\n       \"coach_note\": null,\n       \"sessions\": []\n     }\n   ],\n-  \"updated_at\": \"2026-09-13T22:14:03.528Z\",\n-  \"updated_by\": \"rollover\",\n-  \"trace_id\": \"rollover\"\n-}\n+  \"updated_at\": \"2026-09-17T04:59:01.532Z\",\n+  \"updated_by\": \"model\",\n+  \"trace_id\": \"tav6hru1\"\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "c0e3090f6eb75ee19465cfbff405a3e64ffd2ef9",
+    "usage": {
+      "promptTokens": 25253,
+      "completionTokens": 1318,
+      "totalTokens": 26571,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.02388225
+    },
+    "costUsd": 0.02388225
+  }
+]

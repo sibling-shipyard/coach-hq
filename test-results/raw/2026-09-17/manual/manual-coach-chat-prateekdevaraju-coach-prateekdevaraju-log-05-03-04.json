@@ -1,0 +1,207 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-02-35-084Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Morning, Prateek. We've got the Strength and Weight Gain season on the board, but we're still sitting at zero on the strength work. How are we looking today to get session number one in the books?",
+      "threadId": "t-1789621362397",
+      "threads": [],
+      "repoSha": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "usage": {
+      "promptTokens": 6926,
+      "completionTokens": 51,
+      "totalTokens": 6977,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00538575
+    },
+    "costUsd": 0.00538575
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-02-35-084Z",
+    "input": {
+      "threadId": "t-1789621362397",
+      "messages": [],
+      "message": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+    },
+    "output": {
+      "reply": "Look, building consistency starts with the simple things you do every single day. I've locked in your new habit: reading for 20 minutes every night. It's tracked now. Show up for it tonight, get your 20 minutes in, and we build from there.",
+      "threadId": "t-1789621362397",
+      "threads": [
+        {
+          "id": "t-1789621362397",
+          "createdAt": 1789621363771,
+          "title": "Nothing major to report toda…",
+          "preview": "Look, building consistency starts with the simple things you do every single day",
+          "messages": [
+            {
+              "id": "d-1789621363771",
+              "role": "divider",
+              "label": "TODAY · 6:02 AM"
+            },
+            {
+              "id": "u-1789621363771",
+              "role": "user",
+              "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+            },
+            {
+              "id": "c-1789621363771",
+              "role": "coach",
+              "paragraphs": [
+                "Look, building consistency starts with the simple things you do every single day. I've locked in your new habit: reading for 20 minutes every night. It's tracked now. Show up for it tonight, get your 20 minutes in, and we build from there."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "8e5fd8a5dbb0c4f6fc7bc6c6dce81b398ee55dd9",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "fc5eode2",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json",
+        "user_data/ledger/quests.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex c4344e1..c773ae4 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,3 +1,34 @@\n {\n-  \"threads\": []\n-}\n+  \"_meta\": {\n+    \"updated_at\": \"2026-09-17T05:02:52.302Z\",\n+    \"updated_by\": \"coach\",\n+    \"trace_id\": \"fc5eode2\"\n+  },\n+  \"threads\": [\n+    {\n+      \"id\": \"t-1789621362397\",\n+      \"createdAt\": 1789621363771,\n+      \"title\": \"Nothing major to report toda…\",\n+      \"preview\": \"Look, building consistency starts with the simple things you do every single day\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789621363771\",\n+          \"role\": \"divider\",\n+          \"label\": \"TODAY · 6:02 AM\"\n+        },\n+        {\n+          \"id\": \"u-1789621363771\",\n+          \"role\": \"user\",\n+          \"text\": \"Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal.\"\n+        },\n+        {\n+          \"id\": \"c-1789621363771\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, building consistency starts with the simple things you do every single day. I've locked in your new habit: reading for 20 minutes every night. It's tracked now. Show up for it tonight, get your 20 minutes in, and we build from there.\"\n+          ]\n+        }\n+      ]\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex 452e1ea..648490a 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -1,4 +1,13 @@\n {\n   \"version\": 1,\n-  \"rows\": []\n-}\n+  \"rows\": [\n+    {\n+      \"id\": \"sess_2026-09-17_kxmv\",\n+      \"date\": \"2026-09-17\",\n+      \"ts\": \"2026-09-17T05:02:48.479Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Added a new daily habit: reading for 20 minutes every night (daily_streak, default_not_done).\",\n+      \"trace_id\": \"fc5eode2\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex be861a2..f2b0391 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,60 @@\n {\n   \"schema_version\": 1,\n   \"data_status\": \"placeholder\",\n-  \"timezone\": \"UTC\",\n+  \"timezone\": \"Europe/London\",\n   \"week\": {\n-    \"id\": \"2026-W37\",\n-    \"start_date\": \"2026-09-07\",\n-    \"end_date\": \"2026-09-13\",\n+    \"id\": \"2026-W38\",\n+    \"start_date\": \"2026-09-14\",\n+    \"end_date\": \"2026-09-20\",\n     \"focus\": null,\n     \"guardrails\": []\n   },\n   \"coach_read\": null,\n   \"days\": [\n     {\n-      \"date\": \"2026-09-07\",\n+      \"date\": \"2026-09-14\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-08\",\n+      \"date\": \"2026-09-15\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-09\",\n+      \"date\": \"2026-09-16\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-10\",\n+      \"date\": \"2026-09-17\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-11\",\n+      \"date\": \"2026-09-18\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-12\",\n+      \"date\": \"2026-09-19\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-13\",\n+      \"date\": \"2026-09-20\",\n       \"intent\": null,\n       \"coach_note\": null,\n       \"sessions\": []\n     }\n   ],\n-  \"updated_at\": \"2026-09-13T22:14:03.528Z\",\n+  \"updated_at\": \"2026-09-17T05:02:43.771Z\",\n   \"updated_by\": \"rollover\",\n   \"trace_id\": \"rollover\"\n-}\n+}\n\\ No newline at end of file\ndiff --git a/user_data/ledger/quests.json b/user_data/ledger/quests.json\nindex b0c94b4..9ddc8d1 100644\n--- a/user_data/ledger/quests.json\n+++ b/user_data/ledger/quests.json\n@@ -1,9 +1,9 @@\n {\n   \"version\": 1,\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-11\",\n-    \"updated_by\": \"coach\",\n-    \"trace_id\": \"f1-migration-2026-09-11\"\n+    \"updated_at\": \"2026-09-17T05:02:49.282Z\",\n+    \"updated_by\": \"model\",\n+    \"trace_id\": \"fc5eode2\"\n   },\n   \"weekly_targets\": {},\n   \"main_quest\": {\n@@ -14,5 +14,18 @@\n     \"count_pattern\": \"^WeightTraining\\\\s*#\",\n     \"season_id\": \"season_strength_weight_gain_sea_o1jd\"\n   },\n-  \"quests\": []\n-}\n+  \"quests\": [\n+    {\n+      \"id\": \"q_read_for_20_minutes_12s1\",\n+      \"name\": \"Read for 20 minutes\",\n+      \"type\": \"daily_streak\",\n+      \"start_date\": \"2026-09-17\",\n+      \"end_date\": null,\n+      \"status\": \"active\",\n+      \"polarity\": \"default_not_done\",\n+      \"target\": 20,\n+      \"unit\": \"minutes\",\n+      \"source\": \"model\"\n+    }\n+  ]\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "33f600ac35d775fcb88381e03c1c1567c63a42aa",
+    "shaAfter": "8e5fd8a5dbb0c4f6fc7bc6c6dce81b398ee55dd9",
+    "usage": {
+      "promptTokens": 12494,
+      "completionTokens": 189,
+      "totalTokens": 12683,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.01007925
+    },
+    "costUsd": 0.01007925
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-2026-09-17T05-02-35-084Z",
+    "input": {
+      "threadId": "t-1789621362397",
+      "messages": [
+        {
+          "id": "d-1789621374863",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789621374863",
+          "role": "user",
+          "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+        },
+        {
+          "id": "c-1789621374863",
+          "role": "coach",
+          "paragraphs": [
+            "Look, building consistency starts with the simple things you do every single day. I've locked in your new habit: reading for 20 minutes every night. It's tracked now. Show up for it tonight, get your 20 minutes in, and we build from there."
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "reply": "You got it. Go get after it today, Prateek. We stay on the process.",
+      "threadId": "t-1789621362397",
+      "threads": [
+        {
+          "id": "t-1789621362397",
+          "createdAt": 1789621363771,
+          "title": "Nothing major to report toda…",
+          "preview": "You got it. Go get after it today, Prateek. We stay on the process.",
+          "messages": [
+            {
+              "id": "d-1789621374863",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789621374863",
+              "role": "user",
+              "text": "Nothing major to report today. I do want to start a new habit though - reading for 20 minutes every night, no other changes to my season or goal."
+            },
+            {
+              "id": "c-1789621374863",
+              "role": "coach",
+              "paragraphs": [
+                "Look, building consistency starts with the simple things you do every single day. I've locked in your new habit: reading for 20 minutes every night. It's tracked now. Show up for it tonight, get your 20 minutes in, and we build from there."
+              ]
+            },
+            {
+              "id": "u-1789621377995",
+              "role": "user",
+              "text": "That's it for today, wrap this up."
+            },
+            {
+              "id": "c-1789621377995",
+              "role": "coach",
+              "paragraphs": [
+                "You got it. Go get after it today, Prateek. We stay on the process."
+              ]
+            }
+          ],
+          "dayOffset": 0,
+          "ageLabel": "NOW",
+          "status": "active"
+        }
+      ],
+      "repoSha": "26832fe783223178960638a9e0c5aa6d77204eb5",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "grd8b73m",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "8e5fd8a5dbb0c4f6fc7bc6c6dce81b398ee55dd9",
+    "shaAfter": "8e5fd8a5dbb0c4f6fc7bc6c6dce81b398ee55dd9",
+    "usage": {
+      "promptTokens": 12673,
+      "completionTokens": 24,
+      "totalTokens": 12697,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.00959475
+    },
+    "costUsd": 0.00959475
+  }
+]

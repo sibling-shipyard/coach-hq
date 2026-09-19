@@ -1,0 +1,140 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-seed-multi-field-success-1789772506965",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-seed-multi-field-success-1789772506965",
+    "input": {
+      "messages": [],
+      "message": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "w3wsquvs"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-seed-multi-field-success-1789772506965",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772520782",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772520782",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772520782",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Two things - I want to permanently swap the core phase out of the full-body strength routine you just built me, going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - add a 20 minute mobility session on Saturday, just for this week."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "dyipvb0e"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "prateekdevaraju/coach-prateekdevaraju",
+    "branch": "test/manual-seed-multi-field-success-1789772506965",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772520782",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772520782",
+          "role": "user",
+          "text": "Can you build me a full-body strength routine, no equipment, for twice a week?"
+        },
+        {
+          "id": "c-1789772520782",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1789772522491",
+          "role": "user",
+          "text": "Two things - I want to permanently swap the core phase out of the full-body strength routine you just built me, going forward, my lower back doesn't handle it well, every time, not just today. And separately, can you restructure this week specifically - add a 20 minute mobility session on Saturday, just for this week."
+        },
+        {
+          "id": "c-1789772522491",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "0l6hmvxt"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd",
+    "shaAfter": "0e02b6e5984a8978bf911ee3c840cbfb3d5b29bd"
+  }
+]

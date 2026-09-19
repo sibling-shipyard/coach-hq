@@ -1,7 +1,7 @@
 /**
  * preconditions.ts - the #1105 safety net. A scenario's `expect` block only checks which files
  * changed, never whether the target repo could actually produce the behavior being tested (see
- * docs/plans/coach-chat-test-harness-hardening.md's A2 section for the real false positive that
+ * docs/eng-docs/coach-chat-testing.md for the real false positive that
  * motivated this - `ambiguous-contradiction` "passed" a generic check while testing nothing, since
  * no real repo had a planned session to contradict).
  *

@@ -1,0 +1,87 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "f5psm2p3"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-seed-compound-narration-probe-1789772591239",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772597527",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772597527",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772597527",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "66n008zm"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  }
+]

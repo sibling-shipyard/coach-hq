@@ -1,0 +1,87 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772551502",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bcd5090a7d945dba187aacb97e25596b7e83b7c1",
+    "shaAfter": "bcd5090a7d945dba187aacb97e25596b7e83b7c1"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772551502",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "1w8271tx"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bcd5090a7d945dba187aacb97e25596b7e83b7c1",
+    "shaAfter": "bcd5090a7d945dba187aacb97e25596b7e83b7c1"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772551502",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772557723",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772557723",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772557723",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "6obwxbsr"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bcd5090a7d945dba187aacb97e25596b7e83b7c1",
+    "shaAfter": "bcd5090a7d945dba187aacb97e25596b7e83b7c1"
+  }
+]

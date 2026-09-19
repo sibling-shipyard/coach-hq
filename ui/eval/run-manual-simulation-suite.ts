@@ -105,6 +105,32 @@ interface TurnExpect {
   filesChangedExclude?: string[];
   /** Defaults to "PASS" - the harness's own per-turn result. */
   resultMustBe?: "PASS" | "ERROR";
+  /**
+   * `filesChangedInclude` is also satisfied if any of these later turns includes the files. For a
+   * scenario where the write must land somewhere in the conversation but the real model may land
+   * it a turn earlier or later than a fixture can predict.
+   */
+  orTurns?: number[];
+  /**
+   * A real athlete repo with several templates or quests makes "which one?" the right reply, so a
+   * turn whose reply asks a question or plainly declines, and claims no change, passes, even if an unrelated field was
+   * written. Never a way to hide a drop: a reply that also claims the change was made still fails.
+   */
+  clarifyingQuestionOk?: boolean;
+}
+
+// Past-tense or passive "it's done" phrasing. Deliberately narrow: the point is catching a reply
+// that says the write happened, not every sentence with a verb.
+const DONE_CLAIM_PATTERN =
+  /\b(?:i(?:'ve| have)?\s+(?:took|taken|pulled|moved|added|built|saved|locked|updated|removed|swapped|dropped)|(?:has|have)\s+been\s+(?:built|saved|added|updated|removed|dropped)|(?:it's|that's|it\s+is|is|are)\s+(?:saved|locked in))\b/i;
+
+// An honest "that isn't on your plan / I can't do that" reply without a literal question.
+const DECLINE_PATTERN =
+  /\b(?:don'?t|doesn'?t|isn'?t|wasn'?t|hadn'?t|haven'?t|aren'?t|can'?t|couldn'?t|no|nothing|tell me|let me know)\b/i;
+
+function isClarifyingDecline(entry: ManualLogEntry): boolean {
+  const reply = String((entry.output as { reply?: unknown } | undefined)?.reply ?? "");
+  return (reply.includes("?") || DECLINE_PATTERN.test(reply)) && !DONE_CLAIM_PATTERN.test(reply);
 }
 
 interface Scenario {
@@ -118,8 +144,7 @@ interface Scenario {
   localPath?: string;
   /**
    * Checked against the target repo's real RepoDataProfile (scripts/lib/repoDataProfile.ts) before this
-   * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
-   * section. An unmet precondition means the repo can't produce the behavior this scenario tests
+   * scenario ever calls the model - see docs/eng-docs/coach-chat-testing.md. An unmet precondition means the repo can't produce the behavior this scenario tests
    * right now (e.g. no planned session to contradict). A2b: when the unmet field carries a
    * `seedMessages` recipe, this sends that real conversation first and re-checks before deciding
    * - only a field with no recipe (or an unmet one that's still unmet after seeding) falls back
@@ -130,7 +155,7 @@ interface Scenario {
   preconditions?: Preconditions;
   /**
    * A3: --repo/--all-repos override every scenario's athlete/repo/localPath by default - but
-   * fsp-basic's hardcoded target (coach-skanda-testing) isn't an arbitrary choice, it's the one
+   * fsp-end-to-end's hardcoded target (coach-skanda-testing) isn't an arbitrary choice, it's the one
    * repo that's never completed the First Session Protocol, which is exactly what this scenario
    * tests. Forcing it onto a real, already-onboarded athlete repo wouldn't just give a
    * meaningless result - it would send scripted "first session" conversation content into a
@@ -139,6 +164,23 @@ interface Scenario {
    */
   excludeFromRepoOverride?: boolean;
   expect: TurnExpect[];
+  /**
+   * Read off the scratch branch after the last turn. For scenarios where "which files changed" can't
+   * show the outcome (the First Session Protocol finishing stamps coach_since in a file that already
+   * changed on turn 1).
+   */
+  finalState?: FinalStateCheck[];
+}
+
+/** One file's expected end state. Field names are dotted paths into the JSON. */
+interface FinalStateCheck {
+  path: string;
+  /** Each must be set: not null, not "", not an empty array. */
+  present?: string[];
+  /** Each must not be `true` (a pending marker that should have been cleared). */
+  notTrue?: string[];
+  /** Dotted field to the exact value it must have. */
+  equals?: Record<string, unknown>;
 }
 
 /** Resolves a scenario's local clone path the same way run-manual-coach-chat-test.ts would. */
@@ -165,10 +207,10 @@ function resolveLocalPath(scenario: Scenario): string | undefined {
  */
 const SCENARIOS: Scenario[] = [
   {
-    id: "fsp-basic",
-    file: "manual-coach-chat-turns-fsp.json",
+    id: "fsp-end-to-end",
+    file: "manual-coach-chat-turns-fsp-end-to-end.json",
     description:
-      "Full six-turn First Session Protocol - profile, goal, injury, training freq, wrap-up.",
+      "The full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, training frequency, coaching style, wrap-up. Checks that completion really lands: coach_since stamped, a season and main quest created, and the first week compiled.",
     repo: "skanda-testing/coach-skanda-testing",
     localPath: "/home/skanda_suresh/Projects/coach-skanda-testing",
     // A3: coach-skanda-testing is load-bearing here, not a convenient default - it's the one
@@ -178,7 +220,28 @@ const SCENARIOS: Scenario[] = [
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/coach/profile.json"] },
       { turnIndex: 3, filesChangedInclude: ["user_data/coach/injuries.json"] },
+      { turnIndex: 4, filesChangedInclude: ["user_data/coach/memory.json"] },
       { turnIndex: 5 },
+    ],
+    // Which files changed can't prove the protocol finished (coach_since is stamped inside a file
+    // that already changed on turn 1), so the end state is read straight off the scratch branch.
+    finalState: [
+      {
+        path: "user_data/coach/profile.json",
+        present: ["name", "dob", "timezone", "height_cm", "weight_kg", "coach_since"],
+        notTrue: ["first_session_benchmark_pending"],
+      },
+      {
+        path: "user_data/coach/memory.json",
+        present: ["sports", "coaching_style"],
+        // The fixture says "4 days a week"; it must land in the field, not only in a note.
+        equals: { "training_availability.days_per_week": 4 },
+      },
+      { path: "user_data/ledger/seasons.json", present: ["current_season_id"] },
+      { path: "user_data/ledger/quests.json", present: ["main_quest"] },
+      // The branch's week is reset to its blank "placeholder" first, so "live" means the first
+      // week really was compiled by the run.
+      { path: "user_data/ledger/current_week.json", equals: { data_status: "live" } },
     ],
   },
   {
@@ -245,14 +308,19 @@ const SCENARIOS: Scenario[] = [
     // unplanned session - see that file's own comment), which is exactly the shape this scenario
     // could trigger if the reconciling turn doesn't reference the real existing session_id.
     // TurnExpect only checks which files changed, not their content (see this file's header comment
-    // on why - commitTurn() doesn't echo action fields), so this can only verify that turn 3 (the
-    // confirm/reconcile turn) actually produces a current_week.json write - it cannot verify from
+    // on why - commitTurn() doesn't echo action fields), so this can only verify that a current_week.json
+    // write lands somewhere in turns 1-3 (the model may reconcile a turn earlier or later than a
+    // fixture can predict) - it cannot verify from
     // here that the write is a clean single reconciled state rather than a duplicate. That's a real
-    // gap in what this harness can check; a human should read the turn 3 log's real diff
+    // gap in what this harness can check; a human should read the reconciling turn's real diff
     // (docs/eng-docs/coach-chat-testing.md, "Verifying a result") the first time this runs live.
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/current_week.json"] },
-      { turnIndex: 3, filesChangedInclude: ["user_data/ledger/current_week.json"] },
+      {
+        turnIndex: 1,
+        orTurns: [2, 3],
+        filesChangedInclude: ["user_data/ledger/current_week.json"],
+        clarifyingQuestionOk: true,
+      },
     ],
   },
   // Coverage-audit phase 1 (2026-09-15) additions below - see
@@ -269,8 +337,16 @@ const SCENARIOS: Scenario[] = [
     // on a repo that actually has one, otherwise there's nothing for the model to acknowledge.
     preconditions: { injuryFlags: "any" },
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
-      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -282,8 +358,16 @@ const SCENARIOS: Scenario[] = [
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
-      { turnIndex: 2, filesChangedInclude: ["workout_plans/sessions/"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["workout_plans/sessions/"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -294,7 +378,13 @@ const SCENARIOS: Scenario[] = [
       "Weekly Kick-off Ritual malformation retest (docs/plans/coach-chat-redesign-followups.md: 3/5 JSON-parse failures found on Flash via OpenRouter, never reproduced on direct Pro). Run this one repeatedly (--only week-kickoff-flash, 5 times) under LLM_PROVIDER=openrouter to sample the real pass rate - a single run here only proves the happy path, it cannot establish a rate on its own. --force is needed on repeat runs since a passing entry would otherwise be skipped by the selective-re-run check.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
-    expect: [{ turnIndex: 1, filesChangedInclude: ["user_data/ledger/current_week.json"] }],
+    expect: [
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/ledger/current_week.json"],
+        clarifyingQuestionOk: true,
+      },
+    ],
   },
   {
     id: "injury-resolve-by-bodypart",
@@ -355,7 +445,11 @@ const SCENARIOS: Scenario[] = [
     // firing quest_event, and that clarifying question doesn't match this scenario's expect block.
     preconditions: { hasHabitQuest: true },
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["user_data/ledger/progress.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["user_data/ledger/progress.json"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 2 },
     ],
   },
@@ -384,8 +478,16 @@ const SCENARIOS: Scenario[] = [
     // from scratch via workout_create, which needs an active flag on file to acknowledge for real.
     preconditions: { injuryFlags: "any" },
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/_manifest.json"] },
-      { turnIndex: 2, filesChangedInclude: ["workout_plans/templates/"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["workout_plans/templates/"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -396,23 +498,29 @@ const SCENARIOS: Scenario[] = [
       "B2 (#1105): two action fields landing together on the same turn, both correct - a single message asking for a permanent template_edit ('going forward') and a this-week-only week_update in one go. Every existing multi-field integration coverage (fullTurnPipeline.test.ts) only proves two fields failing together (a hallucinated template_id alongside a valid write); nothing before this proved two real fields can both commit cleanly from one turn.",
     athlete: "akash",
     repo: "akash-suresh/coach-akash-suresh",
-    // template_edit needs a real existing template to point at - no real athlete repo is assumed
-    // to already have the right one on file, so this seeds one first with a real workout_create
-    // ask (same phrasing as template-edit-permanent's own turn 1) rather than relying on whatever
-    // happens to already be there.
+    // week_update needs real planned sessions to swap, and no real repo is assumed to have a live
+    // week (same seed recipe ambiguous-contradiction uses). The routine to edit is built by this
+    // scenario's own turn 1, so it never depends on what templates a repo already has.
     preconditions: {
-      hasTemplate: {
+      currentWeekHasSessions: {
         seedMessages: [
-          "Can you build me a full-body strength routine, no equipment, for twice a week?",
+          "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+          "That looks good, let's go with that.",
         ],
       },
     },
     expect: [
       {
         turnIndex: 1,
-        filesChangedInclude: ["user_data/ledger/current_week.json", "workout_plans/templates/"],
+        filesChangedInclude: ["workout_plans/templates/_manifest.json"],
+        clarifyingQuestionOk: true,
       },
-      { turnIndex: 2 },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["user_data/ledger/current_week.json", "workout_plans/templates/"],
+        clarifyingQuestionOk: true,
+      },
+      { turnIndex: 3 },
     ],
   },
   // #1105 B3: probes whether #1085's memory_update drop (a durable fact stated alongside an
@@ -447,8 +555,16 @@ const SCENARIOS: Scenario[] = [
       },
     },
     expect: [
-      { turnIndex: 1, filesChangedInclude: ["workout_plans/templates/"] },
-      { turnIndex: 2, filesChangedInclude: ["user_data/ledger/current_week.json"] },
+      {
+        turnIndex: 1,
+        filesChangedInclude: ["workout_plans/templates/"],
+        clarifyingQuestionOk: true,
+      },
+      {
+        turnIndex: 2,
+        filesChangedInclude: ["user_data/ledger/current_week.json"],
+        clarifyingQuestionOk: true,
+      },
       { turnIndex: 3 },
     ],
   },
@@ -472,6 +588,8 @@ const WATCHED_PATHS = [
 
 interface ManualLogEntry extends TestLogEntry {
   turnIndex: number;
+  repo?: string;
+  branch?: string;
   filesChanged: FilesChanged;
   // #1053 gap 2: real per-turn cost, written by run-manual-coach-chat-test.ts now that
   // requestCoachReply.ts surfaces real usage - summed here so a scenario's console output shows real
@@ -504,10 +622,10 @@ function parseArgs(argv: string[]) {
     // explicit ask, not the default.
     force: argv.includes("--force"),
     // #1053 gap 3: overrides which scratch branch every selected scenario runs against, passed
-    // straight through to run-manual-coach-chat-test.ts's own --branch. Needed for fsp-basic: it
+    // straight through to run-manual-coach-chat-test.ts's own --branch. Needed for fsp-end-to-end: it
     // runs against coach-skanda-testing, which needs a fresh reset onto a NEW scratch branch first
     // (docs/eng-docs/coach-chat-testing.md's reset procedure) - without this, the driver could
-    // only ever run fsp-basic against an auto-named branch it creates itself, never the specific
+    // only ever run fsp-end-to-end against an auto-named branch it creates itself, never the specific
     // already-reset one. Applies to every scenario the invocation selects (--only narrows to one
     // in practice) - there was no need for a per-scenario field in the SCENARIOS library above.
     branch: get("--branch"),
@@ -568,6 +686,68 @@ function findLatestManualLog(repoSlug: string, sinceMs: number): string | undefi
   return candidates[0] ? path.join(dir, candidates[0].f) : undefined;
 }
 
+function valueAtPath(obj: unknown, dotted: string): unknown {
+  return dotted
+    .split(".")
+    .reduce<unknown>(
+      (cur, key) => (cur == null ? undefined : (cur as Record<string, unknown>)[key]),
+      obj,
+    );
+}
+
+function isSet(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  return !(Array.isArray(value) && value.length === 0);
+}
+
+/** Reads each `finalState` file off the run's scratch branch with the GitHub CLI and checks it. */
+function checkFinalState(scenario: Scenario, entries: ManualLogEntry[]): string[] {
+  if (!scenario.finalState?.length) return [];
+  const last = [...entries].reverse().find((e) => e.repo && e.branch);
+  if (!last?.repo || !last.branch) return ["final state: no repo or branch in the run log"];
+  const failures: string[] = [];
+  for (const check of scenario.finalState) {
+    let json: unknown;
+    try {
+      const raw = execFileSync(
+        "gh",
+        [
+          "api",
+          `repos/${last.repo}/contents/${check.path}?ref=${last.branch}`,
+          "-H",
+          "Accept: application/vnd.github.raw",
+        ],
+        { encoding: "utf8" },
+      );
+      json = JSON.parse(raw);
+    } catch (err) {
+      failures.push(
+        `final state: couldn't read ${check.path} on ${last.branch}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`,
+      );
+      continue;
+    }
+    for (const field of check.present ?? []) {
+      if (!isSet(valueAtPath(json, field))) {
+        failures.push(`final state: ${check.path} "${field}" is not set`);
+      }
+    }
+    for (const [field, want] of Object.entries(check.equals ?? {})) {
+      const got = valueAtPath(json, field);
+      if (got !== want) {
+        failures.push(
+          `final state: ${check.path} "${field}" is ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`,
+        );
+      }
+    }
+    for (const field of check.notTrue ?? []) {
+      if (valueAtPath(json, field) === true) {
+        failures.push(`final state: ${check.path} "${field}" is still true`);
+      }
+    }
+  }
+  return failures;
+}
+
 function scoreScenario(
   scenario: Scenario,
   entries: ManualLogEntry[],
@@ -586,8 +766,13 @@ function scoreScenario(
       );
     }
     const files = entry.filesChanged?.files ?? [];
+    const orFiles = (turnExpect.orTurns ?? []).flatMap(
+      (t) => entries.find((e) => e.turnIndex === t)?.filesChanged?.files ?? [],
+    );
+    const clarifyingOk = turnExpect.clarifyingQuestionOk === true && isClarifyingDecline(entry);
     for (const want of turnExpect.filesChangedInclude ?? []) {
-      if (!files.some((f) => f.includes(want))) {
+      if (clarifyingOk) break;
+      if (![...files, ...orFiles].some((f) => f.includes(want))) {
         failures.push(
           `turn ${turnExpect.turnIndex}: expected a changed file matching "${want}", got [${files.join(", ")}]`,
         );
@@ -755,7 +940,7 @@ async function main() {
       // Every athlete/repo/localPath lookup below reads off this effective scenario, not the
       // library entry directly, so a --repo/--all-repos override reaches every code path (precondition
       // checks, seeding, the real invocation) the same way the scenario's own hardcoded target would.
-      // fsp-basic's hardcoded target is load-bearing (see excludeFromRepoOverride's own doc
+      // fsp-end-to-end's hardcoded target is load-bearing (see excludeFromRepoOverride's own doc
       // comment) - an active repo override has nothing honest to run it against, so skip this
       // pass/scenario combination entirely rather than force it onto the wrong repo.
       if (overridePass && scenario.excludeFromRepoOverride) {
@@ -972,7 +1157,9 @@ async function main() {
       }
 
       const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
-      const { pass, failures } = scoreScenario(scenario, entries);
+      const scored = scoreScenario(scenario, entries);
+      const failures = [...scored.failures, ...checkFinalState(scenario, entries)];
+      const pass = scored.pass && failures.length === scored.failures.length;
       const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
       console.log(
         `${scenario.id}${repoTag}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: ${formatCostUsd(scenarioCostUsd)})`,

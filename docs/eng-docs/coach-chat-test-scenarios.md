@@ -1,6 +1,6 @@
 # Coach chat - test scenario catalog
 
-> Status: Current · Owner: vade-the-tester · Verified: 2026-09-15 (coverage-audit phase 1 follow-up)
+> Status: Current · Owner: vade-the-tester · Verified: 2026-09-17
 
 ## Context
 
@@ -66,7 +66,7 @@ the fourth test type for mechanics.
 
 | id | file | turns | what it tests | expected files/behavior |
 |---|---|---|---|---|
-| `fsp-basic` | `manual-coach-chat-turns-fsp.json` | 6 (incl. greet) | full First Session Protocol - profile, goal, injury, training freq, wrap-up | turn 1: `user_data/coach/profile.json`; turn 3: `user_data/coach/injuries.json`; turn 5: PASS |
+| `fsp-end-to-end` | `manual-coach-chat-turns-fsp-end-to-end.json` | 6 (incl. greet) | the full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, frequency, coaching style, wrap-up | turn 1: `profile.json`; turn 3: `injuries.json`; turn 4: `memory.json`; end state read off the branch: `profile.json` has name, dob, `coach_since` and no pending benchmark; `memory.json` has `training_availability.days_per_week` of 4; a season, a main quest and a first week exist |
 | `daily-basic` | `manual-coach-chat-turns-daily.json` | 5 (incl. greet) | ordinary daily check-in - weight, hip soreness, a finished run, wrap-up | turn 1: `profile.json`; turn 2: `injuries.json`; turns 3-4: PASS |
 | `daily-sleep-skip` | `manual-coach-chat-turns-daily-2.json` | 5 (incl. greet) | ordinary daily check-in - poor sleep, a skipped session, tomorrow's commitment, wrap-up | turns 1-4: PASS |
 | `ambiguous-contradiction` | `manual-coach-chat-turns-ambiguous-contradiction.json` | 5 (incl. greet) | new; athlete reports a planned session done, immediately contradicts it, then confirms the real one - checks the coach reconciles rather than double-writing | turn 1: `current_week.json` changed; turn 3: `current_week.json` changed (see the scenario's own code comment for what this can't verify) |
@@ -79,6 +79,8 @@ the fourth test type for mechanics.
 | `quest-event` | `manual-coach-chat-turns-quest-event.json` | 3 (incl. greet) | new (coverage-audit phase 1); real-write companion to eval `16` - a habit completion commits `progress.json`, previously never checked live | turn 1: `progress.json` changed; turn 2: PASS |
 | `quest-create-standalone` | `manual-coach-chat-turns-quest-create-standalone.json` | 3 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `11` - a standalone new habit with zero season/goal language commits `quests.json` | turn 1: `quests.json` changed; turn 2: PASS |
 | `template-edit-permanent` | `manual-coach-chat-turns-template-edit.json` | 4 (incl. greet) | new (coverage-audit phase 1 follow-up, #1066); real-write companion to eval `21` - creates a routine, then permanently edits it ("going forward", not "just today") | turn 1: `templates/_manifest.json` changed; turn 2: `workout_plans/templates/` file changed; turn 3: PASS |
+| `multi-field-success` | `manual-coach-chat-turns-multi-field-success.json` | 4 (incl. greet) | new (#1105 B2); builds its own routine on turn 1, then one message asking for a permanent `template_edit` and a this-week-only `week_update` (add a Saturday mobility session) together, after seeding a real week - proves two real action fields can both land from one turn, not just fail together (`fullTurnPipeline.test.ts` only ever proved the failure case) | turn 1: the new routine's manifest changed; turn 2: `current_week.json` and `workout_plans/templates/` both changed; turn 3: PASS |
+| `compound-narration-probe` | `manual-coach-chat-turns-compound-narration-probe.json` | 4 (incl. greet) | new (#1105 B3); reuses the compound-message shape that dropped `memory_update` (#1085), aimed at `template_edit` and `week_update` instead - not a known-good case, the `expect` block reports honestly whichever way each write goes | turn 1: `workout_plans/templates/` changed; turn 2: `current_week.json` changed; turn 3: PASS |
 
 ## What replaced what
 
@@ -92,7 +94,18 @@ the coverage matrix below for what each new one closes.
 eval-audit pass. The original estimate was 2 named plus roughly 8 more; the real count, confirmed
 unreferenced anywhere by grep before deletion, was 11. That same pass gained one new file
 (`manual-coach-chat-turns-ambiguous-contradiction.json`). The coverage-audit pass and its #1066
-follow-up together added 9 more turns files and 9 more `SCENARIOS` entries, for 13 total today.
+follow-up together added 9 more turns files and 9 more `SCENARIOS` entries. The test-harness
+hardening pass (#1105) added 2 more: `multi-field-success` and `compound-narration-probe`. It also
+added a `seedMessages` precondition-seeding mechanism (B1, no new scenario) and an
+`--all-repos`/`--repo` override for running the whole suite against any real athlete repo (A3) - see
+`docs/eng-docs/coach-chat-testing.md`'s "fourth test type" section for both mechanics. 15
+`SCENARIOS` entries total today.
+
+`fsp-end-to-end` is the one scenario that also sets `finalState`: after the last turn the driver reads
+five files off the scratch branch and checks them. The run's branch is reset with the week back to
+its blank `placeholder` template, so a `live` week proves the run compiled it. It exists because the First Session finishing
+stamps `coach_since` inside `profile.json`, which already changed on turn 1, so "which files
+changed" cannot show it. It has to run on a freshly reset branch (see `coach-chat-testing.md`).
 
 ## Coverage matrix (coverage-audit phase 1, 2026-09-15; closed out by #1066 same day)
 
@@ -106,15 +119,16 @@ dedicated assertion.
 
 | Action field | Writes to | Eval coverage | Simulation coverage | Status |
 |---|---|---|---|---|
-| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | fires on nearly every turn across all scenarios, but no scenario asserts `coach_log.json` itself changed | Covered (eval); simulation coverage is real but implicit - see note below |
+| `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | `daily-basic` turn 1 asserts `coach_log.json` changed (#1144) | Covered |
 | `memory_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
-| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport` | Gap → closed |
+| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport`, `fsp-end-to-end` (the enum is part of its end-state check) | Gap → closed |
 | `sports_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
-| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-basic`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
+| `training_availability_update` | `memory.json` | none | `fsp-end-to-end` (the stated "4 days a week" must land in `memory.json`, not a note; ADR 0052) | Gap → closed |
+| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-end-to-end`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
 | `injury_event` | `injuries.json` | `14` | `injury-resolve-by-bodypart` | Gap → closed |
 | `quest_event` | `progress.json` | `16` | `quest-event` | Gap → closed |
-| `profile_update` | `profile.json` | `04`, `12`, `20` | `fsp-basic`, `daily-basic` | Covered |
-| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` | `season-transition` | Gap → closed |
+| `profile_update` | `profile.json` | `04`, `12`, `20` | `fsp-end-to-end`, `daily-basic` | Covered |
+| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` | `season-transition`, `fsp-end-to-end` (a season and a main quest must exist at the end) | Gap → closed |
 | `quest_create` (standalone) | `quests.json` | `11` | `quest-create-standalone` (#1066) | Gap → closed |
 | `template_edit` | template file | `21` (#1066; `05` covers the absence case) | `template-edit-permanent` (#1066) | Gap → closed |
 | `session_plan` | session-snapshot file | `19` | `session-plan` | Gap → closed (was the redesign-followups doc's zero-coverage item) |
@@ -129,6 +143,14 @@ from chat's side - it's dosed into a workout at compile time (`coachWorkoutFiles
 written through an action field, so there is no write path here for a fixture to exercise.
 `athlete_insights.json`, `latest_message.json`, and `chat_history.json`'s `synced_activity_list`
 rows are all pipeline-generated, not chat-written, same reasoning.
+
+**Server-driven writes when the First Session completes** are not action fields, so they are not
+rows above. Once the athlete has a name, date of birth, timezone, height, weight, a sport and a
+coaching style, plus a current season and a main quest, the server stamps `coach_since`. It then
+commits a benchmark routine, `progressions.json`, a training-availability update to `memory.json` and a
+compiled first week to `current_week.json`. `fsp-end-to-end` is the only coverage of that path
+through the real model. It checks `coach_since`, the cleared pending marker, the season, the main
+quest and that the first week flipped from `placeholder` to `live`. It does not check the benchmark routine's content.
 
 **`quest_create` (standalone) - how the #1066 fixture resolved the concern raised in the first
 pass.** The first pass worried that every real athlete repo already has an active season on file,

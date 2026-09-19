@@ -1,0 +1,46 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-02-25-113Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-09-18T23-02-25-113Z",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "1l1c7ppp"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "d41c6f1724e30851dcc199d33abfc9344976b102",
+    "shaAfter": "d41c6f1724e30851dcc199d33abfc9344976b102"
+  }
+]

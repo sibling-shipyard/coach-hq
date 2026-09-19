@@ -1,0 +1,87 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772571587",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (403): {\"error\":{\"message\":\"Budget limit exceeded (monthly limit). Contact your org admin.\",\"code\":403}}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772571587",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "784gv3n7"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-ambiguous-contradiction-1789772571587",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772577699",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772577699",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772577699",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "dyw9u6qj"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  }
+]

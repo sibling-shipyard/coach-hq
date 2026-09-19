@@ -167,7 +167,7 @@ real `handle()` in `coach-chat.ts` against a real athlete repo (`coach-skanda`/`
 script names and creates its own scratch branch off the repo's real default branch; it refuses
 outright to run against the real default branch or `main`. Use `--greet` / `--message "..."` for
 one turn, or `--turns <file.json>` for a scripted conversation - see `ui/eval/examples/` for
-ready-to-run ones, including `manual-coach-chat-turns-fsp.json` (a full First Session) and
+ready-to-run ones, including `manual-coach-chat-turns-fsp-end-to-end.json` (a full First Session, through completion) and
 `manual-coach-chat-turns-daily.json`/`-daily-2.json` (ordinary daily check-ins).
 
 Both `eval` and `manual` log to `test-results/raw/<YYYY-MM-DD>/<eval|manual>/`, committed to git (not
@@ -191,19 +191,33 @@ Never treat a `derived` entry as evidence of a real bug - only `observed` entrie
 
 **The fourth test type - the simulation suite** (`ui/eval/run-manual-simulation-suite.ts`, paid, live
 model, real writes) closes what used to be this section's gap: the FSP/daily example turn-scripts
-above are no longer just run by hand. `run-manual-simulation-suite.ts` drives a small tracked library of
-those scenarios (`fsp-basic`, `daily-basic`, `daily-sleep-skip`, `ambiguous-contradiction`) one at
-a time through
-`test:coach-chat-manual`'s real pipeline - a child-process invocation, same real
+above are no longer just run by hand. `run-manual-simulation-suite.ts` drives a tracked library of 15
+scenarios (see `docs/eng-docs/coach-chat-test-scenarios.md` for the full list) one at a time
+through `test:coach-chat-manual`'s real pipeline - a child-process invocation, same real
 SOUL/repo/Gemini/commit path above. It then scores each against its own `expect` block: which
 `turnIndex`es must land, which changed files each one must or must not include. That's matched
 against the real `filesChanged.files` (`confidence: "observed"`) the manual run's own log entry
 already wrote. `npm run test:simulation-suite -- --list` prints the library. `--only <substring>`
 runs a subset. `--dry-run` prints the plan without spending anything. `--branch <name>` overrides
-which scratch branch every selected scenario runs against - needed for `fsp-basic`, which needs a
-freshly reset branch (see the reset procedure below). Each run writes one `manual:<scenario-id>`
-entry to `test-results/coverage-index.json` (`last_pass_sha`, `last_run_date`, `watched_paths`,
-`status`, `last_cost_usd`), the same selective-re-run index the layered/eval kinds use.
+which scratch branch every selected scenario runs against - needed for `fsp-end-to-end`, which needs a
+freshly reset branch (see the reset procedure below).
+
+A scenario can declare `preconditions` - a check plus an optional `seedMessages` recipe (#1105
+B1). When a precondition is unmet and a recipe exists, the driver sends those real seed messages
+first, on the same scratch branch, then re-checks before deciding: proceed if now met, or record
+`"seed-failed"` and stop if not. No recipe means the old behavior - `"skipped-precondition"`.
+`--repo <shortcut>` or `--all-repos` (#1105 A3) overrides every selected scenario's target repo,
+running the whole library against one real athlete repo or all 5 in turn, instead of each
+scenario's own hardcoded default.
+
+A scenario can also set `finalState`, a list of files the driver reads off the scratch branch after the last turn and checks (a field is set, or a marker is not still true). `fsp-end-to-end` uses it, because "which files changed" cannot show the First Session finishing. A turn's expectation can also set `orTurns` (the write may land in a later listed turn) and
+`clarifyingQuestionOk` (a reply that asks a question or plainly declines passes, unless it also
+claims the change was made). Both exist because a real repo can legitimately answer "which
+routine?" instead of writing.
+
+Each run writes one `manual:<scenario-id>` entry to `test-results/coverage-index.json`
+(`last_pass_sha`, `last_run_date`, `watched_paths`, `status`, `last_cost_usd`), the same
+selective-re-run index the layered/eval kinds use.
 
 Before actually running a case, the driver checks that index. A case with `status: "pass"` and an
 empty `git diff --quiet <last_pass_sha> HEAD -- <watched_paths...>` is skipped - logged, not
@@ -307,7 +321,7 @@ has the exact blank shape for each FSP-owned file (`PROFILE_TEMPLATE`, `MEMORY_T
 `INJURIES_TEMPLATE`, `SEASONS_TEMPLATE`, `QUESTS_TEMPLATE`). Two ways to get a fresh scratch branch
 onto that state:
 
-- Local git: create the branch, overwrite the 5 files with the blank templates, commit, push.
+- Local git: create the branch, overwrite the 5 files with the blank templates, commit, push. For `fsp-end-to-end`, also reset `user_data/ledger/current_week.json` to `CURRENT_WEEK_TEMPLATE` (`data_status: "placeholder"`), because that scenario checks the week flips to `live`.
 - **Or, if a local `git push` to the athlete repo gets denied by a permission gate:** use the
   GitHub API directly instead. This is not a workaround. The harness's own branch creation already
   works this same way under the hood - this is just the reset step done by hand:

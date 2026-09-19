@@ -1,0 +1,421 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "OpenRouter request failed (402): {\"error\":{\"message\":\"This request would exceed your available credits given your current in-flight requests. Retry after in-flight requests settle, or add credits.\",\"code\":402,\"metadata\":{\"reason\":\"in_flight_budget_exhausted\",\"limit_source\":\"openrouter_in_flight_budget\",\"remedy_hint\":\"Retry after your in-flight requests settle (see the Retry-After header). Adding credits at https://openrouter.ai/settings/credits raises your in-flight budget, up to a capped ceiling.\",\"headers\":{\"Retry-After\":\"120\"},\"provider_name\":null}},\"user_id\":\"user_3IrA1ypDlidlNjaSYTV7Ska0yqS\"}"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "messages": [],
+      "message": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+    },
+    "output": {
+      "error": "Something went wrong on our end - try again shortly.",
+      "traceId": "8wrcqtwg"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "445c262289d445474b3ed209f6e9b9c79e2e997b"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "date2022/coach-date2022",
+    "branch": "test/manual-seed-multi-field-success-1789772385873",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1789772392966",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1789772392966",
+          "role": "user",
+          "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+        },
+        {
+          "id": "c-1789772392966",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That looks good, let's go with that."
+    },
+    "output": {
+      "reply": "Look, you've got Colorado coming up next Friday, so this week is all about keeping the rhythm going and letting your body feel strong without grinding yourself down.\n\nHere is how we've got the week set up:\n- Monday (Sep 14): Strength A (pull-up progression and upper focus)\n- Tuesday (Sep 15): Easy ride (aerobic base, 45 mins)\n- Wednesday (Sep 16): Foundation work (core, stability, and movement)\n- Thursday (Sep 17): Strength A (solid volume)\n- Friday (Sep 18): Mobility and recovery (if cycle cramps kick in, rest is the priority)\n- Saturday (Sep 19): Full rest day\n- Sunday (Sep 20): 60 min outdoor trail walk or easy hike\n\nTake it one session at a time, trust the process, and listen to your body when it asks for rest. Let's get after it.",
+      "threadId": "t-1789772393975",
+      "threads": [
+        {
+          "id": "t-1789772393975",
+          "createdAt": 1789772393975,
+          "title": "I don't have a plan for this…",
+          "preview": "Look, you've got Colorado coming up next Friday, so this week is all about keepi",
+          "messages": [
+            {
+              "id": "d-1789772392966",
+              "role": "divider",
+              "label": "Today"
+            },
+            {
+              "id": "u-1789772392966",
+              "role": "user",
+              "text": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training."
+            },
+            {
+              "id": "c-1789772392966",
+              "role": "coach",
+              "paragraphs": [
+                ""
+              ]
+            },
+            {
+              "id": "u-1789772393975",
+              "role": "user",
+              "text": "That looks good, let's go with that."
+            },
+            {
+              "id": "c-1789772393975",
+              "role": "coach",
+              "paragraphs": [
+                "Look, you've got Colorado coming up next Friday, so this week is all about keeping the rhythm going and letting your body feel strong without grinding yourself down.\n\nHere is how we've got the week set up:\n- Monday (Sep 14): Strength A (pull-up progression and upper focus)\n- Tuesday (Sep 15): Easy ride (aerobic base, 45 mins)\n- Wednesday (Sep 16): Foundation work (core, stability, and movement)\n- Thursday (Sep 17): Strength A (solid volume)\n- Friday (Sep 18): Mobility and recovery (if cycle cramps kick in, rest is the priority)\n- Saturday (Sep 19): Full rest day\n- Sunday (Sep 20): 60 min outdoor trail walk or easy hike\n\nTake it one session at a time, trust the process, and listen to your body when it asks for rest. Let's get after it."
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "local-activity-sync",
+          "createdAt": 1788167086177,
+          "title": "",
+          "preview": "Look, missing a week happens. What matters is you didn't let one off week turn i",
+          "messages": [
+            {
+              "label": "TODAY",
+              "id": "d-sync-1789334799902",
+              "role": "divider"
+            },
+            {
+              "id": "c-sync-1789334799902",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "D7E9C140-A1FD-4FBC-A956-CD2F39AB8235",
+                      "load": 27,
+                      "duration_s": 3240,
+                      "title": "WeightTraining #6",
+                      "sport": "WeightTraining",
+                      "start": "2026-09-12T13:22:10"
+                    },
+                    {
+                      "id": "DF542CCB-BA5E-4585-8061-1906C1279A49",
+                      "load": 39,
+                      "duration_s": 2144,
+                      "title": "Ride #2",
+                      "sport": "Ride",
+                      "start": "2026-09-12T17:28:37"
+                    },
+                    {
+                      "id": "569F5BAD-B0E0-4382-AE24-4C6542A9A114",
+                      "load": 49,
+                      "duration_s": 2329,
+                      "title": "Ride #3",
+                      "sport": "Ride",
+                      "start": "2026-09-13T01:07:20"
+                    }
+                  ],
+                  "batch_id": "local",
+                  "version": 1
+                }
+              ],
+              "paragraphs": [],
+              "role": "coach"
+            },
+            {
+              "id": "u-1789334850895",
+              "role": "user",
+              "text": "I didnt work out last week. This week i did upper body and cycling for lower body"
+            },
+            {
+              "id": "c-1789334850895",
+              "role": "coach",
+              "paragraphs": [
+                "Look, missing a week happens. What matters is you didn't let one off week turn into two, and you got right back to work with upper body and time on the bike. That's huge momentum right there. How are the arms and legs feeling after getting back into it?"
+              ]
+            }
+          ],
+          "dayOffset": 19,
+          "ageLabel": "D-19",
+          "status": "active"
+        },
+        {
+          "id": "t-1788288847868",
+          "createdAt": 1788288847868,
+          "title": "WeightTraining #5",
+          "preview": "Got it all logged. Awesome work emptying the tank today. Enjoy your rest day tom",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY · 7:54 PM",
+              "id": "d-1788288847868"
+            },
+            {
+              "role": "coach",
+              "paragraphs": [
+                "I see that hour of strength work just hit the board. Good stuff showing up and getting it done today. I know we shifted focus to upper body to let those legs recover. How are the legs feeling today? Give me a quick read on how the pull-ups and push-ups felt, and an RPE out of 10 for the session."
+              ],
+              "id": "c-1788288847868",
+              "attachments": [
+                {
+                  "kind": "synced_activity_list",
+                  "activities": [
+                    {
+                      "id": "21B3C29F-19AD-40CA-826E-816034E7039D",
+                      "title": "WeightTraining #5",
+                      "load": 32,
+                      "duration_s": 3804,
+                      "sport": "WeightTraining",
+                      "start": "2026-09-01T18:47:33"
+                    }
+                  ],
+                  "batch_id": "608cdf41aefd1aa2",
+                  "version": 1
+                }
+              ]
+            },
+            {
+              "text": "Legs are feeling mich better",
+              "id": "u-1788288872967.577",
+              "role": "user"
+            },
+            {
+              "paragraphs": [
+                "That is good to hear. It takes a minute to bounce back from a heavy new load like that. I remember trying a new butterfly drill and my lats were completely locked up for three days. The body adapts, but that first shock is very real. Now that you are moving better, how did the upper body stuff actually feel today? Give me a quick read on those pull-ups and push-ups, and an RPE out of 10."
+              ],
+              "role": "coach",
+              "id": "c-1788288872967.577"
+            },
+            {
+              "role": "user",
+              "text": "Rpe?",
+              "id": "u-1788289004410.486"
+            },
+            {
+              "id": "c-1788289004410.486",
+              "role": "coach",
+              "paragraphs": [
+                "My bad. RPE is Rate of Perceived Exertion. Basically, out of 10, how hard did that workout feel to you? 1 is sitting on the couch, 10 is an all out, nothing left in the tank, Olympic final effort. Where did today's session land on that scale?"
+              ]
+            },
+            {
+              "text": "It was 8/10. The banded chin ups last set i got only 1 above the bar. Second set i fot 2 proper",
+              "role": "user",
+              "id": "u-1788289043864.735"
+            },
+            {
+              "id": "c-1788289043864.735",
+              "paragraphs": [
+                "Look, an 8 out of 10 is a serious effort. Getting two proper chin-ups on the second set, and then grinding out just one on the last set means you completely emptied the tank. I love that. I remember days where my arms just stopped working on the last set. It feels frustrating in the moment, but hitting that wall is exactly where the strength gets built. You did exactly what you needed to do today. Let me know if you want to cover anything else, or if you are ready to wrap this one up."
+              ],
+              "role": "coach"
+            },
+            {
+              "text": "What's olanned for today",
+              "role": "user",
+              "id": "u-1788458692025.8699"
+            },
+            {
+              "id": "c-1788458692025.8699",
+              "paragraphs": [
+                "You already crushed it today. We swapped out the leg session for that upper body work you just told me about, the one where you hit the 8/10 and pushed to failure on the chin-ups. Tomorrow is a recovery day. Next up is another Pull-Up and Push-Up session on Saturday, and then we hit the hills on Sunday for your Colorado prep. You earned some rest tonight."
+              ],
+              "role": "coach"
+            },
+            {
+              "id": "c-1788458734390",
+              "role": "coach",
+              "paragraphs": [
+                "Got it all logged. Awesome work emptying the tank today. Enjoy your rest day tomorrow, you earned it. See you Saturday."
+              ]
+            }
+          ],
+          "dayOffset": 18,
+          "ageLabel": "D-18",
+          "status": "active"
+        },
+        {
+          "id": "local-1788105624958",
+          "createdAt": 1788126729136,
+          "title": "Legs are sore. Difficilt to …",
+          "preview": "Rest up today, Natasha. That plan is locked and loaded for the week. See you tom",
+          "messages": [
+            {
+              "role": "divider",
+              "label": "TODAY",
+              "id": "d-1788105624958"
+            },
+            {
+              "paragraphs": [
+                "Hey Natasha. Great work getting that lift in yesterday. It's Sunday, and since you're heading into a prime phase of your cycle for pushing strength this week, let's get our game plan locked in. How's the body feeling today?"
+              ],
+              "id": "c-1788105624958",
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "id": "u-1788126682507.155",
+              "text": "Legs are sore. Difficilt to sit ."
+            },
+            {
+              "id": "c-1788126682507.155",
+              "role": "coach",
+              "paragraphs": [
+                "I know that exact feeling. The 'falling onto the couch because your quads gave out' level of sore. It means you put in real work yesterday. \n\nToday is all about recovery. Drink a ton of water and try to get a 10-minute light walk in, just to flush the legs out. No heavy stretching, just move the blood.\n\nSince you are heading into the prime strength window of your cycle this week, we want to capitalize on it once those legs bounce back. What days are you looking at to hit your upper body and pull-up work this week?"
+              ]
+            },
+            {
+              "id": "c-1788126729136",
+              "paragraphs": [
+                "Got it, we will wrap up here. Focus on recovery today and let those legs bounce back. Hit me up when you are ready to map out this week's plan. Rest up."
+              ],
+              "role": "coach"
+            },
+            {
+              "role": "user",
+              "text": "You tell me",
+              "id": "u-1788126752797.884"
+            },
+            {
+              "id": "c-1788126752797.884",
+              "role": "coach",
+              "paragraphs": [
+                "Fair enough. You focus on the work, I will hold the clipboard. \n\nSince your legs are completely cooked, we leave them alone tomorrow. Monday is upper body, focusing on those pull-ups and push-ups. Tuesday we do light active recovery. Wednesday we bring the legs back online. Thursday is upper body round two. And this weekend we get some steady hiking or walking in to prep the lungs for Colorado.\n\nHow does that rhythm fit your actual schedule this week?"
+              ]
+            },
+            {
+              "id": "u-1788126793850.809",
+              "text": "Spunds good",
+              "role": "user"
+            },
+            {
+              "id": "c-1788126793850.809",
+              "role": "coach",
+              "paragraphs": [
+                "Locked in. I will get that set for the week. For today, just survive sitting down and drink plenty of water. Tomorrow we go after those pull-ups. Need anything else from me before you get back to resting?"
+              ]
+            },
+            {
+              "id": "c-1788126814605",
+              "role": "coach",
+              "paragraphs": [
+                "Rest up today, Natasha. That plan is locked and loaded for the week. See you tomorrow to go after those pull-ups."
+              ]
+            }
+          ],
+          "dayOffset": 20,
+          "ageLabel": "D-20",
+          "status": "active"
+        },
+        {
+          "id": "t-1787646373081",
+          "createdAt": 1787646373081,
+          "title": "WeightTraining #2",
+          "preview": "Look, good to see that strength session logged. Solid hour of work put in. How d",
+          "messages": [
+            {
+              "id": "d-1787646373081",
+              "role": "divider",
+              "label": "TODAY · 8:26 AM"
+            },
+            {
+              "id": "c-1787646373081",
+              "role": "coach",
+              "paragraphs": [
+                "Look, good to see that strength session logged. Solid hour of work put in. How did the body hold up during the lifts, and any soreness or tight spots after?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "7dd19804e6158cfc",
+                  "activities": [
+                    {
+                      "id": "F09915C1-3EA9-41CE-8441-C79E2D72CE8C",
+                      "title": "WeightTraining #2",
+                      "sport": "WeightTraining",
+                      "start": "2026-08-19T18:17:16",
+                      "duration_s": 3683,
+                      "load": 31
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 25,
+          "ageLabel": "D-25",
+          "status": "active"
+        }
+      ],
+      "repoSha": "9ae81c02a18f002c239737929754aa187da33c7d",
+      "stale": false,
+      "profileComplete": true,
+      "traceId": "khuez3h3",
+      "droppedActions": []
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/chat_history.json",
+        "user_data/coach/coach_log.json",
+        "user_data/ledger/current_week.json"
+      ],
+      "diff": "diff --git a/user_data/coach/chat_history.json b/user_data/coach/chat_history.json\nindex 19c8c15..babac3f 100644\n--- a/user_data/coach/chat_history.json\n+++ b/user_data/coach/chat_history.json\n@@ -1,10 +1,47 @@\n {\n   \"_meta\": {\n-    \"updated_at\": \"2026-09-13T21:27:35.762Z\",\n+    \"updated_at\": \"2026-09-18T23:00:06.780Z\",\n     \"updated_by\": \"coach\",\n-    \"trace_id\": \"1ktcd2iw\"\n+    \"trace_id\": \"khuez3h3\"\n   },\n   \"threads\": [\n+    {\n+      \"id\": \"t-1789772393975\",\n+      \"createdAt\": 1789772393975,\n+      \"title\": \"I don't have a plan for this…\",\n+      \"preview\": \"Look, you've got Colorado coming up next Friday, so this week is all about keepi\",\n+      \"messages\": [\n+        {\n+          \"id\": \"d-1789772392966\",\n+          \"role\": \"divider\",\n+          \"label\": \"Today\"\n+        },\n+        {\n+          \"id\": \"u-1789772392966\",\n+          \"role\": \"user\",\n+          \"text\": \"I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.\"\n+        },\n+        {\n+          \"id\": \"c-1789772392966\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"\"\n+          ]\n+        },\n+        {\n+          \"id\": \"u-1789772393975\",\n+          \"role\": \"user\",\n+          \"text\": \"That looks good, let's go with that.\"\n+        },\n+        {\n+          \"id\": \"c-1789772393975\",\n+          \"role\": \"coach\",\n+          \"paragraphs\": [\n+            \"Look, you've got Colorado coming up next Friday, so this week is all about keeping the rhythm going and letting your body feel strong without grinding yourself down.\\n\\nHere is how we've got the week set up:\\n- Monday (Sep 14): Strength A (pull-up progression and upper focus)\\n- Tuesday (Sep 15): Easy ride (aerobic base, 45 mins)\\n- Wednesday (Sep 16): Foundation work (core, stability, and movement)\\n- Thursday (Sep 17): Strength A (solid volume)\\n- Friday (Sep 18): Mobility and recovery (if cycle cramps kick in, rest is the priority)\\n- Saturday (Sep 19): Full rest day\\n- Sunday (Sep 20): 60 min outdoor trail walk or easy hike\\n\\nTake it one session at a time, trust the process, and listen to your body when it asks for rest. Let's get after it.\"\n+          ]\n+        }\n+      ]\n+    },\n     {\n       \"id\": \"local-activity-sync\",\n       \"createdAt\": 1788167086177,\ndiff --git a/user_data/coach/coach_log.json b/user_data/coach/coach_log.json\nindex e256e4c..dfbfdf5 100644\n--- a/user_data/coach/coach_log.json\n+++ b/user_data/coach/coach_log.json\n@@ -68,6 +68,14 @@\n       \"type\": \"chat\",\n       \"text\": \"Athlete checked in: had an off week last week with no workouts, but bounced back this week with an upper body session and a cycling session for lower body work. Good momentum rebuilding heading toward the Colorado trip.\",\n       \"trace_id\": \"1ktcd2iw\"\n+    },\n+    {\n+      \"id\": \"sess_2026-09-18_e32r\",\n+      \"date\": \"2026-09-18\",\n+      \"ts\": \"2026-09-18T23:00:02.426Z\",\n+      \"type\": \"chat\",\n+      \"text\": \"Athlete requested the full week plan locked in. Built Monday-to-Sunday plan for the week of Sep 14 - Sep 20, taking into account Colorado departure next week (Sep 25) and cycle timing (period window around Sep 18-19). Kept volume steady with strength, cycling, and active recovery.\",\n+      \"trace_id\": \"khuez3h3\"\n     }\n   ]\n }\n\\ No newline at end of file\ndiff --git a/user_data/ledger/current_week.json b/user_data/ledger/current_week.json\nindex 447cd5c..f2e5065 100644\n--- a/user_data/ledger/current_week.json\n+++ b/user_data/ledger/current_week.json\n@@ -1,60 +1,164 @@\n {\n   \"schema_version\": 1,\n-  \"data_status\": \"placeholder\",\n+  \"data_status\": \"live\",\n   \"timezone\": \"Europe/London\",\n   \"week\": {\n-    \"id\": \"2026-W37\",\n-    \"start_date\": \"2026-09-07\",\n-    \"end_date\": \"2026-09-13\",\n-    \"focus\": null,\n-    \"guardrails\": []\n+    \"id\": \"2026-W38\",\n+    \"start_date\": \"2026-09-14\",\n+    \"end_date\": \"2026-09-20\",\n+    \"focus\": \"Consistent movement and priming for Colorado departure next week\",\n+    \"guardrails\": [\n+      \"Listen to the body around cycle days 1-2; take rest without guilt if cramps flare\",\n+      \"Keep leg loading steady without novel eccentrics\"\n+    ]\n+  },\n+  \"coach_read\": {\n+    \"headline\": \"Building consistency and keeping the legs fresh\",\n+    \"body\": \"With Colorado one week out, this week is about solid reps, good habits, and letting recovery do its job.\",\n+    \"valid_from\": \"2026-09-19\",\n+    \"valid_until\": \"2026-09-20\"\n   },\n-  \"coach_read\": null,\n   \"days\": [\n     {\n-      \"date\": \"2026-09-07\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-14\",\n+      \"intent\": \"Upper body strength work\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260914_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"strength\",\n+          \"kind\": \"strength\",\n+          \"title\": \"Strength A\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": \"strength_a\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-08\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-15\",\n+      \"intent\": \"Aerobic engine work\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260915_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"cycling\",\n+          \"kind\": \"ride\",\n+          \"title\": \"Easy Aerobic Ride\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-09\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-16\",\n+      \"intent\": \"Foundation and core stability\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260916_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"foundation\",\n+          \"kind\": \"foundation\",\n+          \"title\": \"Foundation Movement\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 35,\n+          \"template_id\": \"foundation\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-10\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-17\",\n+      \"intent\": \"Pull-up progression & upper strength\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260917_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"strength\",\n+          \"kind\": \"strength\",\n+          \"title\": \"Strength A\",\n+          \"priority\": \"anchor\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 45,\n+          \"template_id\": \"strength_a\",\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-11\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-18\",\n+      \"intent\": \"Active recovery or scheduled cycle rest\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260918_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"recovery\",\n+          \"kind\": \"mobility\",\n+          \"title\": \"Mobility & Stretch\",\n+          \"priority\": \"optional\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 30,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     },\n     {\n-      \"date\": \"2026-09-12\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-19\",\n+      \"intent\": \"Rest and recovery day\",\n       \"coach_note\": null,\n       \"sessions\": []\n     },\n     {\n-      \"date\": \"2026-09-13\",\n-      \"intent\": null,\n+      \"date\": \"2026-09-20\",\n+      \"intent\": \"Outdoor hike or long walk\",\n       \"coach_note\": null,\n-      \"sessions\": []\n+      \"sessions\": [\n+        {\n+          \"id\": \"sess_20260920_1\",\n+          \"origin\": \"planned\",\n+          \"discipline\": \"hike\",\n+          \"kind\": \"hike\",\n+          \"title\": \"Outdoor Trail Walk\",\n+          \"priority\": \"support\",\n+          \"status\": \"planned\",\n+          \"planned_duration_min\": 60,\n+          \"template_id\": null,\n+          \"session_file\": null,\n+          \"coach_note\": null,\n+          \"original_date\": null,\n+          \"completion_activity_ids\": []\n+        }\n+      ]\n     }\n   ],\n-  \"updated_at\": \"2026-09-13T22:14:00.006Z\",\n-  \"updated_by\": \"rollover\",\n-  \"trace_id\": \"rollover\"\n-}\n+  \"updated_at\": \"2026-09-18T23:00:01.434Z\",\n+  \"updated_by\": \"model\",\n+  \"trace_id\": \"khuez3h3\"\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "445c262289d445474b3ed209f6e9b9c79e2e997b",
+    "shaAfter": "9ae81c02a18f002c239737929754aa187da33c7d",
+    "usage": {
+      "promptTokens": 13111,
+      "completionTokens": 742,
+      "totalTokens": 13853,
+      "cachedPromptTokens": 0,
+      "thinkingTokens": 0,
+      "costUsd": 0.01261575
+    },
+    "costUsd": 0.01261575
+  }
+]
