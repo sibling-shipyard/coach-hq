@@ -34,14 +34,14 @@ turns reprompt, and a warning event per reprompt would burn the free quota.
 
 ## Stack
 
-| PR  | milestone  | outcome                                                                         | final base | files                                                                         | owner | parallel with | result                                                 |
-| --- | ---------- | ------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ----- | ------------- | ------------------------------------------------------ |
-| 1   | M1 Signals | Every reprompt, retry and extra call is countable per turn                      | main       | `requestCoachReply.ts`, `llmAdapters/*`, `sentry.ts`                          | Bob   | 2             | Sentry shows reprompt rate by detector                 |
-| 2   | M1 Signals | Silent fallbacks and truncation are recorded                                    | 1          | `silentFixups.ts`, `firstWeekCompile.ts`, `turnCompletion.ts`, `turnWrites/*` | Bob   | 1             | Each fallback appears as a fixup kind                  |
-| 3   | M1 Signals | First Session completion and stuck sessions are visible                         | 2          | `turnCompletion.ts`, `buildTurnWrites.ts`                                     | Bob   | none          | Funnel event and a stuck event with the missing fields |
-| 4   | M2 Detect  | First Session and daily gaps get log-only detectors                             | 3          | `turnReplyValidation.ts`, `requestCoachReply.ts`                              | Bob   | none          | Miss rate per gap, no extra model calls                |
-| 5   | M3 Guard   | Detectors with real misses become reprompts                                     | 4          | `turnReplyValidation.ts`, `requestCoachReply.ts`                              | Bob   | none          | Reprompt fires live and the write lands                |
-| 6   | M3 Guard   | Retry layers share one time budget; the auto-note stops leaking into the prompt | 5          | `requestCoachReply.ts`, `coachLlmClient.ts`, `silentFixups.ts`                | Bob   | none          | A turn can no longer run past its limit                |
+| PR  | milestone  | outcome                                                                         | final base | files                                                                         | owner | parallel with | result                                                                                                                         |
+| --- | ---------- | ------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | M1 Signals | Every reprompt, retry and extra call is countable per turn                      | main       | `requestCoachReply.ts`, `llmAdapters/*`, `sentry.ts`                          | Bob   | 2             | Sentry shows reprompt rate by detector                                                                                         |
+| 2   | M1 Signals | Silent fallbacks and truncation are recorded                                    | 1          | `silentFixups.ts`, `firstWeekCompile.ts`, `turnCompletion.ts`, `turnWrites/*` | Bob   | 1             | Each fallback appears as a fixup kind                                                                                          |
+| 3   | M1 Signals | First Session completion and stuck sessions are visible                         | 2          | `turnCompletion.ts`, `buildTurnWrites.ts`                                     | Bob   | none          | Funnel event and a stuck event with the missing fields                                                                         |
+| 4   | M2 Detect  | First Session and daily gaps get log-only detectors                             | 3          | `turnReplyValidation.ts`, `requestCoachReply.ts`                              | Bob   | none          | Miss rate per gap, no extra model calls                                                                                        |
+| 5   | M3 Guard   | Detectors with real misses become reprompts                                     | 4          | `turnReplyValidation.ts`, `requestCoachReply.ts`                              | Bob   | none          | Reprompt fires live and the write lands                                                                                        |
+| 6   | M3 Guard   | Retry layers share one time budget; the auto-note stops leaking into the prompt | 5          | `requestCoachReply.ts`, `coachLlmClient.ts`, `silentFixups.ts`                | Bob   | none          | A turn can no longer run past its limit; this plan and its LLD are deleted, with anything durable folded into `gemini-flow.md` |
 
 ## Done when
 
@@ -52,6 +52,7 @@ turns reprompt, and a warning event per reprompt would burn the free quota.
 
 ## Deferred
 
-- A separate OpenRouter key for live tests. The dev key is the production key.
+- A separate OpenRouter key for live tests. The dev key is the production key, so live tests spend production
+  quota and a leaked dev key exposes production. Until then: check headroom before every run and rotate the key if it leaks.
 - A harness switch that forces a reprompt so guards can be exercised on demand.
 - Daily reprompts for `season_start` and `memory_update`. They are the noisiest to pattern-match.
