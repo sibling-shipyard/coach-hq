@@ -572,6 +572,21 @@ export function findMissedSportsLanguage(turn: TurnState, reply: LlmReply): stri
   return firstMatch(turn.athleteMessage, NEW_ACTIVITY_LANGUAGE_PATTERN);
 }
 
+// Coaching style is required for First Session completion, and the athlete's own answer to "what
+// works when things get hard" is the only place it comes from. Live run: "I'd like a coach who
+// keeps me accountable" got "Accountability it is" in the reply and no coaching_style_update, so
+// the session never finished. Keyed on the athlete's words, first-session only, and only while no
+// style is on file, so a returning athlete chatting about accountability never triggers it.
+const COACHING_STYLE_LANGUAGE_PATTERN =
+  /\b(accountab\w*|hold(?:s|ing)? me (?:to it|to account)|keeps? me (?:honest|on track|in line)|cheer(?:s|ing)? me|encourag\w*|walk(?:s|ing)? me through|explains? the why|the why behind)\b/i;
+
+export function findMissedCoachingStyleLanguage(turn: TurnState, reply: LlmReply): string | null {
+  if (!turn.firstSession) return null;
+  if (reply.coaching_style_update) return null;
+  if (turn.context.memory?.coaching_style) return null;
+  return firstMatch(turn.athleteMessage, COACHING_STYLE_LANGUAGE_PATTERN);
+}
+
 // #1009 (injury_event hardening): the opposite scoping problem from findMissedInjuryLanguage
 // above. That check is safe because zero active flags means any injury language is necessarily
 // new. Here flags already exist, which is exactly what makes plain injury language ambiguous - is

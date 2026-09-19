@@ -1611,6 +1611,98 @@ describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
   });
 });
 
+// Live run: "I'd like a coach who keeps me accountable" got "Accountability it is" in the reply and
+// no coaching_style_update, so the First Session never completed.
+describe("requestCoachReply missed-coaching-style-language reprompt", () => {
+  beforeEach(() => {
+    askLlm.mockReset();
+  });
+
+  function styleTurnState(overrides: Record<string, unknown> = {}) {
+    const message = "I train 4 days a week. I'd like a coach who keeps me accountable.";
+    return baseTurnState({
+      trimmed: message,
+      athleteMessage: message,
+      firstSession: true,
+      ...overrides,
+    });
+  }
+
+  it("reprompts once on a First Session turn that states a style but sets none", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "Accountability it is.",
+        coach_note: "Wants accountability.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Accountability it is.",
+        coach_note: "Wants accountability.",
+        coaching_style_update: "accountability",
+      });
+
+    const result = await requestCoachReply(styleTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.coaching_style_update).toBe("accountability");
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no coaching_style_update was set");
+  });
+
+  it("does not reprompt when the style was set", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "Accountability it is.",
+      coach_note: "Wants accountability.",
+      coaching_style_update: "accountability",
+    });
+    await requestCoachReply(styleTurnState());
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt a returning athlete talking about accountability", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "Sure.", coach_note: "Chatted." });
+    await requestCoachReply(styleTurnState({ firstSession: false }));
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when a style is already on file", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "Sure.", coach_note: "Chatted." });
+    await requestCoachReply(
+      styleTurnState({ context: { soul: "soul", memory: { coaching_style: "analysis" } } }),
+    );
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on an unrelated First Session message", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "Got it.", coach_note: "Weight noted." });
+    await requestCoachReply(
+      styleTurnState({ athleteMessage: "Sounds good, let's get going.", trimmed: "Sounds good." }),
+    );
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and captures to Sentry when the reprompt still sets no style", async () => {
+    askLlm.mockResolvedValue({
+      reply: "Accountability it is.",
+      coach_note: "Wants accountability.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(styleTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedCoachingStyleLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+});
+
 describe("requestCoachReply missed-sports-language reprompt (#1009)", () => {
   beforeEach(() => {
     askLlm.mockReset();
