@@ -120,6 +120,23 @@ describe("generateFirstSessionWorkoutsAfterCompletion gate", () => {
     expect(commitFilesAtomic).toHaveBeenCalledTimes(1);
   });
 
+  it("builds the first week from the model's stored training_availability and keeps it on memory.json", async () => {
+    const turn = baseTurn({ wasProfileComplete: false, profileComplete: true });
+    (turn.projectedMemory as { training_availability: unknown }).training_availability = {
+      days_per_week: 4,
+      preferred_days: ["tuesday", "saturday"],
+    };
+    await generateFirstSessionWorkoutsAfterCompletion(turn as never);
+    const writes = commitFilesAtomic.mock.calls[0][0];
+    const memory = JSON.parse(writes.find((w) => w.path.endsWith("memory.json"))!.content!);
+    expect(memory.training_availability).toEqual({
+      days_per_week: 4,
+      preferred_days: ["tuesday", "saturday"],
+    });
+    const week = JSON.parse(writes.find((w) => w.path.endsWith("current_week.json"))!.content!);
+    expect(week.coach_read.body).toMatch(/Tuesday, Saturday/);
+  });
+
   it("does nothing when profile isn't complete yet", async () => {
     await generateFirstSessionWorkoutsAfterCompletion(
       baseTurn({ wasProfileComplete: false, profileComplete: false }) as never,

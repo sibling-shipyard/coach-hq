@@ -114,8 +114,8 @@ export function applyCoachingStyleUpdate(
   return JSON.stringify(result, null, 2);
 }
 
-// A3 (#727): training_availability - not a Gemini action field (no schema change in this PR's
-// file column), just the write side of inferTrainingAvailability's deterministic parse. Same
+// training_availability: written from the training_availability_update action field, or from
+// inferTrainingAvailability's parse of the memory notes when the model never set it. Same
 // reconstruct-with-emptyNotes shape as every other applier in this file, so a first-session
 // athlete with no memory.json yet still gets a well-formed one.
 export function applyTrainingAvailabilityUpdate(

@@ -8,7 +8,12 @@ import {
   validTemplateIdsFromManifest,
   TEMPLATES_MANIFEST_PATH,
 } from "./decide/coachWorkoutFiles.js";
-import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./decide/coachMemoryFiles.js";
+import {
+  PROFILE_PATH,
+  normalizeTrainingAvailability,
+  type ProfileJson,
+  type MemoryJson,
+} from "./decide/coachMemoryFiles.js";
 import { captureServerException, captureValidationFailure } from "../../_lib/sentry.js";
 import {
   validateQuestEvents,
@@ -567,10 +572,14 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
+  const trainingAvailability = reply.training_availability_update
+    ? normalizeTrainingAvailability(reply.training_availability_update)
+    : null;
   const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
     memoryUpdate: reply.memory_update,
     coachingStyleUpdate: reply.coaching_style_update,
     sportsUpdate,
+    trainingAvailability,
   });
 
   const profileUpdates = (reply.profile_update ?? []).filter(
@@ -606,6 +615,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       sportsUpdate,
       hasSportsUpdate,
       coachingStyleUpdate: reply.coaching_style_update,
+      trainingAvailability,
       seasonStart,
       today,
       traceId,

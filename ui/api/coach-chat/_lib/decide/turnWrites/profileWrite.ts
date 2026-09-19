@@ -13,6 +13,7 @@ import {
   type ProfileJson,
   type MemoryJson,
   type CoachingStyle,
+  type TrainingAvailability,
 } from "../coachMemoryFiles.js";
 import type { SeasonsJson } from "../coachQuestFiles.js";
 
@@ -47,6 +48,7 @@ export function projectProfileCompletion(params: {
   sportsUpdate: string[];
   hasSportsUpdate: boolean;
   coachingStyleUpdate: CoachingStyle | undefined;
+  trainingAvailability?: TrainingAvailability | null;
   seasonStart: Parameters<typeof applySeasonStart>[2] | undefined;
   today: string;
   traceId: string;
@@ -59,6 +61,7 @@ export function projectProfileCompletion(params: {
     sportsUpdate,
     hasSportsUpdate,
     coachingStyleUpdate,
+    trainingAvailability,
     seasonStart,
     today,
     traceId,
@@ -91,10 +94,7 @@ export function projectProfileCompletion(params: {
     },
     sports: hasSportsUpdate ? sportsUpdate : (memory?.sports ?? []),
     coaching_style: coachingStyleUpdate ?? memory?.coaching_style ?? null,
-    // A3 (#727): no action field projects this (it's derived, not Gemini-reported - see
-    // coachMemoryFiles.ts's TrainingAvailability comment), so the projection just carries the
-    // stored value through unchanged.
-    training_availability: memory?.training_availability ?? null,
+    training_availability: trainingAvailability ?? memory?.training_availability ?? null,
     notes:
       memory?.notes ??
       (Object.fromEntries(

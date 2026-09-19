@@ -177,10 +177,18 @@ export function compileFirstWeek(params: FirstWeekCompileParams): WeekUpdate {
   const capitalizedTrainingDays = trainingDays.map(
     (day) => day.charAt(0).toUpperCase() + day.slice(1),
   );
+  // Only claim "the days you said" when the athlete actually named days. A bare "4 days a week"
+  // resolves to default weekdays, and the message has to say those were picked for them.
+  const daysNamed = availability.preferred_days.length > 0;
+  const dayList = capitalizedTrainingDays.join(", ");
   const body = pushedToTomorrow
-    ? `First week, built from your benchmark. ${capitalizedTrainingDays.join(", ")} already passed this week, so your first session is set for tomorrow instead.`
+    ? daysNamed
+      ? `First week, built from your benchmark. ${dayList} already passed this week, so your first session is set for tomorrow instead.`
+      : `First week, built from your benchmark. The days I picked for you (${dayList}) already passed this week, so your first session is set for tomorrow instead.`
     : trainingDays.length > 0
-      ? `First week, built from your benchmark. Sessions land on ${capitalizedTrainingDays.join(", ")} - the days you said you train.`
+      ? daysNamed
+        ? `First week, built from your benchmark. Sessions land on ${dayList} - the days you said you train.`
+        : `First week, built from your benchmark. Sessions land on ${dayList} - I picked these to match how often you train. Say which days suit you and next week will use them.`
       : "First week. No training days stated yet, so nothing's scheduled - say when you train and next week will use it.";
 
   return {

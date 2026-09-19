@@ -216,10 +216,9 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       turn.traceId,
     );
 
-    const trainingAvailability = inferTrainingAvailability(memory, [
-      ...(turn.context.coachLog?.rows ?? []),
-      ...(turn.trimmedCoachNote ? [{ text: turn.trimmedCoachNote }] : []),
-    ]);
+    // The model's own training_availability_update wins; the notes parse is the fallback for a
+    // model that never set it.
+    const trainingAvailability = memory.training_availability ?? inferTrainingAvailability(memory);
     const memoryWrite: FileEntry = {
       path: MEMORY_PATH,
       content: applyTrainingAvailabilityUpdate(

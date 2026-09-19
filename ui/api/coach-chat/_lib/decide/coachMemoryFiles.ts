@@ -66,16 +66,12 @@ export interface MemoryNote {
 export const COACHING_STYLES = ["accountability", "encouragement", "analysis"] as const;
 export type CoachingStyle = (typeof COACHING_STYLES)[number];
 
-// A3 (#727): structured training availability, the one new memory.json field this PR adds. Intake
-// already asks "how many days a week and which days do you train" as a natural question - the
-// answer used to land only as prose inside fitness_baseline/coaching_priorities. This field is
-// derived from that same prose deterministically (inferTrainingAvailability in
-// coachFirstSessionBenchmark.ts, same keyword-parsing spirit the deleted template-selection
-// helpers used) at the profile-complete transition, so the first-week compiler has something to read
-// besides free text. Not written directly by Gemini - there's no schema field for it, since this
-// PR's file column doesn't touch ui/api/coach-chat/_lib/llm/. `days_per_week: 0` is a real,
-// legal answer (an athlete who trains zero days a week still gets a valid week); `null` means
-// nothing parseable was ever said.
+// Structured training availability. Intake asks "how many days a week and which days do you
+// train", and the model answers it through the training_availability_update action field. When it
+// never does, inferTrainingAvailability (coachFirstSessionBenchmark.ts) parses the same answer out
+// of the memory notes at the profile-complete transition, so the first-week compiler always has
+// something to read besides free text. `days_per_week: 0` is a real, legal answer (an athlete who
+// trains zero days a week still gets a valid week); `null` means nothing was ever said.
 export const WEEKDAYS = [
   "monday",
   "tuesday",
@@ -86,6 +82,22 @@ export const WEEKDAYS = [
   "sunday",
 ] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
+
+// Clamps what the model sent to a legal value: whole days 0-7, known weekday names only, no repeats.
+// Returns null when days_per_week is not a finite number, so a garbled field is dropped instead of
+// written.
+export function normalizeTrainingAvailability(input: {
+  days_per_week: number;
+  preferred_days?: string[];
+}): TrainingAvailability | null {
+  const days = Number(input.days_per_week);
+  if (!Number.isFinite(days)) return null;
+  const known = new Set<string>(WEEKDAYS);
+  const preferred = [
+    ...new Set((input.preferred_days ?? []).map((day) => String(day).trim().toLowerCase())),
+  ].filter((day): day is Weekday => known.has(day));
+  return { days_per_week: Math.min(7, Math.max(0, Math.round(days))), preferred_days: preferred };
+}
 
 export interface TrainingAvailability {
   days_per_week: number;

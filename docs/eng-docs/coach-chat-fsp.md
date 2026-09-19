@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-14
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-19
 
 ## Context
 
@@ -88,7 +88,7 @@ warm intro → conversational intake → confirm → quest setup → transition.
 structured action as it lands:
 - Missing name → `profile_update`; missing sports → `sports_update` (merges against what's
   already on file rather than replacing it, same as any other turn - see `coach-chat-daily.md`).
-- Training frequency/fitness level → `memory_update` (`fitness_baseline`).
+- Training frequency (days a week, and which days if named) → `training_availability_update`; fitness level → `memory_update` (`fitness_baseline`).
 - Upcoming events, a rough season timeline, AND the 3-6 month goal → `season_start`, bundled
   together in one call. `main_quest` is part of its own payload (B3) — `memory.json` has no goal
   field, issue #408 moved that meaning to seasons/quests. No `phase` field, Part 2 dropped it.
