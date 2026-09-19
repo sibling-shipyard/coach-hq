@@ -406,7 +406,10 @@ export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply
 // rough today" is not a sports_update moment), so this keys only on explicit new-activity
 // phrasing, never a sport name alone. Runs on every turn, not gated to first-session or
 // returning - a new/changed sport can arrive on either.
-const NEW_ACTIVITY_LANGUAGE_PATTERN = /\b(started|new sport|picked up|also (?:play|do|doing))\b/i;
+// "starting" is included only when followed by an activity-shaped word: "starting rock climbing
+// this week" is a new sport, while "starting my run at 6" or "starting weight" is not.
+const NEW_ACTIVITY_LANGUAGE_PATTERN =
+  /\b(started|new sport|picked up|also (?:play|do|doing)|starting (?!to\b|the\b|my\b|with\b|at\b|off\b|from\b|today\b|tomorrow\b|a\b|point\b|weight\b)[a-z]+|taking up|took up|getting into|got into|joined)\b/i;
 
 export function findMissedSportsLanguage(turn: TurnState, reply: LlmReply): string | null {
   if ((reply.sports_update ?? []).length > 0) return null;
