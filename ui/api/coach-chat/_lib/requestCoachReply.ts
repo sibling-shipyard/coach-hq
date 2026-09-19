@@ -129,6 +129,16 @@ export function usageResponseInit(
   return { ...init, headers };
 }
 
+function workoutCreateDoseNote(violations: string[]): string {
+  return (
+    `your workout_create breaks ${violations.length} dose rule(s) the server enforces:` +
+    ` ${violations.join("; ")} - fix each one by lowering that exercise's reps or duration_secs` +
+    " (or sets) so its total dose is at or below the progression's current value; if the exercise" +
+    " is not the same movement as that progression, drop its progression_id, or give it a new" +
+    " progression_id and set scaled_from; keep everything else the same"
+  );
+}
+
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode: TurnMode = "ordinary";
   // Finding A (OpenRouter K1 retest): a patch-shaped week_update/template_edit were silently
@@ -456,13 +466,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
       if (workoutCreateProgressionViolations) {
-        notes.push(
-          `your workout_create breaks ${workoutCreateProgressionViolations.length} dose rule(s)` +
-            ` the server enforces: ${workoutCreateProgressionViolations.join("; ")} - fix each one` +
-            " by lowering that exercise's reps or duration_secs (or sets) so its total dose is at or" +
-            " below the progression's current value, or, if it is genuinely a new movement, give it a" +
-            " new progression_id and set scaled_from; keep everything else the same",
-        );
+        notes.push(workoutCreateDoseNote(workoutCreateProgressionViolations));
       }
       if (proseOnlyWeekPlan) {
         notes.push(
@@ -594,33 +598,70 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
         // #1009 Sentry gap: the block above was log-only for every detector, old and new - this
         // is the first thing to actually reach Sentry when a reprompt's fix doesn't hold.
+        const stillDetectors = [
+          stillOversized ? "oversizedField" : null,
+          stillMissingNote ? "missingCoachNote" : null,
+          stillUnrecordedFacts ? "unrecordedFacts" : null,
+          stillMissedInjuryLanguage ? "missedInjuryLanguage" : null,
+          stillMissedHabitLanguage ? "missedHabitLanguage" : null,
+          stillMissedNewHabitLanguage ? "missedNewHabitLanguage" : null,
+          stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
+          stillMissedProfileLanguage ? "missedProfileLanguage" : null,
+          stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
+          stillMissedSportsLanguage ? "missedSportsLanguage" : null,
+          stillMissedWorkoutCreateLanguage ? "missedWorkoutCreateLanguage" : null,
+          stillMissedTemplateEditLanguage ? "missedTemplateEditLanguage" : null,
+          stillMissedSessionPlanLanguage ? "missedSessionPlanLanguage" : null,
+          stillMissedWeekUpdateLanguage ? "missedWeekUpdateLanguage" : null,
+          stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
+          stillMissedQuestLanguage ? "missedQuestLanguage" : null,
+          stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
+          stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
+          stillMalformedExercises ? "malformedExercises" : null,
+          stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
+          stillMissingWorkoutCreateInjuryAck ? "missingWorkoutCreateInjuryAck" : null,
+        ].filter((detector): detector is string => detector !== null);
+        if (stillDetectors.length > 0) {
+          await captureStillUnresolvedGuard({
+            traceId: turn.traceId,
+            turnMode: mode,
+            detectors: stillDetectors,
+          });
+        }
+      }
+    }
+    // The one reprompt above is shared by every violation, so a routine that only shows a dose
+    // problem in the reprompt's own reply (the first pass had no workout_create at all) never got
+    // a chance to fix it. One more call, for the dose rule alone, before the server drops it.
+    const remainingDoseViolations = findWorkoutCreateProgressionViolations(turn, reply);
+    if (remainingDoseViolations) {
+      console.warn("[coach-chat] workout_create still breaks a dose rule, one more reprompt:", {
+        remainingDoseViolations,
+        traceId: turn.traceId,
+      });
+      reply = await askLlm(
+        turn.apiKey,
+        turn.context.soul!,
+        turn.athleteContext,
+        turn.questContext,
+        turn.priorMessages,
+        [
+          turn.athleteMessage,
+          `\n[System note: ${workoutCreateDoseNote(remainingDoseViolations)}. Keep everything else the same.]`,
+        ].join(" "),
+        mode,
+        turn.firstSession,
+        extraContext,
+        turn.traceId,
+        turn.timezone,
+        referenceIds,
+      );
+      usageAccum = sumUsage(usageAccum, reply.usage);
+      if (findWorkoutCreateProgressionViolations(turn, reply)) {
         await captureStillUnresolvedGuard({
           traceId: turn.traceId,
           turnMode: mode,
-          detectors: [
-            stillOversized ? "oversizedField" : null,
-            stillMissingNote ? "missingCoachNote" : null,
-            stillUnrecordedFacts ? "unrecordedFacts" : null,
-            stillMissedInjuryLanguage ? "missedInjuryLanguage" : null,
-            stillMissedHabitLanguage ? "missedHabitLanguage" : null,
-            stillMissedNewHabitLanguage ? "missedNewHabitLanguage" : null,
-            stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
-            stillMissedProfileLanguage ? "missedProfileLanguage" : null,
-            stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
-            stillMissedSportsLanguage ? "missedSportsLanguage" : null,
-            stillMissedWorkoutCreateLanguage ? "missedWorkoutCreateLanguage" : null,
-            stillMissedTemplateEditLanguage ? "missedTemplateEditLanguage" : null,
-            stillMissedSessionPlanLanguage ? "missedSessionPlanLanguage" : null,
-            stillMissedWeekUpdateLanguage ? "missedWeekUpdateLanguage" : null,
-            stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
-            stillMissedQuestLanguage ? "missedQuestLanguage" : null,
-            stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
-            stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
-            stillMalformedExercises ? "malformedExercises" : null,
-            stillWorkoutCreateProgressionViolations ? "workoutCreateProgression" : null,
-            stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
-            stillMissingWorkoutCreateInjuryAck ? "missingWorkoutCreateInjuryAck" : null,
-          ].filter((detector): detector is string => detector !== null),
+          detectors: ["workoutCreateProgression"],
         });
       }
     }

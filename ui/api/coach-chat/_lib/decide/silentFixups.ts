@@ -11,7 +11,8 @@ export type SilentFixupKind =
   | "phase_ambiguous"
   | "template_id_nulled"
   | "discipline_coerced"
-  | "quest_event_synthesized";
+  | "quest_event_synthesized"
+  | "coach_note_synthesized";
 
 export interface SilentFixup {
   kind: SilentFixupKind;

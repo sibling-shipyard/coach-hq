@@ -59,7 +59,7 @@ import {
   formatProseOnlyWeekPlanCorrection,
   formatSynthesizedQuestEventNote,
 } from "./requestCoachReply.js";
-import { scheduleChangingFieldNames } from "./turnReplyValidation.js";
+import { scheduleChangingFieldNames, synthesizeRequiredCoachNote } from "./turnReplyValidation.js";
 import { formatPendingClarificationMarker } from "./turnRequest.js";
 import { recordSilentFixup } from "./decide/silentFixups.js";
 
@@ -89,7 +89,19 @@ export interface TurnWrites extends RepliedTurn {
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons, quests } = turn.context;
-  const trimmedCoachNote = reply.coach_note?.trim();
+  const modelCoachNote = reply.coach_note?.trim();
+  const fallbackCoachNote = modelCoachNote ? undefined : synthesizeRequiredCoachNote(reply);
+  if (fallbackCoachNote) {
+    console.warn("[coach-chat] no coach_note from the model, writing a fallback from the fields:", {
+      traceId,
+    });
+    recordSilentFixup(traceId, {
+      kind: "coach_note_synthesized",
+      action: "coach_note",
+      detail: fallbackCoachNote,
+    });
+  }
+  const trimmedCoachNote = modelCoachNote || fallbackCoachNote;
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
   // specific bad action, never abort the whole batch. By this point the reply already survived

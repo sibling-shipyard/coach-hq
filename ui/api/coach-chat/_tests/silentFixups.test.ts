@@ -116,3 +116,20 @@ describe("silent fixups reach Sentry", () => {
     expect(captureServerMessage).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("coach_note fallback reaches Sentry", () => {
+  it("groups a synthesized coach_note with the turn's other fixups", async () => {
+    captureServerMessage.mockClear();
+    recordSilentFixup("trace-note", {
+      kind: "coach_note_synthesized",
+      action: "coach_note",
+      detail: "Auto-note (no note from the model): recorded profile weight_kg = 72.",
+    });
+    await flushSilentFixups("trace-note");
+
+    expect(captureServerMessage).toHaveBeenCalledWith(
+      expect.stringContaining("coach_note_synthesized"),
+      expect.objectContaining({ level: "warning" }),
+    );
+  });
+});

@@ -98,9 +98,10 @@ describe("coach turn stages", () => {
         },
       }) as never,
     );
-    // coach_note is dormant since C1 (see coachReplySchema.ts) - Gemini never sets it, so it
-    // never appears in optionalWrites even though buildCoachNoteWrite still exists for C2.
-    expect(turn.optionalWrites.map((write) => write.path)).toEqual([
+    // An injury_flag needs a coach_note. This reply has none, so a fallback note built from the
+    // recorded fields is written alongside the injury itself; no other file is touched.
+    expect(turn.optionalWrites.map((write) => write.path).sort()).toEqual([
+      "user_data/coach/coach_log.json",
       "user_data/coach/injuries.json",
     ]);
     expect(turn.chatWrite.path).toBe("user_data/coach/chat_history.json");
@@ -305,6 +306,42 @@ describe("coach turn stages", () => {
       "I've added the session.\n\n" +
         "(Note: that change to your week wasn't saved - ask again and I'll put it in.)",
     );
+  });
+
+  // Round-2 retest: the model returned no coach_note even after the reprompt, so a weight update
+  // was saved with no coach_log row. A plain note built from the recorded fields fills the hole.
+  it("writes a fallback coach_note built from the recorded fields when the model gave none", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        reply: {
+          reply: "Locked in at 72kg.",
+          profile_update: [{ field: "weight_kg", value: "72" }],
+        },
+      }) as never,
+    );
+
+    const write = turn.optionalWrites.find(
+      (candidate) => candidate.path === "user_data/coach/coach_log.json",
+    );
+    expect(write).toBeDefined();
+    expect(turn.trimmedCoachNote).toBe(
+      "Auto-note (no note from the model): recorded profile weight_kg = 72.",
+    );
+  });
+
+  it("keeps the model's own coach_note when it gave one", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        reply: {
+          reply: "Locked in at 72kg.",
+          coach_note: "Athlete weighed in at 72kg.",
+          profile_update: [{ field: "weight_kg", value: "72" }],
+        },
+      }) as never,
+    );
+    expect(turn.trimmedCoachNote).toBe("Athlete weighed in at 72kg.");
   });
 
   it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
