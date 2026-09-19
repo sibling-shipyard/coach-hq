@@ -105,7 +105,7 @@ propagated doc changed. Again after PR 14, if `SOUL.claude.md` changed (LLD sect
 
 ## Risks
 
-- **Hard check blocks unrelated PRs.** It lands last, after every Current eng-doc is migrated.
+- **Hard check blocks unrelated PRs.** It lands after every Current eng-doc is migrated.
 - **Carve.** The style block is carved to other repos, so PR 1 bumps the agent-kit version.
 - **Moving docs breaks citations.** PR 2 repoints each one in the same PR.
 - **Code scrub is about 400 lines in Bob's area.** Comments only, CI green on the pushed SHA.
