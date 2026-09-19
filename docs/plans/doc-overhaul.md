@@ -59,6 +59,9 @@ Taken from Akash's draft: pilot on coach-chat first with a grading gate, the fou
 request lifecycle, entity map, two-repo topology), rewrite `coach-data-schema.md` around its entity map,
 collapse `scaling-plan.md` to current status, keep `coach-chat-test-scenarios.md` as a catalog.
 
+The three closed docs PRs are not thrown away. Their rewritten drafts and four diagram pairs are the
+starting point for PRs 3, 4, 5 and 8 (LLD, "Reuse from the closed PRs").
+
 Not taken: the one-sentence "stay within budget" rule (the hard check replaces it), leaving ref-docs
 alone (three of them ship to athletes and need the same scrub), and doing no code scrub.
 

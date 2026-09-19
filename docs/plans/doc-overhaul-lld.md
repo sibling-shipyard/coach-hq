@@ -15,9 +15,23 @@ Overview, decisions and stack summary: `docs/plans/doc-overhaul.md`. This file i
 - Each doc PR: commit, `bash platform/scripts/check.sh --quiet`, push, wait for green on the pushed SHA.
 - Workers write in the same order every time: read the source, draft `## Agent`, then write `## Human`
 	from it. A subagent per PR, briefed cold. I review the diff, open the PR and push. Bob owns PR 11.
-- Reuse the four diagrams from the closed branches `docs/p1-gemini-flow`, `docs/p1-coach-chat-docs`
-	and `docs/p1-diagrams` (`git checkout <branch> -- <svg>`). Verify each against the source before it
-	ships. They are not trusted as written.
+
+## Reuse from the closed PRs
+
+Three earlier docs PRs were closed unmerged. Their branches hold good drafts and four diagram pairs.
+Each stack PR starts from that work instead of redrawing it. Pull with
+`git checkout origin/<branch> -- <path>`, then convert to the new shape and verify against the source.
+The branches stay until PR 13 lands, then the athlete decides whether to delete them.
+
+| Asset | Branch | Lands in | Fix before it ships |
+|---|---|---|---|
+| `gemini-flow.md` draft (114 lines, was 543), `llm-adapter-seam` SVG pair | `docs/p1-gemini-flow` | PR 3 | Standard front matter. Drop the "old 41KB doc" Context and the `#870` refs. Split the 65-word sentence that failed `validate-kdb`. Add Human. State that production runs OpenRouter (ADR 0046) |
+| `coach-chat-daily.md` (77 lines, was 384), `coach-chat-testing.md` (41, was 369), `coach-chat-request-lifecycle` SVG pair, one-line edits to flow, fsp, message | `docs/p1-coach-chat-docs` | PR 4 | Replace "live Gemini" claims (ADR 0046). Rename Context and Decision-goal headings to Human and Agent. Diff each against `main` and put back anything dropped that is still true |
+| `coach-data-schema-entity-map` SVG pair | `docs/p1-diagrams` | PR 5 | Check every claimed writer and enum against `main`. Embed in the Human section, not as a pointer line |
+| `two-repo-topology` SVG pair, STEERING "The two repos" section | `docs/p1-diagrams` | PR 8 | Check the script, workflow and ref-doc counts against `carve-skeleton.mjs`. Embed in the overview Human section and in STEERING |
+
+Embed pattern: a light and a dark image (`#gh-light-mode-only`, `#gh-dark-mode-only`). PR 1 records this
+in `kdb/doc-style.md`. The SVGs sit beside the doc in `docs/eng-docs/`.
 
 ## Stack table
 
@@ -68,7 +82,7 @@ The rule text:
 `SOUL_HISTORY.md` stays. Scripts and the carve sanitizer cite it.
 
 **PR 3: LLM cluster.**
-1. `gemini-flow.md`: rewrite as the call path (prompt shape, retries, response schema, model pin).
+1. `gemini-flow.md`: start from the `docs/p1-gemini-flow` draft. Rewrite as the call path (prompt shape, retries, response schema, model pin).
 	Chronology out. Human section explains one coach reply, start to finish.
 2. `chat-llm-seam.md`: absorb `llm-provider-current.md` (provider choice, ADR 0046, cost). Adopt the
 	adapter-seam diagram. Add the one-line "full Gemini removal is deferred" note.
@@ -79,9 +93,9 @@ The rule text:
 	Gemini" claim and the `ui/eval/` paths.
 
 **PR 4: coach-chat docs.**
-1. `coach-chat-flow.md`: stop being an index. Rewrite as the coach-chat front door: what a turn does,
+1. `coach-chat-flow.md`: stop being an index. Embed the lifecycle diagram from `docs/p1-coach-chat-docs`. Rewrite as the coach-chat front door: what a turn does,
 	request lifecycle diagram, links to the rest. Fix "backed by Gemini".
-2. `coach-chat-daily.md` and `coach-chat-testing.md`: trim, new shape, fix ADR 0046 claims, remove
+2. `coach-chat-daily.md` and `coach-chat-testing.md`: start from the `docs/p1-coach-chat-docs` drafts, new shape, fix ADR 0046 claims, remove
 	citations to files that do not exist.
 3. `coach-chat-test-scenarios.md`: stays a catalog. Fix the transcript count (21, not 23), drop "new;"
 	labels.
