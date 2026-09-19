@@ -1203,7 +1203,7 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
     expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
-  it("logs and captures to Sentry, but does not reprompt twice, when injury_ack is still missing after the reprompt", async () => {
+  it("logs, gives the routine one more pass, and captures to Sentry when injury_ack is still missing after that", async () => {
     askLlm.mockResolvedValue({
       reply: "Built you a session.",
       coach_note: "Built a routine.",
@@ -1220,7 +1220,8 @@ describe("requestCoachReply missing workout_create injury_ack reprompt (#1071)",
       }),
     );
 
-    expect(askLlm).toHaveBeenCalledTimes(2);
+    // The reprompt, then one more call for the routine's remaining problem.
+    expect(askLlm).toHaveBeenCalledTimes(3);
     expect(warnSpy).toHaveBeenCalledWith(
       "[coach-chat] reply still has a content violation after reprompt:",
       expect.objectContaining({ stillMissingWorkoutCreateInjuryAck: "inj_1" }),
@@ -3151,5 +3152,104 @@ describe("requestCoachReply session_plan guard wording", () => {
     );
 
     expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Round-2 retest, two live traces: (1) the dose reprompt fixed the dose but left an exercise with no
+// finite reps, so the server dropped the routine; (2) the model ignored the build request twice.
+// One more call names every remaining workout_create problem before the server drops it.
+describe("requestCoachReply workout_create remediation pass", () => {
+  const progressions = {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "coach", trace_id: "t1" },
+    progressions: [
+      { id: "push", name: "Push-up", current: "20", target: "40", unit: "reps", history: [] },
+    ],
+  };
+  const routine = (exercise: Record<string, unknown>) => ({
+    title: "Home routine",
+    workout_type: "strength",
+    phases: [
+      {
+        name: "Main",
+        exercises: [{ name: "Pike push-up", form_cue: "Tall.", why: "Shoulders.", ...exercise }],
+      },
+    ],
+  });
+  const buildAsk = {
+    trimmed: "Can you build me a bodyweight strength routine for home?",
+    athleteMessage: "Can you build me a bodyweight strength routine for home?",
+    context: { soul: "soul", progressions },
+  };
+  const base = { reply: "I built you a routine and locked it in.", coach_note: "Built a routine." };
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("fixes a structural problem the dose reprompt introduced", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        ...base,
+        workout_create: routine({ type: "reps", reps: 24, sets: 1, progression_id: "push" }),
+      })
+      .mockResolvedValueOnce({
+        ...base,
+        workout_create: routine({ type: "reps", sets: 3, progression_id: "push" }),
+      })
+      .mockResolvedValueOnce({
+        ...base,
+        workout_create: routine({ type: "reps", reps: 6, sets: 3, progression_id: "push" }),
+      });
+
+    const result = await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(3);
+    const thirdCall = askLlm.mock.calls[2]?.[5] as string;
+    expect(thirdCall).toContain("structural problem");
+    expect("reply" in result && result.reply.workout_create?.phases[0]?.exercises[0]?.reps).toBe(6);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("gets another chance when the model ignored the build request twice, and clears the correction if it complies", async () => {
+    askLlm
+      .mockResolvedValueOnce({ ...base })
+      .mockResolvedValueOnce({ ...base })
+      .mockResolvedValueOnce({
+        ...base,
+        workout_create: routine({ type: "reps", reps: 6, sets: 3 }),
+      });
+
+    const result = await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(3);
+    expect("stillMissedWorkoutCreate" in result && result.stillMissedWorkoutCreate).toBe(false);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("reports only what survives the extra pass and keeps the correction when it still misses", async () => {
+    askLlm.mockResolvedValue({ ...base });
+
+    const result = await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(3);
+    expect("stillMissedWorkoutCreate" in result && result.stillMissedWorkoutCreate).toBe(true);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledTimes(1);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({ detectors: ["missedWorkoutCreateLanguage"] }),
+    );
+  });
+
+  it("does not spend an extra call on a routine that is fine after the first reprompt", async () => {
+    askLlm.mockResolvedValueOnce({ ...base }).mockResolvedValueOnce({
+      ...base,
+      workout_create: routine({ type: "reps", reps: 6, sets: 3 }),
+    });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
   });
 });

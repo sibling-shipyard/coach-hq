@@ -129,6 +129,32 @@ export function usageResponseInit(
   return { ...init, headers };
 }
 
+function malformedExercisesNote(violations: string[]): string {
+  return (
+    `your workout_create has ${violations.length} structural problem(s): ` +
+    `${violations.join("; ")} - a "reps" exercise needs a real reps number, a` +
+    ' "timed" exercise needs a real duration_secs number; fix every one of those fields,' +
+    " keep everything else the same"
+  );
+}
+
+function missedWorkoutCreateNote(asked: string): string {
+  return (
+    `the athlete's message contains "${asked}" and your reply says a` +
+    " routine was built or saved, but no workout_create was set this turn - if a routine was" +
+    " genuinely requested, add it now as workout_create with every phase and exercise; if" +
+    " you are only proposing one, reword the reply so it doesn't claim it was saved"
+  );
+}
+
+function missingInjuryAckNote(flags: string): string {
+  return (
+    `you set workout_create but left injury_ack missing or incomplete for these active` +
+    ` injury flag(s): ${flags} - add an injury_ack entry (flag` +
+    " and accommodation) for each one now, or the routine cannot be saved"
+  );
+}
+
 function workoutCreateDoseNote(violations: string[]): string {
   return (
     `your workout_create breaks ${violations.length} dose rule(s) the server enforces:` +
@@ -391,12 +417,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
       if (missedWorkoutCreateLanguage) {
-        notes.push(
-          `the athlete's message contains "${missedWorkoutCreateLanguage}" and your reply says a` +
-            " routine was built or saved, but no workout_create was set this turn - if a routine was" +
-            " genuinely requested, add it now as workout_create with every phase and exercise; if" +
-            " you are only proposing one, reword the reply so it doesn't claim it was saved",
-        );
+        notes.push(missedWorkoutCreateNote(missedWorkoutCreateLanguage));
       }
       if (missedTemplateEditLanguage) {
         notes.push(
@@ -458,12 +479,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
       if (malformedExercises) {
-        notes.push(
-          `your workout_create has ${malformedExercises.length} structural problem(s): ` +
-            `${malformedExercises.join("; ")} - a "reps" exercise needs a real reps number, a` +
-            ' "timed" exercise needs a real duration_secs number; fix every one of those fields,' +
-            " keep everything else the same",
-        );
+        notes.push(malformedExercisesNote(malformedExercises));
       }
       if (workoutCreateProgressionViolations) {
         notes.push(workoutCreateDoseNote(workoutCreateProgressionViolations));
@@ -477,11 +493,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
       if (missingWorkoutCreateInjuryAck) {
-        notes.push(
-          `you set workout_create but left injury_ack missing or incomplete for these active` +
-            ` injury flag(s): ${missingWorkoutCreateInjuryAck} - add an injury_ack entry (flag` +
-            " and accommodation) for each one now, or the routine cannot be saved",
-        );
+        notes.push(missingInjuryAckNote(missingWorkoutCreateInjuryAck));
       }
       const repromptMessage = [
         turn.athleteMessage,
@@ -609,7 +621,6 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           stillMissedProfileLanguage ? "missedProfileLanguage" : null,
           stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
           stillMissedSportsLanguage ? "missedSportsLanguage" : null,
-          stillMissedWorkoutCreateLanguage ? "missedWorkoutCreateLanguage" : null,
           stillMissedTemplateEditLanguage ? "missedTemplateEditLanguage" : null,
           stillMissedSessionPlanLanguage ? "missedSessionPlanLanguage" : null,
           stillMissedWeekUpdateLanguage ? "missedWeekUpdateLanguage" : null,
@@ -617,9 +628,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           stillMissedQuestLanguage ? "missedQuestLanguage" : null,
           stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
           stillUnconfirmedAssumption ? "unconfirmedAssumption" : null,
-          stillMalformedExercises ? "malformedExercises" : null,
           stillProseOnlyWeekPlan ? "proseOnlyWeekPlan" : null,
-          stillMissingWorkoutCreateInjuryAck ? "missingWorkoutCreateInjuryAck" : null,
         ].filter((detector): detector is string => detector !== null);
         if (stillDetectors.length > 0) {
           await captureStillUnresolvedGuard({
@@ -630,15 +639,28 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         }
       }
     }
-    // The one reprompt above is shared by every violation, so a routine that only shows a dose
-    // problem in the reprompt's own reply (the first pass had no workout_create at all) never got
-    // a chance to fix it. One more call, for the dose rule alone, before the server drops it.
-    const remainingDoseViolations = findWorkoutCreateProgressionViolations(turn, reply);
-    if (remainingDoseViolations) {
-      console.warn("[coach-chat] workout_create still breaks a dose rule, one more reprompt:", {
-        remainingDoseViolations,
+    // The one reprompt above is shared by every violation, so a routine can still come back broken
+    // after it: the first pass had no workout_create at all and the reprompt's reply broke a dose
+    // rule, the dose fix left a reps field unset, or the model ignored the request twice. One more
+    // call names every remaining workout_create problem before the server drops the routine.
+    const remainingDose = findWorkoutCreateProgressionViolations(turn, reply);
+    const remainingMalformed = findMalformedWorkoutCreateExercises(reply);
+    const remainingMissedBuild = findMissedWorkoutCreateLanguage(turn, reply);
+    const remainingInjuryAck = findMissingWorkoutCreateInjuryAck(turn, reply);
+    if (remainingDose || remainingMalformed || remainingMissedBuild || remainingInjuryAck) {
+      console.warn("[coach-chat] workout_create still has a problem, one more reprompt:", {
+        remainingDose,
+        remainingMalformed,
+        remainingMissedBuild,
+        remainingInjuryAck,
         traceId: turn.traceId,
       });
+      const remediationNotes = [
+        remainingMissedBuild ? missedWorkoutCreateNote(remainingMissedBuild) : null,
+        remainingMalformed ? malformedExercisesNote(remainingMalformed) : null,
+        remainingDose ? workoutCreateDoseNote(remainingDose) : null,
+        remainingInjuryAck ? missingInjuryAckNote(remainingInjuryAck) : null,
+      ].filter((note): note is string => note !== null);
       reply = await askLlm(
         turn.apiKey,
         turn.context.soul!,
@@ -647,7 +669,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         turn.priorMessages,
         [
           turn.athleteMessage,
-          `\n[System note: ${workoutCreateDoseNote(remainingDoseViolations)}. Keep everything else the same.]`,
+          `\n[System note: ${remediationNotes.join("; also, ")}. Keep everything else the same.]`,
         ].join(" "),
         mode,
         turn.firstSession,
@@ -657,11 +679,19 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         referenceIds,
       );
       usageAccum = sumUsage(usageAccum, reply.usage);
-      if (findWorkoutCreateProgressionViolations(turn, reply)) {
+      // Only what survives this pass is reported, and the athlete-facing correction follows it.
+      stillMissedWorkoutCreateForCorrection = findMissedWorkoutCreateLanguage(turn, reply) !== null;
+      const survivingDetectors = [
+        stillMissedWorkoutCreateForCorrection ? "missedWorkoutCreateLanguage" : null,
+        findMalformedWorkoutCreateExercises(reply) ? "malformedExercises" : null,
+        findWorkoutCreateProgressionViolations(turn, reply) ? "workoutCreateProgression" : null,
+        findMissingWorkoutCreateInjuryAck(turn, reply) ? "missingWorkoutCreateInjuryAck" : null,
+      ].filter((detector): detector is string => detector !== null);
+      if (survivingDetectors.length > 0) {
         await captureStillUnresolvedGuard({
           traceId: turn.traceId,
           turnMode: mode,
-          detectors: ["workoutCreateProgression"],
+          detectors: survivingDetectors,
         });
       }
     }
