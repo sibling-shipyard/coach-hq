@@ -279,6 +279,20 @@ describe("coach turn stages", () => {
     );
   });
 
+  it("appends a same-turn correction when a today-only session change was claimed but never written", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        stillMissedSessionPlan: true,
+        reply: { reply: "I've set up today's plan.", coach_note: "Skipped core today." },
+      }) as never,
+    );
+    expect(turn.finalReplyText).toBe(
+      "I've set up today's plan.\n\n" +
+        "(Note: that change to today's session wasn't saved - ask again and I'll set it up.)",
+    );
+  });
+
   it("does not append the prose-only week plan correction when stillProseOnlyWeekPlan is unset", async () => {
     const turn = await buildTurnWrites(
       baseTurn({

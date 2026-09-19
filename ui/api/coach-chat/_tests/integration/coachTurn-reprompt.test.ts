@@ -2660,6 +2660,35 @@ describe("requestCoachReply missed workout_create guard", () => {
     expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
+  it("reprompts a routine described in prose with no done-claim wording and no question", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply:
+          "For a zero-equipment routine we build around push-ups and split squats. Two rounds of that, clean and controlled.",
+        coach_note: "Described a routine.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Here it is.",
+        coach_note: "Built a routine.",
+        workout_create: { name: "Bodyweight", phases: [] },
+      });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reprompt an imperative clarification with no question mark", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "Before I build it, tell me which days you can train and what equipment you have.",
+      coach_note: "Asked before building.",
+    });
+
+    await requestCoachReply(baseTurnState(buildAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
   it("does not reprompt a clarifying question that only says it is ready to build", async () => {
     askLlm.mockResolvedValueOnce({
       reply: "Ready when you are - how many days a week can you train?",
@@ -2735,6 +2764,7 @@ describe("requestCoachReply missed template_edit guard", () => {
     askLlm.mockResolvedValueOnce({
       reply: "I took the core phase out for today.",
       coach_note: "Skipped core today.",
+      session_plan: { template_id: "q1", skip_phases: ["core"] },
     });
 
     await requestCoachReply(
@@ -2872,6 +2902,83 @@ describe("requestCoachReply workout_create dose reprompt", () => {
     });
 
     await requestCoachReply(state());
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Round-2 retest: "skip the core phase, just for today" got "I've set up today's plan with the core
+// phase pulled out" with no session_plan written and nothing correcting the reply.
+describe("requestCoachReply missed session_plan guard", () => {
+  const todayAsk = {
+    trimmed: "For today's session, use that new routine but skip the core phase. Just for today.",
+    athleteMessage:
+      "For today's session, use that new routine but skip the core phase. Just for today.",
+  };
+
+  beforeEach(() => {
+    askLlm.mockReset();
+    captureStillUnresolvedGuard.mockClear();
+  });
+
+  it("reprompts once when the reply claims today's change was made but no session_plan was set", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "I've set up today's plan with the core phase pulled out.",
+        coach_note: "Skipped core today.",
+      })
+      .mockResolvedValueOnce({
+        reply: "I've set up today's plan with the core phase pulled out.",
+        coach_note: "Skipped core today.",
+        session_plan: { template_id: "q1", skip_phases: ["core"] },
+      });
+
+    await requestCoachReply(baseTurnState(todayAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(captureStillUnresolvedGuard).not.toHaveBeenCalled();
+  });
+
+  it("flags a correction and reports to Sentry when the reprompt still misses", async () => {
+    askLlm.mockResolvedValue({
+      reply: "I've stripped the core phase out for today's session.",
+      coach_note: "Skipped core today.",
+    });
+
+    const result = await requestCoachReply(baseTurnState(todayAsk));
+
+    expect("stillMissedSessionPlan" in result && result.stillMissedSessionPlan).toBe(true);
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detectors: expect.arrayContaining(["missedSessionPlanLanguage"]),
+      }),
+    );
+  });
+
+  it.each([
+    "Which routine do you want me to use today?",
+    "I can't skip that phase without knowing the routine - tell me which one.",
+  ])("does not reprompt an honest decline or question: %s", async (reply) => {
+    askLlm.mockResolvedValueOnce({ reply, coach_note: "Asked which routine." });
+
+    await requestCoachReply(baseTurnState(todayAsk));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt a permanent change, which the template_edit guard owns", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "I took the core phase out permanently.",
+      coach_note: "Removed core.",
+      template_edit: { template_id: "q1", skip_phases: ["core"] },
+    });
+
+    await requestCoachReply(
+      baseTurnState({
+        trimmed: "permanently drop the core phase from that routine today",
+        athleteMessage: "permanently drop the core phase from that routine today",
+      }),
+    );
 
     expect(askLlm).toHaveBeenCalledTimes(1);
   });

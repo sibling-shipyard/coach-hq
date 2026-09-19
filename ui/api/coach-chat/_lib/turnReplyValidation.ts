@@ -404,12 +404,14 @@ export function findMissedRemovalLanguage(turn: TurnState, reply: LlmReply): str
 
 // Round-2 live pass: "build me a new routine" got a reply claiming "the routine is built and saved"
 // with no workout_create set, and the model's own unrecorded_facts stayed empty, so no other guard
-// had anything to catch. Fires only when the athlete asked for a new routine AND the reply claims
-// it was done AND no workout action landed. A clarifying question ("which days?") has no
-// done-claim, so it never trips this.
+// had anything to catch. A later retest showed the quieter form: the reply just describes the
+// routine in prose, with no "built" or "saved" wording at all. Fires when the athlete asked for a
+// new routine, no workout action landed, and the reply either claims it was done or is not
+// asking anything back. A clarifying reply ("which days?", "tell me your equipment") never trips it.
 const BUILD_ROUTINE_LANGUAGE_PATTERN =
   /\b(build|create|make|design|put together|set up)\b.{0,30}\b(routine|workout|template)\b/i;
 const DONE_CLAIM_LANGUAGE_PATTERN = /\b(built|saved|created|added|locked in|set up|all set)\b/i;
+const CLARIFYING_REPLY_PATTERN = /\?|\b(?:tell me|let me know|which|how many|what)\b/i;
 
 export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply): string | null {
   if (turn.firstSession) return null;
@@ -418,7 +420,8 @@ export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply
   }
   const asked = firstMatch(turn.athleteMessage, BUILD_ROUTINE_LANGUAGE_PATTERN);
   if (!asked) return null;
-  return DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? asked : null;
+  if (DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply)) return asked;
+  return CLARIFYING_REPLY_PATTERN.test(reply.reply) ? null : asked;
 }
 
 // Round-2 retest: "permanently swap the core phase out of that routine" got "I took the core phase
@@ -441,6 +444,26 @@ export function findMissedTemplateEditLanguage(turn: TurnState, reply: LlmReply)
   if (!EDIT_TARGET_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   if (!EDIT_VERB_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
   return EDIT_DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? permanent : null;
+}
+
+// Round-2 retest: "skip the core phase, just for today" got "I've set up today's plan with the core
+// phase pulled out" with no session_plan written and nothing correcting the reply. The today-only
+// twin of the template_edit guard above: a one-day wording, a routine target and a skip verb in
+// the athlete's message, plus a first-person done-claim in the reply.
+const TODAY_ONLY_LANGUAGE_PATTERN = /\b(today|today's|just for today|this session|for now)\b/i;
+const SESSION_EDIT_VERB_LANGUAGE_PATTERN =
+  /\b(skip|drop|remove|cut|take out|swap|lighten|leave out|without)\b/i;
+const SESSION_DONE_CLAIM_LANGUAGE_PATTERN =
+  /\bi(?:'ve| have)?\s+(?:set up|stripped|adjusted|pulled|removed|dropped|skipped|cut|updated|swapped|taken|took)\b/i;
+
+export function findMissedSessionPlanLanguage(turn: TurnState, reply: LlmReply): string | null {
+  if (turn.firstSession) return null;
+  if (reply.session_plan || reply.template_edit || reply.week_update) return null;
+  const today = firstMatch(turn.athleteMessage, TODAY_ONLY_LANGUAGE_PATTERN);
+  if (!today) return null;
+  if (!EDIT_TARGET_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  if (!SESSION_EDIT_VERB_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  return SESSION_DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? today : null;
 }
 
 // #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport
