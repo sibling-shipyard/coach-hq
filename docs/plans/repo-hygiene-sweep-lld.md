@@ -36,41 +36,35 @@ Five live vars are absent from a page that claims at `:10` to be the canonical l
 
 ## M2 Carve - PR 3, 4
 
-`platform/soul/B_engine.md:38` and `:364` tell BYOB Coach to read
-`propagated/docs/phelps-voice-profile.md`, `propagated/docs/soul-calibration.md` and
-`propagated/docs/badminton-plugin.md`. `platform/scripts/carve-skeleton.mjs:574-578` defines
-`PROPAGATED_DOCS` as exactly `current-week-contract.md`, `timer-state-machine.md`,
-`pipeline-tools.md`.
+**What I checked, and what I first got wrong.** `platform/scripts/carve-skeleton.mjs` carves three
+docs into `propagated/docs/` (`:574-578`: `current-week-contract.md`, `timer-state-machine.md`,
+`pipeline-tools.md`) and two starter templates (`:56`). `SOUL.claude.md` names more than that.
+I first read every extra name as a defect. Checking the script, the repo's own docs and a real
+athlete repo (`skanda-2003/coach-skanda-2003`) shows only one is.
 
-Running the existing checker proves it, and proves it has been muted:
+| SOUL pointer | Carved? | Verdict |
+|---|---|---|
+| `propagated/docs/badminton-plugin.md` (`SOUL.claude.md:345`) | No | **Real gap.** The doc's own header says "NOT WIRED UP YET ... Coach follows the pointer and finds nothing". `soul-path-to-v6.md` phase 2 names it urgent. `coach-skanda-2003/propagated/docs/` holds six files and not this one. |
+| `phelps-voice-profile.md`, `soul-calibration.md` (`SOUL.claude.md:27`) | No | **Intentional.** `soul-path-to-v6.md:86` says not to restore them, and that SOUL line tells Coach not to read them at boot. Both exist in `coach-skanda-2003`, left from an earlier carve. |
+| `strength_b.json`, `recovery.json` (`SOUL.claude.md:269`, `SOUL.chat.md:171`) | No, by design | **Not a carve gap.** #727 replaced picking a frozen template with catalog-based `workout_create` (`platform-workouts-compiler.md:5-8`), so a new repo gets two starters. SOUL step 7 is stale wording, which is a SOUL edit and out of this plan. |
 
-```
-$ node platform/scripts/validate-soul.mjs
-  propagated-docs    3 known    0 new
-    [known] [rot] L27: `propagated/docs/phelps-voice-profile.md` is referenced but the carve does not write it
-    [known] [rot] L27: `propagated/docs/soul-calibration.md` is referenced but the carve does not write it
-    [known] [rot] L345: `propagated/docs/badminton-plugin.md` is referenced but the carve does not write it
-  templates          2 known    0 new
-    [known] [rot] L269: template `strength_b.json` exists in platform/skeleton-templates/ but is not in the carve's WORKOUT_TEMPLATES
-    [known] [rot] L269: template `recovery.json` exists in platform/skeleton-templates/ but is not in the carve's WORKOUT_TEMPLATES
-Total: 12 known / 0 new / 0 resolved      EXIT=0
-```
+The gap only bites when `plugins.json` enables badminton. `coach-skanda-2003` has
+`"enabled": []`, so I have no evidence any live athlete hits it today. I earlier called it a live
+dead-end. That was wrong.
 
-All 12 are classified `[rot]` or `[unclassified]`, meaning real. `platform/validate-soul-baseline.json`
-was last written 2026-09-11. `platform/scripts/checks.conf:8` marks the check `warn` and
-`.github/workflows/validate-soul.yml:69` sets `continue-on-error: true`, with no deadline or
-tracking issue.
+**PR 3.** Add `badminton-plugin.md` to `PROPAGATED_DOCS`, drop the "NOT WIRED UP YET" banner from
+the doc, and fix its row in `docs/ref-docs/README.md`. `platform/tests/test_carve_skeleton.py`
+has two tests and none checks `propagated/docs/`, so PR 3 adds one that asserts every
+`PROPAGATED_DOCS` entry is written. Then run `--update-baseline` so that one finding leaves the
+baseline.
 
-BYOB is live, so this reaches athletes. ADR 0021 is `Superseded by 0022`, and its own text says
-"the half that does not: BYO Claude Code was never retired". ADR 0022 says "both live athletes
-moved back to BYOB", and `README.md:19` tells athletes to start with `claude`. Badminton is gated on
-`plugins.json`, and `engine/scripts/presets/skanda.json:2` shows club badminton is real.
-
-`platform/tests/test_carve_skeleton.py` has two tests
-(`test_carves_daily_rollover_workflow_with_schedule_and_lock`,
-`test_carve_stamps_same_dsn_into_sync_and_rollover`) and none asserting that every
-`propagated/docs/` path SOUL cites is carved. PR 3 adds that test, which is what turns this
-Learning into a check.
+**PR 4.** `validate-soul.mjs:676-682` exits 1 only on a new finding, and exits 0 on known ones.
+That rule is right. But `platform/scripts/checks.conf:8` marks the check `warn` and
+`.github/workflows/validate-soul.yml:69` sets `continue-on-error: true`, so nothing it finds can
+fail anything. `platform/validate-soul-baseline.json` was last written 2026-09-11. Running it
+today prints `12 known / 0 new`. After PR 3 that is 11, and they stay baselined: the two
+intentional docs, four template findings, two `paths-exist` and three `writable` entries. PR 4
+makes the check blocking and gives the two `[unclassified]` entries a written reason.
 
 ## M3 Enforcement - PR 5-8
 
@@ -104,71 +98,14 @@ Learning into a check.
 7. **`checks.conf:11` claims a glob it does not test** - it globs `engine/lib/**` but runs
 	`engine/scripts/*.test.mjs`, while `engine/lib/` holds `.mts` tests. `platform-tests.yml:56`
 	inherits the same mismatch verbatim.
-8. **`.github/agents/tech-lead.md:41` states `ui-tests.yml` covers `ui/**`.** It covers four
-	subdirectories. That is the line review check #1 tells agents to trust; corrected in PR 9.
 
 Clean: zero skipped tests (`grep -rn "\.skip(\|xit(\|it\.todo\|\.only("` over the source tree finds
 no test-framework hits). ADR 0024 holds - the only paid check, `eval-coach-chat.yml:11-12`, is
 `workflow_dispatch` only per ADR 0047.
 
-## M4 Prose - PR 9-11
+## M4 UI weight - PR 9, 10
 
-**PR 9 - dead reference docs.**
-
-- `docs/ref-docs/season-close.md:2-3` claims SOUL points at it.
-	`grep -n season-close platform/SOUL.*.md platform/soul/*.md` returns nothing, and
-	`platform/soul/B_engine.md:55` says the opposite: "there is no separate phase or season-close
-	file to write". `:13-14` still instructs writing alongside the retired `challenge_v2.json`.
-	It is not carved either (`carve-skeleton.mjs:574-578`). Delete.
-- `docs/ref-docs/milestone-schema.md:10` names `challenge_v2.json` as source of truth; ADR 0045
-	says no new code reads it.
-- `platform/scripts/carve-skeleton.mjs:172-175` cites `splitLedgerAsChallenge()`
-	(`grep -rn splitLedgerAsChallenge ui/client/src` → nothing) and
-	`docs/plans/ui-dashboard-rewiring.md` (deleted; `git log -1 -- ` that path shows `d7daaf40`).
-	`docs/eng-docs/coach-chat-daily.md:290-291` already says the shim is gone.
-- `kdb/decisions/0022-*.md:16` cites `ui/scripts/build-soul.mjs`; the real path is
-	`ui/scripts/build/build-soul.mjs`. ADRs are not path-checked - `validate_kdb.py:147` scopes
-	`doc_files` to `AGENTS.md` and `.github/agents/`.
-- `.github/agents/bob-the-builder.md:44` cites `ui/api/_generated/soul.js`;
-	`ui/scripts/build/build-soul.mjs:3` writes `soul.ts`.
-- `.github/agents/tech-lead.md:41` (see M3 item 8) and `:121`, which is pure audit trail
-	("Previously only `platform/soul/*` … were named") - the rule is the first sentence.
-
-Other dead paths, each verified NOT FOUND: `docs/eng-docs/gemini-flow.md:358` cites
-`coachIntents.test.ts` as live coverage; `skeleton-layout.md:14,67-68,171` cite `SETUP.md`,
-`sync.yml`, `rollover.yml`, `provision-user.sh`; `activity-naming-migration.md:58-59` cite
-`categories.json`, `backfill_category.py`.
-
-**PR 10 - finished plans.** `docs/eng-docs/README.md:11` says `docs/plans/` is deleted when
-shipped, with no archive folder.
-
-| Plan | Proof it is done |
-|---|---|
-| `ops-agent-setup.md` | its own `:45` "All eight PRs (#398-#405) reviewed and merged", `:85` "Nothing in the stack is outstanding"; #395, #328, #414-#417, #424, #737 all CLOSED |
-| `coach-chat-live-test-round-2.md` | `:13` says its finishing PR closes #1105; `gh issue view 1105` → CLOSED. Also cites two files that do not exist (`:7`, `:8`) and `run-simulation-suite.ts` (`:32`) |
-| `openrouter-m2-chat-lld.md` | `:3` is `Status: Historical`; #824, #917, #920, #921, #956 MERGED |
-| `agent-restructure.md` | ADR 0034 is Accepted and records the same split; #585 CLOSED. SUSPECTED - I can prove the ADR landed, not that every task did |
-| `backend-decision.md` | 501 lines, `Status: Current`, no issue refs, and its own line 1 says no decision was ever filed from it. Neither plan nor reference; `:493` proposes ADR `0016-*`, a number taken since 2026-07 |
-
-`AGENTS.md:24-25` cites ADR 0021 for "athletes reach Coach through the hosted coach-chat app",
-but ADR 0021's own `:3` retracts exactly that half, and `AGENTS.md:11` then routes Coach Phelps at
-`platform/SOUL.claude.md`, the BYO build.
-
-**PR 11 - chronology.** `AGENTS.md:112-118` names the tells. The ones where the past no longer
-binds the present: `coach-chat-daily.md:290-292` (cites #179, CLOSED 2026-08-02),
-`coach-chat-testing.md:104,147,193-194`, `coach-chat-test-scenarios.md:74,79,149`,
-`coach-chat-flow.md:6`, `coach-chat-fsp.md:170`, `gemini-flow.md:20,26,37,64,323,474`,
-`llm-provider-current.md:98-99,121,139`, `ios-xcode-setup.md:31`, `chat-llm-seam.md:45`.
-`coach-commit-mvp.md:118` cites #574 as tracking open work; it is CLOSED.
-
-Budget: `gemini-flow.md` is 543 lines against the `kdb/doc-style.md:3` one-page budget, is
-`Status: Current`, and has no `-lld.md` split. `validate_kdb.py` flags only `AGENTS.md` at 221.
-The 8 `Status: Historical` docs are all cited from live code or ADRs and stay - chronology is their
-job per `docs/eng-docs/README.md:41-44`.
-
-## M5 UI weight - PR 12, 13
-
-**PR 12 - 18 of 27 shadcn primitives are unimported.** Only nine appear in any import:
+**PR 9 - 18 of 27 shadcn primitives are unimported.** Only nine appear in any import:
 
 ```
 $ grep -rhn "components/ui/" ui/client/src | grep -o '"@/components/ui/[a-z-]*"' | sort | uniq -c
@@ -188,7 +125,7 @@ primitives. `framer-motion` and `tailwindcss-animate` are already imported nowhe
 `grep -rn framer-motion ui --include=*.tsx` matches `ui/package.json:51` alone. Keep
 `@radix-ui/react-{dialog,separator,slot,tooltip}` - `slot` is used by `button.tsx`.
 
-**PR 13 - nine `localDateKey` copies and six Monday formulas.**
+**PR 10 - nine `localDateKey` copies and six Monday formulas.**
 
 ```
 $ grep -rn "function localDateKey\|function toLocalDateStr\|function dateKey" --include='*.ts' ui
@@ -211,9 +148,9 @@ and again inline at `:282-284` using `(getDay()+6)%7`, `warmHomeSnapshots.ts:300
 `firstWeekCompile.ts:35`. iOS repeats it: `EnginePageMath.swift:103` and `TrainWeekStrip.swift:330`
 both map a date to `"MON"` by different mechanisms.
 
-## M6 Retired names - PR 14-16
+## M5 Retired names - PR 11-13
 
-**PR 14 - iOS dead code.**
+**PR 11 - iOS dead code.**
 
 - `ios/CoachHQ/CoachHQ/Views/EnginePageView.swift` is 541 lines defining `EngineDetailView`.
 	`grep -rn "EngineDetailView" ios --include=*.swift` outside the file returns nothing; only
@@ -224,7 +161,7 @@ both map a date to `"MON"` by different mechanisms.
 	`platform/skeleton-templates/` (`calisthenics_a`, `strength_a`, `recovery`, `foundation`).
 - `InstrumentHeaderView.swift:29` is referenced only by its own `#Preview` at `:99`.
 
-**PR 15.** `liveWeekContract.ts:77` declares `_legacyChallenge?: any` as positional param 2;
+**PR 12.** `liveWeekContract.ts:77` declares `_legacyChallenge?: any` as positional param 2;
 `grep -rn _legacyChallenge ui` returns the definition only. `coachDay.ts:80-82` documents itself as
 dead - "Not currently called from the turn-building pipeline" - and `coachDayNumber` has zero
 production callers, only `coach-since.test.ts`. One concept carries three names:
@@ -234,7 +171,7 @@ coach-day. `coachChatModel.ts:431` shows the athlete "Gemini free-tier quota exc
 that is no longer Gemini; same naming at `coach-chat-context.ts:2`,
 `prefetchCoachContext.ts:8`, `coachChatModel.ts:441,533`, `currentWeekAdapter.ts:189`.
 
-**PR 16.** `ui/api/auth/_lib/repo-resolution.ts:58` keeps
+**PR 13.** `ui/api/auth/_lib/repo-resolution.ts:58` keeps
 `LEGACY_MARKER_PATH = "user_data/ledger/challenge_v2.json"` with no stated removal condition -
 legitimate back-compat, undocumented. `ui/api/_lib/fileEdits.ts:5` describes a contract for
 `state.md` and `coach_notes.md`, both retired (`coach-data-schema.md:7`), while
@@ -242,7 +179,7 @@ legitimate back-compat, undocumented. `ui/api/_lib/fileEdits.ts:5` describes a c
 `data["coach_notes"]` and nothing in `ui/api` or the schema doc reads it - SUSPECTED dead, confirm
 against an athlete repo before deleting.
 
-## M7 Boundary - PR 17, 18
+## M6 Boundary - PR 14, 15
 
 `ui/client/src/lib/challenge.ts:2` defines `SplitLedger` as the canonical type, imported by ~10
 files - and `hooks/useRepoData.ts:24,29` types the same value `ledger?: any; profile?: any`, with
@@ -255,7 +192,7 @@ Clean: zero `@ts-ignore`/`@ts-nocheck` in production code - the only five hits a
 `@ts-expect-error` inside tests that are themselves the assertion
 (`ui/api/_lib/_tests/llmClient.test.ts:52-57`).
 
-**PR 18 - two swallowed errors worth capturing.** Of ~40 bare `catch {}` outside tests, most are
+**PR 15 - two swallowed errors worth capturing.** Of ~40 bare `catch {}` outside tests, most are
 documented fail-open inside the runbook boundary (`sentry-runbook.md:333` exempts
 `parseJsonOrNull`; `coachDay.ts`'s six catches are `Intl` fallbacks). These two are not:
 
@@ -269,14 +206,14 @@ documented fail-open inside the runbook boundary (`sentry-runbook.md:333` exempt
 Non-null `!` on LLM-returned JSON at `turnReplyValidation.ts:37,47` and `memoryWrite.ts:43-44`,
 which `coachTurn-reprompt.test.ts:376` notes "is not runtime-checked here".
 
-## M8 Splits - PR 19-21
+## M7 Splits - PR 16-18
 
 `wc -l`, excluding `node_modules` and `_generated`: `HealthKitSyncManager.swift` 1861 (HK queries +
 dedupe + commit + stale-sync reporting), `ui/api/auth/[...action].ts` 788 (every auth action +
 PKCE + the refresh retry loop at `:507-543`), `coachTurn-reprompt.test.ts` 2567. The iOS view files
 (`ActivityDetailView` 1161, `ActivityLedgerView` 1089, `SettingsView` 1086, `CoachChatView` 988)
 each carry their own model math - `CoachChatView.swift:68` holding a duplicate of web's day-number
-formula inside a SwiftUI view is the tell. Those follow PR 19's pattern once it lands.
+formula inside a SwiftUI view is the tell. Those follow PR 16's pattern once it lands.
 
 ## Checked and found clean
 
@@ -291,7 +228,7 @@ formula inside a SwiftUI view is the tell. Those follow PR 19's pattern once it 
 	`ui/eval/prefix-cache-probe.ts:3` "throwaway by design".
 - **No dead env vars** - every project-owned `process.env.X` has a reader and a setter.
 - **Two TODOs in the source tree.** `ui/client/src/pages/AuthError.tsx:17` cites #164, CLOSED -
-	fold into PR 11. `ui/api/_lib/geminiModel.ts:8` is a live revert reminder.
+	tracked in #1249. `ui/api/_lib/geminiModel.ts:8` is a live revert reminder.
 - **Boot-file paths all resolve** - every path cited by `AGENTS.md` and `tech-lead.md` exists.
 - **`.claude/worktrees/` (23M) and 16 prunable `/tmp` worktrees** are gitignored local litter, not
 	repo state. Prune locally, no PR.
