@@ -119,11 +119,17 @@ The other 18 total 2294 lines. By size: `sidebar` (699), `chart` (324), `item` (
 `kbd` (28), `progress` (26), `collapsible` (19), `spinner` (16). There is no `components.json`
 registry to justify keeping them.
 
-Seven dependencies fall out with them. `recharts` is imported only by the unused `chart.tsx`;
-`@radix-ui/react-collapsible`, `-popover`, `-progress` and `-select` only by their unused
-primitives. `framer-motion` and `tailwindcss-animate` are already imported nowhere -
-`grep -rn framer-motion ui --include=*.tsx` matches `ui/package.json:51` alone. Keep
+Seven dependencies fall out with them. `recharts` is imported only by the unused `chart.tsx`.
+`@radix-ui/react-collapsible`, `-popover`, `-progress` and `-select` are imported only by their
+unused primitives. `framer-motion` and `tailwindcss-animate` are imported nowhere. Keep
 `@radix-ui/react-{dialog,separator,slot,tooltip}` - `slot` is used by `button.tsx`.
+
+**Search scope.** The import-path grep above only covers `ui/client/src`, so I re-ran it wider. A
+grep over every file type in the repo, excluding `node_modules`, `.git` and the lockfile, finds
+each of the seven dependencies in `ui/package.json` and nowhere else. It finds none of the 18
+primitives referenced outside their own file, and none of the nine kept primitives imports one of
+the 18. That covers configs, CSS and docs, not only `.tsx`. PR 9 re-runs both greps as its first
+step and stops if either finds a reference.
 
 **PR 10 - nine `localDateKey` copies and six Monday formulas.**
 
@@ -175,9 +181,7 @@ that is no longer Gemini; same naming at `coach-chat-context.ts:2`,
 `LEGACY_MARKER_PATH = "user_data/ledger/challenge_v2.json"` with no stated removal condition -
 legitimate back-compat, undocumented. `ui/api/_lib/fileEdits.ts:5` describes a contract for
 `state.md` and `coach_notes.md`, both retired (`coach-data-schema.md:7`), while
-`coachContext.ts:5` says "state.md is gone". `engine/core/query_history.py:350-354` writes
-`data["coach_notes"]` and nothing in `ui/api` or the schema doc reads it - SUSPECTED dead, confirm
-against an athlete repo before deleting.
+`coachContext.ts:5` says "state.md is gone".
 
 ## M6 Boundary - PR 14, 15
 
@@ -229,6 +233,12 @@ formula inside a SwiftUI view is the tell. Those follow PR 16's pattern once it 
 - **No dead env vars** - every project-owned `process.env.X` has a reader and a setter.
 - **Two TODOs in the source tree.** `ui/client/src/pages/AuthError.tsx:17` cites #164, CLOSED -
 	tracked in #1249. `ui/api/_lib/geminiModel.ts:8` is a live revert reminder.
+- **The `coach_notes` write in `engine/core/query_history.py:350-354` is live, not dead.** I first
+	marked it SUSPECTED dead by mixing up the retired `coach_notes.md` file with this per-activity
+	field. `SOUL.claude.md:309` tells BYOB Coach to run `query_history.py --add-notes`, and
+	`platform/skills/pipeline-tools.md:43` documents the flag. Nothing in HQ reads the field, and a
+	code search of `coach-skanda-2003` finds nothing. Deleting the write would still break a
+	documented command, so it is not a finding.
 - **Boot-file paths all resolve** - every path cited by `AGENTS.md` and `tech-lead.md` exists.
 - **`.claude/worktrees/` (23M) and 16 prunable `/tmp` worktrees** are gitignored local litter, not
 	repo state. Prune locally, no PR.

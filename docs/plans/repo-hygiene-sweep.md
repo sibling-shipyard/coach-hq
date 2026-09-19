@@ -19,13 +19,18 @@ first and the cosmetic ones last.
 
 ```mermaid
 graph LR
-  M1["M1 Secrets<br/>PR 1-2"] --> M6["M6 Boundary<br/>PR 14-15"]
-  M2["M2 Carve<br/>PR 3-4"]
-  M3["M3 Enforcement<br/>PR 5-8"]
-  M4["M4 UI weight<br/>PR 9-10"] --> M5["M5 Retired names<br/>PR 11-13"]
-  M5 --> M6
-  M6 --> M7["M7 Splits<br/>PR 16-18"]
+  P1["PR 1 scrub key"] --> P2["PR 2 env docs"]
+  P3["PR 3 carve badminton doc"] --> P4["PR 4 validate-soul blocks"]
+  P5["PR 5 CI coverage"] --> P6["PR 6 validate-kdb trigger"] --> P7["PR 7 cron alerts"] --> P8["PR 8 CI dedupe"]
+  P9["PR 9 unused UI"] --> P10["PR 10 dates.ts"] --> P12["PR 12 dead names"]
+  P12 --> P13["PR 13 back-compat exits"]
+  P12 --> P14["PR 14 type ledger"] --> P15["PR 15 silent failures"]
+  P15 --> P17["PR 17 auth split"]
+  P15 --> P18["PR 18 test split"]
+  P11["PR 11 iOS dead code"] --> P16["PR 16 HealthKit split"]
 ```
+
+Arrows show merge order, the `final base` column. Separate chains can be built in parallel.
 
 ### The five that matter
 
@@ -63,21 +68,22 @@ graph LR
 | 6 | M3 Enforcement | `validate-kdb` fires on what it scans | 5 | `.github/workflows/validate-kdb.yml` | subagent | - | a dead path in a workflow fails CI |
 | 7 | M3 Enforcement | cron jobs report their own failure | 6 | `.github/workflows/{sentry-digest,span-health}.yml`, `docs/eng-docs/sentry-runbook.md` | subagent | - | a dead digest is visible |
 | 8 | M3 Enforcement | duplicate CI work dropped; orphan checkers resolved | 7 | `ui-tooling-tests.yml`, `ui/docs/reference_interactions_check.py`, `ui/package.json`, `platform/scripts/checks.conf` | subagent | - | one `vitest scripts/lib` run |
-| 9 | M4 UI weight | 18 unused primitives and 7 deps deleted | main | `ui/client/src/components/ui/*`, `ui/package.json`, `ui/package-lock.json` | UI Expert | - | build green, bundle smaller |
+| 9 | M4 UI weight | 18 unused primitives and 7 deps deleted | main | `ui/client/src/components/ui/*`, `ui/package.json`, `ui/package-lock.json` | UI Expert | - | repo-wide grep finds no reference, build green, bundle smaller |
 | 10 | M4 UI weight | one date module; 9 duplicates collapse | 9 | new `ui/client/src/lib/dates.ts`; lens models, `home-warm/*`, `lib/activities.ts`, `lib/challenge.ts` | UI Expert | 11 | one Monday formula |
 | 11 | M5 Retired names | iOS dead code deleted | main | delete `EnginePageView.swift` (keep `EnginePageMath`), `BundledTemplates.swift`; `InstrumentHeaderView.swift` | iOS Builder | 9, 10 | iOS build + tests green |
 | 12 | M5 Retired names | dead params gone; one name for coach-day | 10 | `liveWeekContract.ts`, `coachDay.ts` + test, `coachChatModel.ts`, `CoachChat.tsx`, `CoachChatView.swift` | Bob | - | no user-facing "Gemini" |
-| 13 | M5 Retired names | back-compat states its exit; dead write removed | 12 | `repo-resolution.ts`, `fileEdits.ts`, `engine/core/query_history.py` | Bob | - | every back-compat path names its exit |
+| 13 | M5 Retired names | back-compat states its exit; stale `fileEdits.ts` contract fixed | 12 | `repo-resolution.ts`, `fileEdits.ts` | Bob | - | every back-compat path names its exit |
 | 14 | M6 Boundary | the ledger boundary is typed | 12 | `hooks/useRepoData.ts` and `tsc` fallout | UI Expert | 15 | `SplitLedger` not bypassed at entry |
 | 15 | M6 Boundary | 2 silent failures report | 14 | `commit/activitySyncTurn.ts`, `auth/[...action].ts` | Bob | - | a GitHub outage is visible |
 | 16 | M7 Splits | `HealthKitSyncManager` split by job | 11 | `ios/.../HealthKitSyncManager.swift` | iOS Builder | 17, 18 | each file under ~600 lines |
 | 17 | M7 Splits | auth router split from PKCE and refresh | 15 | `ui/api/auth/[...action].ts` | Bob | 16, 18 | router is routing only |
 | 18 | M7 Splits | reprompt test split by scenario | 15 | `coachTurn-reprompt.test.ts` | Bob | 16, 17 | same assertions, readable files |
 
-**Parallelism:** 1-2 and 3 share no files and run concurrently. PR 4 follows 3, since both write
-`validate-soul-baseline.json`. 5-8 are a serial chain over the workflow files. 9 → 10 → 14 is one
-serial chain over `ui/client/src`; 12 follows 10 to avoid conflicting in `coachChatModel.ts`. 11
-and 16 are the only `ios/` PRs and are serial.
+**Parallelism:** the diagram shows merge order, and separate chains build in parallel. PR 4
+follows 3, since both write `validate-soul-baseline.json`. 5-8 are a serial chain over the
+workflow files. 9 → 10 → 12 is a serial chain over `ui/client/src`. 14 follows 12 because both
+touch `CoachChat.tsx`. 17 and 18 follow 15, since 17 rewrites the auth file that 15 edits. 11 and
+16 are the only `ios/` PRs and are serial.
 
 ## Deferred
 
