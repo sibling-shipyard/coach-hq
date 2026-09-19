@@ -1511,6 +1511,11 @@ describe("requestCoachReply missed-training-frequency-language reprompt", () => 
     const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
     expect(repromptMessage).toContain("no");
     expect(repromptMessage).toContain("memory_update was set");
+    // Live reruns: the model wrote the frequency into coach_note twice and treated that as
+    // recorded, but coach_note never reaches the memory notes the availability parser reads.
+    // The note says so, and hands over a copy-ready value built from the athlete's own words.
+    expect(repromptMessage).toContain("coach_note is only a daily log");
+    expect(repromptMessage).toContain('text like "Trains 4 days a week."');
   });
 
   it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {

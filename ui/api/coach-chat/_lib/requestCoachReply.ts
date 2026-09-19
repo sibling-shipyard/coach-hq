@@ -407,9 +407,12 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       if (missedTrainingFrequencyLanguage) {
         notes.push(
           `the athlete's message contains "${missedTrainingFrequencyLanguage}" but no` +
-            " memory_update was set this turn - if a real training frequency or which-days answer" +
-            " was stated, add it now as memory_update with label fitness_baseline including that" +
-            " detail; if it genuinely isn't a training-frequency statement, disregard this note",
+            " memory_update was set this turn. coach_note is only a daily log and never reaches" +
+            " the athlete's saved memory, so writing it there does not count. If a real training" +
+            " frequency or which-days answer was stated, set memory_update with label" +
+            ` fitness_baseline and text like "Trains ${missedTrainingFrequencyLanguage}." plus any` +
+            " days they named; if it genuinely isn't a training-frequency statement, disregard" +
+            " this note",
         );
       }
       if (missedRemovalLanguage) {
