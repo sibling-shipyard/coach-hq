@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-19
 
 ## Context
 
@@ -199,12 +199,12 @@ On every returning-athlete turn:
   `workout_create`, `workout_remove`) sit together. The last two (A2 #727) are
   returning-athlete-only. See `coach-data-schema.md`'s "What Gemini can write" table for the full
   list.
-- The templates manifest and `current_week.json` are **not** fetched up front any more. Gemini's
-  prompt carries no pre-fetched template/session id list — that fetch is lazy now, triggered in
-  `buildTurnWrites()` (`buildTurnWrites.ts`) only when the reply actually contains `template_edit`,
-  `session_plan`, `week_update`, `workout_create`, or `workout_remove`. Most ordinary turns never
-  touch those fields and never pay for the extra GitHub reads. A wrong or invented template/session
-  id just fails validation and drops that one write; it doesn't corrupt anything.
+- The templates manifest and `current_week.json` are read on every returning-athlete turn
+  (`requestCoachReply.ts`), so Gemini's prompt can list the real template ids and this week's
+  session ids. Both are read at the head commit sha fetched for that turn, not the branch name.
+  `buildTurnWrites()` reuses the same content to validate `template_edit`, `session_plan`,
+  `week_update`, `workout_create` and `workout_remove`. A wrong or invented id fails validation and
+  drops that one write; it doesn't corrupt anything.
 - If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
   back over its length cap, `requestCoachReply()` (`requestCoachReply.ts`) reprompts Gemini once for that
   field before proceeding — one extra `askLlm()` round trip on this turn only. See
@@ -223,12 +223,12 @@ On every returning-athlete turn:
   whole family of `findMissed*Language`/`findUncounted*Language` detectors (`turnReplyValidation.ts`). Each
   one covers an action field with a known narration-vs-action risk - the model describes a fact
   as saved without setting the matching field, or captures only some of several real facts in one
-  message. Same one-shot reprompt mechanism, same "still" check afterward. `gemini-flow.md`'s
+  message. Same reprompt mechanism (`workout_create` gets one more call), same "still" check afterward. A claim guard that still fires appends an honest "wasn't saved" note to the reply. `gemini-flow.md`'s
   coverage table is the authoritative per-field list - not repeated here, so it stays the one
   place this state lives. If a detector is still unresolved after its reprompt,
   `captureStillUnresolvedGuard` (`ui/api/_lib/sentry.ts`) sends it to Sentry alongside the
   existing local `console.warn`, so a guard that doesn't hold shows up in production monitoring,
-  not just local logs.
+  not just local logs. A required-note action with no `coach_note` after the reprompt gets a plain fallback note. Server corrections the athlete never sees queue in `silentFixups.ts`, and `commitTurn` sends one Sentry warning per turn.
 - `sports_update` merges the reported list against what's already on file rather than replacing
   it (`applySportsUpdate`, `coachProfileIntents.ts`) - a returning-athlete turn naming one new sport
   doesn't drop the others.
@@ -366,6 +366,7 @@ for the write-builder table.
 | `ui/api/coach-chat/_lib/turnRequest.ts` | request parsing and turn-state loading |
 | `ui/api/coach-chat/_lib/requestCoachReply.ts` | Gemini call and reprompt-loop orchestration |
 | `ui/api/coach-chat/_lib/turnReplyValidation.ts` | reply-content validators the reprompt loop checks against |
+| `ui/api/coach-chat/_lib/decide/silentFixups.ts` | per-turn queue of silent server corrections, flushed to Sentry by `commitTurn` |
 | `ui/api/coach-chat/_lib/buildTurnWrites.ts` | decide→write assembly |
 | `ui/api/coach-chat/_lib/turnCompletion.ts` | post-write cleanup and the final commit |
 | `ui/api/coach-chat/_lib/decide/turnWrites/*.ts` | one file per reply action field's write-builder |

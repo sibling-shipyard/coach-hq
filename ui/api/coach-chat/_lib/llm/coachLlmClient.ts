@@ -128,11 +128,11 @@ export async function askLlm(
   // not itself inside this try block, so that failure propagates straight past this function to
   // whatever calls askLlm, same as any other adapter-level throw.
   //
-  // This retry, requestCoachReply.ts's up to two reprompt calls, and each adapter's own 503/504/
+  // This retry, requestCoachReply.ts's up to three reprompt calls, and each adapter's own 503/504/
   // truncation retry all stack independently of one another and of the 300s Vercel budget - none
   // of the four layers knows how much time the others have already spent. Bounding this retry's
   // own timeout, rather than reusing the full budget again, keeps its worst-case addition small
-  // instead of letting a fifth 45s call stack on top of four others that already ran.
+  // instead of letting one more long call stack on top of the others that already ran.
   const jsonParseRetryTimeoutMs = Math.min(GEMINI_GENERATE_TIMEOUT_MS, 20_000);
   let parsed: LlmReply;
   try {
