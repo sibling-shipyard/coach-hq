@@ -30,6 +30,7 @@ import {
   findMissedNewHabitLanguage,
   findMissedSeasonLanguage,
   findMissedProfileLanguage,
+  findMissedTrainingFrequencyLanguage,
   findMissedRemovalLanguage,
   findMissedSportsLanguage,
   findMissedWorkoutCreateLanguage,
@@ -263,6 +264,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedNewHabitLanguage = findMissedNewHabitLanguage(turn, reply);
     const missedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
+    const missedTrainingFrequencyLanguage = findMissedTrainingFrequencyLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
     const missedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
@@ -302,6 +304,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedNewHabitLanguage ||
       missedSeasonLanguage ||
       missedProfileLanguage ||
+      missedTrainingFrequencyLanguage ||
       missedRemovalLanguage ||
       missedSportsLanguage ||
       missedWorkoutCreateLanguage ||
@@ -326,6 +329,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedNewHabitLanguage,
         missedSeasonLanguage,
         missedProfileLanguage,
+        missedTrainingFrequencyLanguage,
         missedRemovalLanguage,
         missedSportsLanguage,
         missedWorkoutCreateLanguage,
@@ -398,6 +402,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " profile_update was set this turn - if a real age, height, weight, or timezone was" +
             " stated, add it now as profile_update; if it genuinely doesn't describe a new" +
             " profile fact, disregard this note",
+        );
+      }
+      if (missedTrainingFrequencyLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedTrainingFrequencyLanguage}" but no` +
+            " memory_update was set this turn - if a real training frequency or which-days answer" +
+            " was stated, add it now as memory_update with label fitness_baseline including that" +
+            " detail; if it genuinely isn't a training-frequency statement, disregard this note",
         );
       }
       if (missedRemovalLanguage) {
@@ -526,6 +538,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedNewHabitLanguage = findMissedNewHabitLanguage(turn, reply);
       const stillMissedSeasonLanguage = findMissedSeasonLanguage(turn, reply);
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
+      const stillMissedTrainingFrequencyLanguage = findMissedTrainingFrequencyLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
       const stillMissedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
@@ -565,6 +578,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedNewHabitLanguage ||
         stillMissedSeasonLanguage ||
         stillMissedProfileLanguage ||
+        stillMissedTrainingFrequencyLanguage ||
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
         stillMissedWorkoutCreateLanguage ||
@@ -591,6 +605,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedNewHabitLanguage,
             stillMissedSeasonLanguage,
             stillMissedProfileLanguage,
+            stillMissedTrainingFrequencyLanguage,
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
             stillMissedWorkoutCreateLanguage,
@@ -619,6 +634,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
           stillMissedNewHabitLanguage ? "missedNewHabitLanguage" : null,
           stillMissedSeasonLanguage ? "missedSeasonLanguage" : null,
           stillMissedProfileLanguage ? "missedProfileLanguage" : null,
+          stillMissedTrainingFrequencyLanguage ? "missedTrainingFrequencyLanguage" : null,
           stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
           stillMissedSportsLanguage ? "missedSportsLanguage" : null,
           stillMissedTemplateEditLanguage ? "missedTemplateEditLanguage" : null,

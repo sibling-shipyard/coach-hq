@@ -272,7 +272,7 @@ test already covers.
 | `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
 | `coaching_style_update` | prompt reinforcement | - |
 | `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
-| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) | - |
+| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085); plus `findMissedTrainingFrequencyLanguage` for the one narrow, safe subset - a first-session "N days a week" statement (`DAYS_PATTERN`, shared with `inferTrainingAvailability`) with nothing already on file. A broad memory_update guard is still rejected for the reasons #1085 gives | - |
 | `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
 | `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only: started, starting an activity, taking up, getting into, joined - each with false-positive exclusions) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
@@ -286,6 +286,7 @@ The reprompt is one call shared by every violation. What happens when a problem 
 3. **A missing `coach_note` gets a fallback.** If a required-note action still has no `coach_note`, a plain note is built from the validated recorded fields, never from an action a bad reference dropped.
 4. **Silent server fixups reach Sentry.** An unmatched or ambiguous `skip_phases` name, a nulled `template_id`, a coerced discipline, and a synthesized `quest_event` or `coach_note` queue in `decide/silentFixups.ts`. `commitTurn` sends one Sentry warning per turn.
 5. **Per-turn reads are pinned.** The templates manifest, `current_week.json` and the coach-context files are read at the head commit sha fetched that turn. A read by branch name right after a commit can miss the previous turn's write.
+6. **A late first week still gets a real session.** `compileFirstWeek` (`firstWeekCompile.ts`) places the benchmark on the athlete's earliest stated training day that is today or later. If every stated day has already passed this week, it now falls back to tomorrow, honestly worded, instead of leaving the whole week empty. Left alone only when tomorrow is already next week (today is Sunday) - that week gets a fresh kickoff of its own.
 
 ### Model calls per turn, and what they cost
 

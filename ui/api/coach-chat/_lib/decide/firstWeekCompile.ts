@@ -121,9 +121,7 @@ export function compileFirstWeek(params: FirstWeekCompileParams): WeekUpdate {
   // The benchmark (and every anchor session) only ever lands on today or a later day this week.
   // A training day earlier in the week than today has already passed - the UI's today-band
   // selector matches on date === today, so a session placed there would be permanently
-  // unreachable (P0, #727 review). If every training day this week is already in the past, the
-  // benchmark routine still gets written and committed - it's just not scheduled on this week's
-  // calendar, same as any other day with nothing scheduled.
+  // unreachable (P0, #727 review).
   let benchmarkPlaced = false;
   const days: WeekUpdateDay[] = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(startDate, i);
@@ -152,8 +150,33 @@ export function compileFirstWeek(params: FirstWeekCompileParams): WeekUpdate {
     return { date, sessions };
   });
 
-  const body =
-    trainingDays.length > 0
+  // Every stated training day this week is already in the past (e.g. the first session lands on
+  // a Saturday with M/W/F training days) - rather than leave the benchmark unscheduled for a
+  // whole week, place it on tomorrow if tomorrow still falls inside this same compiled week.
+  // Tomorrow already being next week (today is Sunday) is left alone - next week's own kickoff
+  // places it fresh instead of reaching outside this function's 7-day scope.
+  let pushedToTomorrow = false;
+  if (!benchmarkPlaced && trainingDays.length > 0) {
+    const tomorrow = addDays(today, 1);
+    const tomorrowDay = days.find((d) => d.date === tomorrow);
+    if (tomorrowDay) {
+      // Always a real array here (this loop always sets one) - optional only on the interface.
+      tomorrowDay.sessions ??= [];
+      tomorrowDay.sessions.push({
+        discipline: "foundation",
+        kind: "benchmark",
+        title: benchmarkTitle,
+        priority: "anchor",
+        template_id: benchmarkRoutineId,
+      });
+      benchmarkPlaced = true;
+      pushedToTomorrow = true;
+    }
+  }
+
+  const body = pushedToTomorrow
+    ? `First week, built from your benchmark. ${trainingDays.join(", ")} already passed this week, so your first session is set for tomorrow instead.`
+    : trainingDays.length > 0
       ? `First week, built from your benchmark. Sessions land on ${trainingDays.join(", ")} - the days you said you train.`
       : "First week. No training days stated yet, so nothing's scheduled - say when you train and next week will use it.";
 

@@ -1473,6 +1473,122 @@ describe("requestCoachReply missed-profile-language reprompt (#1009)", () => {
   });
 });
 
+// fsp-end-to-end live run: "I typically train 4 days a week, and I'm an intermediate runner" got
+// acknowledged in the reply but no memory_update was set, so inferTrainingAvailability
+// (coachFirstSessionBenchmark.ts) had nothing to parse at first-session completion and the first
+// week silently fell back to a generic default.
+describe("requestCoachReply missed-training-frequency-language reprompt", () => {
+  beforeEach(() => {
+    askLlm.mockReset();
+  });
+
+  function firstSessionFrequencyTurnState(overrides: Record<string, unknown> = {}) {
+    return baseTurnState({
+      firstSession: true,
+      trimmed: "I typically train 4 days a week, and I'm an intermediate runner.",
+      athleteMessage: "I typically train 4 days a week, and I'm an intermediate runner.",
+      context: { soul: "soul", memory: null },
+      ...overrides,
+    });
+  }
+
+  it("reprompts once when frequency language is present but no memory_update was set", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "Four days a week is a solid base to work from.",
+        coach_note: "Athlete trains 4 days a week.",
+      })
+      .mockResolvedValueOnce({
+        reply: "Four days a week is a solid base to work from.",
+        coach_note: "Athlete trains 4 days a week.",
+        memory_update: { label: "fitness_baseline", text: "Trains 4 days a week, intermediate." },
+      });
+
+    const result = await requestCoachReply(firstSessionFrequencyTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.memory_update?.label).toBe("fitness_baseline");
+    const repromptMessage = askLlm.mock.calls[1]?.[5] as string;
+    expect(repromptMessage).toContain("no");
+    expect(repromptMessage).toContain("memory_update was set");
+  });
+
+  it("does not reprompt a second time if still uncaptured, but logs it and captures it to Sentry", async () => {
+    askLlm.mockResolvedValue({
+      reply: "Four days a week is a solid base to work from.",
+      coach_note: "Athlete trains 4 days a week.",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    captureStillUnresolvedGuard.mockClear();
+
+    await requestCoachReply(firstSessionFrequencyTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({ stillMissedTrainingFrequencyLanguage: expect.any(String) }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    expect(captureStillUnresolvedGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceId: "trace-1",
+        detectors: expect.arrayContaining(["missedTrainingFrequencyLanguage"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt on a returning-athlete turn even with the same frequency language", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "ok" });
+
+    await requestCoachReply(firstSessionFrequencyTurnState({ firstSession: false }));
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when memory_update was already captured this turn", async () => {
+    askLlm.mockResolvedValueOnce({
+      reply: "ok",
+      coach_note: "note",
+      memory_update: { label: "fitness_baseline", text: "Trains 4 days a week." },
+    });
+
+    await requestCoachReply(firstSessionFrequencyTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when the frequency is already parseable from memory on file", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      firstSessionFrequencyTurnState({
+        context: {
+          soul: "soul",
+          memory: {
+            notes: { fitness_baseline: { text: "Already trains 4 days a week." } },
+          },
+        },
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt on unrelated first-session phrasing", async () => {
+    askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
+
+    await requestCoachReply(
+      firstSessionFrequencyTurnState({
+        trimmed: "I ran 10km today, felt great",
+        athleteMessage: "I ran 10km today, felt great",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("requestCoachReply missed-removal-language reprompt (#1009)", () => {
   beforeEach(() => {
     askLlm.mockReset();

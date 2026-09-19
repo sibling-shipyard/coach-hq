@@ -379,7 +379,9 @@ export function seedBenchmarkProgressions(
 // you train" as a natural question (both already-existing questions per the LLD); this just gives
 // the answer a structured home instead of only prose. `null` when nothing parseable was ever
 // said - a true "we don't know yet" state, distinct from a stated 0.
-const DAYS_PATTERN = /(\d+)\s*(?:days?|x|times?)\s*(?:a|\/|per)?\s*week/i;
+// Exported so turnReplyValidation.ts's findMissedTrainingFrequencyLanguage triggers on exactly
+// the phrasing this function can actually parse back out - one pattern, not two that could drift.
+export const DAYS_PATTERN = /(\d+)\s*(?:days?|x|times?)\s*(?:a|\/|per)?\s*week/i;
 
 function parseDaysPerWeek(text: string): number | null {
   const match = text.match(DAYS_PATTERN);
