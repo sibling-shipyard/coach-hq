@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   applySessionPlan,
   renumberAfterSkip,
@@ -232,5 +232,68 @@ describe("applySessionPlan", () => {
     expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num))).toEqual([
       1, 2, 3, 4, 5,
     ]);
+  });
+
+  // Round-2 live pass: the model said "core" for a phase named "Core & Cool-down" and the exact
+  // match silently skipped nothing while the reply claimed it was dropped.
+  describe("skip_phases partial-name matching", () => {
+    const template = JSON.stringify(
+      validWorkout({
+        phases: [
+          { name: "Warmup", duration: "5 min", default_rest_secs: 30, exercises: [ex(1)] },
+          {
+            name: "Core & Cool-down",
+            duration: "10 min",
+            default_rest_secs: 30,
+            exercises: [ex(2), ex(3)],
+          },
+          { name: "Main set", duration: "30 min", default_rest_secs: 60, exercises: [ex(4)] },
+        ],
+      }),
+    );
+    const plan = (skip: string[]) =>
+      JSON.parse(
+        applySessionPlan(
+          template,
+          { template_id: "strength_b", session_date: "2026-08-18", skip_phases: skip },
+          validIds,
+          "t1",
+        ).content,
+      );
+
+    it("resolves a unique whole-word match", () => {
+      expect(plan(["core"]).phases.map((p: any) => p.name)).toEqual(["Warmup", "Main set"]);
+    });
+
+    it("resolves a multi-word partial match", () => {
+      expect(plan(["cool-down"]).phases.map((p: any) => p.name)).toEqual(["Warmup", "Main set"]);
+    });
+
+    it("does not match inside a longer word", () => {
+      expect(plan(["war"]).phases).toHaveLength(3);
+    });
+
+    it("ignores an ambiguous match instead of guessing", () => {
+      const twoSets = JSON.stringify(
+        validWorkout({
+          phases: [
+            { name: "Main set A", duration: "10 min", default_rest_secs: 30, exercises: [ex(1)] },
+            { name: "Main set B", duration: "10 min", default_rest_secs: 30, exercises: [ex(2)] },
+          ],
+        }),
+      );
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { content } = applySessionPlan(
+        twoSets,
+        { template_id: "strength_b", session_date: "2026-08-18", skip_phases: ["main"] },
+        validIds,
+        "t1",
+      );
+      expect(JSON.parse(content).phases).toHaveLength(2);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("matches more than one phase"), {
+        traceId: "t1",
+      });
+      warn.mockRestore();
+    });
   });
 });

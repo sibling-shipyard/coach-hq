@@ -175,6 +175,31 @@ export function renumberAfterSkip(
     .filter((phase) => phase.exercises.length > 0);
 }
 
+// Real templates name phases things like "Core & Cool-down", while an athlete says "skip the
+// core". Exact match first, then a whole-word match where every word the model gave appears in the
+// phase name. Two phases matching means we can't tell which was meant, so that is a miss, never a
+// guess.
+function phaseWords(name: string): string[] {
+  return name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+function findPhaseByName(
+  phases: Workout["phases"],
+  name: string,
+): Workout["phases"][number] | "ambiguous" | undefined {
+  const target = name.trim().toLowerCase();
+  const exact = phases.find((p) => p.name.trim().toLowerCase() === target);
+  if (exact) return exact;
+  const wanted = phaseWords(name);
+  if (wanted.length === 0) return undefined;
+  const matches = phases.filter((p) => {
+    const words = new Set(phaseWords(p.name));
+    return wanted.every((word) => words.has(word));
+  });
+  if (matches.length > 1) return "ambiguous";
+  return matches[0];
+}
+
 // Resolves plain-language phase names (skip_phases) to exercise nums, matched case-insensitively
 // against the real template's own phase names - Gemini is never shown exercise numbers (see
 // LlmReply's comment on session_plan for why), so this is where a name like "shoulder & elbow"
@@ -189,8 +214,14 @@ function resolvePhaseNames(
 ): number[] {
   const nums: number[] = [];
   for (const name of phaseNames) {
-    const target = name.trim().toLowerCase();
-    const phase = phases.find((p) => p.name.trim().toLowerCase() === target);
+    const phase = findPhaseByName(phases, name);
+    if (phase === "ambiguous") {
+      console.warn(
+        `[coach-chat] session_plan: "${name}" matches more than one phase in this template - ignoring`,
+        { traceId },
+      );
+      continue;
+    }
     if (!phase) {
       console.warn(
         `[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`,
