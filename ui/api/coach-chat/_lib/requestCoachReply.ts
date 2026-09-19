@@ -146,7 +146,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     [templatesManifestContent, currentWeekContent] = await Promise.all([
       (async () => {
         try {
-          return await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token);
+          return await getFileRaw(
+            turn.repo,
+            TEMPLATES_MANIFEST_PATH,
+            turn.token,
+            undefined,
+            turn.currentSha ?? undefined,
+          );
         } catch (err: unknown) {
           const status = (err as { status?: number }).status;
           if (status === 404) return null;
@@ -156,7 +162,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       })(),
       (async () => {
         try {
-          return await getFileRaw(turn.repo, CURRENT_WEEK_PATH, turn.token);
+          return await getFileRaw(
+            turn.repo,
+            CURRENT_WEEK_PATH,
+            turn.token,
+            undefined,
+            turn.currentSha ?? undefined,
+          );
         } catch (err: unknown) {
           const status = (err as { status?: number }).status;
           if (status === 404) return null;
