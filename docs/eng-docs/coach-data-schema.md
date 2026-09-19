@@ -39,6 +39,7 @@ Sports and Coach's labelled free-text notes. Written by
 | `_meta` | `{updated_at, updated_by, trace_id}` | |
 | `sports` | `string[]` | `sports_update` merges the new list against what's on file rather than replacing it (#1037 PR E) |
 | `coaching_style` | `"accountability" \| "encouragement" \| "analysis" \| null` | Set by First Session; changeable via `coaching_style_update` |
+| `training_availability` | `{days_per_week: 0-7, preferred_days: Weekday[]} \| null` | Set by `training_availability_update`; `null` until stated. `0` days is a real answer. When the model never sets it, the completion turn parses the notes instead |
 | `notes` | `Record<MemoryNoteLabel, MemoryNote>` | |
 
 **`MemoryNoteLabel` enum** (`MEMORY_NOTE_LABELS`, fixed set): `fitness_baseline`,
@@ -316,8 +317,8 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_update`, `workout_create`, `workout_remove`, plus `pending_clarification`/`unrecorded_facts` (see below) |
-| First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create`, plus `pending_clarification`/`unrecorded_facts` (see below) |
+| Returning | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `training_availability_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_update`, `workout_create`, `workout_remove`, plus `pending_clarification`/`unrecorded_facts` (see below) |
+| First Session | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `training_availability_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create`, plus `pending_clarification`/`unrecorded_facts` (see below) |
 
 `coach_note` (C2) is a day-keyed row, not the old closing-only append — see the
 `coach_log.json` section above.

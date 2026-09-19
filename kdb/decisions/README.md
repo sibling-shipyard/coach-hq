@@ -50,6 +50,7 @@
 | 0049 | Lazy week rollover from coach-chat, alongside the CI job | core |
 | 0050 | Match history keys each session by its history file | cross-cutting (iOS, pipeline, web) |
 | 0051 | Script file-extension convention: .mjs for build-time, .ts/.mts for typed | cross-cutting |
+| 0052 | Training frequency is a model action field, not parsed prose | coach-chat backend |
 
 <details>
 <summary>Superseded / historical (5) — kept for the citations, not for the boot read</summary>

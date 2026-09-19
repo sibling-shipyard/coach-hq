@@ -28,6 +28,8 @@ export interface LlmReply {
   coaching_style_update?: "accountability" | "encouragement" | "analysis";
   // See responseSchema's sports_update for rationale.
   sports_update?: string[];
+  // See responseSchema's training_availability_update for rationale.
+  training_availability_update?: { days_per_week: number; preferred_days?: string[] };
   // See responseSchema's injury_flag for rationale - a brand-new injury the athlete has
   // never mentioned before. No id: the server mints one, same discipline as quest_create.
   injury_flag?: { text: string }[];
@@ -175,6 +177,25 @@ const RESPONSE_PROPERTIES = {
   // writes it when first stated; later chat merges the reported list against what's already on
   // file rather than replacing it (applySportsUpdate, #1037 PR E).
   sports_update: { type: "array", items: { type: "string" } },
+  // How many days a week the athlete trains, and which days if they named any. A field of its own
+  // so it lands the same way every other intake fact does. Before this the answer only ever showed
+  // up in coach_note, which nothing reads back, and the first week fell back to default days.
+  // days_per_week 0 is a real answer. Both fields are clamped server-side (normalizeTrainingAvailability).
+  training_availability_update: {
+    type: "object",
+    properties: {
+      days_per_week: { type: "number" },
+      preferred_days: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+        },
+      },
+    },
+    required: ["days_per_week"],
+    additionalProperties: false,
+  },
   // A brand-new injury the athlete has never mentioned before. No id in the wire shape -
   // server mints one (coachInjuryIntents.ts's applyInjuryFlag), same discipline as quest_create.
   // Split from injury_event (#693): a single optional-id field let Gemini invent a flag_id for
@@ -513,6 +534,7 @@ const FSP_ACTIONS = [
   "memory_update",
   "coaching_style_update",
   "sports_update",
+  "training_availability_update",
   "injury_flag",
   "injury_event",
   "profile_update",
@@ -534,6 +556,7 @@ const RETURNING_ACTIONS = [
   "memory_update",
   "coaching_style_update",
   "sports_update",
+  "training_availability_update",
   "injury_flag",
   "injury_event",
   "quest_event",

@@ -109,6 +109,7 @@ const CARRIED_INTAKE_FIELDS = [
   "season_start",
   "coaching_style_update",
   "sports_update",
+  "training_availability_update",
   "memory_update",
   "injury_flag",
 ] as const satisfies readonly (keyof LlmReply)[];

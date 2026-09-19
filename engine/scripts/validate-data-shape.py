@@ -108,6 +108,35 @@ def check_memory(root: Path) -> list[str]:
         not isinstance(sports, list) or any(not isinstance(s, str) for s in sports)
     ):
         errors.append(f"{path}: sports must be an array of strings")
+    errors += _check_training_availability(path, data.get("training_availability"))
+    return errors
+
+
+WEEKDAY_NAMES = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+
+# training_availability is null until the athlete states how often they train. days_per_week 0 is a
+# real answer, so 0 passes and only a value outside 0-7 or a non-integer fails.
+def _check_training_availability(path: Path, value) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return [f"{path}: training_availability must be an object or null"]
+    errors = []
+    days = value.get("days_per_week")
+    if isinstance(days, bool) or not isinstance(days, int) or not 0 <= days <= 7:
+        errors.append(f"{path}: training_availability.days_per_week must be an integer 0-7, got {days!r}")
+    preferred = value.get("preferred_days")
+    if not isinstance(preferred, list) or any(day not in WEEKDAY_NAMES for day in preferred):
+        errors.append(f"{path}: training_availability.preferred_days must be an array of weekday names")
     return errors
 
 

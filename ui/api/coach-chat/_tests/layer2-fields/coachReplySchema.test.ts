@@ -184,3 +184,16 @@ describe("coachReplySchema dynamic reference-id enums (D1 #736, layer 1)", () =>
     expect(secondQuestEvent.items.properties.quest_id.enum).toEqual(["q2"]);
   });
 });
+
+describe("coachReplySchema training_availability_update", () => {
+  it("is offered on First Session and returning turns, with days_per_week required", () => {
+    for (const firstSession of [true, false]) {
+      const config = generationConfigFor("ordinary", firstSession) as unknown as {
+        responseSchema: { properties: Record<string, { required?: string[] }> };
+      };
+      const field = config.responseSchema.properties.training_availability_update;
+      expect(field).toBeDefined();
+      expect(field.required).toEqual(["days_per_week"]);
+    }
+  });
+});

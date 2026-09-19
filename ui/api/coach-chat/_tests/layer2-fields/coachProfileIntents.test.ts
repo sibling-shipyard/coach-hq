@@ -5,8 +5,10 @@ import {
   applyProfileUpdate,
   applyCoachingStyleUpdate,
   applySportsUpdate,
+  applyTrainingAvailabilityUpdate,
   type ProfileUpdate,
 } from "../../_lib/decide/coachProfileIntents.js";
+import { normalizeTrainingAvailability } from "../../_lib/decide/coachMemoryFiles.js";
 
 describe("applyCoachNote", () => {
   it("starts a new log with one row when content is null", () => {
@@ -523,5 +525,59 @@ describe("applySportsUpdate", () => {
     expect(() => applySportsUpdate(EXISTING_WITH_SPORTS, ["", "   "], "2026-08-18", "t2")).toThrow(
       /sports_update/,
     );
+  });
+});
+
+describe("training_availability_update", () => {
+  it("writes the availability onto memory.json and keeps the rest of the file", () => {
+    const existing = JSON.stringify({
+      version: 1,
+      sports: ["running"],
+      coaching_style: "accountability",
+      training_availability: null,
+      notes: {},
+    });
+    const result = JSON.parse(
+      applyTrainingAvailabilityUpdate(
+        existing,
+        { days_per_week: 4, preferred_days: ["tuesday", "saturday"] },
+        "2026-09-19",
+        "t1",
+      ),
+    );
+    expect(result.training_availability).toEqual({
+      days_per_week: 4,
+      preferred_days: ["tuesday", "saturday"],
+    });
+    expect(result.sports).toEqual(["running"]);
+    expect(result.coaching_style).toBe("accountability");
+  });
+
+  it("starts a well-formed memory.json when none exists yet", () => {
+    const result = JSON.parse(
+      applyTrainingAvailabilityUpdate(null, { days_per_week: 3, preferred_days: [] }, "d", "t1"),
+    );
+    expect(result.training_availability.days_per_week).toBe(3);
+    expect(result.sports).toEqual([]);
+  });
+
+  it("normalizes to 0-7 whole days and drops unknown or repeated weekdays", () => {
+    expect(normalizeTrainingAvailability({ days_per_week: 12 })?.days_per_week).toBe(7);
+    expect(normalizeTrainingAvailability({ days_per_week: -2 })?.days_per_week).toBe(0);
+    expect(normalizeTrainingAvailability({ days_per_week: 3.6 })?.days_per_week).toBe(4);
+    expect(
+      normalizeTrainingAvailability({
+        days_per_week: 3,
+        preferred_days: ["Monday", "monday", "someday", " friday "],
+      })?.preferred_days,
+    ).toEqual(["monday", "friday"]);
+  });
+
+  it("keeps a stated zero as a real answer and drops a non-numeric value", () => {
+    expect(normalizeTrainingAvailability({ days_per_week: 0 })).toEqual({
+      days_per_week: 0,
+      preferred_days: [],
+    });
+    expect(normalizeTrainingAvailability({ days_per_week: Number.NaN })).toBeNull();
   });
 });

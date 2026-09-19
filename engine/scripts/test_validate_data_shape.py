@@ -96,6 +96,36 @@ class TestMemory(unittest.TestCase):
             errors = validate_data_shape.check_memory(root)
             self.assertTrue(any("sports" in e for e in errors))
 
+    def test_null_training_availability_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root, "user_data/coach/memory.json", {"notes": {}, "training_availability": None})
+            self.assertEqual(validate_data_shape.check_memory(root), [])
+
+    def test_valid_training_availability_passes_including_zero_days(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for value in (
+                {"days_per_week": 4, "preferred_days": ["tuesday", "saturday"]},
+                {"days_per_week": 0, "preferred_days": []},
+            ):
+                _write(root, "user_data/coach/memory.json", {"notes": {}, "training_availability": value})
+                self.assertEqual(validate_data_shape.check_memory(root), [])
+
+    def test_bad_training_availability_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for value in (
+                {"days_per_week": 9, "preferred_days": []},
+                {"days_per_week": "4", "preferred_days": []},
+                {"days_per_week": 3, "preferred_days": ["someday"]},
+                {"days_per_week": 3},
+                "four",
+            ):
+                _write(root, "user_data/coach/memory.json", {"notes": {}, "training_availability": value})
+                errors = validate_data_shape.check_memory(root)
+                self.assertTrue(any("training_availability" in e for e in errors), value)
+
 
 class TestInjuries(unittest.TestCase):
     def test_valid_passes(self):

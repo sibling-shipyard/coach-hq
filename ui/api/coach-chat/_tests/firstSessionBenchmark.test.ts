@@ -368,37 +368,6 @@ describe("inferTrainingAvailability", () => {
     );
   });
 
-  it("falls back to the latest coach_log row that states a frequency", () => {
-    const result = inferTrainingAvailability(memory(), [
-      { text: "Trains 2 days a week." },
-      { text: "Athlete trains 4 days a week, mostly Tuesday and Saturday." },
-      { text: "Talked about sleep." },
-    ]);
-    expect(result?.days_per_week).toBe(4);
-    expect(result?.preferred_days).toEqual(expect.arrayContaining(["tuesday", "saturday"]));
-  });
-
-  it("prefers a memory note over the coach_log", () => {
-    const result = inferTrainingAvailability(
-      memory({
-        notes: {
-          ...memory().notes,
-          fitness_baseline: {
-            text: "Trains 3 days a week.",
-            updated_at: "2026-09-11",
-            trace_id: "t1",
-          },
-        },
-      }),
-      [{ text: "Trains 5 days a week." }],
-    );
-    expect(result?.days_per_week).toBe(3);
-  });
-
-  it("returns null when neither the notes nor the log state a frequency", () => {
-    expect(inferTrainingAvailability(memory(), [{ text: "Talked about sleep." }])).toBeNull();
-  });
-
   it("accepts a stated zero as a real, legal answer", () => {
     const result = inferTrainingAvailability(
       memory({

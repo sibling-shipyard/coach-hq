@@ -75,6 +75,7 @@ const MEMORY_TEMPLATE = {
   _meta: { updated_at: null, updated_by: "skeleton-init", trace_id: null },
   sports: [],
   coaching_style: null,
+  training_availability: null,
   notes: {
     fitness_baseline: { text: "", updated_at: null, trace_id: null },
     coaching_priorities: { text: "", updated_at: null, trace_id: null },
