@@ -12,6 +12,8 @@ for agents and read like change logs. The audit (63 docs against the code) found
 - 24 accurate, 11 stale, 3 with dead paths, 12 hard to skim, 7 historical, 4 shipped plans.
 - The switch to OpenRouter (ADR 0046) never reached six docs. Four docs explain the same LLM seam.
 - 799 audit-trail lines (issue numbers, dates, "no longer", "previously") in docs and code comments.
+- False path claims in Current docs, role docs and ADRs, and finished plans still on disk. Issue
+  #1249 tracks this prose slice and is part of this plan.
 - No current end-to-end picture, no glossary, and no doc for CI, cron, deploys, the web client,
   widgets, the derived-data pipeline or the athlete-repo lifecycle.
 
@@ -56,6 +58,12 @@ Settled by checking the code (Akash's draft plan assumed otherwise):
 - **`STEERING.md` already has a reading order.** It only lacks `ROADMAP.md`.
 - **`ops-agent-setup.md` is deleted.** Its issues are closed and the delete-on-ship rule applies.
 - **`backend-decision.md` goes to `docs/hist/`.** It is research with no decision filed.
+- **`season-close.md` is deleted (REC, athlete confirms).** `platform/soul/B_engine.md` says there is no
+	season-close file to write, and no SOUL layer cites the doc. The "urgent to restore" lines in the
+	ref-docs README and `soul-path-to-v6.md` go with it.
+- **`AGENTS.md` cites ADR 0021 for a claim it retracts.** PR 1 corrects the routing text against ADR 0022.
+- **The four-templates wording in the SOUL builds** is fixed in PR 12, after the athlete signs off on
+	the wording. It is a SOUL edit, so it is the athlete's call.
 
 Taken from Akash's draft: pilot on coach-chat first with a grading gate, the four diagrams (LLM seam,
 request lifecycle, entity map, two-repo topology), rewrite `coach-data-schema.md` around its entity map,
@@ -70,7 +78,8 @@ alone (three of them ship to athletes and need the same scrub), and doing no cod
 ## Stack
 
 One linear stack, merged bottom-up. The plan PR merges to `main` first. Then the stack branches off
-`main`. `Refs: #N` on PRs 1 to 12, `Fixes: #N` on PR 13, which also deletes both plan files.
+`main`. `Refs: #1249` on PRs 1 to 12, `Fixes: #1249` on PR 13, which also deletes both plan files.
+Issue #1249 is the stack's issue. Its scope is a subset of this plan, so it gets a comment linking here.
 Branch names `core/doc-overhaul-<nn>-<brief>`. Six milestones, at most three PRs each.
 
 | PR | milestone | outcome | owner | result |
@@ -85,8 +94,8 @@ Branch names `core/doc-overhaul-<nn>-<brief>`. Six milestones, at most three PRs
 | 8 | M4 Fill the gaps | Overview, glossary, topology, CI map | Tech Lead | One doc explains the whole system |
 | 9 | M4 | Deploy, web client, widgets | Tech Lead | Front end and hosting documented |
 | 10 | M4 | Week rollover, derived pipeline, athlete-repo lifecycle | Tech Lead | Data path documented end to end |
-| 11 | M5 Scrub comments | Code comments scrubbed, app code | Bob the Builder | No tell lines in `ui/` and `engine/` |
-| 12 | M5 | Platform, role docs, soul, kept plans scrubbed | Tech Lead | No tell lines outside named exceptions |
+| 11 | M5 Scrub comments | Code comments scrubbed, app code | Bob, UI Expert, iOS Builder | No tell lines in `ui/`, `engine/` and `ios/` |
+| 12 | M5 | Platform, role docs, ADR paths, soul wording, kept plans | Tech Lead | No tell lines outside named exceptions |
 | 13 | M6 Lock | Hard check live, plans deleted | Tech Lead | CI enforces shape and rule |
 
 After PR 12 merges and before PR 13: carve `coach-skeleton` and backfill the athlete repos, only if a
@@ -105,5 +114,6 @@ propagated doc changed (LLD section "Carve and backfill").
 1. `python3 kdb/scripts/validate_kdb.py` reports zero errors and fewer warnings than today.
 2. Every Current eng-doc has `## Human` then `## Agent`. Every backticked path in an Agent section exists.
 3. Grep for the tell words finds nothing outside the named exceptions.
-4. A scratch branch that breaks either rule fails CI.
-5. Every PR is green on its pushed SHA. Athletes rate the pilot and the overview 4 or higher.
+4. No Current doc, role doc or ADR cites a path that does not exist. `docs/plans/` holds only live work.
+5. A scratch branch that breaks either rule fails CI.
+6. Every PR is green on its pushed SHA. Athletes rate the pilot and the overview 4 or higher.

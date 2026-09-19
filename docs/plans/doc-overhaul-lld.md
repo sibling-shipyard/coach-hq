@@ -10,6 +10,8 @@ Overview, decisions and stack summary: `docs/plans/doc-overhaul.md`. This file i
   `final base` is the previous PR's branch. PR 1 branches off `main` after the plan PR merges.
 - File overlap decides parallelism. PRs 11 and 12 touch no doc files, so they can be built in parallel
   with PRs 3 to 10 and rebased into the stack before review.
+- Issue #1249 is the stack's issue. Its line numbers shift as docs change, so workers find each claim
+  with `grep`, not by line.
 - A PR's diff stays a subset of its `files` cell. Verify with `gh pr view <n> --json files`.
 - Late cross-cutting fixes go on the top of the stack, not the bottom.
 - Each doc PR: commit, `bash platform/scripts/check.sh --quiet`, push, wait for green on the pushed SHA.
@@ -47,8 +49,8 @@ in `kdb/doc-style.md`. The SVGs sit beside the doc in `docs/eng-docs/`.
 | 8 | M4 | Overview and CI | PR 7 | `platform-system-overview.md`, `ops-ci-workflows.md`, 1 SVG pair | Tech Lead | 11, 12 | One doc explains the system |
 | 9 | M4 | Deploy, web, widgets | PR 8 | `ops-deploy-topology.md`, `platform-web-client.md`, `ios-widgets.md` | Tech Lead | 11, 12 | Front end and hosting documented |
 | 10 | M4 | Data path | PR 9 | `data-current-week.md`, `data-derived-pipeline.md`, `platform-athlete-repo-lifecycle.md` | Tech Lead | 11, 12 | Data path documented |
-| 11 | M5 | Scrub, app | PR 10 | `ui/api/**`, `ui/scripts/**`, `engine/**` comments only | Bob the Builder | 3 to 10 | No tells in app code |
-| 12 | M5 | Scrub, platform | PR 11 | `platform/scripts/**`, `.github/agents/*.md`, `platform/soul/*.md`, kept plans | Tech Lead | 3 to 10 | No tells in platform |
+| 11 | M5 | Scrub, app | PR 10 | `ui/api/**`, `ui/scripts/**`, `ui/client/**`, `engine/**`, `ios/**` comments only | Bob, UI Expert, iOS Builder | 3 to 10 | No tells in app code |
+| 12 | M5 | Scrub, platform | PR 11 | `platform/scripts/**`, `.github/agents/*.md`, `platform/soul/*.md`, `kdb/decisions/*.md` (paths only), composed SOUL builds, `SOUL_HISTORY.md`, kept plans | Tech Lead | 3 to 10 | No tells in platform |
 | 13 | M6 | Lock | PR 12 | `kdb/scripts/validate_kdb.py`, `.githooks/pre-commit`, `platform/scripts/checks.conf`, `platform/tests/**`, workflow `paths:`, both plan files (deleted) | Tech Lead | none | CI enforces |
 
 ## PR detail
@@ -64,7 +66,10 @@ in `kdb/doc-style.md`. The SVGs sit beside the doc in `docs/eng-docs/`.
 3. `docs/eng-docs/README.md`: add `docs/hist/`, drop the deleted-doc anecdote (lines 22 to 25).
 4. `STEERING.md`: add `ROADMAP.md` to the reading order.
 5. Bump `platform/agent-kit/VERSION`. The carve sanitizer forbids provider names in the block.
-6. Migrate `platform-agent-kit.md` to the new shape as the first worked example.
+6. `AGENTS.md` Agent Routing cites ADR 0021 for "athletes reach Coach through the hosted coach-chat app".
+	ADR 0021 retracts that half and ADR 0022 keeps the BYO build. Rewrite the sentence from those two
+	ADRs so the routing text is true.
+7. Migrate `platform-agent-kit.md` to the new shape as the first worked example.
 
 The rule text:
 > No audit trails, anywhere: code comments, docs, role docs, READMEs. No issue or PR numbers, no dates
@@ -81,6 +86,19 @@ The rule text:
 | `docs/plans/coach-conversation-widgets-roadmap` | set `Status: Plan` (it says Current) | none |
 `SOUL_HISTORY.md` stays. Scripts and the carve sanitizer cite it.
 
+Also in PR 2:
+1. A moved doc keeps its content untouched. The one edit is its `Status:` line, set to `Historical`
+	when it says `Current` (`activity-naming-migration`, `challenge-v2-schema`).
+2. `platform/scripts/carve-skeleton.mjs`: the header cite of `hq-restructure-plan`, and the comment near
+	`splitLedgerAsChallenge()`. That comment cites a function with no hits in `ui/client/src` and a
+	deleted `docs/plans/ui-dashboard-rewiring.md`. Comment edits only.
+3. ADR 0022 cites `ui/scripts/build-soul.mjs`. The real path is `ui/scripts/build/build-soul.mjs`.
+	Fix the path only. ADRs are not path-checked today, so PR 12 sweeps the rest.
+4. `agent-restructure`: before deleting, check that every task in it landed. An accepted ADR and a
+	closed issue are not proof. Anything unfinished becomes a follow-up issue first.
+5. For every plan that stays in `docs/plans/`, confirm an open issue or open PR backs it (`gh`).
+	A plan with neither is deleted or moved to `docs/hist/`, so `docs/plans/` holds only live work.
+
 **PR 3: LLM cluster.**
 1. `gemini-flow.md`: start from the `docs/p1-gemini-flow` draft. Rewrite as the call path (prompt shape, retries, response schema, model pin).
 	Chronology out. Human section explains one coach reply, start to finish.
@@ -89,7 +107,10 @@ The rule text:
 3. `chat-provider-bench.md`: fix the `gemini-pro-latest` claim, drop the measurement-log narrative.
 4. `env-vars.md`: `LLM_PROVIDER` default and `GEMINI_API_KEY` wording, add `COACH_CHAT_DEBUG_PROMPT`
 	and `COACH_CHAT_EXPOSE_USAGE` (read in code, undocumented).
-5. Plans `chat-openrouter-migration` and `chat-coach-bench`: fix the stale "production still selects
+5. Chronology and dead paths in this cluster go with the rewrite: the dead `coachIntents.test.ts`
+	citation in `gemini-flow`, the dated lines in `llm-provider-current` (folded away), and the
+	chronology in `chat-llm-seam`.
+6. Plans `chat-openrouter-migration` and `chat-coach-bench`: fix the stale "production still selects
 	Gemini" claim and the `ui/eval/` paths.
 
 **PR 4: coach-chat docs.**
@@ -100,14 +121,18 @@ The rule text:
 3. `coach-chat-test-scenarios.md`: stays a catalog. Fix the transcript count (21, not 23), drop "new;"
 	labels.
 4. `coach-chat-fsp.md`, `coach-chat-message.md`: migrate to the new shape, verify against code.
-5. **Grading gate.** The athletes rate PR 3 and PR 4 docs 1 to 5. Anything 3 or below is rewritten
+5. Chronology comes out of `coach-chat-daily` (the closed-issue citation and the dead shim note),
+	`coach-chat-testing`, `coach-chat-test-scenarios`, `coach-chat-flow` and `coach-chat-fsp`.
+6. **Grading gate.** The athletes rate PR 3 and PR 4 docs 1 to 5. Anything 3 or below is rewritten
 	before PR 5 starts. Rewrites go into the same PR, not a new one.
 
 **PR 5: data, soul, platform, ops.**
 1. `coach-data-schema`: rewrite around the entity map. Tables move to Agent.
 2. `scaling-plan`: collapse to current status and links. Strava and Gemini claims go. Human explains the two-repo model.
-3. `skeleton-layout`: drop the banner, fix about 28 dead paths, set Current honestly.
-4. `soul-path-to-v6`: trim to the thesis.
+3. `skeleton-layout`: drop the banner, fix about 28 dead paths (`SETUP.md`, `sync.yml`, `rollover.yml`, `provision-user.sh` among them), set Current honestly.
+4. `soul-path-to-v6`: trim to the thesis. Phase 2 says the carve writes no SOUL, `.claude/` or
+	`CLAUDE.md`, but `carve-skeleton.mjs` writes all three. That phase goes, with the "restore
+	season-close" line.
 5. `ops-observability`: fix the production model claim.
 6. Migrate the rest: `soul-two-builds`, `github-auth`, `golden-dataset`, `sentry-runbook`, `platform-workouts-compiler`.
 
@@ -115,13 +140,18 @@ The rule text:
 1. `ios-app-spec`: drop the Strava and Netlify framing and title.
 2. Migrate `ios-sync`, `ios-xcode-setup`, `healthkit-richer-signals` and its `-lld`, `hr-zones`.
 3. Promote `ios/CoachHQ/AppState-StateMachine.md` to `docs/eng-docs/ios-app-state.md` in the new shape.
-4. Fold `ios/DESIGN.md` and `ios/5-5-ROADMAP.md` into the matching eng-doc, or give them front matter.
+4. Remove the chronology line in `ios-xcode-setup`.
+5. Fold `ios/DESIGN.md` and `ios/5-5-ROADMAP.md` into the matching eng-doc, or give them front matter.
 
 **PR 7: ref-docs.** Only three ref-docs ship: `current-week-contract.md`, `timer-state-machine.md`,
 and `platform/skills/pipeline-tools.md` (`PROPAGATED_DOCS`, `carve-skeleton.mjs:574`). Scrub tells in
 those three. Give every other ref-doc standard front matter. Fix the `HOW_IT_WORKS` citation in the
 README and the dead paths in `season-close.md`. Decide `milestone-schema.md` (historical, cited only by
 docs): move to `docs/hist/`.
+
+Also in PR 7: delete `season-close.md` (REC, athlete confirms) and fix the ref-docs README lines that
+call it "urgent to restore". Move `milestone-schema.md` to `docs/hist/`, since it names `challenge_v2.json`
+as the source of truth and ADR 0045 says no new code reads it.
 
 **PR 8 to 10: new docs.** Each in the new shape, each verified against source. Read lists:
 | Doc | Read |
@@ -141,6 +171,21 @@ Two-repo topology diagram goes into the overview (PR 8). Rating gate: athletes r
 Worst files first: `ui/api/coach-chat/_lib/turnReplyValidation.ts`, `_lib/llm/coachReplySchema.ts`,
 `_lib/requestCoachReply.ts`, `_lib/sentry.ts`, `coach-chat.ts`, `auth/[...action].ts`. PR 12 also
 scrubs the remaining plans, except plans with an open PR against them (revisit at rebase).
+PR 11 covers `ui/client` and `ios/` too, one subagent per area (Bob, UI Expert, iOS Builder). It fixes
+the closed-issue TODO in `ui/client/src/pages/AuthError.tsx`.
+
+PR 12 also does these, each found with `grep`:
+1. `.github/agents/bob-the-builder.md` cites `ui/api/_generated/soul.js`. `build-soul.mjs` writes `soul.ts`.
+2. `.github/agents/tech-lead.md` says `ui-tests.yml` covers `ui/**`. It covers four subfolders, so
+	read its `paths:` block and state them. The Team table line that starts "Previously only" is audit
+	trail, so state the rule alone.
+3. ADR path sweep: list every backticked path in live ADRs that does not exist and fix the path.
+	Meaning and decisions are never rewritten.
+4. Four-templates wording: `SOUL.claude.md` and `SOUL.chat.md` name `strength_a`, `strength_b`,
+	`foundation` and `recovery`, but the carve ships two by design. Find the layer that emits the line,
+	the athlete signs off on the wording, then edit the layer, run `node platform/scripts/compose-soul.mjs`,
+	commit the layer and both builds, and add a `SOUL_HISTORY.md` entry.
+
 Verify each PR with the tell grep below, then the full local gate.
 
 **PR 13: lock.**
@@ -152,8 +197,9 @@ Verify each PR with the tell grep below, then the full local gate.
 	local hook is bypassable.
 3. Add both to `checks.conf`, and make sure a workflow `paths:` list actually runs them (a comment
 	mentioning `check.sh` proves nothing).
-4. Tests in `platform/tests/`. Run each check against a real marked file, not its regex.
-5. Delete `docs/plans/doc-overhaul.md` and this file.
+4. Extend the path check to live ADRs, in the branch diff. Today `validate_kdb.py` skips ADRs.
+5. Tests in `platform/tests/`. Run each check against a real marked file, not its regex.
+6. Delete `docs/plans/doc-overhaul.md` and this file.
 
 ## Carve and backfill
 
