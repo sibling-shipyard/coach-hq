@@ -330,6 +330,41 @@ describe("coach turn stages", () => {
     );
   });
 
+  // Review finding: the fallback must be built from actions that survived validation, so it never
+  // says "recorded" for a quest_event a bad reference dropped.
+  it("does not name a dropped action in the fallback coach_note", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        validQuestIds: new Set(["q1"]),
+        reply: {
+          reply: "Logged it.",
+          profile_update: [{ field: "weight_kg", value: "72" }],
+          quest_event: [{ quest_id: "q99", status: "completed" }],
+        },
+      }) as never,
+    );
+
+    expect(turn.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+    expect(turn.trimmedCoachNote).toContain("profile weight_kg = 72");
+    expect(turn.trimmedCoachNote).not.toContain("quest_event");
+  });
+
+  it("writes no fallback note when every required action was dropped", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        validQuestIds: new Set(["q1"]),
+        reply: {
+          reply: "Logged it.",
+          quest_event: [{ quest_id: "q99", status: "completed" }],
+        },
+      }) as never,
+    );
+
+    expect(turn.trimmedCoachNote).toBeUndefined();
+  });
+
   it("keeps the model's own coach_note when it gave one", async () => {
     const turn = await buildTurnWrites(
       baseTurn({

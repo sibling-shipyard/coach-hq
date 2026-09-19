@@ -90,18 +90,6 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons, quests } = turn.context;
   const modelCoachNote = reply.coach_note?.trim();
-  const fallbackCoachNote = modelCoachNote ? undefined : synthesizeRequiredCoachNote(reply);
-  if (fallbackCoachNote) {
-    console.warn("[coach-chat] no coach_note from the model, writing a fallback from the fields:", {
-      traceId,
-    });
-    recordSilentFixup(traceId, {
-      kind: "coach_note_synthesized",
-      action: "coach_note",
-      detail: fallbackCoachNote,
-    });
-  }
-  const trimmedCoachNote = modelCoachNote || fallbackCoachNote;
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
   // specific bad action, never abort the whole batch. By this point the reply already survived
@@ -467,6 +455,32 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // system-authored note rides the same single coachNoteWrite the model's own coach_note already
   // uses. commitFilesAtomic does not merge two writes to the same path, so the two notes are
   // combined into that one write here rather than sent separately.
+  // The fallback note is built only from actions that survived validation above, so it never says
+  // "recorded" for something a bad reference dropped. A dropped action already gets its own note.
+  const droppedFields = new Set(droppedActions.map((dropped) => dropped.field));
+  const survivingReply: typeof reply = {
+    ...reply,
+    injury_event: injuryEvents,
+    quest_event: questEvents,
+  };
+  for (const field of droppedFields) {
+    if (field in survivingReply)
+      (survivingReply as unknown as Record<string, unknown>)[field] = undefined;
+  }
+  const fallbackCoachNote = modelCoachNote
+    ? undefined
+    : synthesizeRequiredCoachNote(survivingReply);
+  if (fallbackCoachNote) {
+    console.warn("[coach-chat] no coach_note from the model, writing a fallback from the fields:", {
+      traceId,
+    });
+    recordSilentFixup(traceId, {
+      kind: "coach_note_synthesized",
+      action: "coach_note",
+      detail: fallbackCoachNote,
+    });
+  }
+  const trimmedCoachNote = modelCoachNote || fallbackCoachNote;
   const droppedActionsNote = formatDroppedActionsNote(droppedActions);
   const synthesizedQuestEventNote = synthesizedQuestEvent
     ? formatSynthesizedQuestEventNote(synthesizedQuest?.name)
