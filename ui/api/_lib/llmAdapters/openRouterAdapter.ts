@@ -78,6 +78,12 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
 // sumDefined moved to sentry.ts, next to LlmUsage itself, so it has one home instead of
 // living in a provider-specific adapter file that coachLlmClient.ts/requestCoachReply.ts had to reach into.
 
+export type OpenRouterContentBlock = {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+};
+
 /**
  * `LlmMessage.role` speaks Gemini's vocabulary (`"user"` | `"model"`) since callers build one
  * request shape for both providers. OpenAI-style chat completions calls the same turn
@@ -86,20 +92,27 @@ export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number |
  * caller with no system/user split (coach-message) gets the exact wire shape it always sent: one
  * user message, nothing else.
  *
- * `cachePrefix`, when present, is concatenated ahead of `system` into that same one leading
- * message - OpenRouter never has an active cache (locked decision: it owns its own caching, this
- * adapter does not emulate Gemini cache names), so there is no second wire shape to build here,
- * unlike the Gemini adapter's cache-active/cache-inactive split.
+ * `cachePrefix`, when present, becomes the first block of the leading system message, tagged
+ * `cache_control: {type: "ephemeral"}` so the provider knows where the stable part ends. `system`
+ * follows as a second block, omitted when empty. The marker goes on every model with no per-model
+ * branch: a provider that does not need it ignores it. Without `cachePrefix` the leading message
+ * stays one plain string, byte for byte.
  */
 export function toOpenRouterMessages(
   request: Pick<LlmRequest, "system" | "cachePrefix" | "messages">,
-): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+): Array<{ role: "system" | "user" | "assistant"; content: string | OpenRouterContentBlock[] }> {
   const turns = request.messages.map((message) => ({
     role: message.role === "model" ? ("assistant" as const) : ("user" as const),
     content: message.text,
   }));
-  const system = [request.cachePrefix, request.system].filter(Boolean).join("\n");
-  return system ? [{ role: "system" as const, content: system }, ...turns] : turns;
+  if (request.cachePrefix) {
+    const blocks: OpenRouterContentBlock[] = [
+      { type: "text", text: request.cachePrefix, cache_control: { type: "ephemeral" } },
+    ];
+    if (request.system) blocks.push({ type: "text", text: request.system });
+    return [{ role: "system" as const, content: blocks }, ...turns];
+  }
+  return request.system ? [{ role: "system" as const, content: request.system }, ...turns] : turns;
 }
 
 export function createOpenRouterAdapter(
@@ -251,7 +264,13 @@ export function createOpenRouterAdapter(
           }
           return result.text;
         },
-        { "llm.adapter": "openrouter", "gen_ai.system": "openrouter" },
+        {
+          "llm.adapter": "openrouter",
+          "gen_ai.system": "openrouter",
+          // "true" exactly when the request carried a cache_control block, so Sentry can split
+          // marked from unmarked calls.
+          "llm.cache_marker": request.cachePrefix ? "true" : "false",
+        },
       );
       return {
         text,

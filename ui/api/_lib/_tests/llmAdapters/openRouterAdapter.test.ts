@@ -135,11 +135,9 @@ describe("createOpenRouterAdapter", () => {
     ).toEqual([{ role: "user", content: "prompt" }]);
   });
 
-  // #713 M2 PR 2: OpenRouter never has an active cache (locked decision - it owns its own
-  // caching, this adapter doesn't emulate Gemini cache names), so cachePrefix is always just
-  // concatenated ahead of system into the one leading message, unlike the Gemini adapter's
-  // cache-active/cache-inactive split.
-  it("concatenates cachePrefix ahead of system into one leading message (#713)", () => {
+  // The cache_control marker sits on the stable prefix block so the provider knows where the
+  // reusable part ends; the per-turn system text follows unmarked.
+  it("sends cachePrefix as a marked block ahead of an unmarked system block", () => {
     expect(
       toOpenRouterMessages({
         system: "ATHLETE STATE BLOCK",
@@ -147,12 +145,18 @@ describe("createOpenRouterAdapter", () => {
         messages: [{ role: "user", text: "How was my run?" }],
       }),
     ).toEqual([
-      { role: "system", content: "STABLE PERSONA PREFIX\nATHLETE STATE BLOCK" },
+      {
+        role: "system",
+        content: [
+          { type: "text", text: "STABLE PERSONA PREFIX", cache_control: { type: "ephemeral" } },
+          { type: "text", text: "ATHLETE STATE BLOCK" },
+        ],
+      },
       { role: "user", content: "How was my run?" },
     ]);
   });
 
-  it("uses cachePrefix alone as the leading message when system is empty (#713)", () => {
+  it("omits the second block when system is empty", () => {
     expect(
       toOpenRouterMessages({
         system: "",
@@ -160,9 +164,52 @@ describe("createOpenRouterAdapter", () => {
         messages: [{ role: "user", text: "Hi" }],
       }),
     ).toEqual([
-      { role: "system", content: "STABLE PERSONA PREFIX" },
+      {
+        role: "system",
+        content: [
+          { type: "text", text: "STABLE PERSONA PREFIX", cache_control: { type: "ephemeral" } },
+        ],
+      },
       { role: "user", content: "Hi" },
     ]);
+  });
+
+  it("keeps the leading message a plain string when there is no cachePrefix", () => {
+    const messages = toOpenRouterMessages({
+      system: "You are Coach.",
+      messages: [{ role: "user", text: "Hi" }],
+    });
+    expect(messages[0]).toEqual({ role: "system", content: "You are Coach." });
+    expect(JSON.stringify(messages)).not.toContain("cache_control");
+  });
+
+  it("puts the marked blocks on the wire body", async () => {
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => okResponse());
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate({ ...REQUEST, cachePrefix: "PREFIX", system: "DYNAMIC" });
+    const body = JSON.parse(fetcher.mock.calls[0]![1]!.body as string);
+    expect(body.messages[0]).toEqual({
+      role: "system",
+      content: [
+        { type: "text", text: "PREFIX", cache_control: { type: "ephemeral" } },
+        { type: "text", text: "DYNAMIC" },
+      ],
+    });
+  });
+
+  it("tags the span llm.cache_marker true only when the marker was sent", async () => {
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      vi.fn(async () => okResponse()),
+    );
+    withLlmSpan.mockClear();
+    await adapter.generate({ ...REQUEST, cachePrefix: "PREFIX" });
+    expect(withLlmSpan.mock.calls[0]![2]).toMatchObject({ "llm.cache_marker": "true" });
+    await adapter.generate(REQUEST);
+    expect(withLlmSpan.mock.calls[1]![2]).toMatchObject({ "llm.cache_marker": "false" });
   });
 
   it("threads request.timeoutMs through to fetchWithTimeout, not a hardcoded constant (#713)", async () => {
