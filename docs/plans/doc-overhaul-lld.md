@@ -177,8 +177,8 @@ the closed-issue TODO in `ui/client/src/pages/AuthError.tsx`.
 PR 12 also does these, each found with `grep`:
 1. `.github/agents/bob-the-builder.md` cites `ui/api/_generated/soul.js`. `build-soul.mjs` writes `soul.ts`.
 2. `.github/agents/tech-lead.md` says `ui-tests.yml` covers `ui/**`. It covers four subfolders, so
-	read its `paths:` block and state them. The Team table line that starts "Previously only" is audit
-	trail, so state the rule alone.
+	read its `paths:` block and state them. The Boundaries bullet with "Previously only" is audit trail,
+	so state the rule alone.
 3. ADR path sweep: list every backticked path in live ADRs that does not exist and fix the path.
 	Meaning and decisions are never rewritten.
 4. Four-templates wording: `SOUL.claude.md` and `SOUL.chat.md` name `strength_a`, `strength_b`,
