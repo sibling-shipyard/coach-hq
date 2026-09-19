@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3585 413" width="3585" height="413" role="img" aria-label="Data flow — the fixed turn" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;Noto Sans&quot;, Helvetica, Arial, sans-serif">
+<title>Data flow — the fixed turn</title>
+<desc>One turn: reprompt, dose-only second chance, fallback note, Sentry reports.</desc>
+<defs><pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1" fill="rgba(140,149,159,.5)"/></pattern><marker id="mk-added" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f883d"/></marker><marker id="mko-added" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#1f883d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-modified" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bf8700"/></marker><marker id="mko-modified" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#bf8700" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-removed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/></marker><marker id="mko-removed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#cf222e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-neutral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker><marker id="mko-neutral" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#8c959f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="3585" height="413" rx="12" fill="#f4f5f7"/>
+<rect x="0" y="0" width="3585" height="413" rx="12" fill="url(#dots)"/>
+<g transform="translate(12,10)"><g><rect class="lanebox" x="4" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="405" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="806" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="1207" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="1608" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="2009" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="2410" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="2811" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/>
+<rect class="lanebox" x="3212" y="6" width="345" height="381" rx="12" fill="rgba(255,255,255,.55)"/></g>
+<g><line class="lifeline" x1="176.5" y1="82" x2="176.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="577.5" y1="82" x2="577.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="978.5" y1="82" x2="978.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<rect class="actbar" x="972.5" y="161" width="12" height="50.67" rx="4" fill="#b9f0c4" stroke="rgba(31,136,61,.55)"/>
+<line class="lifeline" x1="1379.5" y1="82" x2="1379.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="1780.5" y1="82" x2="1780.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="2181.5" y1="82" x2="2181.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<rect class="actbar" x="2175.5" y="237" width="12" height="12.67" rx="4" fill="#b9f0c4" stroke="rgba(31,136,61,.55)"/>
+<line class="lifeline" x1="2582.5" y1="82" x2="2582.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="2983.5" y1="82" x2="2983.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/>
+<line class="lifeline" x1="3384.5" y1="82" x2="3384.5" y2="375" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="3 4"/></g>
+<g><g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="16" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="30" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="43" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="66" y="45" font-size="13" font-weight="600" fill="#1f2328">requestCoachReply</text>
+<text class="nsub" x="66" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">ui/api/coach-chat/_lib/requestCoachReply.ts</text>
+<g class="bdg bdg-modified"><rect x="263.38" y="10" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="296.69" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="417" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="431" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="444" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="467" y="45" font-size="13" font-weight="600" fill="#1f2328">shared reprompt</text>
+<text class="nsub" x="467" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">same file</text>
+<g class="bdg bdg-modified"><rect x="664.38" y="10" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="697.69" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh context" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))" opacity="0.82"><rect class="card" x="818" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#d1d9e0"/>
+<rect class="chip" x="832" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><rect class="glyph-stroke" x="837" y="43" width="16" height="12" rx="2" stroke="#59636e" stroke-width="1.4" fill="none"/>
+<path class="glyph-stroke" d="M837,45 l8,6 8,-6" stroke="#59636e" stroke-width="1.4" fill="none"/></g>
+<text class="ntitle" x="868" y="45" font-size="13" font-weight="600" fill="#1f2328">coach model</text>
+<text class="nsub" x="868" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">via OpenRouter</text></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-added" x="1219" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#1f883d" stroke-opacity="0.55"/>
+<rect class="chip" x="1233" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="1246" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="1269" y="45" font-size="13" font-weight="600" fill="#1f2328">dose second pass</text>
+<text class="nsub" x="1269" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">same file</text>
+<g class="bdg bdg-added"><rect x="1492.45" y="10" width="40.55" height="16" rx="8" fill="#b9f0c4" stroke="rgba(31,136,61,.55)" stroke-width="1"/><text x="1512.73" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#116329">NEW</text></g></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="1620" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="1634" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="1647" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="1670" y="45" font-size="13" font-weight="600" fill="#1f2328">buildTurnWrites</text>
+<text class="nsub" x="1670" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">ui/api/coach-chat/_lib/buildTurnWrites.ts</text>
+<g class="bdg bdg-modified"><rect x="1867.38" y="10" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="1900.69" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-added" x="2021" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#1f883d" stroke-opacity="0.55"/>
+<rect class="chip" x="2035" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="2048" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="2071" y="45" font-size="13" font-weight="600" fill="#1f2328">synthesize note</text>
+<text class="nsub" x="2071" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">ui/api/coach-chat/_lib/turnReplyValidation.ts</text>
+<g class="bdg bdg-added"><rect x="2294.45" y="10" width="40.55" height="16" rx="8" fill="#b9f0c4" stroke="rgba(31,136,61,.55)" stroke-width="1"/><text x="2314.73" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#116329">NEW</text></g></g>
+<g class="cardsh context" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))" opacity="0.82"><rect class="card" x="2422" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#d1d9e0"/>
+<rect class="chip" x="2436" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><ellipse class="glyph-stroke" stroke="#59636e" stroke-width="1.4" fill="none" cx="2449" cy="44.5" rx="6.5" ry="2.6"/>
+<path class="glyph-stroke" d="M2442.5,44.5 v9 a6.5,2.6 0 0 0 13 0 v-9" stroke="#59636e" stroke-width="1.4" fill="none"/></g>
+<text class="ntitle" x="2472" y="45" font-size="13" font-weight="600" fill="#1f2328">coach_log</text>
+<text class="nsub" x="2472" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">user_data/coach/coach_log.json</text></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="2823" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="2837" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><text class="glyph" x="2850" y="53.5" text-anchor="middle" fill="#59636e" font-size="14" font-style="italic" font-family="Georgia,serif">ƒ</text></g>
+<text class="ntitle" x="2873" y="45" font-size="13" font-weight="600" fill="#1f2328">silent fixups</text>
+<text class="nsub" x="2873" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">ui/api/coach-chat/_lib/decide/silentFixups.ts</text>
+<g class="bdg bdg-modified"><rect x="3070.38" y="10" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="3103.69" y="21" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh context" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))" opacity="0.82"><rect class="card" x="3224" y="18" width="321" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#d1d9e0"/>
+<rect class="chip" x="3238" y="36" width="26" height="26" rx="7" fill="#f1f3f5"/><g><rect class="glyph-stroke" x="3243" y="43" width="16" height="12" rx="2" stroke="#59636e" stroke-width="1.4" fill="none"/>
+<path class="glyph-stroke" d="M3243,45 l8,6 8,-6" stroke="#59636e" stroke-width="1.4" fill="none"/></g>
+<text class="ntitle" x="3274" y="45" font-size="13" font-weight="600" fill="#1f2328">Sentry</text>
+<text class="nsub" x="3274" y="63" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">still-unresolved guards</text></g></g>
+<g><path class="msg edge-neutral msg-return" d="M978.5,123 L181.5,123" marker-end="url(#mk-neutral)" fill="none" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8"/>
+<path class="msg edge-neutral" d="M176.5,161 L967.5,161" marker-end="url(#mk-neutral)" fill="none" stroke="#8c959f" stroke-width="1.5"/>
+<circle r="2.6" fill="#8c959f" opacity="0"><animateMotion dur="4.2s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0;0.3333;1" calcMode="linear" path="M176.5,161 L967.5,161"/><animate attributeName="opacity" dur="4.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0;0.0267;0.3067;0.3333;1"/></circle>
+<path class="msg edge-added msg-strong" d="M176.5,199 L967.5,199" marker-end="url(#mk-added)" fill="none" stroke="#1f883d" stroke-width="2.25"/>
+<circle r="2.6" fill="#1f883d" opacity="0"><animateMotion dur="4.2s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.3333;0.6667;1" calcMode="linear" path="M176.5,199 L967.5,199"/><animate attributeName="opacity" dur="4.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.3333;0.36;0.64;0.6667;1"/></circle>
+<path class="msg edge-added msg-strong" d="M1780.5,237 L2170.5,237" marker-end="url(#mk-added)" fill="none" stroke="#1f883d" stroke-width="2.25"/>
+<path class="msg edge-modified" d="M1780.5,275 L2577.5,275" marker-end="url(#mko-modified)" fill="none" stroke="#bf8700" stroke-width="1.5"/>
+<circle r="2.6" fill="#bf8700" opacity="0"><animateMotion dur="4.2s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.6667;1;1" calcMode="linear" path="M1780.5,275 L2577.5,275"/><animate attributeName="opacity" dur="4.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.6667;0.6933;0.9733;1;1"/></circle>
+<path class="msg edge-added msg-strong" d="M1780.5,313 L2978.5,313" marker-end="url(#mko-added)" fill="none" stroke="#1f883d" stroke-width="2.25"/>
+<path class="msg edge-modified" d="M176.5,351 L3379.5,351" marker-end="url(#mko-modified)" fill="none" stroke="#bf8700" stroke-width="1.5"/></g>
+<g><g><rect class="lpill" x="545.98" y="115.5" width="68.04" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext" x="580" y="126.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#59636e">model reply</text></g>
+<g><rect class="lpill" x="494.33" y="153.5" width="155.35" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext" x="572" y="164.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#59636e">shared reprompt (any violation)</text></g>
+<g><rect class="lpill" x="520.63" y="191.5" width="102.74" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-added" x="572" y="202.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#116329">dose-only reprompt</text></g>
+<g><rect class="lpill" x="1925.25" y="229.5" width="100.51" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-added" x="1975.5" y="240.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#116329">synthesize fallback</text></g>
+<g><rect class="lpill" x="2144.42" y="267.5" width="69.16" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-modified" x="2179" y="278.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#7d4e00">fallback row</text></g>
+<g><rect class="lpill" x="2316.09" y="305.5" width="126.83" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-added" x="2379.5" y="316.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#116329">coach_note_synthesized</text></g>
+<g><rect class="lpill" x="1663.96" y="343.5" width="228.09" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-modified" x="1778" y="354.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#7d4e00">missingCoachNote / workoutCreateProgression</text></g></g></g>
+</svg>
