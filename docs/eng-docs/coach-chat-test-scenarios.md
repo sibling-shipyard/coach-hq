@@ -66,7 +66,7 @@ the fourth test type for mechanics.
 
 | id | file | turns | what it tests | expected files/behavior |
 |---|---|---|---|---|
-| `fsp-end-to-end` | `manual-coach-chat-turns-fsp-end-to-end.json` | 6 (incl. greet) | the full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, frequency, coaching style, wrap-up | turn 1: `profile.json`; turn 3: `injuries.json`; turn 4: `memory.json`; end state read off the branch: `profile.json` has name, dob, `coach_since` and no pending benchmark; a season, a main quest and a first week exist |
+| `fsp-end-to-end` | `manual-coach-chat-turns-fsp-end-to-end.json` | 6 (incl. greet) | the full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, frequency, coaching style, wrap-up | turn 1: `profile.json`; turn 3: `injuries.json`; turn 4: `memory.json`; end state read off the branch: `profile.json` has name, dob, `coach_since` and no pending benchmark; `memory.json` has `training_availability.days_per_week` of 4; a season, a main quest and a first week exist |
 | `daily-basic` | `manual-coach-chat-turns-daily.json` | 5 (incl. greet) | ordinary daily check-in - weight, hip soreness, a finished run, wrap-up | turn 1: `profile.json`; turn 2: `injuries.json`; turns 3-4: PASS |
 | `daily-sleep-skip` | `manual-coach-chat-turns-daily-2.json` | 5 (incl. greet) | ordinary daily check-in - poor sleep, a skipped session, tomorrow's commitment, wrap-up | turns 1-4: PASS |
 | `ambiguous-contradiction` | `manual-coach-chat-turns-ambiguous-contradiction.json` | 5 (incl. greet) | new; athlete reports a planned session done, immediately contradicts it, then confirms the real one - checks the coach reconciles rather than double-writing | turn 1: `current_week.json` changed; turn 3: `current_week.json` changed (see the scenario's own code comment for what this can't verify) |
@@ -123,6 +123,7 @@ dedicated assertion.
 | `memory_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
 | `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport`, `fsp-end-to-end` (the enum is part of its end-state check) | Gap → closed |
 | `sports_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
+| `training_availability_update` | `memory.json` | none | `fsp-end-to-end` (the stated "4 days a week" must land in `memory.json`, not a note; ADR 0052) | Gap → closed |
 | `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-end-to-end`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
 | `injury_event` | `injuries.json` | `14` | `injury-resolve-by-bodypart` | Gap → closed |
 | `quest_event` | `progress.json` | `16` | `quest-event` | Gap → closed |

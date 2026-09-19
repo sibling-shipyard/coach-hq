@@ -231,7 +231,12 @@ const SCENARIOS: Scenario[] = [
         present: ["name", "dob", "timezone", "height_cm", "weight_kg", "coach_since"],
         notTrue: ["first_session_benchmark_pending"],
       },
-      { path: "user_data/coach/memory.json", present: ["sports", "coaching_style"] },
+      {
+        path: "user_data/coach/memory.json",
+        present: ["sports", "coaching_style"],
+        // The fixture says "4 days a week"; it must land in the field, not only in a note.
+        equals: { "training_availability.days_per_week": 4 },
+      },
       { path: "user_data/ledger/seasons.json", present: ["current_season_id"] },
       { path: "user_data/ledger/quests.json", present: ["main_quest"] },
       // The branch's week is reset to its blank "placeholder" first, so "live" means the first
