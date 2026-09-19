@@ -1,6 +1,6 @@
 # Coach model provider bench
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-06
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18
 
 How direct Gemini, Gemini through OpenRouter, and DeepSeek behave on the **real**
 `coach-message` prompt. Measured 2026-09-05 against a live athlete repo, not a fixture.
@@ -100,6 +100,8 @@ prompt shape.
 **Recommendation:** if Gemini stays the model, ship the marker. It is the only path that earns any
 discount on the athlete_context turn, since production never repeats a prompt exactly. If DeepSeek
 is the target anyway on cost, no marker work is needed there.
+
+Chat shipped the marker: ADR [0053](../../kdb/decisions/0053-openrouter-cache-control-marker.md) holds its own marker-on versus marker-off control run on the chat prompt.
 
 Probe script: `ui/eval/prefix-cache-probe.ts` — throwaway, not wired into any npm script or CI.
 

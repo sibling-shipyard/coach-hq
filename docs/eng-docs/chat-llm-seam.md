@@ -1,6 +1,6 @@
 # The LLM provider seam (llmClient.ts)
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-10
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18
 
 ## Context
 
@@ -42,7 +42,7 @@ same check was a real review finding on the harness (2026-09-10).
 |---|---|---|
 | Model | `gemini-pro-latest` (`geminiModel.ts`) | `google/gemini-3.8-flash`, pinned to `google-vertex` provider routing |
 | Auth | `x-goog-api-key` header | `Authorization: Bearer` header |
-| Explicit cache | `geminiSoulCache.ts` (moved here from `coach-chat/_lib/llm/soulCache.ts` in M2 PR 2) | None - OpenRouter owns its own caching, this adapter does not emulate Gemini cache names |
+| Explicit cache | `geminiSoulCache.ts` (moved here from `coach-chat/_lib/llm/soulCache.ts` in M2 PR 2) | None of its own. It sends `cachePrefix` as a system block tagged `cache_control` (ADR [0053](../../kdb/decisions/0053-openrouter-cache-control-marker.md)) and the provider decides what to cache |
 | Own retry | One retry on a stale-cache `400` (invalidates and retries no-cache) or a `503`/`504` (short fixed backoff) - mutually exclusive branches, capped at one retry total | One retry on a truncated response (`finish_reason: "length"`), capped at one retry total |
 | Usage/cost on the span | `promptTokens`/`completionTokens`/`totalTokens`/`cachedPromptTokens`/`thinkingTokens` | Same fields, plus `costUsd` (OpenRouter reports per-call cost; direct Gemini/Vertex does not) |
 | Error status | Passes the real upstream status through always (400/403/429/500/503/504/...) - collapsing anything outside {429,503,504} to a generic 502 was a real regression found in review (2026-09-10) and reverted | `429` passes through; anything else non-2xx becomes `502` |

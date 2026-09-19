@@ -6,15 +6,16 @@
 
 Coach-message is the proactive note Coach writes after a sync. It is the only path the cache
 marker was ever measured on (`chat-provider-bench.md` § Explicit cache marker: 48% cached from
-call 1). Chat ships the marker first (`docs/plans/openrouter-caching.md`). This plan is what
+call 1). Chat ships the marker first (ADR 0053). This plan is what
 follows, and it does not start until chat proves the marker works.
 
 ## Gate - do not build until all three hold
 
-1. Chat spans in Sentry carry `llm.cache_marker: true` and a nonzero
-   `gen_ai.usage.input_tokens.cached` on turn 2 and later of a thread.
-2. The chat live run recorded how long a gap the cache survives. That gap is the number to compare
-   against how far apart coach-message calls really are (step 1 below).
+1. Production chat spans in Sentry carry `llm.cache_marker: true` and a nonzero
+   `gen_ai.usage.input_tokens.cached`. The live control run in ADR 0053 already showed it locally.
+2. Gap survival is not established. Under the marker, `cached_tokens` did not track reuse (ADR 0053),
+   so measure the billed cost of a repeat call after gaps of 2, 6 and 15 minutes instead. Compare it
+   with how far apart coach-message calls really are (step 1 below).
 3. The athlete says go. If chat shows no benefit, this plan is deleted, not built.
 
 ## What I verified
@@ -56,7 +57,7 @@ follows, and it does not start until chat proves the marker works.
 
 1. Steps 2a to 2c are written up with real numbers, including any zero.
 2. Sentry shows marked coach-message spans with cached tokens over at least one week of traffic.
-3. `chat-provider-bench.md` links the result; ADR 0052 gets an amendment line only if the result
+3. `chat-provider-bench.md` links the result; ADR 0053 gets an amendment line only if the result
    contradicts it.
 
 ## Deferred

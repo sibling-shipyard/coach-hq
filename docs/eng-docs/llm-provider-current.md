@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-18
 
 **Live status, 2026-09-15: production itself now runs on OpenRouter, `google/gemini-3.8-flash`.**
 The athlete set `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` directly in Vercel's Production
@@ -89,7 +89,7 @@ constraint. Rate-limit headroom and eventual model quality are.
 Verified against `ui/api/coach-chat.ts`: one model call per turn through the `llmClient` seam, no
 separate/cheaper call for anything. There is no more separate close-session detection step at all
 (C1 removed `CLOSE_SESSION_PATTERN`/`session_closed` entirely — every turn just commits). The
-`systemInstruction` floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` +
+`systemInstruction` was sized when SOUL.md was ~49,700 bytes. A live chat turn measured 2026-09-18 sent about 16.2k prompt tokens, including `state.md` +
 `rendered quest context`, sent in full every turn — roughly matches the ~15K input tokens/turn
 assumed above. A turn whose reply asks for a template/session-artifact write pays for the
 templates manifest and `current_week.json` on top of that, fetched lazily only when needed.
@@ -105,7 +105,7 @@ Prompt caching bills a repeated prefix at a fraction of full price. The mechanis
 provider, and one of them needs no work at all.
 
 - **Gemini:** implicit caching is on by default for every Gemini 2.5+ model, no code, no opt-in —
-  90% off cached tokens, minimum cacheable prefix 1,024 tokens (well under our ~13K-token prefix).
+  90% off cached tokens, minimum cacheable prefix 1,024 tokens (well under our chat prefix).
   Confirmed via Google's own developer blog and API docs. **Measured behaviour does not match that
   description on the coach-message path.** Two prompts sharing a 6,876-token prefix, differing only in their tail, returned
   `cached_tokens: 0` on the second. A discount appeared only when the whole prompt repeated byte
@@ -114,6 +114,12 @@ provider, and one of them needs no work at all.
   path — direct AI Studio, not Vertex — so this does not disprove the row above for chat. It does
   mean **nobody should assume the prefix discount without measuring it on their own path**, with a
   varying tail.
+- **OpenRouter chat (measured 2026-09-18 and 2026-09-19):** the adapter sends `cachePrefix` as a
+  `cache_control` block (ADR 0053). In a controlled probe, an unmarked 10.7k-token prompt cached 0
+  tokens even on an exact repeat, and a marked one cached about 10,670 with fresh random text.
+  Reported prompt cost was about $0.0080 unmarked and $0.0012 marked. Those are OpenRouter's
+  per-call figures, not reconciled against the invoice, and the cause is not established. Read
+  `llm.cache_marker` with `gen_ai.usage.input_tokens.cached` in Sentry.
 - **Claude:** explicit `cache_control` breakpoints — a real code change, but cached tokens are
   also excluded from the ITPM rate limit, not just cheaper, which raises effective throughput too.
 - **GPT-5 mini:** automatic for prompts over 1,024 tokens, same as Gemini — no code change.
@@ -174,8 +180,8 @@ dashboards before trusting exact numbers more than a few months old.
   questions now have partial answers (see Options); what is still missing is a contract probe and a
   provider allow-list, tracked under #713.
 - Kimi K2.5/K2.6 (Moonshot) — the cheapest viable fallback if cost ever becomes the
-  binding constraint: real JSON schema support + prompt caching at roughly half Haiku's price
-  ($0.60/$3.00–$0.95/$4.00, Aug 2026 — re-check), and it exposes OpenAI- and
+  binding constraint. It has real JSON schema support and prompt caching at roughly half Haiku's
+  price ($0.60/$3.00–$0.95/$4.00, Aug 2026 — re-check). It exposes OpenAI- and
   Anthropic-compatible endpoints, so it trial-swaps without a new client shape.
 - Model routing (cheap model for easy turns, expensive for hard ones) — doesn't cleanly apply
   here: one call already does reply + structured file-updates + commit message in a single
