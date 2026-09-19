@@ -5,29 +5,9 @@
 Evidence for every PR in the HLD stack. Each claim carries `file:line` and the command that proved
 it. Findings I could not prove are marked SUSPECTED and named as such.
 
-## M1 Previews - PR 1, 2
+## M1 Secrets - PR 1, 2
 
-**PR 1 - `pr-lens-assets` fails on every push.**
-
-`git ls-tree --name-only origin/pr-lens-assets` returns only numbered directories:
-`1195 1222 1223 1225 1227 1230 1232 1234 1235 1236 1238`. There is no `ui/` directory, and the
-Vercel project's Root Directory is `ui`. The build log is five lines and ends at
-`The specified Root Directory "ui" does not exist` 1s after clone - so `ui/vercel.json:5`'s
-`ignoreCommand` never runs and never can. The branch's first commit is 2026-09-18
-(`git log --reverse origin/pr-lens-assets`), the same day as #1207, which is what makes the two
-look related. They are not.
-
-**PR 2 - #1207 left `ui/vercel.json` out of its own trigger list.**
-
-`git show a4a20a7c -- ui/vercel.json` narrowed `ignoreCommand` from `--paths 'ui/**'` to an
-explicit list. `ui/vercel.json` is not in that list, so a change to the CSP block
-(`ui/vercel.json:16-24`), the security headers, `maxDuration` or the ignore rule itself produces no
-preview deploy. The same commit wrote `ui/tsconfig.json` where
-`.github/workflows/ui-tests.yml:31` uses `ui/tsconfig*.json`; the lists were meant to match.
-
-## M2 Secrets - PR 3, 4
-
-**PR 3.** `ui/api/_lib/sentry.ts:73-79`:
+**PR 1.** `ui/api/_lib/sentry.ts:73-79`:
 
 ```ts
 return [process.env.GEMINI_API_KEY, process.env.SESSION_SECRET, process.env.GITHUB_APP_CLIENT_SECRET]
@@ -44,7 +24,7 @@ Both adapters use header auth (`geminiAdapter.ts:153`, `openRouterAdapter.ts:142
 `coachLlmClient.ts` holds no key. That comment is the stated justification for a blanket
 `ignoreOutgoingRequests`, so it is load-bearing and wrong.
 
-**PR 4.** `docs/eng-docs/env-vars.md:36` says `LLM_PROVIDER` falls back to `"gemini"` - "the
+**PR 2.** `docs/eng-docs/env-vars.md:36` says `LLM_PROVIDER` falls back to `"gemini"` - "the
 default, and what production runs"; `:24` lists `GEMINI_API_KEY` under Required.
 `kdb/decisions/0046-*.md` says production runs OpenRouter and the key was deleted from Vercel.
 `ui/api/_lib/llmClient.ts:6-9,122-124` repeats the wrong default.
@@ -54,7 +34,7 @@ Five live vars are absent from a page that claims at `:10` to be the canonical l
 (`requestCoachReply.ts:110`), `SPAN_HEALTH_WINDOW` (`check-span-health.mjs:30`),
 `ATHLETE_REPO_PATH`, `AGENT_KIT_ROOT`.
 
-## M3 Carve - PR 5, 6
+## M2 Carve - PR 3, 4
 
 `platform/soul/B_engine.md:38` and `:364` tell BYOB Coach to read
 `propagated/docs/phelps-voice-profile.md`, `propagated/docs/soul-calibration.md` and
@@ -89,10 +69,10 @@ moved back to BYOB", and `README.md:19` tells athletes to start with `claude`. B
 `platform/tests/test_carve_skeleton.py` has two tests
 (`test_carves_daily_rollover_workflow_with_schedule_and_lock`,
 `test_carve_stamps_same_dsn_into_sync_and_rollover`) and none asserting that every
-`propagated/docs/` path SOUL cites is carved. PR 5 adds that test, which is what turns this
+`propagated/docs/` path SOUL cites is carved. PR 3 adds that test, which is what turns this
 Learning into a check.
 
-## M4 Enforcement - PR 7-10
+## M3 Enforcement - PR 5-8
 
 1. **`shared/warm-instrument/**` has four blocking local checks and zero CI checks.**
 	`platform/scripts/checks.conf:2-5` lists it under `ui typecheck`, `ui lint`, `ui format`,
@@ -102,7 +82,7 @@ Learning into a check.
 	`ui/vitest.config.ts:14` aliases `@warm-instrument` into the test tree, so it is live code.
 2. **Lint and format never run in CI for about half of `ui/`.** `ui-tooling-tests.yml:47-51` runs
 	only `npm run check` and `npx vitest run scripts/lib`. Files under no workflow `paths:` at all
-	include `ui/eslint.config.js`, `ui/.prettierrc.json`, `ui/vercel.json`, `ui/docs/**` - so the
+	include `ui/eslint.config.js`, `ui/.prettierrc.json`, `ui/docs/**` - so the
 	config that defines the gate triggers nothing, while a prettier violation in `ui/docs/*.md`
 	blocks every local push and can never fail CI.
 3. **`validate-kdb.yml:18-24` does not fire on what `validate_kdb.py:177-182` scans** -
@@ -125,15 +105,15 @@ Learning into a check.
 	`engine/scripts/*.test.mjs`, while `engine/lib/` holds `.mts` tests. `platform-tests.yml:56`
 	inherits the same mismatch verbatim.
 8. **`.github/agents/tech-lead.md:41` states `ui-tests.yml` covers `ui/**`.** It covers four
-	subdirectories. That is the line review check #1 tells agents to trust; corrected in PR 11.
+	subdirectories. That is the line review check #1 tells agents to trust; corrected in PR 9.
 
 Clean: zero skipped tests (`grep -rn "\.skip(\|xit(\|it\.todo\|\.only("` over the source tree finds
 no test-framework hits). ADR 0024 holds - the only paid check, `eval-coach-chat.yml:11-12`, is
 `workflow_dispatch` only per ADR 0047.
 
-## M5 Prose - PR 11-13
+## M4 Prose - PR 9-11
 
-**PR 11 - dead reference docs.**
+**PR 9 - dead reference docs.**
 
 - `docs/ref-docs/season-close.md:2-3` claims SOUL points at it.
 	`grep -n season-close platform/SOUL.*.md platform/soul/*.md` returns nothing, and
@@ -151,7 +131,7 @@ no test-framework hits). ADR 0024 holds - the only paid check, `eval-coach-chat.
 	`doc_files` to `AGENTS.md` and `.github/agents/`.
 - `.github/agents/bob-the-builder.md:44` cites `ui/api/_generated/soul.js`;
 	`ui/scripts/build/build-soul.mjs:3` writes `soul.ts`.
-- `.github/agents/tech-lead.md:41` (see M4 item 8) and `:121`, which is pure audit trail
+- `.github/agents/tech-lead.md:41` (see M3 item 8) and `:121`, which is pure audit trail
 	("Previously only `platform/soul/*` … were named") - the rule is the first sentence.
 
 Other dead paths, each verified NOT FOUND: `docs/eng-docs/gemini-flow.md:358` cites
@@ -159,7 +139,7 @@ Other dead paths, each verified NOT FOUND: `docs/eng-docs/gemini-flow.md:358` ci
 `sync.yml`, `rollover.yml`, `provision-user.sh`; `activity-naming-migration.md:58-59` cite
 `categories.json`, `backfill_category.py`.
 
-**PR 12 - finished plans.** `docs/eng-docs/README.md:11` says `docs/plans/` is deleted when
+**PR 10 - finished plans.** `docs/eng-docs/README.md:11` says `docs/plans/` is deleted when
 shipped, with no archive folder.
 
 | Plan | Proof it is done |
@@ -174,7 +154,7 @@ shipped, with no archive folder.
 but ADR 0021's own `:3` retracts exactly that half, and `AGENTS.md:11` then routes Coach Phelps at
 `platform/SOUL.claude.md`, the BYO build.
 
-**PR 13 - chronology.** `AGENTS.md:112-118` names the tells. The ones where the past no longer
+**PR 11 - chronology.** `AGENTS.md:112-118` names the tells. The ones where the past no longer
 binds the present: `coach-chat-daily.md:290-292` (cites #179, CLOSED 2026-08-02),
 `coach-chat-testing.md:104,147,193-194`, `coach-chat-test-scenarios.md:74,79,149`,
 `coach-chat-flow.md:6`, `coach-chat-fsp.md:170`, `gemini-flow.md:20,26,37,64,323,474`,
@@ -186,9 +166,9 @@ Budget: `gemini-flow.md` is 543 lines against the `kdb/doc-style.md:3` one-page 
 The 8 `Status: Historical` docs are all cited from live code or ADRs and stay - chronology is their
 job per `docs/eng-docs/README.md:41-44`.
 
-## M6 UI weight - PR 14, 15
+## M5 UI weight - PR 12, 13
 
-**PR 14 - 18 of 27 shadcn primitives are unimported.** Only nine appear in any import:
+**PR 12 - 18 of 27 shadcn primitives are unimported.** Only nine appear in any import:
 
 ```
 $ grep -rhn "components/ui/" ui/client/src | grep -o '"@/components/ui/[a-z-]*"' | sort | uniq -c
@@ -208,7 +188,7 @@ primitives. `framer-motion` and `tailwindcss-animate` are already imported nowhe
 `grep -rn framer-motion ui --include=*.tsx` matches `ui/package.json:51` alone. Keep
 `@radix-ui/react-{dialog,separator,slot,tooltip}` - `slot` is used by `button.tsx`.
 
-**PR 15 - nine `localDateKey` copies and six Monday formulas.**
+**PR 13 - nine `localDateKey` copies and six Monday formulas.**
 
 ```
 $ grep -rn "function localDateKey\|function toLocalDateStr\|function dateKey" --include='*.ts' ui
@@ -231,9 +211,9 @@ and again inline at `:282-284` using `(getDay()+6)%7`, `warmHomeSnapshots.ts:300
 `firstWeekCompile.ts:35`. iOS repeats it: `EnginePageMath.swift:103` and `TrainWeekStrip.swift:330`
 both map a date to `"MON"` by different mechanisms.
 
-## M7 Retired names - PR 16-18
+## M6 Retired names - PR 14-16
 
-**PR 16 - iOS dead code.**
+**PR 14 - iOS dead code.**
 
 - `ios/CoachHQ/CoachHQ/Views/EnginePageView.swift` is 541 lines defining `EngineDetailView`.
 	`grep -rn "EngineDetailView" ios --include=*.swift` outside the file returns nothing; only
@@ -244,7 +224,7 @@ both map a date to `"MON"` by different mechanisms.
 	`platform/skeleton-templates/` (`calisthenics_a`, `strength_a`, `recovery`, `foundation`).
 - `InstrumentHeaderView.swift:29` is referenced only by its own `#Preview` at `:99`.
 
-**PR 17.** `liveWeekContract.ts:77` declares `_legacyChallenge?: any` as positional param 2;
+**PR 15.** `liveWeekContract.ts:77` declares `_legacyChallenge?: any` as positional param 2;
 `grep -rn _legacyChallenge ui` returns the definition only. `coachDay.ts:80-82` documents itself as
 dead - "Not currently called from the turn-building pipeline" - and `coachDayNumber` has zero
 production callers, only `coach-since.test.ts`. One concept carries three names:
@@ -254,7 +234,7 @@ coach-day. `coachChatModel.ts:431` shows the athlete "Gemini free-tier quota exc
 that is no longer Gemini; same naming at `coach-chat-context.ts:2`,
 `prefetchCoachContext.ts:8`, `coachChatModel.ts:441,533`, `currentWeekAdapter.ts:189`.
 
-**PR 18.** `ui/api/auth/_lib/repo-resolution.ts:58` keeps
+**PR 16.** `ui/api/auth/_lib/repo-resolution.ts:58` keeps
 `LEGACY_MARKER_PATH = "user_data/ledger/challenge_v2.json"` with no stated removal condition -
 legitimate back-compat, undocumented. `ui/api/_lib/fileEdits.ts:5` describes a contract for
 `state.md` and `coach_notes.md`, both retired (`coach-data-schema.md:7`), while
@@ -262,7 +242,7 @@ legitimate back-compat, undocumented. `ui/api/_lib/fileEdits.ts:5` describes a c
 `data["coach_notes"]` and nothing in `ui/api` or the schema doc reads it - SUSPECTED dead, confirm
 against an athlete repo before deleting.
 
-## M8 Boundary - PR 19, 20
+## M7 Boundary - PR 17, 18
 
 `ui/client/src/lib/challenge.ts:2` defines `SplitLedger` as the canonical type, imported by ~10
 files - and `hooks/useRepoData.ts:24,29` types the same value `ledger?: any; profile?: any`, with
@@ -275,7 +255,7 @@ Clean: zero `@ts-ignore`/`@ts-nocheck` in production code - the only five hits a
 `@ts-expect-error` inside tests that are themselves the assertion
 (`ui/api/_lib/_tests/llmClient.test.ts:52-57`).
 
-**PR 20 - two swallowed errors worth capturing.** Of ~40 bare `catch {}` outside tests, most are
+**PR 18 - two swallowed errors worth capturing.** Of ~40 bare `catch {}` outside tests, most are
 documented fail-open inside the runbook boundary (`sentry-runbook.md:333` exempts
 `parseJsonOrNull`; `coachDay.ts`'s six catches are `Intl` fallbacks). These two are not:
 
@@ -289,14 +269,14 @@ documented fail-open inside the runbook boundary (`sentry-runbook.md:333` exempt
 Non-null `!` on LLM-returned JSON at `turnReplyValidation.ts:37,47` and `memoryWrite.ts:43-44`,
 which `coachTurn-reprompt.test.ts:376` notes "is not runtime-checked here".
 
-## M9 Splits - PR 21-23
+## M8 Splits - PR 19-21
 
 `wc -l`, excluding `node_modules` and `_generated`: `HealthKitSyncManager.swift` 1861 (HK queries +
 dedupe + commit + stale-sync reporting), `ui/api/auth/[...action].ts` 788 (every auth action +
 PKCE + the refresh retry loop at `:507-543`), `coachTurn-reprompt.test.ts` 2567. The iOS view files
 (`ActivityDetailView` 1161, `ActivityLedgerView` 1089, `SettingsView` 1086, `CoachChatView` 988)
 each carry their own model math - `CoachChatView.swift:68` holding a duplicate of web's day-number
-formula inside a SwiftUI view is the tell. Those follow PR 21's pattern once it lands.
+formula inside a SwiftUI view is the tell. Those follow PR 19's pattern once it lands.
 
 ## Checked and found clean
 
@@ -311,7 +291,7 @@ formula inside a SwiftUI view is the tell. Those follow PR 21's pattern once it 
 	`ui/eval/prefix-cache-probe.ts:3` "throwaway by design".
 - **No dead env vars** - every project-owned `process.env.X` has a reader and a setter.
 - **Two TODOs in the source tree.** `ui/client/src/pages/AuthError.tsx:17` cites #164, CLOSED -
-	fold into PR 13. `ui/api/_lib/geminiModel.ts:8` is a live revert reminder.
+	fold into PR 11. `ui/api/_lib/geminiModel.ts:8` is a live revert reminder.
 - **Boot-file paths all resolve** - every path cited by `AGENTS.md` and `tech-lead.md` exists.
 - **`.claude/worktrees/` (23M) and 16 prunable `/tmp` worktrees** are gitignored local litter, not
 	repo state. Prune locally, no PR.
