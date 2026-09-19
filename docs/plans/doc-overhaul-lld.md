@@ -209,25 +209,15 @@ Verify each PR with the tell grep below, then the full local gate.
 4. Also here: the one tell line the audit found in `platform/soul/`, since it is the same layers.
 5. Run `node platform/scripts/compose-soul.mjs`. Commit the layers and both builds. Add a post-cutover
 	`SOUL_HISTORY.md` entry (Superpower, short scene, 2 to 3 bullets, Why).
-6. If `platform/SOUL.claude.md` changed, run the carve and backfill once more, since it ships to
-	athlete repos.
+6. If `platform/SOUL.claude.md` changed, note it for the recarve runbook. This PR does not carve.
 7. Delete `docs/plans/doc-overhaul.md` and this file. This PR carries `Fixes: #1249`.
 
-## Carve and backfill
+## Athlete repos
 
-Runs after PR 12 merges, before PR 13. Skip if `git diff` over PRs 1 to 12 shows none of the three
-propagated docs changed. Runs again after PR 14 if `SOUL.claude.md` changed, with `SOUL.claude.md` as the
-artifact under check.
-1. Run `node platform/scripts/carve-skeleton.mjs` to populate `coach-skeleton`. The diff must show only
-	the propagated docs.
-2. Backfill the athlete repos, all local under `~/Projects/`. Candidates: `coach-skanda`,
-	`coach-akash`, `coach-prateek`, `coach-shreyas`, `coach-phelps-template`. The athlete confirms the
-	list before I touch any repo.
-3. Only `propagated/docs/` is written. Coach's files (`user_data/coach/*`, ledger, sessions) are never
-	touched. Find the existing update path in `platform/README.md` and the carve script first. Do not
-	hand-copy if a sync script exists.
-4. Verify per repo: `git diff --stat` shows only `propagated/docs/`. Push each with
-	`git pull --rebase origin main && git push origin main`, only after the athlete says so.
+This plan does not carve or backfill. Changes to `propagated/docs/` (PRs 1 to 12) and to `SOUL.claude.md`
+(PR 14) reach athlete repos through [`platform-skeleton-recarve.md`](platform-skeleton-recarve.md). That
+runbook runs only after this plan, the repo hygiene sweep and the chat observability plan are all done.
+Hand it one input: `git diff` over PRs 1 to 14 for `propagated/docs/` and `SOUL.claude.md`.
 
 ## Verification commands
 

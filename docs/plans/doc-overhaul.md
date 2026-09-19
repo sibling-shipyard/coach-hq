@@ -27,8 +27,7 @@ flowchart LR
   G -->|"4 or 5"| C["Rest of eng-docs<br/>+ ref-docs"]
   C --> D["Fill the gaps<br/>8 new docs"]
   D --> E["Scrub audit trails<br/>docs + code comments"]
-  E --> F["Carve + backfill<br/>athlete repos"]
-  F --> H["Lock it<br/>hard check in CI"]
+  E --> H["Lock it<br/>hard check in CI"]
   H --> I["SOUL wording<br/>last PR"]
 ```
 
@@ -100,8 +99,9 @@ Branch names `core/doc-overhaul-<nn>-<brief>`. Seven milestones, at most three P
 | 13 | M6 Lock | Hard check live | Tech Lead | CI enforces shape and rule |
 | 14 | M7 SOUL wording | Four-templates wording fixed in the SOUL layers and both builds | Tech Lead | SOUL matches what the carve ships. Plans deleted |
 
-After PR 12 merges and before PR 13: carve `coach-skeleton` and backfill the athlete repos, only if a
-propagated doc changed. Again after PR 14, if `SOUL.claude.md` changed (LLD section "Carve and backfill").
+This plan does not carve the skeleton or touch athlete repos. Changed propagated docs and
+`SOUL.claude.md` reach them through [`platform-skeleton-recarve.md`](platform-skeleton-recarve.md), which
+runs after this plan is done (LLD section "Athlete repos").
 
 ## Risks
 
