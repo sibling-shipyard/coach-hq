@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1284 398" width="1284" height="398" role="img" aria-label="Architecture — what the change touches" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;Noto Sans&quot;, Helvetica, Arial, sans-serif">
+<title>Architecture — what the change touches</title>
+<desc>Three review comments land in two plan docs, pointing the self-deleting plan at its durable home.</desc>
+<defs><pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1" fill="rgba(140,149,159,.5)"/></pattern><marker id="mk-added" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f883d"/></marker><marker id="mko-added" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#1f883d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-modified" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bf8700"/></marker><marker id="mko-modified" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#bf8700" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-removed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/></marker><marker id="mko-removed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#cf222e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="mk-neutral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker><marker id="mko-neutral" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M2,1 L10,5 L2,9" fill="none" stroke="#8c959f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="1284" height="398" rx="12" fill="#f4f5f7"/>
+<rect x="0" y="0" width="1284" height="398" rx="12" fill="url(#dots)"/>
+<g><rect class="lanebox" x="16" y="44" width="404" height="338" rx="12" fill="rgba(255,255,255,.55)"/>
+<text class="lanelabel" x="32" y="68" font-size="10" font-weight="700" letter-spacing=".12em" fill="#59636e">REVIEW COMMENTS · THE-THIRD-SIBLING</text>
+<rect class="lanebox" x="440" y="44" width="404" height="338" rx="12" fill="rgba(255,255,255,.55)"/>
+<text class="lanelabel" x="456" y="68" font-size="10" font-weight="700" letter-spacing=".12em" fill="#59636e">PLAN DOCS · DOCS/PLANS</text>
+<rect class="lanebox" x="864" y="44" width="404" height="338" rx="12" fill="rgba(255,255,255,.55)"/>
+<text class="lanelabel" x="880" y="68" font-size="10" font-weight="700" letter-spacing=".12em" fill="#59636e">DURABLE DOCS · DOCS/ENG-DOCS</text></g>
+<g><path class="edge edge-modified" d="M404,126 L421,126 C430.39,126 438,133.61 438,143 L438,213 C438,217.97 442.03,222 447,222 L456,222" marker-end="url(#mk-modified)" fill="none" stroke="#bf8700" stroke-width="1.5"/>
+<path class="edge edge-modified" d="M404,110 L413,110 C417.97,110 422,114.03 422,119 L422,140 C422,156.57 435.43,170 452,170 L725,170 C732.18,170 738,175.82 738,183 L738,196" marker-end="url(#mk-modified)" fill="none" stroke="#bf8700" stroke-width="1.5"/>
+<path class="glow" stroke="#bf8700" d="M828,222 L841,222 C848.18,222 854,227.82 854,235 L854,318 C854,325.18 859.82,331 867,331 L880,331" fill="none" stroke-width="7" opacity="0.14"/>
+<path class="edge edge-modified hero" d="M828,222 L841,222 C848.18,222 854,227.82 854,235 L854,318 C854,325.18 859.82,331 867,331 L880,331" marker-end="url(#mk-modified)" fill="none" stroke="#bf8700" stroke-width="2.25"/></g>
+<g><g class="cardsh context" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))" opacity="0.82"><rect class="card" x="32" y="92" width="372" height="52" rx="10" fill="#ffffff" stroke-width="1" stroke="#d1d9e0"/>
+<rect class="chip" x="46" y="105" width="26" height="26" rx="7" fill="#f1f3f5"/><g><circle class="glyph" fill="#59636e" cx="54" cy="118" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="59" cy="118" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="64" cy="118" r="1.8"/></g>
+<text class="ntitle" x="82" y="123" font-size="13" font-weight="600" fill="#1f2328">Plan PR review comments</text>
+<g class="bdg bdg-neutral"><rect x="303.82" y="84" width="43.59" height="16" rx="8" fill="#f1f3f5" stroke="#d1d9e0" stroke-width="1"/><text x="325.62" y="95" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#59636e">P1 x1</text></g>
+<g class="bdg bdg-neutral"><rect x="353.41" y="84" width="43.59" height="16" rx="8" fill="#f1f3f5" stroke="#d1d9e0" stroke-width="1"/><text x="375.21" y="95" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#59636e">P2 x2</text></g></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="456" y="196" width="180" height="52" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="470" y="209" width="26" height="26" rx="7" fill="#f1f3f5"/><g><circle class="glyph" fill="#59636e" cx="478" cy="222" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="483" cy="222" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="488" cy="222" r="1.8"/></g>
+<text class="ntitle" x="506" y="227" font-size="10.5" font-weight="600" fill="#1f2328">chat-observability-and…</text>
+<g class="bdg bdg-modified"><rect x="562.38" y="188" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="595.69" y="199" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))"><rect class="card card-modified" x="648" y="196" width="180" height="52" rx="10" fill="#ffffff" stroke-width="1" stroke="#bf8700" stroke-opacity="0.5"/>
+<rect class="chip" x="662" y="209" width="26" height="26" rx="7" fill="#f1f3f5"/><g><circle class="glyph" fill="#59636e" cx="670" cy="222" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="675" cy="222" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="680" cy="222" r="1.8"/></g>
+<text class="ntitle" x="698" y="227" font-size="10.5" font-weight="600" fill="#1f2328">chat-observability-and…</text>
+<g class="bdg bdg-modified"><rect x="754.38" y="188" width="66.62" height="16" rx="8" fill="#fae17d" stroke="rgba(154,103,0,.55)" stroke-width="1"/><text x="787.69" y="199" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing=".06em" fill="#7d4e00">CHANGED</text></g></g>
+<g class="cardsh context" filter="drop-shadow(0 1px 2px rgba(31,35,40,.14))" opacity="0.82"><rect class="card" x="880" y="300" width="372" height="62" rx="10" fill="#ffffff" stroke-width="1" stroke="#d1d9e0"/>
+<rect class="chip" x="894" y="318" width="26" height="26" rx="7" fill="#f1f3f5"/><g><circle class="glyph" fill="#59636e" cx="902" cy="331" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="907" cy="331" r="1.8"/>
+<circle class="glyph" fill="#59636e" cx="912" cy="331" r="1.8"/></g>
+<text class="ntitle" x="930" y="327" font-size="13" font-weight="600" fill="#1f2328">gemini-flow.md</text>
+<text class="nsub" x="930" y="345" font-size="9.5" fill="#59636e" font-family="ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, monospace">guard table and Sentry sections</text></g></g>
+<g><g><rect class="lpill" x="382.37" y="170.5" width="111.26" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-modified" x="438" y="181.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#7d4e00">P1: drop &quot;I'm from ...&quot;</text></g>
+<g><rect class="lpill" x="520.05" y="162.5" width="136.9" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-modified" x="588.5" y="173.5" text-anchor="middle" font-size="9.5" font-weight="600" fill="#7d4e00">2 x P2: dev key, self-delete</text></g>
+<g><rect class="lpill" x="783.88" y="269" width="140.25" height="15" rx="7.5" fill="#ffffff" stroke="#d8dee4" stroke-width="1"/><text class="ltext ltext-modified" x="854" y="280" text-anchor="middle" font-size="9.5" font-weight="600" fill="#7d4e00">PR 6 folds durable bits here</text></g></g>
+</svg>
