@@ -69,7 +69,7 @@ knows whether the cache is actually active; that decision, and the resulting wir
 
 **Implicit caching** (Gemini's automatic, on-by-default behavior for 2.5+ models) discounts any
 byte-identical prefix it happens to have recently served, best-effort. This project relies on it
-only as a fallback — see below. The reason it works at all is prompt *ordering*: everything
+only as a fallback — see below. The reason it works at all is prompt _ordering_: everything
 stable comes before anything that varies per call, so a byte-identical prefix exists in the
 first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md alone clears
 that ~6x over.
@@ -79,7 +79,7 @@ moved behind the seam by #713 M2 PR 2, was `coach-chat/_lib/llm/soulCache.ts`) i
 path: the static prefix is
 uploaded once via `POST /v1beta/cachedContents`, returning a `cachedContents/...` name. Every
 subsequent call passes `cachedContent: <name>` instead of resending the text at all — cached
-reads are billed at 10% of standard input rate, *guaranteed*, not best-effort. The cache is not
+reads are billed at 10% of standard input rate, _guaranteed_, not best-effort. The cache is not
 per-athlete: since the static prefix is byte-identical for everyone, one cache entry serves
 every athlete's calls.
 
@@ -113,7 +113,7 @@ to that, it never blocks a reply.
 
 **Request-time staleness, distinct from cache-creation failure:** `getCachedSoulName()` can
 return a name that's since gone stale or been evicted server-side between its own read and the
-actual `generateContent` call. This is a different failure mode than *creating* a cache failing
+actual `generateContent` call. This is a different failure mode than _creating_ a cache failing
 (which falls back to `null`/no-cache before the call even happens). If the actual call comes back
 `400` with a cache name set, `geminiAdapter.ts` (`coach-chat/_lib/llm/coachLlmClient.ts` before
 #713 M2 PR 2) invalidates the stored record and retries once as a plain no-cache call. This never
@@ -162,12 +162,12 @@ required; forbidden actions are absent from the schema rather than discouraged o
 prose. C1 removed the closing-turn concept and `session_closed` along with it - there is no more
 ordinary/closing split, only `firstSession` still varies what's available.
 
-| Turn | Additional fields |
-|---|---|
-| Greeting | None |
-| Activity sync | None |
-| First Session | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions |
-| Returning | Memory/profile/injury/quest/season/quest-create actions, plus template/session/week-plan actions - every field, every turn |
+| Turn          | Additional fields                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Greeting      | None                                                                                                                       |
+| Activity sync | None                                                                                                                       |
+| First Session | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions                               |
+| Returning     | Memory/profile/injury/quest/season/quest-create actions, plus template/session/week-plan actions - every field, every turn |
 
 The server owns dates, generated ids, timestamps, commit messages, and thread titles. Gemini
 reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
@@ -260,22 +260,22 @@ test already covers.
 
 ### Coverage by action field, as of this round
 
-| Field | Missed-language / narration guard | Other reprompt or write-time guard |
-|---|---|---|
-| `workout_create` | prompt reinforcement + `findMissedWorkoutCreateLanguage` (a build request, no workout action, and a reply that claims it was done or asks nothing back) | `findWorkoutCreateProgressionViolations` (the dose and unknown-progression rules, shared with the applier), one extra `workout_create`-only call after the reprompt (see "After the reprompt fails"), `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), `findMissingWorkoutCreateInjuryAck` (structural, active-flag-vs-injury_ack mismatch - #1071), injury/dose invariants at write time |
-| `week_update` (kickoff) | prompt reinforcement + `isProseOnlyWeekPlan` | `assertCurrentWeekCommitReady` (structural) |
-| `week_update` (patch) | prompt reinforcement + `findMissedWeekUpdateLanguage` (a this-week or named-day schedule request, a first-person done-claim, no `week_update`) | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment). |
-| `season_start` | prompt reinforcement + `findMissedSeasonLanguage` (first-session only) | - |
-| `injury_flag` | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D) | - |
-| `quest_event` | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D) | invalid-`quest_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
-| `template_edit`, `session_plan` | prompt reinforcement + `findMissedTemplateEditLanguage` (permanent wording) + `findMissedSessionPlanLanguage` (today-only wording), each needing a first-person done-claim and no matching action | `findUnconfirmedAssumption` (schedule-change gate only). A `skip_phases` name matches a phase exactly or by one whole word, and an ambiguous match is ignored |
-| `profile_update` | prompt reinforcement + `findMissedProfileLanguage` (first-session only) | - |
-| `coaching_style_update` | prompt reinforcement | - |
-| `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F) | - |
-| `memory_update` | prompt reinforcement, incl. a compound-turn call-out (#1085) | - |
-| `workout_remove` | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only) | - |
-| `sports_update` | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only: started, starting an activity, taking up, getting into, joined - each with false-positive exclusions) | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E) |
-| `injury_event` | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D) | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F) |
+| Field                                                 | Missed-language / narration guard                                                                                                                                                                 | Other reprompt or write-time guard                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workout_create`                                      | prompt reinforcement + `findMissedWorkoutCreateLanguage` (a build request, no workout action, and a reply that claims it was done or asks nothing back)                                           | `findWorkoutCreateProgressionViolations` (the dose and unknown-progression rules, shared with the applier), one extra `workout_create`-only call after the reprompt (see "After the reprompt fails"), `findMalformedWorkoutCreateExercises` (structural, reports every malformed exercise in one reprompt, not just the first - #1037 PR F), `findMissingWorkoutCreateInjuryAck` (structural, active-flag-vs-injury_ack mismatch - #1071), injury/dose invariants at write time |
+| `week_update` (kickoff)                               | prompt reinforcement + `isProseOnlyWeekPlan`                                                                                                                                                      | `assertCurrentWeekCommitReady` (structural)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `week_update` (patch)                                 | prompt reinforcement + `findMissedWeekUpdateLanguage` (a this-week or named-day schedule request, a first-person done-claim, no `week_update`)                                                    | `newSessionMayDuplicatePlan`, `categoryChangeIsConfirmed`, `findUnconfirmedAssumption`. `validateWeekUpdate` (per-item drop) and `applyWeekPatch`'s throw agree in practice - the validator always runs first, so the applier's own all-or-nothing throw is defense-in-depth against a caller that skips validation, not the primary guard (#1037 PR F; documented in `applyWeekPatch`'s own comment).                                                                          |
+| `season_start`                                        | prompt reinforcement + `findMissedSeasonLanguage` (first-session only)                                                                                                                            | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `injury_flag`                                         | `findMissedInjuryLanguage` (first-session, zero-flags) + `findUncountedInjuryLanguage` (returning-athlete, count-aware, #1037 PR D)                                                               | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `quest_event`                                         | `findMissedQuestLanguage` (count-aware, active-quest-name + status language, #1037 PR D)                                                                                                          | invalid-`quest_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F)                                                                                                                                                                                                                                                                                                                       |
+| `template_edit`, `session_plan`                       | prompt reinforcement + `findMissedTemplateEditLanguage` (permanent wording) + `findMissedSessionPlanLanguage` (today-only wording), each needing a first-person done-claim and no matching action | `findUnconfirmedAssumption` (schedule-change gate only). A `skip_phases` name matches a phase exactly or by one whole word, and an ambiguous match is ignored                                                                                                                                                                                                                                                                                                                   |
+| `profile_update`                                      | prompt reinforcement + `findMissedProfileLanguage` (first-session only)                                                                                                                           | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `coaching_style_update`                               | prompt reinforcement                                                                                                                                                                              | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `season_start.new_habits` / standalone `quest_create` | prompt reinforcement + `findMissedHabitLanguage` (first-session, zero-quests) + `findMissedNewHabitLanguage` (returning-athlete, explicit new-habit phrasing only, #1037 PR F)                    | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `memory_update`                                       | prompt reinforcement, incl. a compound-turn call-out (#1085)                                                                                                                                      | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `workout_remove`                                      | prompt reinforcement + `findMissedRemovalLanguage` (returning-athlete only)                                                                                                                       | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `sports_update`                                       | prompt reinforcement + `findMissedSportsLanguage` (new-activity phrasing only: started, starting an activity, taking up, getting into, joined - each with false-positive exclusions)              | `applySportsUpdate` merges the new list against what's on file rather than replacing it (#1037 PR E)                                                                                                                                                                                                                                                                                                                                                                            |
+| `injury_event`                                        | prompt reinforcement + `findMissedInjuryUpdateLanguage` (exactly-one-active-flag, boolean) + `findUncountedInjuryLanguage` (any flag count, count-aware, #1037 PR D)                              | invalid-`flag_id` reprompt (D1, #736), now names every bad id found across `quest_event`/`injury_event` in one reprompt, not just the first (#1037 PR F)                                                                                                                                                                                                                                                                                                                        |
 
 ### After the reprompt fails
 
@@ -286,6 +286,8 @@ The reprompt is one call shared by every violation. What happens when a problem 
 3. **A missing `coach_note` gets a fallback.** If a required-note action still has no `coach_note`, a plain note is built from the validated recorded fields, never from an action a bad reference dropped.
 4. **Silent server fixups reach Sentry.** An unmatched or ambiguous `skip_phases` name, a nulled `template_id`, a coerced discipline, and a synthesized `quest_event` or `coach_note` queue in `decide/silentFixups.ts`. `commitTurn` sends one Sentry warning per turn.
 5. **Per-turn reads are pinned.** The templates manifest, `current_week.json` and the coach-context files are read at the head commit sha fetched that turn. A read by branch name right after a commit can miss the previous turn's write.
+6. **A late first week still gets a real session.** `compileFirstWeek` (`firstWeekCompile.ts`) places the benchmark on the athlete's earliest stated training day that is today or later. If every stated day has already passed this week, it now falls back to tomorrow, honestly worded, instead of leaving the whole week empty. Left alone only when tomorrow is already next week (today is Sunday) - that week gets a fresh kickoff of its own.
+7. **Training frequency is read from where the model writes it.** The model puts "4 days a week" in `coach_note`, not `memory_update`, and a reprompt did not change that. `inferTrainingAvailability` reads the memory notes first, then falls back to the latest `coach_log` row (plus this turn's note) that states a frequency.
 
 ### Model calls per turn, and what they cost
 
@@ -300,13 +302,13 @@ The client also retries once on cut-off JSON, and the adapters retry 503 and 504
 
 **Cost.** Production runs `google/gemini-3.8-flash` on OpenRouter. Measured over 360 live test turns:
 
-| Measure | Cost per turn |
-|---|---|
-| One call (about 10.8k prompt tokens) | $0.008 to $0.013 |
-| Median | $0.013 |
-| Mean | $0.015 |
-| 90th percentile | $0.026 |
-| Maximum seen | $0.074 (a long history) |
+| Measure                              | Cost per turn           |
+| ------------------------------------ | ----------------------- |
+| One call (about 10.8k prompt tokens) | $0.008 to $0.013        |
+| Median                               | $0.013                  |
+| Mean                                 | $0.015                  |
+| 90th percentile                      | $0.026                  |
+| Maximum seen                         | $0.074 (a long history) |
 
 The shared reprompt fired on 18 percent of 151 traced test turns. Those scenarios are built to provoke actions, so real traffic should fire it less. A reprompt costs about as much as the first call, because the prompt is the same size. The worst case, four calls, is about four times one call, or $0.04 to $0.05.
 
@@ -367,7 +369,7 @@ counts active-quest-name mentions co-occurring with completion/miss/excusal lang
 logic. `findUncountedInjuryLanguage` closes two gaps at once - `injury_flag`'s zero coverage on
 returning-athlete turns, and `injury_event`'s zero coverage once 2+ active flags exist. The
 exactly-one-flag gate on `findMissedInjuryUpdateLanguage` stays; it's the only safe way to resolve
-*which* flag a bare mention means, and this round doesn't touch that. It counts distinct
+_which_ flag a bare mention means, and this round doesn't touch that. It counts distinct
 injury-keyword mentions in the message against `injury_flag.length + injury_event.length`
 combined. Raw per-keyword counting over-counts a single injury restated across nearby phrasing
 ("my knee still hurts... it's sore..."), so hits within a 12-word window of the prior hit collapse
@@ -458,9 +460,9 @@ the existing mitigation pattern, not new failure modes needing a new approach.
   handle it well, every time, not just today," said to justify a permanent routine edit, got
   recorded as `injury_flag`/`injury_event` instead of the requested `template_edit`. I looked for
   a safe deterministic reprompt trigger - the same "athlete message names an edit request AND the
-  reply set injury fields but not template_edit/session_plan" shape every other detector in this
+  reply set injury fields but not template*edit/session_plan" shape every other detector in this
   table uses. I couldn't find one narrow enough to ship. A returning athlete asking to change a
-  session *because* of ongoing pain is common and often legitimate on its own, including turns
+  session \_because* of ongoing pain is common and often legitimate on its own, including turns
   where the coach correctly asks a clarifying question before committing any edit at all. Firing
   on that shape would collide with ordinary conversation the same way the rejected gap-2a generic
   keyword match did. This one shipped as prompt reinforcement only
@@ -517,7 +519,7 @@ guard - see the coverage table above for the current state.
   60s timeout).
 - `coachLlmClient.ts`'s `askLlm()` adds one more retry on top of that, at the seam level: a
   malformed/truncated JSON response that OpenRouter's own `finish_reason` check can miss. This
-  retry deliberately reuses a *shorter* 20s timeout, not the full 60s again. A fifth call stacking
+  retry deliberately reuses a _shorter_ 20s timeout, not the full 60s again. A fifth call stacking
   on top of four others that already ran was itself a review finding (2026-09-10). Its own worst
   case (2 attempts at 20s, if the retry attempt also hits a transport-level 503/504) adds up to
   ~40s, not another ~120s.
@@ -536,6 +538,7 @@ guard - see the coverage table above for the current state.
   logged and left as-is. For `quest_event`/schedule-changing fields specifically, a deterministic
   layer-3 fallback in `buildTurnWrites` handles it instead of a third model call - see
   `docs/eng-docs/coach-chat-testing.md` and the PR #955 findings log for the specific mechanisms.
+
 - **True worst case for one turn**, every layer stacking: the initial `askLlm()` invocation at
   up to ~160s (120s adapter retry + 40s JSON-parse retry), plus `requestCoachReply.ts`'s one reprompt at
   up to another ~160s. That's ~320s total - over the 300s `maxDuration` ceiling. Reaching it needs

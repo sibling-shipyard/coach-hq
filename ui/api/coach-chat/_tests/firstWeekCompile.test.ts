@@ -123,16 +123,6 @@ describe("compileFirstWeek", () => {
   describe("regression: a training day already passed this week", () => {
     const lateWeekToday = "2026-09-10"; // a Thursday, same week as TODAY (Monday 09-07)
 
-    it("places nothing on a training day earlier in the week than today", () => {
-      const availability: TrainingAvailability = {
-        days_per_week: 2,
-        preferred_days: ["monday", "tuesday"], // both already passed by Thursday
-      };
-      const update = compileFirstWeek({ ...base, today: lateWeekToday, availability });
-      const withSessions = update.days.filter((d) => (d.sessions?.length ?? 0) > 0);
-      expect(withSessions).toEqual([]);
-    });
-
     it("still places the benchmark on a training day that's today or later, skipping only the passed ones", () => {
       const availability: TrainingAvailability = {
         days_per_week: 3,
@@ -143,6 +133,59 @@ describe("compileFirstWeek", () => {
       expect(thursday.sessions?.[0]?.template_id).toBe("first_session_benchmark");
       const monday = update.days.find((d) => d.date === "2026-09-07")!;
       expect(monday.sessions ?? []).toEqual([]);
+    });
+
+    // fsp-end-to-end live run (skanda-testing, a Saturday): stated training days (M/W/F) were
+    // all already past, so the benchmark went unscheduled for the whole week. Placing it on
+    // tomorrow instead means a first-session athlete never waits a week for their first session.
+    it("places the benchmark on tomorrow when every stated training day has already passed", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["monday", "tuesday"], // both already passed by Thursday
+      };
+      const update = compileFirstWeek({ ...base, today: lateWeekToday, availability });
+      const friday = update.days.find((d) => d.date === "2026-09-11")!; // tomorrow
+      expect(friday.sessions?.[0]?.template_id).toBe("first_session_benchmark");
+      expect(friday.sessions?.[0]?.kind).toBe("benchmark");
+      const withSessions = update.days.filter((d) => (d.sessions?.length ?? 0) > 0);
+      expect(withSessions.length).toBe(1);
+      expect(update.body).toContain("already passed this week");
+      expect(update.body).toContain("tomorrow");
+      // Review finding: raw lowercase weekday values leaking into athlete-facing copy.
+      expect(update.body).toContain("Monday, Tuesday");
+      expect(update.body).not.toContain("monday, tuesday");
+    });
+
+    it("leaves the week unscheduled, honestly, when tomorrow is already next week", () => {
+      const sundayToday = "2026-09-13"; // the last day of TODAY's own week
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["monday", "tuesday"], // both already passed by Sunday
+      };
+      const update = compileFirstWeek({ ...base, today: sundayToday, availability });
+      const withSessions = update.days.filter((d) => (d.sessions?.length ?? 0) > 0);
+      expect(withSessions).toEqual([]);
+      expect(update.body).not.toContain("tomorrow");
+    });
+
+    it("does not touch a week where a stated training day is still today or later", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["tuesday", "friday"],
+      };
+      const update = compileFirstWeek({ ...base, availability }); // TODAY is Monday
+      expect(update.body).not.toContain("already passed this week");
+    });
+
+    // Same lowercase-weekday leak as the tomorrow message, on the ordinary "Sessions land on" copy.
+    it("capitalizes the stated days in the ordinary first-week message too", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["tuesday", "friday"],
+      };
+      const update = compileFirstWeek({ ...base, availability });
+      expect(update.body).toContain("Sessions land on Tuesday, Friday");
+      expect(update.body).not.toContain("tuesday, friday");
     });
   });
 });

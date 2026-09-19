@@ -216,7 +216,10 @@ export async function generateFirstSessionWorkoutsAfterCompletion(turn: TurnWrit
       turn.traceId,
     );
 
-    const trainingAvailability = inferTrainingAvailability(memory);
+    const trainingAvailability = inferTrainingAvailability(memory, [
+      ...(turn.context.coachLog?.rows ?? []),
+      ...(turn.trimmedCoachNote ? [{ text: turn.trimmedCoachNote }] : []),
+    ]);
     const memoryWrite: FileEntry = {
       path: MEMORY_PATH,
       content: applyTrainingAvailabilityUpdate(
