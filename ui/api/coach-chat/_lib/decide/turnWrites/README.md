@@ -10,17 +10,17 @@ These wrap the pure appliers in `coachProfileIntents.ts`, `coachInjuryIntents.ts
 with the I/O (`getFileRaw`) and path/`resolve` wiring `commitFilesAtomic` needs. The appliers stay
 pure; this layer is where fetch-then-apply happens.
 
-| File                | Reply field(s)                                            | Target file                                              |
-| ------------------- | --------------------------------------------------------- | -------------------------------------------------------- |
-| `chatWrite.ts`      | every turn                                                | `chat_history.json`                                      |
-| `coachNoteWrite.ts` | `coach_note`                                              | `coach_log.json`                                         |
+| File                | Reply field(s)                                                                            | Target file                                              |
+| ------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `chatWrite.ts`      | every turn                                                                                | `chat_history.json`                                      |
+| `coachNoteWrite.ts` | `coach_note`                                                                              | `coach_log.json`                                         |
 | `memoryWrite.ts`    | `memory_update`, `coaching_style_update`, `sports_update`, `training_availability_update` | `memory.json`                                            |
-| `injuryWrite.ts`    | `injury_flag`, `injury_event`                             | `injuries.json`                                          |
-| `questWrite.ts`     | `quest_event`, `quest_create`                             | `progress.json`, `quests.json`                           |
-| `seasonWrite.ts`    | `season_start` (main_quest bundled in)                    | `seasons.json`, `quests.json`                            |
-| `profileWrite.ts`   | `profile_update`                                          | `profile.json`, plus the profile-completeness projection |
-| `workoutWrite.ts`   | `template_edit`, `session_plan`                           | template / session snapshot files                        |
-| `weekWrite.ts`      | `week_update`                                             | `current_week.json`                                      |
+| `injuryWrite.ts`    | `injury_flag`, `injury_event`                                                             | `injuries.json`                                          |
+| `questWrite.ts`     | `quest_event`, `quest_create`                                                             | `progress.json`, `quests.json`                           |
+| `seasonWrite.ts`    | `season_start` (main_quest bundled in)                                                    | `seasons.json`, `quests.json`                            |
+| `profileWrite.ts`   | `profile_update`                                                                          | `profile.json`, plus the profile-completeness projection |
+| `workoutWrite.ts`   | `template_edit`, `session_plan`                                                           | template / session snapshot files                        |
+| `weekWrite.ts`      | `week_update`                                                                             | `current_week.json`                                      |
 
 `buildTurnWrites.ts`'s `buildTurnWrites` calls these in sequence and assembles the results - it owns
 turn-level bookkeeping (thread merge, the `profile_update`/`coach_since` resolver merge,
