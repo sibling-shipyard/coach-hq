@@ -972,5 +972,26 @@
     ],
     "status": "pass",
     "last_cost_usd": 0.029340899999999996
+  },
+  "manual:fsp-end-to-end": {
+    "type": "manual",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
+    "last_run_date": "2026-09-19",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/turnRequest.ts",
+      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+      "ui/api/coach-chat/_lib/requestCoachReply.ts",
+      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+      "ui/api/coach-chat/_lib/turnCompletion.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.058231500000000005
   }
 }

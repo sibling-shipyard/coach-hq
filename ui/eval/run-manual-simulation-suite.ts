@@ -155,7 +155,7 @@ interface Scenario {
   preconditions?: Preconditions;
   /**
    * A3: --repo/--all-repos override every scenario's athlete/repo/localPath by default - but
-   * fsp-basic's hardcoded target (coach-skanda-testing) isn't an arbitrary choice, it's the one
+   * fsp-end-to-end's hardcoded target (coach-skanda-testing) isn't an arbitrary choice, it's the one
    * repo that's never completed the First Session Protocol, which is exactly what this scenario
    * tests. Forcing it onto a real, already-onboarded athlete repo wouldn't just give a
    * meaningless result - it would send scripted "first session" conversation content into a
@@ -164,6 +164,23 @@ interface Scenario {
    */
   excludeFromRepoOverride?: boolean;
   expect: TurnExpect[];
+  /**
+   * Read off the scratch branch after the last turn. For scenarios where "which files changed" can't
+   * show the outcome (the First Session Protocol finishing stamps coach_since in a file that already
+   * changed on turn 1).
+   */
+  finalState?: FinalStateCheck[];
+}
+
+/** One file's expected end state. Field names are dotted paths into the JSON. */
+interface FinalStateCheck {
+  path: string;
+  /** Each must be set: not null, not "", not an empty array. */
+  present?: string[];
+  /** Each must not be `true` (a pending marker that should have been cleared). */
+  notTrue?: string[];
+  /** Dotted field to the exact value it must have. */
+  equals?: Record<string, unknown>;
 }
 
 /** Resolves a scenario's local clone path the same way run-manual-coach-chat-test.ts would. */
@@ -190,10 +207,10 @@ function resolveLocalPath(scenario: Scenario): string | undefined {
  */
 const SCENARIOS: Scenario[] = [
   {
-    id: "fsp-basic",
-    file: "manual-coach-chat-turns-fsp.json",
+    id: "fsp-end-to-end",
+    file: "manual-coach-chat-turns-fsp-end-to-end.json",
     description:
-      "Full six-turn First Session Protocol - profile, goal, injury, training freq, wrap-up.",
+      "The full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, training frequency, coaching style, wrap-up. Checks that completion really lands: coach_since stamped, a season and main quest created, and the first week compiled.",
     repo: "skanda-testing/coach-skanda-testing",
     localPath: "/home/skanda_suresh/Projects/coach-skanda-testing",
     // A3: coach-skanda-testing is load-bearing here, not a convenient default - it's the one
@@ -203,7 +220,23 @@ const SCENARIOS: Scenario[] = [
     expect: [
       { turnIndex: 1, filesChangedInclude: ["user_data/coach/profile.json"] },
       { turnIndex: 3, filesChangedInclude: ["user_data/coach/injuries.json"] },
+      { turnIndex: 4, filesChangedInclude: ["user_data/coach/memory.json"] },
       { turnIndex: 5 },
+    ],
+    // Which files changed can't prove the protocol finished (coach_since is stamped inside a file
+    // that already changed on turn 1), so the end state is read straight off the scratch branch.
+    finalState: [
+      {
+        path: "user_data/coach/profile.json",
+        present: ["name", "dob", "timezone", "height_cm", "weight_kg", "coach_since"],
+        notTrue: ["first_session_benchmark_pending"],
+      },
+      { path: "user_data/coach/memory.json", present: ["sports", "coaching_style"] },
+      { path: "user_data/ledger/seasons.json", present: ["current_season_id"] },
+      { path: "user_data/ledger/quests.json", present: ["main_quest"] },
+      // The branch's week is reset to its blank "placeholder" first, so "live" means the first
+      // week really was compiled by the run.
+      { path: "user_data/ledger/current_week.json", equals: { data_status: "live" } },
     ],
   },
   {
@@ -550,6 +583,8 @@ const WATCHED_PATHS = [
 
 interface ManualLogEntry extends TestLogEntry {
   turnIndex: number;
+  repo?: string;
+  branch?: string;
   filesChanged: FilesChanged;
   // #1053 gap 2: real per-turn cost, written by run-manual-coach-chat-test.ts now that
   // requestCoachReply.ts surfaces real usage - summed here so a scenario's console output shows real
@@ -582,10 +617,10 @@ function parseArgs(argv: string[]) {
     // explicit ask, not the default.
     force: argv.includes("--force"),
     // #1053 gap 3: overrides which scratch branch every selected scenario runs against, passed
-    // straight through to run-manual-coach-chat-test.ts's own --branch. Needed for fsp-basic: it
+    // straight through to run-manual-coach-chat-test.ts's own --branch. Needed for fsp-end-to-end: it
     // runs against coach-skanda-testing, which needs a fresh reset onto a NEW scratch branch first
     // (docs/eng-docs/coach-chat-testing.md's reset procedure) - without this, the driver could
-    // only ever run fsp-basic against an auto-named branch it creates itself, never the specific
+    // only ever run fsp-end-to-end against an auto-named branch it creates itself, never the specific
     // already-reset one. Applies to every scenario the invocation selects (--only narrows to one
     // in practice) - there was no need for a per-scenario field in the SCENARIOS library above.
     branch: get("--branch"),
@@ -644,6 +679,68 @@ function findLatestManualLog(repoSlug: string, sinceMs: number): string | undefi
     .filter((c) => c.mtime >= sinceMs)
     .sort((a, b) => b.mtime - a.mtime);
   return candidates[0] ? path.join(dir, candidates[0].f) : undefined;
+}
+
+function valueAtPath(obj: unknown, dotted: string): unknown {
+  return dotted
+    .split(".")
+    .reduce<unknown>(
+      (cur, key) => (cur == null ? undefined : (cur as Record<string, unknown>)[key]),
+      obj,
+    );
+}
+
+function isSet(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  return !(Array.isArray(value) && value.length === 0);
+}
+
+/** Reads each `finalState` file off the run's scratch branch with the GitHub CLI and checks it. */
+function checkFinalState(scenario: Scenario, entries: ManualLogEntry[]): string[] {
+  if (!scenario.finalState?.length) return [];
+  const last = [...entries].reverse().find((e) => e.repo && e.branch);
+  if (!last?.repo || !last.branch) return ["final state: no repo or branch in the run log"];
+  const failures: string[] = [];
+  for (const check of scenario.finalState) {
+    let json: unknown;
+    try {
+      const raw = execFileSync(
+        "gh",
+        [
+          "api",
+          `repos/${last.repo}/contents/${check.path}?ref=${last.branch}`,
+          "-H",
+          "Accept: application/vnd.github.raw",
+        ],
+        { encoding: "utf8" },
+      );
+      json = JSON.parse(raw);
+    } catch (err) {
+      failures.push(
+        `final state: couldn't read ${check.path} on ${last.branch}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`,
+      );
+      continue;
+    }
+    for (const field of check.present ?? []) {
+      if (!isSet(valueAtPath(json, field))) {
+        failures.push(`final state: ${check.path} "${field}" is not set`);
+      }
+    }
+    for (const [field, want] of Object.entries(check.equals ?? {})) {
+      const got = valueAtPath(json, field);
+      if (got !== want) {
+        failures.push(
+          `final state: ${check.path} "${field}" is ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`,
+        );
+      }
+    }
+    for (const field of check.notTrue ?? []) {
+      if (valueAtPath(json, field) === true) {
+        failures.push(`final state: ${check.path} "${field}" is still true`);
+      }
+    }
+  }
+  return failures;
 }
 
 function scoreScenario(
@@ -838,7 +935,7 @@ async function main() {
       // Every athlete/repo/localPath lookup below reads off this effective scenario, not the
       // library entry directly, so a --repo/--all-repos override reaches every code path (precondition
       // checks, seeding, the real invocation) the same way the scenario's own hardcoded target would.
-      // fsp-basic's hardcoded target is load-bearing (see excludeFromRepoOverride's own doc
+      // fsp-end-to-end's hardcoded target is load-bearing (see excludeFromRepoOverride's own doc
       // comment) - an active repo override has nothing honest to run it against, so skip this
       // pass/scenario combination entirely rather than force it onto the wrong repo.
       if (overridePass && scenario.excludeFromRepoOverride) {
@@ -1055,7 +1152,9 @@ async function main() {
       }
 
       const entries = JSON.parse(fs.readFileSync(logPath, "utf8")) as ManualLogEntry[];
-      const { pass, failures } = scoreScenario(scenario, entries);
+      const scored = scoreScenario(scenario, entries);
+      const failures = [...scored.failures, ...checkFinalState(scenario, entries)];
+      const pass = scored.pass && failures.length === scored.failures.length;
       const scenarioCostUsd = entries.reduce((sum, e) => sum + (e.costUsd ?? 0), 0);
       console.log(
         `${scenario.id}${repoTag}: ${pass ? "PASS" : "FAIL"} (log: ${path.relative(repoRoot, logPath)}, cost: ${formatCostUsd(scenarioCostUsd)})`,

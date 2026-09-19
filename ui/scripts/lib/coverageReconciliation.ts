@@ -32,9 +32,9 @@ const SLUG_TO_ATHLETE = new Map<string, string>(
 // effect. Keep this table in sync by hand when a scenario is added, renamed, or moves repos.
 const SCENARIO_REPOS: { id: string; repo: string; file: string }[] = [
   {
-    id: "fsp-basic",
+    id: "fsp-end-to-end",
     repo: "skanda-testing/coach-skanda-testing",
-    file: "manual-coach-chat-turns-fsp.json",
+    file: "manual-coach-chat-turns-fsp-end-to-end.json",
   },
   {
     id: "daily-basic",

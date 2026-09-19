@@ -24,7 +24,7 @@ describe("checkReconciliation", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  // fsp-basic is the sole scenario against skanda-testing/coach-skanda-testing (no other scenario
+  // fsp-end-to-end is the sole scenario against skanda-testing/coach-skanda-testing (no other scenario
   // shares that repo), so its raw log's turn content doesn't need to match any example file -
   // only the workout-lifecycle-style shared-repo case below needs that.
   function writeRawLog(fileName: string, messages: string[]) {
@@ -41,7 +41,7 @@ describe("checkReconciliation", () => {
       "wrap up",
     ]);
     writeCoverageIndex(coveragePath, {
-      "manual:fsp-basic": { type: "manual", status: "pass", last_run_date: "2026-09-15" },
+      "manual:fsp-end-to-end": { type: "manual", status: "pass", last_run_date: "2026-09-15" },
     });
 
     const { ok, lines } = checkReconciliation(
@@ -52,7 +52,7 @@ describe("checkReconciliation", () => {
     );
 
     expect(ok).toBe(true);
-    expect(lines.some((l) => l.includes("fsp-basic") && l.startsWith("  ok"))).toBe(true);
+    expect(lines.some((l) => l.includes("fsp-end-to-end") && l.startsWith("  ok"))).toBe(true);
   });
 
   it("flags a raw log with no matching coverage-index.json entry (the F5 lost-write class of bug)", () => {
@@ -63,7 +63,7 @@ describe("checkReconciliation", () => {
       "trains 5x/week",
       "wrap up",
     ]);
-    // coverage-index.json has some other entry, but nothing for fsp-basic - as if that
+    // coverage-index.json has some other entry, but nothing for fsp-end-to-end - as if that
     // scenario's write got clobbered by a concurrent process.
     writeCoverageIndex(coveragePath, {
       "manual:daily-sleep-skip": { type: "manual", status: "pass", last_run_date: "2026-09-15" },
@@ -79,7 +79,8 @@ describe("checkReconciliation", () => {
     expect(ok).toBe(false);
     expect(
       lines.some(
-        (l) => l.includes("fsp-basic") && l.includes("no") && l.includes("manual:fsp-basic"),
+        (l) =>
+          l.includes("fsp-end-to-end") && l.includes("no") && l.includes("manual:fsp-end-to-end"),
       ),
     ).toBe(true);
   });
@@ -93,7 +94,7 @@ describe("checkReconciliation", () => {
       "wrap up",
     ]);
     writeCoverageIndex(coveragePath, {
-      "manual:fsp-basic": { type: "manual", status: "pass", last_run_date: "2026-09-10" },
+      "manual:fsp-end-to-end": { type: "manual", status: "pass", last_run_date: "2026-09-10" },
     });
 
     const { ok, lines } = checkReconciliation(
@@ -104,7 +105,7 @@ describe("checkReconciliation", () => {
     );
 
     expect(ok).toBe(false);
-    expect(lines.some((l) => l.includes("fsp-basic") && l.includes("stale"))).toBe(true);
+    expect(lines.some((l) => l.includes("fsp-end-to-end") && l.includes("stale"))).toBe(true);
   });
 
   it("ignores a raw log whose repo isn't one of the suite's known scenarios (an ad-hoc manual run)", () => {

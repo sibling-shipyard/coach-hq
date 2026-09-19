@@ -66,7 +66,7 @@ the fourth test type for mechanics.
 
 | id | file | turns | what it tests | expected files/behavior |
 |---|---|---|---|---|
-| `fsp-basic` | `manual-coach-chat-turns-fsp.json` | 6 (incl. greet) | full First Session Protocol - profile, goal, injury, training freq, wrap-up | turn 1: `user_data/coach/profile.json`; turn 3: `user_data/coach/injuries.json`; turn 5: PASS |
+| `fsp-end-to-end` | `manual-coach-chat-turns-fsp-end-to-end.json` | 6 (incl. greet) | the full First Session Protocol from a blank repo through completion - name, date of birth, body stats, goal, injury, frequency, coaching style, wrap-up | turn 1: `profile.json`; turn 3: `injuries.json`; turn 4: `memory.json`; end state read off the branch: `profile.json` has name, dob, `coach_since` and no pending benchmark; a season, a main quest and a first week exist |
 | `daily-basic` | `manual-coach-chat-turns-daily.json` | 5 (incl. greet) | ordinary daily check-in - weight, hip soreness, a finished run, wrap-up | turn 1: `profile.json`; turn 2: `injuries.json`; turns 3-4: PASS |
 | `daily-sleep-skip` | `manual-coach-chat-turns-daily-2.json` | 5 (incl. greet) | ordinary daily check-in - poor sleep, a skipped session, tomorrow's commitment, wrap-up | turns 1-4: PASS |
 | `ambiguous-contradiction` | `manual-coach-chat-turns-ambiguous-contradiction.json` | 5 (incl. greet) | new; athlete reports a planned session done, immediately contradicts it, then confirms the real one - checks the coach reconciles rather than double-writing | turn 1: `current_week.json` changed; turn 3: `current_week.json` changed (see the scenario's own code comment for what this can't verify) |
@@ -101,6 +101,12 @@ added a `seedMessages` precondition-seeding mechanism (B1, no new scenario) and 
 `docs/eng-docs/coach-chat-testing.md`'s "fourth test type" section for both mechanics. 15
 `SCENARIOS` entries total today.
 
+`fsp-end-to-end` is the one scenario that also sets `finalState`: after the last turn the driver reads
+five files off the scratch branch and checks them. The run's branch is reset with the week back to
+its blank `placeholder` template, so a `live` week proves the run compiled it. It exists because the First Session finishing
+stamps `coach_since` inside `profile.json`, which already changed on turn 1, so "which files
+changed" cannot show it. It has to run on a freshly reset branch (see `coach-chat-testing.md`).
+
 ## Coverage matrix (coverage-audit phase 1, 2026-09-15; closed out by #1066 same day)
 
 Cross-references every action field `LlmReply` (`ui/api/coach-chat/_lib/llm/coachReplySchema.ts`)
@@ -115,13 +121,13 @@ dedicated assertion.
 |---|---|---|---|---|
 | `coach_note` | `coach_log.json` | `02`, `13`, `14`, most others | `daily-basic` turn 1 asserts `coach_log.json` changed (#1144) | Covered |
 | `memory_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
-| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport` | Gap → closed |
+| `coaching_style_update` | `memory.json` | `09`, `15` | `pattern-style-sport`, `fsp-end-to-end` (the enum is part of its end-state check) | Gap → closed |
 | `sports_update` | `memory.json` | `15` | `pattern-style-sport` | Gap → closed |
-| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-basic`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
+| `injury_flag` | `injuries.json` | `08`, `13`, `14` | `fsp-end-to-end`, `daily-basic`, `injury-resolve-by-bodypart` | Gap → closed |
 | `injury_event` | `injuries.json` | `14` | `injury-resolve-by-bodypart` | Gap → closed |
 | `quest_event` | `progress.json` | `16` | `quest-event` | Gap → closed |
-| `profile_update` | `profile.json` | `04`, `12`, `20` | `fsp-basic`, `daily-basic` | Covered |
-| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` | `season-transition` | Gap → closed |
+| `profile_update` | `profile.json` | `04`, `12`, `20` | `fsp-end-to-end`, `daily-basic` | Covered |
+| `season_start` / `.new_habits` | `seasons.json`, `quests.json` | `08`, `10`, `12`, `20` | `season-transition`, `fsp-end-to-end` (a season and a main quest must exist at the end) | Gap → closed |
 | `quest_create` (standalone) | `quests.json` | `11` | `quest-create-standalone` (#1066) | Gap → closed |
 | `template_edit` | template file | `21` (#1066; `05` covers the absence case) | `template-edit-permanent` (#1066) | Gap → closed |
 | `session_plan` | session-snapshot file | `19` | `session-plan` | Gap → closed (was the redesign-followups doc's zero-coverage item) |
@@ -136,6 +142,14 @@ from chat's side - it's dosed into a workout at compile time (`coachWorkoutFiles
 written through an action field, so there is no write path here for a fixture to exercise.
 `athlete_insights.json`, `latest_message.json`, and `chat_history.json`'s `synced_activity_list`
 rows are all pipeline-generated, not chat-written, same reasoning.
+
+**Server-driven writes when the First Session completes** are not action fields, so they are not
+rows above. Once the athlete has a name, date of birth, timezone, height, weight, a sport and a
+coaching style, plus a current season and a main quest, the server stamps `coach_since`. It then
+commits a benchmark routine, `progressions.json`, a training-availability update to `memory.json` and a
+compiled first week to `current_week.json`. `fsp-end-to-end` is the only coverage of that path
+through the real model. It checks `coach_since`, the cleared pending marker, the season, the main
+quest and that the first week flipped from `placeholder` to `live`. It does not check the benchmark routine's content.
 
 **`quest_create` (standalone) - how the #1066 fixture resolved the concern raised in the first
 pass.** The first pass worried that every real athlete repo already has an active season on file,
