@@ -90,16 +90,18 @@ The rule text:
 	before PR 5 starts. Rewrites go into the same PR, not a new one.
 
 **PR 5: data, soul, platform, ops.**
-`coach-data-schema` (rewrite around the entity map, tables move to Agent), `scaling-plan` (collapse to
-current status and links, Strava and Gemini claims out, Human explains the two-repo model),
-`skeleton-layout` (drop the banner, fix about 28 dead paths, set Current honestly), `soul-path-to-v6`
-(trim to the thesis), `soul-two-builds`, `github-auth`, `golden-dataset`, `ops-observability` (fix the
-model claim), `sentry-runbook`, `platform-workouts-compiler`.
+1. `coach-data-schema`: rewrite around the entity map. Tables move to Agent.
+2. `scaling-plan`: collapse to current status and links. Strava and Gemini claims go. Human explains the two-repo model.
+3. `skeleton-layout`: drop the banner, fix about 28 dead paths, set Current honestly.
+4. `soul-path-to-v6`: trim to the thesis.
+5. `ops-observability`: fix the production model claim.
+6. Migrate the rest: `soul-two-builds`, `github-auth`, `golden-dataset`, `sentry-runbook`, `platform-workouts-compiler`.
 
-**PR 6: iOS.** `ios-app-spec` (drop Strava and Netlify framing and title), `ios-sync`,
-`ios-xcode-setup`, `healthkit-richer-signals` and `-lld`, `hr-zones`. Promote
-`ios/CoachHQ/AppState-StateMachine.md` to `docs/eng-docs/ios-app-state.md` (new shape). Fold
-`ios/DESIGN.md` and `ios/5-5-ROADMAP.md` into the matching eng-doc or give them front matter.
+**PR 6: iOS.**
+1. `ios-app-spec`: drop the Strava and Netlify framing and title.
+2. Migrate `ios-sync`, `ios-xcode-setup`, `healthkit-richer-signals` and its `-lld`, `hr-zones`.
+3. Promote `ios/CoachHQ/AppState-StateMachine.md` to `docs/eng-docs/ios-app-state.md` in the new shape.
+4. Fold `ios/DESIGN.md` and `ios/5-5-ROADMAP.md` into the matching eng-doc, or give them front matter.
 
 **PR 7: ref-docs.** Only three ref-docs ship: `current-week-contract.md`, `timer-state-machine.md`,
 and `platform/skills/pipeline-tools.md` (`PROPAGATED_DOCS`, `carve-skeleton.mjs:574`). Scrub tells in
