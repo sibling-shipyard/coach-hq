@@ -20,6 +20,7 @@ import {
 import type { LlmReply, TurnMode } from "./llm/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import type { DroppedAction } from "./decide/turnWrites/validateActions.js";
+import { recordSilentFixup } from "./decide/silentFixups.js";
 import type { TurnState } from "./turnRequest.js";
 import {
   findOversizedTextField,
@@ -28,6 +29,7 @@ import {
   findMissedInjuryLanguage,
   findMissedHabitLanguage,
   findMissedNewHabitLanguage,
+  carryOverDroppedIntakeFields,
   findMissedSeasonLanguage,
   findMissedProfileLanguage,
   findMissedRemovalLanguage,
@@ -295,7 +297,6 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     let stillMissedWeekUpdateForCorrection = false;
     if (
       violation ||
-      missingNote ||
       unrecordedFacts ||
       missedInjuryLanguage ||
       missedHabitLanguage ||
@@ -499,6 +500,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         turn.athleteMessage,
         `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
       ].join(" ");
+      const firstReply = reply;
       reply = await askLlm(
         turn.apiKey,
         turn.context.soul!,
@@ -514,6 +516,19 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         referenceIds,
       );
       usageAccum = sumUsage(usageAccum, reply.usage);
+      const carryOver = carryOverDroppedIntakeFields(firstReply, reply, violation);
+      if (carryOver.carried.length > 0) {
+        console.warn("[coach-chat] reprompt dropped fields from the first reply, carried over:", {
+          carried: carryOver.carried,
+          traceId: turn.traceId,
+        });
+        recordSilentFixup(turn.traceId, {
+          kind: "reprompt_fields_carried",
+          action: carryOver.carried.join(","),
+          detail: "the reprompt reply omitted fields the first reply had; kept the first reply's",
+        });
+        reply = carryOver.reply;
+      }
       // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
       // in turnWrites/* will truncate silently downstream. Log it here so a persistent
       // oversize-then-truncate or still-missing-note pattern shows up somewhere instead of

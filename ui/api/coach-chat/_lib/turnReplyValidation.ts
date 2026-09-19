@@ -100,6 +100,47 @@ export function synthesizeRequiredCoachNote(reply: LlmReply): string | undefined
     : undefined;
 }
 
+// A reprompt regenerates the whole reply from scratch (the model is never shown its first reply),
+// so any correct intake field the first pass had can vanish. First Session completion needs
+// name, dob, timezone, height, weight, sport, style, season and main quest all at once, so one lost
+// field blocks it. Carries those fields forward when the reprompt reply omits them, and never
+// carries one the reprompt was asked to redo: an oversized text field is re-generated on purpose.
+const CARRIED_INTAKE_FIELDS = [
+  "season_start",
+  "coaching_style_update",
+  "sports_update",
+  "memory_update",
+  "injury_flag",
+] as const satisfies readonly (keyof LlmReply)[];
+
+export function carryOverDroppedIntakeFields(
+  previous: LlmReply,
+  next: LlmReply,
+  oversized: { field: string } | null,
+): { reply: LlmReply; carried: string[] } {
+  const merged: LlmReply = { ...next };
+  const carried: string[] = [];
+  const redone = (field: string) => oversized != null && oversized.field.startsWith(field);
+  for (const field of CARRIED_INTAKE_FIELDS) {
+    const before = previous[field];
+    const after = next[field];
+    const hadBefore = Array.isArray(before) ? before.length > 0 : before != null;
+    const hasAfter = Array.isArray(after) ? after.length > 0 : after != null;
+    if (!hadBefore || hasAfter || redone(field)) continue;
+    (merged as unknown as Record<string, unknown>)[field] = before;
+    carried.push(field);
+  }
+  const seenFields = new Set((next.profile_update ?? []).map((update) => update.field));
+  const droppedProfile = (previous.profile_update ?? []).filter(
+    (update) => !seenFields.has(update.field),
+  );
+  if (droppedProfile.length > 0) {
+    merged.profile_update = [...(next.profile_update ?? []), ...droppedProfile];
+    carried.push("profile_update");
+  }
+  return { reply: merged, carried };
+}
+
 // Finding D (OpenRouter K1 retest) mitigation: a self-audit signal, not a text heuristic. A dense
 // first message (a goal plus multiple injuries and habits in one turn) was found to make the
 // model narrate every fact in reply/coach_note while dropping almost all the matching action
