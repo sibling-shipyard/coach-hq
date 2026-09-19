@@ -29,6 +29,7 @@ flowchart LR
   D --> E["Scrub audit trails<br/>docs + code comments"]
   E --> F["Carve + backfill<br/>athlete repos"]
   F --> H["Lock it<br/>hard check in CI"]
+  H --> I["SOUL wording<br/>last PR"]
 ```
 
 1. **New doc shape.** Every eng-doc has two sections, `## Human` then `## Agent`.
@@ -58,12 +59,12 @@ Settled by checking the code (Akash's draft plan assumed otherwise):
 - **`STEERING.md` already has a reading order.** It only lacks `ROADMAP.md`.
 - **`ops-agent-setup.md` is deleted.** Its issues are closed and the delete-on-ship rule applies.
 - **`backend-decision.md` goes to `docs/hist/`.** It is research with no decision filed.
-- **`season-close.md` is deleted (REC, athlete confirms).** `platform/soul/B_engine.md` says there is no
+- **`season-close.md` moves to `docs/hist/`, untouched.** `platform/soul/B_engine.md` says there is no
 	season-close file to write, and no SOUL layer cites the doc. The "urgent to restore" lines in the
-	ref-docs README and `soul-path-to-v6.md` go with it.
+	ref-docs README and `soul-path-to-v6.md` go.
 - **`AGENTS.md` cites ADR 0021 for a claim it retracts.** PR 1 corrects the routing text against ADR 0022.
-- **The four-templates wording in the SOUL builds** is fixed in PR 12, after the athlete signs off on
-	the wording. It is a SOUL edit, so it is the athlete's call.
+- **The four-templates wording in the SOUL builds** gets its own PR at the very end of the stack (PR 14).
+	It is a SOUL edit, so the athlete signs off on the wording first.
 
 Taken from Akash's draft: pilot on coach-chat first with a grading gate, the four diagrams (LLM seam,
 request lifecycle, entity map, two-repo topology), rewrite `coach-data-schema.md` around its entity map,
@@ -78,9 +79,9 @@ alone (three of them ship to athletes and need the same scrub), and doing no cod
 ## Stack
 
 One linear stack, merged bottom-up. The plan PR merges to `main` first. Then the stack branches off
-`main`. `Refs: #1249` on PRs 1 to 12, `Fixes: #1249` on PR 13, which also deletes both plan files.
+`main`. `Refs: #1249` on PRs 1 to 13, `Fixes: #1249` on PR 14, which also deletes both plan files.
 Issue #1249 is the stack's issue. Its scope is a subset of this plan, so it gets a comment linking here.
-Branch names `core/doc-overhaul-<nn>-<brief>`. Six milestones, at most three PRs each.
+Branch names `core/doc-overhaul-<nn>-<brief>`. Seven milestones, at most three PRs each.
 
 | PR | milestone | outcome | owner | result |
 |---|---|---|---|---|
@@ -95,11 +96,12 @@ Branch names `core/doc-overhaul-<nn>-<brief>`. Six milestones, at most three PRs
 | 9 | M4 | Deploy, web client, widgets | Tech Lead | Front end and hosting documented |
 | 10 | M4 | Week rollover, derived pipeline, athlete-repo lifecycle | Tech Lead | Data path documented end to end |
 | 11 | M5 Scrub comments | Code comments scrubbed, app code | Bob, UI Expert, iOS Builder | No tell lines in `ui/`, `engine/` and `ios/` |
-| 12 | M5 | Platform, role docs, ADR paths, soul wording, kept plans | Tech Lead | No tell lines outside named exceptions |
-| 13 | M6 Lock | Hard check live, plans deleted | Tech Lead | CI enforces shape and rule |
+| 12 | M5 | Platform, role docs, ADR paths, kept plans | Tech Lead | No tell lines outside named exceptions |
+| 13 | M6 Lock | Hard check live | Tech Lead | CI enforces shape and rule |
+| 14 | M7 SOUL wording | Four-templates wording fixed in the SOUL layers and both builds | Tech Lead | SOUL matches what the carve ships. Plans deleted |
 
 After PR 12 merges and before PR 13: carve `coach-skeleton` and backfill the athlete repos, only if a
-propagated doc changed (LLD section "Carve and backfill").
+propagated doc changed. Again after PR 14, if `SOUL.claude.md` changed (LLD section "Carve and backfill").
 
 ## Risks
 

@@ -23,7 +23,7 @@ Overview, decisions and stack summary: `docs/plans/doc-overhaul.md`. This file i
 Three earlier docs PRs were closed unmerged. Their branches hold good drafts and four diagram pairs.
 Each stack PR starts from that work instead of redrawing it. Pull with
 `git checkout origin/<branch> -- <path>`, then convert to the new shape and verify against the source.
-The branches stay until PR 13 lands, then the athlete decides whether to delete them.
+The branches stay until PR 14 lands, then the athlete decides whether to delete them.
 
 | Asset | Branch | Lands in | Fix before it ships |
 |---|---|---|---|
@@ -50,8 +50,9 @@ in `kdb/doc-style.md`. The SVGs sit beside the doc in `docs/eng-docs/`.
 | 9 | M4 | Deploy, web, widgets | PR 8 | `ops-deploy-topology.md`, `platform-web-client.md`, `ios-widgets.md` | Tech Lead | 11, 12 | Front end and hosting documented |
 | 10 | M4 | Data path | PR 9 | `data-current-week.md`, `data-derived-pipeline.md`, `platform-athlete-repo-lifecycle.md` | Tech Lead | 11, 12 | Data path documented |
 | 11 | M5 | Scrub, app | PR 10 | `ui/api/**`, `ui/scripts/**`, `ui/client/**`, `engine/**`, `ios/**` comments only | Bob, UI Expert, iOS Builder | 3 to 10 | No tells in app code |
-| 12 | M5 | Scrub, platform | PR 11 | `platform/scripts/**`, `.github/agents/*.md`, `platform/soul/*.md`, `kdb/decisions/*.md` (paths only), composed SOUL builds, `SOUL_HISTORY.md`, kept plans | Tech Lead | 3 to 10 | No tells in platform |
-| 13 | M6 | Lock | PR 12 | `kdb/scripts/validate_kdb.py`, `.githooks/pre-commit`, `platform/scripts/checks.conf`, `platform/tests/**`, workflow `paths:`, both plan files (deleted) | Tech Lead | none | CI enforces |
+| 12 | M5 | Scrub, platform | PR 11 | `platform/scripts/**`, `.github/agents/*.md`, `kdb/decisions/*.md` (paths only), kept plans | Tech Lead | 3 to 10 | No tells in platform |
+| 13 | M6 | Lock | PR 12 | `kdb/scripts/validate_kdb.py`, `.githooks/pre-commit`, `platform/scripts/checks.conf`, `platform/tests/**`, workflow `paths:` | Tech Lead | none | CI enforces |
+| 14 | M7 | SOUL wording | PR 13 | the `platform/soul/*.md` layer that emits the line, `platform/SOUL.chat.md`, `platform/SOUL.claude.md` if it shares the layer, `docs/eng-docs/SOUL_HISTORY.md`, both plan files (deleted) | Tech Lead | none | SOUL matches the carve. Stack closes |
 
 ## PR detail
 
@@ -146,12 +147,13 @@ Also in PR 2:
 **PR 7: ref-docs.** Only three ref-docs ship: `current-week-contract.md`, `timer-state-machine.md`,
 and `platform/skills/pipeline-tools.md` (`PROPAGATED_DOCS`, `carve-skeleton.mjs:574`). Scrub tells in
 those three. Give every other ref-doc standard front matter. Fix the `HOW_IT_WORKS` citation in the
-README and the dead paths in `season-close.md`. Decide `milestone-schema.md` (historical, cited only by
-docs): move to `docs/hist/`.
+README.
 
-Also in PR 7: delete `season-close.md` (REC, athlete confirms) and fix the ref-docs README lines that
-call it "urgent to restore". Move `milestone-schema.md` to `docs/hist/`, since it names `challenge_v2.json`
-as the source of truth and ADR 0045 says no new code reads it.
+Also in PR 7:
+1. Move `season-close.md` to `docs/hist/`, untouched. Its README and `soul-path-to-v6.md` "urgent to
+	restore" lines go.
+2. Move `milestone-schema.md` to `docs/hist/`. It names `challenge_v2.json` as the source of truth
+	and ADR 0045 says no new code reads it.
 
 **PR 8 to 10: new docs.** Each in the new shape, each verified against source. Read lists:
 | Doc | Read |
@@ -181,10 +183,6 @@ PR 12 also does these, each found with `grep`:
 	so state the rule alone.
 3. ADR path sweep: list every backticked path in live ADRs that does not exist and fix the path.
 	Meaning and decisions are never rewritten.
-4. Four-templates wording: `SOUL.claude.md` and `SOUL.chat.md` name `strength_a`, `strength_b`,
-	`foundation` and `recovery`, but the carve ships two by design. Find the layer that emits the line,
-	the athlete signs off on the wording, then edit the layer, run `node platform/scripts/compose-soul.mjs`,
-	commit the layer and both builds, and add a `SOUL_HISTORY.md` entry.
 
 Verify each PR with the tell grep below, then the full local gate.
 
@@ -199,12 +197,26 @@ Verify each PR with the tell grep below, then the full local gate.
 	mentioning `check.sh` proves nothing).
 4. Extend the path check to live ADRs, in the branch diff. Today `validate_kdb.py` skips ADRs.
 5. Tests in `platform/tests/`. Run each check against a real marked file, not its regex.
-6. Delete `docs/plans/doc-overhaul.md` and this file.
+
+**PR 14: SOUL wording (last PR).**
+1. `SOUL.claude.md` and `SOUL.chat.md` name `strength_a`, `strength_b`, `foundation` and `recovery`.
+	The carve ships two templates by design, because workouts are created from the catalog.
+2. Find the layer in `platform/soul/` that emits the line. The athlete signs off on the new wording
+	before I edit anything.
+3. SOUL edits default to `SOUL.chat.md` only, never the BYO build. If the line comes from a layer both
+	builds share, I stop and ask before touching a shared layer.
+4. Also here: the one tell line the audit found in `platform/soul/`, since it is the same layers.
+5. Run `node platform/scripts/compose-soul.mjs`. Commit the layers and both builds. Add a post-cutover
+	`SOUL_HISTORY.md` entry (Superpower, short scene, 2 to 3 bullets, Why).
+6. If `platform/SOUL.claude.md` changed, run the carve and backfill once more, since it ships to
+	athlete repos.
+7. Delete `docs/plans/doc-overhaul.md` and this file. This PR carries `Fixes: #1249`.
 
 ## Carve and backfill
 
 Runs after PR 12 merges, before PR 13. Skip if `git diff` over PRs 1 to 12 shows none of the three
-propagated docs changed.
+propagated docs changed. Runs again after PR 14 if `SOUL.claude.md` changed, with `SOUL.claude.md` as the
+artifact under check.
 1. Run `node platform/scripts/carve-skeleton.mjs` to populate `coach-skeleton`. The diff must show only
 	the propagated docs.
 2. Backfill the athlete repos, all local under `~/Projects/`. Candidates: `coach-skanda`,
