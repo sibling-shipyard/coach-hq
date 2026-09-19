@@ -26,7 +26,7 @@ The branches stay until PR 13 lands, then the athlete decides whether to delete 
 | Asset | Branch | Lands in | Fix before it ships |
 |---|---|---|---|
 | `gemini-flow.md` draft (114 lines, was 543), `llm-adapter-seam` SVG pair | `docs/p1-gemini-flow` | PR 3 | Standard front matter. Drop the "old 41KB doc" Context and the `#870` refs. Split the 65-word sentence that failed `validate-kdb`. Add Human. State that production runs OpenRouter (ADR 0046) |
-| `coach-chat-daily.md` (77 lines, was 384), `coach-chat-testing.md` (41, was 369), `coach-chat-request-lifecycle` SVG pair, one-line edits to flow, fsp, message | `docs/p1-coach-chat-docs` | PR 4 | Replace "live Gemini" claims (ADR 0046). Rename Context and Decision-goal headings to Human and Agent. Diff each against `main` and put back anything dropped that is still true |
+| `coach-chat-daily.md` (77 lines, was 384), `coach-chat-testing.md` (41, was 369), `coach-chat-request-lifecycle` SVG pair, one-line edits to flow, fsp, message | `docs/p1-coach-chat-docs` | PR 4 | Replace "live Gemini" claims (ADR 0046). Rename Context and Decision-goal headings to Human and Agent. The drafts cut length hard (daily 384 to 77 lines, testing 369 to 41). Diff each against `main` and put back every detail an agent still needs |
 | `coach-data-schema-entity-map` SVG pair | `docs/p1-diagrams` | PR 5 | Check every claimed writer and enum against `main`. Embed in the Human section, not as a pointer line |
 | `two-repo-topology` SVG pair, STEERING "The two repos" section | `docs/p1-diagrams` | PR 8 | Check the script, workflow and ref-doc counts against `carve-skeleton.mjs`. Embed in the overview Human section and in STEERING |
 
@@ -55,7 +55,7 @@ in `kdb/doc-style.md`. The SVGs sit beside the doc in `docs/eng-docs/`.
 
 **PR 1: shape and rule.**
 1. Rewrite `kdb/doc-style.md`. Keep ADR and executable-plan sections. Replace "one page max" with the
-	Human/Agent shape, no cap on Human, Agent splits into `<name>-lld.md` past about 150 lines.
+	Human/Agent shape, no cap on Human. Agent has no cap either: it stays as long as an agent needs, and only splits into `<name>-lld.md` when a drill-down truly stands alone.
 	Add the diagram rule (mermaid default, SVG pair for dense architecture views).
 	Drop "(PR #586 feedback, rated 2/5)" and "(handover rated 1/5)".
 2. `AGENTS.md`: replace "Comments: write the constraint, not the chronology" with the universal
@@ -95,7 +95,7 @@ The rule text:
 **PR 4: coach-chat docs.**
 1. `coach-chat-flow.md`: stop being an index. Embed the lifecycle diagram from `docs/p1-coach-chat-docs`. Rewrite as the coach-chat front door: what a turn does,
 	request lifecycle diagram, links to the rest. Fix "backed by Gemini".
-2. `coach-chat-daily.md` and `coach-chat-testing.md`: start from the `docs/p1-coach-chat-docs` drafts, new shape, fix ADR 0046 claims, remove
+2. `coach-chat-daily.md` and `coach-chat-testing.md`: start from the `docs/p1-coach-chat-docs` drafts, new shape, detail restored where an agent needs it, fix ADR 0046 claims, remove
 	citations to files that do not exist.
 3. `coach-chat-test-scenarios.md`: stays a catalog. Fix the transcript count (21, not 23), drop "new;"
 	labels.

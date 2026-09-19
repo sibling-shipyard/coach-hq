@@ -9,7 +9,7 @@ Drill-down (per-PR files, per-doc verdicts, check specs): `docs/plans/doc-overha
 Opening an eng-doc means reading all of it to learn what the system does. Docs were written by agents
 for agents and read like change logs. The audit (63 docs against the code) found:
 
-- 24 accurate, 11 stale, 3 with dead paths, 12 too long to skim, 7 historical, 4 shipped plans.
+- 24 accurate, 11 stale, 3 with dead paths, 12 hard to skim, 7 historical, 4 shipped plans.
 - The switch to OpenRouter (ADR 0046) never reached six docs. Four docs explain the same LLM seam.
 - 799 audit-trail lines (issue numbers, dates, "no longer", "previously") in docs and code comments.
 - No current end-to-end picture, no glossary, and no doc for CI, cron, deploys, the web client,
@@ -29,9 +29,10 @@ flowchart LR
   F --> H["Lock it<br/>hard check in CI"]
 ```
 
-1. **New doc shape.** Every eng-doc opens with `## Human` (what it is, how it works, what it does and
-	does not do, plain language, diagram where there are moving parts, no length cap), then `## Agent`
-	(paths, symbols, contracts, today's style).
+1. **New doc shape.** Every eng-doc has two sections, `## Human` then `## Agent`.
+	`## Human` says what it is, how it works, and what it does and does not do.
+	It uses plain language and a diagram wherever there are moving parts, with no length cap.
+	`## Agent` holds paths, symbols and contracts in today's style, and runs as long as it needs to.
 2. **No audit trails, anywhere.** Rule in `AGENTS.md`. Git is the archive.
 3. **Historical docs** move to `docs/hist/`, untouched. Shipped plans are deleted.
 4. **Gaps get real docs**, starting with one system overview and a glossary.
@@ -44,7 +45,8 @@ Made by the athlete:
 2. Scrub audit trails everywhere, code comments included.
 3. A touched eng-doc without both sections is a hard error.
 4. Human sections have no line cap. High-level working matters more than brevity.
-5. Diagrams: mermaid by default. Where an architecture view is too dense for mermaid, a hand-drawn SVG
+5. Agent sections may run long. Length is fine for an agent. The Human section is the required part.
+6. Diagrams: mermaid by default. Where an architecture view is too dense for mermaid, a hand-drawn SVG
 	pair (light and dark) is checked in beside the doc.
 
 Settled by checking the code (Akash's draft plan assumed otherwise):
