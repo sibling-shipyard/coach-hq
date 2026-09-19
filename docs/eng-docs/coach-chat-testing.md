@@ -210,6 +210,11 @@ first, on the same scratch branch, then re-checks before deciding: proceed if no
 running the whole library against one real athlete repo or all 5 in turn, instead of each
 scenario's own hardcoded default.
 
+A turn's expectation can also set `orTurns` (the write may land in a later listed turn) and
+`clarifyingQuestionOk` (a reply that asks a question or plainly declines passes, unless it also
+claims the change was made). Both exist because a real repo can legitimately answer "which
+routine?" instead of writing.
+
 Each run writes one `manual:<scenario-id>` entry to `test-results/coverage-index.json`
 (`last_pass_sha`, `last_run_date`, `watched_paths`, `status`, `last_cost_usd`), the same
 selective-re-run index the layered/eval kinds use.
