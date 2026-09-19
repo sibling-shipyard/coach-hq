@@ -118,4 +118,4 @@ propagated doc changed. Again after PR 14, if `SOUL.claude.md` changed (LLD sect
 3. Grep for the tell words finds nothing outside the named exceptions.
 4. No Current doc, role doc or ADR cites a path that does not exist. `docs/plans/` holds only live work.
 5. A scratch branch that breaks either rule fails CI.
-6. Every PR is green on its pushed SHA. Athletes rate the pilot and the overview 4 or higher.
+6. Every PR is green on its pushed SHA. Athletes rate the pilot and the overview 4 or higher, and the lower of the two grades counts.

@@ -124,8 +124,9 @@ Also in PR 2:
 4. `coach-chat-fsp.md`, `coach-chat-message.md`: migrate to the new shape, verify against code.
 5. Chronology comes out of `coach-chat-daily` (the closed-issue citation and the dead shim note),
 	`coach-chat-testing`, `coach-chat-test-scenarios`, `coach-chat-flow` and `coach-chat-fsp`.
-6. **Grading gate.** The athletes rate PR 3 and PR 4 docs 1 to 5. Anything 3 or below is rewritten
-	before PR 5 starts. Rewrites go into the same PR, not a new one.
+6. **Grading gate.** Both athletes rate every PR 3 and PR 4 doc 1 to 5. The lower of the two grades
+	is the doc's grade, so one reader who cannot follow it is enough. A doc graded 3 or below is
+	rewritten before PR 5 starts. Rewrites go into the same PR, not a new one.
 
 **PR 5: data, soul, platform, ops.**
 1. `coach-data-schema`: rewrite around the entity map. Tables move to Agent.
