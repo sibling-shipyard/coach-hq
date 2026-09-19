@@ -56,7 +56,8 @@ dead-end. That was wrong.
 the doc, and fix its row in `docs/ref-docs/README.md`. `platform/tests/test_carve_skeleton.py`
 has two tests and none checks `propagated/docs/`, so PR 3 adds one that asserts every
 `PROPAGATED_DOCS` entry is written. Then run `--update-baseline` so that one finding leaves the
-baseline.
+baseline. Existing athlete repos pick up the carved doc through
+[`platform-skeleton-recarve.md`](platform-skeleton-recarve.md), after this sweep is done.
 
 **PR 4.** `validate-soul.mjs:676-682` exits 1 only on a new finding, and exits 0 on known ones.
 That rule is right. But `platform/scripts/checks.conf:8` marks the check `warn` and

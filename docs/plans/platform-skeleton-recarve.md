@@ -4,6 +4,9 @@
 
 ## Context
 
+**Run this only after the doc overhaul, the repo hygiene sweep and the chat observability plan are all
+done.** Those plans change what the carve ships, so recarving earlier means doing it twice.
+
 A recarve is not a one-off, so this runbook is written to be run every time. Never assume the last
 run's result. Each run starts from a fresh dry run and a fresh comparison.
 
@@ -48,4 +51,5 @@ graph LR
 - A tool that pushes engine and workflow updates into existing athlete repos. Until then step 6
   propagation is manual, one reviewed PR per repo.
 - Turning the two comparison snippets in the LLD into a checked-in script.
+- Round 3 testing starts after this runbook has run: [`chat-round3-testing.md`](chat-round3-testing.md).
 - Moving this runbook to `docs/eng-docs/` once it has run for real. It is reference then, not a plan.
