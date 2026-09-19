@@ -339,28 +339,7 @@
   },
   "manual:workout-lifecycle:skanda": {
     "type": "manual",
-    "last_pass_sha": "7c984089683c12be097b2ad56186921145655585",
-    "last_run_date": "2026-09-19",
-    "watched_paths": [
-      "ui/api/coach-chat.ts",
-      "ui/api/coach-chat/_lib/turnRequest.ts",
-      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
-      "ui/api/coach-chat/_lib/requestCoachReply.ts",
-      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
-      "ui/api/coach-chat/_lib/turnCompletion.ts",
-      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
-      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
-      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
-      "ui/api/coach-chat/_lib/decide/turnWrites/",
-      "ui/api/_lib/llmClient.ts",
-      "ui/api/_lib/llmAdapters/"
-    ],
-    "status": "fail",
-    "last_cost_usd": 0.065572125
-  },
-  "manual:workout-lifecycle:akash": {
-    "type": "manual",
-    "last_pass_sha": "aa284c4e2ca47d71eb4fe0977197f6456b840fb7",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
     "last_run_date": "2026-09-19",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -377,7 +356,28 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.071546025
+    "last_cost_usd": 0.056330700000000004
+  },
+  "manual:workout-lifecycle:akash": {
+    "type": "manual",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
+    "last_run_date": "2026-09-19",
+    "watched_paths": [
+      "ui/api/coach-chat.ts",
+      "ui/api/coach-chat/_lib/turnRequest.ts",
+      "ui/api/coach-chat/_lib/turnReplyValidation.ts",
+      "ui/api/coach-chat/_lib/requestCoachReply.ts",
+      "ui/api/coach-chat/_lib/buildTurnWrites.ts",
+      "ui/api/coach-chat/_lib/turnCompletion.ts",
+      "ui/api/coach-chat/_lib/llm/coachPromptText.ts",
+      "ui/api/coach-chat/_lib/llm/coachReplySchema.ts",
+      "ui/api/coach-chat/_lib/llm/coachLlmClient.ts",
+      "ui/api/coach-chat/_lib/decide/turnWrites/",
+      "ui/api/_lib/llmClient.ts",
+      "ui/api/_lib/llmAdapters/"
+    ],
+    "status": "pass",
+    "last_cost_usd": 0.056266275
   },
   "manual:session-plan:skanda": {
     "type": "manual",
@@ -402,7 +402,7 @@
   },
   "manual:session-plan:akash": {
     "type": "manual",
-    "last_pass_sha": "aa284c4e2ca47d71eb4fe0977197f6456b840fb7",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
     "last_run_date": "2026-09-19",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -419,7 +419,7 @@
       "ui/api/_lib/llmAdapters/"
     ],
     "status": "pass",
-    "last_cost_usd": 0.051522
+    "last_cost_usd": 0.08100149999999999
   },
   "manual:session-plan:prateek": {
     "type": "manual",
@@ -655,7 +655,7 @@
   },
   "manual:multi-field-success:akash": {
     "type": "manual",
-    "last_pass_sha": "aa284c4e2ca47d71eb4fe0977197f6456b840fb7",
+    "last_pass_sha": "3c035439a39fb048b0bec4224ee0f663668ecb57",
     "last_run_date": "2026-09-19",
     "watched_paths": [
       "ui/api/coach-chat.ts",
@@ -671,8 +671,8 @@
       "ui/api/_lib/llmClient.ts",
       "ui/api/_lib/llmAdapters/"
     ],
-    "status": "fail",
-    "last_cost_usd": 0.0840075
+    "status": "pass",
+    "last_cost_usd": 0.05198775
   },
   "manual:multi-field-success:prateek": {
     "type": "manual",

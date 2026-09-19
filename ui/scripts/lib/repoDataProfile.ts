@@ -4,7 +4,7 @@
  * injury flags, is there a habit quest, what's the coaching style, how many workout templates
  * exist. A2 (#1105) uses this to check a scenario's `preconditions` before spending a real model
  * call on a repo that can't produce the behavior it's testing - see
- * docs/plans/coach-chat-test-harness-hardening.md's A1 section for why.
+ * docs/eng-docs/coach-chat-testing.md.
  *
  * This only reads files off disk (fs.readFileSync/readdirSync) against a local clone's path -
  * no network calls, no git operations, no GitHub API. Every field name and path here is taken

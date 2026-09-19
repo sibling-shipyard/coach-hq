@@ -144,8 +144,7 @@ interface Scenario {
   localPath?: string;
   /**
    * Checked against the target repo's real RepoDataProfile (scripts/lib/repoDataProfile.ts) before this
-   * scenario ever calls the model - see docs/plans/coach-chat-test-harness-hardening.md's A2
-   * section. An unmet precondition means the repo can't produce the behavior this scenario tests
+   * scenario ever calls the model - see docs/eng-docs/coach-chat-testing.md. An unmet precondition means the repo can't produce the behavior this scenario tests
    * right now (e.g. no planned session to contradict). A2b: when the unmet field carries a
    * `seedMessages` recipe, this sends that real conversation first and re-checks before deciding
    * - only a field with no recipe (or an unmet one that's still unmet after seeding) falls back
