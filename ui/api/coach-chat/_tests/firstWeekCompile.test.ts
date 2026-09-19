@@ -177,6 +177,31 @@ describe("compileFirstWeek", () => {
       expect(update.body).not.toContain("already passed this week");
     });
 
+    // Only a stated day list earns "the days you said". A bare count resolves to default weekdays.
+    it("does not claim the days were stated when only a count was given", () => {
+      const availability: TrainingAvailability = { days_per_week: 4, preferred_days: [] };
+      const update = compileFirstWeek({ ...base, availability });
+      expect(update.body).toContain("Sessions land on Monday, Tuesday, Thursday, Saturday");
+      expect(update.body).not.toContain("the days you said");
+      expect(update.body).toContain("I picked these");
+    });
+
+    it("says the days were picked for them in the tomorrow message when only a count was given", () => {
+      const availability: TrainingAvailability = { days_per_week: 1, preferred_days: [] };
+      const update = compileFirstWeek({ ...base, today: lateWeekToday, availability });
+      expect(update.body).toContain("The days I picked for you");
+      expect(update.body).toContain("tomorrow");
+    });
+
+    it("still says the days were stated when the athlete named them", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["tuesday", "friday"],
+      };
+      const update = compileFirstWeek({ ...base, availability });
+      expect(update.body).toContain("the days you said you train");
+    });
+
     // Same lowercase-weekday leak as the tomorrow message, on the ordinary "Sessions land on" copy.
     it("capitalizes the stated days in the ordinary first-week message too", () => {
       const availability: TrainingAvailability = {
