@@ -32,6 +32,7 @@ import {
   findMissedProfileLanguage,
   findMissedRemovalLanguage,
   findMissedSportsLanguage,
+  findMissedWorkoutCreateLanguage,
   findMissedInjuryUpdateLanguage,
   findMissedQuestLanguage,
   findUncountedInjuryLanguage,
@@ -70,6 +71,9 @@ export interface RepliedTurn extends TurnState {
   // the athlete never sees - so they'd read a full week plan that was never actually saved with no
   // indication anything went wrong (live-reproduced on coach-akash-suresh, traceId tkxjxkzd).
   stillProseOnlyWeekPlan?: boolean;
+  // True when the reply claims a new routine was built but no workout action landed, even after
+  // the reprompt. buildTurnWrites appends an honest correction, same reasoning as above.
+  stillMissedWorkoutCreate?: boolean;
   // #1053 gap 2: real token usage summed across every askLlm() call this turn made (the first
   // call plus up to two reprompts - content-violation and bad-reference). Additive-only field, so
   // every caller still typed against a plain RepliedTurn/TurnWrites keeps working; nothing that
@@ -203,6 +207,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const missedProfileLanguage = findMissedProfileLanguage(turn, reply);
     const missedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
     const missedSportsLanguage = findMissedSportsLanguage(turn, reply);
+    const missedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
     const missedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
     const missedQuestLanguage = findMissedQuestLanguage(turn, reply);
     const uncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
@@ -222,6 +227,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     // buildTurnWrites appends an athlete-facing correction when this is set (see
     // RepliedTurn.stillProseOnlyWeekPlan).
     let stillProseOnlyWeekPlanForCorrection = false;
+    let stillMissedWorkoutCreateForCorrection = false;
     if (
       violation ||
       missingNote ||
@@ -233,6 +239,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       missedProfileLanguage ||
       missedRemovalLanguage ||
       missedSportsLanguage ||
+      missedWorkoutCreateLanguage ||
       missedInjuryUpdateLanguage ||
       missedQuestLanguage ||
       uncountedInjuryLanguage ||
@@ -252,6 +259,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         missedProfileLanguage,
         missedRemovalLanguage,
         missedSportsLanguage,
+        missedWorkoutCreateLanguage,
         missedInjuryUpdateLanguage,
         missedQuestLanguage,
         uncountedInjuryLanguage,
@@ -333,6 +341,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             " this turn - if a new or changed sport was genuinely stated, add it now as" +
             " sports_update with the full list; if it genuinely doesn't describe a new or changed" +
             " sport, disregard this note",
+        );
+      }
+      if (missedWorkoutCreateLanguage) {
+        notes.push(
+          `the athlete's message contains "${missedWorkoutCreateLanguage}" and your reply says a` +
+            " routine was built or saved, but no workout_create was set this turn - if a routine was" +
+            " genuinely requested, add it now as workout_create with every phase and exercise; if" +
+            " you are only proposing one, reword the reply so it doesn't claim it was saved",
         );
       }
       if (missedInjuryUpdateLanguage) {
@@ -423,6 +439,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       const stillMissedProfileLanguage = findMissedProfileLanguage(turn, reply);
       const stillMissedRemovalLanguage = findMissedRemovalLanguage(turn, reply);
       const stillMissedSportsLanguage = findMissedSportsLanguage(turn, reply);
+      const stillMissedWorkoutCreateLanguage = findMissedWorkoutCreateLanguage(turn, reply);
       const stillMissedInjuryUpdateLanguage = findMissedInjuryUpdateLanguage(turn, reply);
       const stillMissedQuestLanguage = findMissedQuestLanguage(turn, reply);
       const stillUncountedInjuryLanguage = findUncountedInjuryLanguage(turn, reply);
@@ -439,6 +456,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       stillUnrecordedFactsForSynthesis = unrecordedFacts;
       stillUnconfirmedAssumptionForDrop = stillUnconfirmedAssumption;
       stillProseOnlyWeekPlanForCorrection = stillProseOnlyWeekPlan;
+      stillMissedWorkoutCreateForCorrection = stillMissedWorkoutCreateLanguage !== null;
       if (
         stillOversized ||
         stillMissingNote ||
@@ -450,6 +468,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         stillMissedProfileLanguage ||
         stillMissedRemovalLanguage ||
         stillMissedSportsLanguage ||
+        stillMissedWorkoutCreateLanguage ||
         stillMissedInjuryUpdateLanguage ||
         stillMissedQuestLanguage ||
         stillUncountedInjuryLanguage ||
@@ -471,6 +490,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage,
             stillMissedRemovalLanguage,
             stillMissedSportsLanguage,
+            stillMissedWorkoutCreateLanguage,
             stillMissedInjuryUpdateLanguage,
             stillMissedQuestLanguage,
             stillUncountedInjuryLanguage,
@@ -497,6 +517,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
             stillMissedProfileLanguage ? "missedProfileLanguage" : null,
             stillMissedRemovalLanguage ? "missedRemovalLanguage" : null,
             stillMissedSportsLanguage ? "missedSportsLanguage" : null,
+            stillMissedWorkoutCreateLanguage ? "missedWorkoutCreateLanguage" : null,
             stillMissedInjuryUpdateLanguage ? "missedInjuryUpdateLanguage" : null,
             stillMissedQuestLanguage ? "missedQuestLanguage" : null,
             stillUncountedInjuryLanguage ? "uncountedInjuryLanguage" : null,
@@ -575,6 +596,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       stillUnrecordedFacts: stillUnrecordedFactsForSynthesis,
       stillUnconfirmedAssumption: stillUnconfirmedAssumptionForDrop,
       stillProseOnlyWeekPlan: stillProseOnlyWeekPlanForCorrection,
+      stillMissedWorkoutCreate: stillMissedWorkoutCreateForCorrection,
       usage: usageAccum,
     };
   } catch (err: unknown) {
@@ -638,6 +660,13 @@ export function formatProseOnlyWeekPlanCorrection(
 ): string | undefined {
   if (!stillProseOnlyWeekPlan) return undefined;
   return "(Note: the week plan above wasn't saved - ask again and I'll lock it in.)";
+}
+
+export function formatMissedWorkoutCreateCorrection(
+  stillMissedWorkoutCreate: boolean,
+): string | undefined {
+  if (!stillMissedWorkoutCreate) return undefined;
+  return "(Note: that routine wasn't saved - ask again and I'll build it properly.)";
 }
 
 // Finding E: the athlete-facing counterpart to synthesizeQuestEventFromUnrecordedFacts - same
