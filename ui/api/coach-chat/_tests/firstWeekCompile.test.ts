@@ -151,6 +151,9 @@ describe("compileFirstWeek", () => {
       expect(withSessions.length).toBe(1);
       expect(update.body).toContain("already passed this week");
       expect(update.body).toContain("tomorrow");
+      // Review finding: raw lowercase weekday values leaking into athlete-facing copy.
+      expect(update.body).toContain("Monday, Tuesday");
+      expect(update.body).not.toContain("monday, tuesday");
     });
 
     it("leaves the week unscheduled, honestly, when tomorrow is already next week", () => {

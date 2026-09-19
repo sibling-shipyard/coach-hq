@@ -416,12 +416,25 @@ export function findMissedProfileLanguage(turn: TurnState, reply: LlmReply): str
 // so the trigger and the parser agree on what counts as a stated frequency. Scoped first-session
 // only, same reasoning as findMissedProfileLanguage above - checks what's already on file so a
 // later turn restating it (already captured) doesn't reprompt again.
+// Review finding (#1250): checking bare `reply.memory_update` truthiness let a compound message
+// through the guard - a memory_update capturing something else entirely (an injury note, an
+// equipment note) still suppressed it, dropping the frequency silently, exactly the failure this
+// guard exists to catch. Only a memory_update actually covering frequency - the right label AND
+// text that matches the same pattern the parser reads back - counts as captured.
+function memoryUpdateCapturesFrequency(reply: LlmReply): boolean {
+  const update = reply.memory_update;
+  if (!update) return false;
+  const isFrequencyLabel =
+    update.label === "fitness_baseline" || update.label === "coaching_priorities";
+  return isFrequencyLabel && DAYS_PATTERN.test(update.text ?? "");
+}
+
 export function findMissedTrainingFrequencyLanguage(
   turn: TurnState,
   reply: LlmReply,
 ): string | null {
   if (!turn.firstSession) return null;
-  if (reply.memory_update) return null;
+  if (memoryUpdateCapturesFrequency(reply)) return null;
   if (turn.context.memory && inferTrainingAvailability(turn.context.memory) != null) return null;
   return firstMatch(turn.athleteMessage, DAYS_PATTERN);
 }

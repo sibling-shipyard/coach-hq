@@ -1558,6 +1558,44 @@ describe("requestCoachReply missed-training-frequency-language reprompt", () => 
     expect(askLlm).toHaveBeenCalledTimes(1);
   });
 
+  // Review finding (#1250): a bare `reply.memory_update` truthiness check let a compound message
+  // through - a memory_update covering something else entirely (a different label, or text with
+  // no frequency in it) suppressed the guard and the frequency was still dropped silently.
+  it("still reprompts when memory_update fires but covers something other than frequency", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        reply: "Noted your knee, and four days a week is a solid base.",
+        coach_note: "Athlete has a knee niggle and trains 4 days a week.",
+        memory_update: { label: "equipment", text: "Has a foam roller and resistance bands." },
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted your knee, and four days a week is a solid base.",
+        coach_note: "Athlete has a knee niggle and trains 4 days a week.",
+        memory_update: { label: "fitness_baseline", text: "Trains 4 days a week." },
+      });
+
+    await requestCoachReply(
+      firstSessionFrequencyTurnState({
+        trimmed: "My knee is a bit sore, and I train 4 days a week.",
+        athleteMessage: "My knee is a bit sore, and I train 4 days a week.",
+      }),
+    );
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+  });
+
+  it("still reprompts when memory_update fires with the right label but text with no frequency in it", async () => {
+    askLlm.mockResolvedValue({
+      reply: "Four days a week is a solid base.",
+      coach_note: "Athlete trains 4 days a week.",
+      memory_update: { label: "fitness_baseline", text: "Runs mostly on trails." },
+    });
+
+    await requestCoachReply(firstSessionFrequencyTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(2);
+  });
+
   it("does not reprompt when the frequency is already parseable from memory on file", async () => {
     askLlm.mockResolvedValueOnce({ reply: "ok", coach_note: "note" });
 
