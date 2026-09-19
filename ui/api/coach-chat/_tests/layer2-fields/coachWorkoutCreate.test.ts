@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyWorkoutCreate,
   applyWorkoutRemove,
+  workoutCreateProgressionViolations,
   slugifyRoutineId,
   buildManifestContent,
   type WorkoutCreateSpec,
@@ -443,5 +444,77 @@ describe("ordinary turn mode exposes both actions", () => {
     };
     expect(withFlags.required).toContain("injury_ack");
     expect(withFlags.properties.injury_ack.items.properties.flag.enum).toEqual(["inj_shoulder"]);
+  });
+});
+
+// The same invariants as a pure check, so the reply can be reprompted before the server drops it.
+describe("workoutCreateProgressionViolations", () => {
+  const progs = progressions([
+    {
+      id: "row_dumbbell",
+      name: "Dumbbell row",
+      current: "30",
+      target: "50",
+      unit: "reps",
+      history: [],
+    },
+  ]);
+  const withExercise = (overrides: Record<string, unknown>) =>
+    minimalSpec({
+      phases: [
+        {
+          name: "Main",
+          exercises: [
+            {
+              name: "Dumbbell row",
+              type: "reps",
+              reps: 10,
+              sets: 3,
+              form_cue: "Squeeze.",
+              why: "Back.",
+              progression_id: "row_dumbbell",
+              ...overrides,
+            },
+          ],
+        },
+      ],
+    });
+
+  it("reports a dose above the progression's current value", () => {
+    expect(workoutCreateProgressionViolations(withExercise({ reps: 20 }), progs)).toEqual([
+      expect.stringContaining('doses 60 above progression "row_dumbbell"'),
+    ]);
+  });
+
+  it("reports an unknown progression_id with no scaled_from", () => {
+    expect(
+      workoutCreateProgressionViolations(withExercise({ progression_id: "brand_new" }), progs),
+    ).toEqual([expect.stringContaining('has no "scaled_from"')]);
+  });
+
+  it("accepts an unknown progression_id that says what it was scaled from", () => {
+    expect(
+      workoutCreateProgressionViolations(
+        withExercise({ progression_id: "brand_new", scaled_from: "row_dumbbell at half dose" }),
+        progs,
+      ),
+    ).toEqual([]);
+  });
+
+  it("accepts a dose at or below the current value, and an exercise with no progression_id", () => {
+    expect(workoutCreateProgressionViolations(withExercise({}), progs)).toEqual([]);
+    expect(
+      workoutCreateProgressionViolations(
+        withExercise({ reps: 50, progression_id: undefined }),
+        null,
+      ),
+    ).toEqual([]);
+  });
+
+  it("agrees with applyWorkoutCreate about which routines get dropped", () => {
+    const spec = withExercise({ reps: 20 });
+    expect(() => applyWorkoutCreate(spec, new Set(), new Set(), progs, "t1")).toThrow(
+      workoutCreateProgressionViolations(spec, progs)[0],
+    );
   });
 });

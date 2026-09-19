@@ -398,6 +398,52 @@ export function exerciseDose(ex: WorkoutCreateSpecExercise): number {
 }
 
 /**
+ * Invariants 1/8 and 2 as a pure check, in the order applyWorkoutCreate throws them. Also run
+ * against the raw reply before finalizing, so the model gets one chance to re-dose a routine the
+ * server would otherwise drop.
+ */
+export function workoutCreateProgressionViolations(
+  spec: WorkoutCreateSpec,
+  progressions: ProgressionsJson | null,
+): string[] {
+  const violations: string[] = [];
+  const progressionsById = new Map(
+    (progressions?.progressions ?? []).map((progression) => [progression.id, progression]),
+  );
+
+  for (const phase of spec.phases ?? []) {
+    for (const ex of phase.exercises ?? []) {
+      if (!ex.progression_id) continue;
+      const existing = progressionsById.get(ex.progression_id);
+      if (!existing) {
+        if (!ex.scaled_from?.trim()) {
+          violations.push(
+            `workout_create: progression_id "${ex.progression_id}" on "${ex.name}" doesn't exist` +
+              ' yet and has no "scaled_from" - a new progression must say what its dose was' +
+              " scaled from",
+          );
+        }
+        continue;
+      }
+      const currentDose = parseLeadingNumber(existing.current);
+      // No parseable numeric current - real progressions.json often holds composite/prose values
+      // (see parseLeadingNumber's comment); nothing mechanical to compare the dose against, so
+      // this invariant is a no-op here rather than a guess. `current: null` (A3's "not yet
+      // benchmarked" case) hits this same branch.
+      if (currentDose == null) continue;
+      const dose = exerciseDose(ex);
+      if (dose > currentDose) {
+        violations.push(
+          `workout_create: "${ex.name}" doses ${dose} above progression "${ex.progression_id}"'s` +
+            ` current value (${existing.current})`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+/**
  * Applies a workout_create action field: turns Coach's minimal spec into a compiled, validated
  * routine file, enforcing invariants 1/2/7/8 before anything is written.
  *
@@ -434,39 +480,8 @@ export function applyWorkoutCreate(
     );
   }
 
-  const progressionsById = new Map(
-    (progressions?.progressions ?? []).map((progression) => [progression.id, progression]),
-  );
-
-  for (const phase of spec.phases) {
-    for (const ex of phase.exercises) {
-      if (!ex.progression_id) continue;
-      const existing = progressionsById.get(ex.progression_id);
-      if (!existing) {
-        if (!ex.scaled_from?.trim()) {
-          throw new Error(
-            `workout_create: progression_id "${ex.progression_id}" on "${ex.name}" doesn't exist` +
-              ' yet and has no "scaled_from" - a new progression must say what its dose was' +
-              " scaled from",
-          );
-        }
-        continue;
-      }
-      const currentDose = parseLeadingNumber(existing.current);
-      // No parseable numeric current - real progressions.json often holds composite/prose values
-      // (see parseLeadingNumber's comment); nothing mechanical to compare the dose against, so
-      // this invariant is a no-op here rather than a guess. `current: null` (A3's "not yet
-      // benchmarked" case) hits this same branch.
-      if (currentDose == null) continue;
-      const dose = exerciseDose(ex);
-      if (dose > currentDose) {
-        throw new Error(
-          `workout_create: "${ex.name}" doses ${dose} above progression "${ex.progression_id}"'s` +
-            ` current value (${existing.current})`,
-        );
-      }
-    }
-  }
+  const [progressionViolation] = workoutCreateProgressionViolations(spec, progressions);
+  if (progressionViolation) throw new Error(progressionViolation);
 
   const id = slugifyRoutineId(spec.title, existingRoutineIds);
   // validateWorkout requires both subtitle and coaching_note to be non-empty strings, but the
