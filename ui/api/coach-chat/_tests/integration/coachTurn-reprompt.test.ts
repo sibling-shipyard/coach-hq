@@ -146,22 +146,67 @@ describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
     askLlm.mockReset();
   });
 
-  it("reprompts exactly once when profile_update fires with no coach_note, then commits the corrected reply", async () => {
+  it("does not reprompt when only coach_note is missing, the server writes the fallback note instead", async () => {
+    askLlm.mockResolvedValueOnce({
+      profile_update: [{ field: "weight_kg", value: "76" }],
+      reply: "ok",
+    });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askLlm).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps season_start, style and profile fields the reprompt reply dropped", async () => {
+    const seasonStart = {
+      name: "Half marathon",
+      start_date: "2026-09-19",
+      end_date: "2027-06-30",
+      main_quest: { name: "Sub-2 half", type: "progress" as const, target: 1 },
+      new_habits: [],
+    };
     askLlm
       .mockResolvedValueOnce({
-        profile_update: [{ field: "weight_kg", value: "76" }],
+        season_start: seasonStart,
+        coaching_style_update: "encouragement",
+        profile_update: [{ field: "timezone", value: "Asia/Kolkata" }],
+        coach_note: "x".repeat(10_000),
         reply: "ok",
       })
       .mockResolvedValueOnce({
-        profile_update: [{ field: "weight_kg", value: "76" }],
-        coach_note: "Athlete reported new weight: 76kg.",
+        profile_update: [{ field: "weight_kg", value: "70" }],
+        coach_note: "Short note.",
         reply: "ok",
       });
 
     const result = await requestCoachReply(baseTurnState());
 
     expect(askLlm).toHaveBeenCalledTimes(2);
-    expect("reply" in result && result.reply.coach_note).toBe("Athlete reported new weight: 76kg.");
+    const reply = "reply" in result ? result.reply : null;
+    expect(reply?.season_start).toEqual(seasonStart);
+    expect(reply?.coaching_style_update).toBe("encouragement");
+    expect(reply?.profile_update).toEqual([
+      { field: "weight_kg", value: "70" },
+      { field: "timezone", value: "Asia/Kolkata" },
+    ]);
+  });
+
+  it("prefers the reprompt reply when both replies set the same field", async () => {
+    askLlm
+      .mockResolvedValueOnce({
+        coaching_style_update: "analysis",
+        coach_note: "x".repeat(10_000),
+        reply: "ok",
+      })
+      .mockResolvedValueOnce({
+        coaching_style_update: "accountability",
+        coach_note: "Short note.",
+        reply: "ok",
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect("reply" in result && result.reply.coaching_style_update).toBe("accountability");
   });
 
   it("does not reprompt a filler turn with no other structured writes and no coach_note", async () => {

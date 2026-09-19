@@ -12,7 +12,8 @@ export type SilentFixupKind =
   | "template_id_nulled"
   | "discipline_coerced"
   | "quest_event_synthesized"
-  | "coach_note_synthesized";
+  | "coach_note_synthesized"
+  | "reprompt_fields_carried";
 
 export interface SilentFixup {
   kind: SilentFixupKind;
