@@ -34,6 +34,7 @@ import { applyTrainingAvailabilityUpdate } from "./decide/coachProfileIntents.js
 import { buildWorkoutCreateAndRemoveWrites } from "./decide/turnWrites/workoutWrite.js";
 import type { TurnWrites } from "./buildTurnWrites.js";
 import { usageResponseInit } from "./requestCoachReply.js";
+import { flushSilentFixups } from "./decide/silentFixups.js";
 
 // Review finding (P2, #727 hardening): factored out of two near-identical read/merge-patch call
 // sites that both cleared this same field (the standalone stale-marker path below, and the
@@ -357,6 +358,10 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
       }
     }
   }
+
+  // The facts commit above is where every write's resolve() runs, so any silent fixup an applier
+  // recorded (unmatched skip_phases, nulled template_id, ...) is complete by now.
+  await flushSilentFixups(turn.traceId);
 
   let repoSha: string;
   try {

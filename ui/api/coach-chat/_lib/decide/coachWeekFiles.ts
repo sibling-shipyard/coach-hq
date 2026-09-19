@@ -29,6 +29,7 @@ import {
 } from "../_generated/current-week-rollover.bundle.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
+import { recordSilentFixup } from "./silentFixups.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 
@@ -65,6 +66,7 @@ function coerceDiscipline(raw: string, traceId: string): CurrentWeekSessionDisci
   console.warn(`[coach-chat] discipline "${raw}" is not in the closed set - writing "other"`, {
     traceId,
   });
+  recordSilentFixup(traceId, { kind: "discipline_coerced", action: "week_update", detail: raw });
   return "other";
 }
 
@@ -83,6 +85,11 @@ function coerceTemplateId(
       `[coach-chat] ${actionLabel}: template_id "${templateId}" not in this athlete's templates - nulling it out`,
       { traceId },
     );
+    recordSilentFixup(traceId, {
+      kind: "template_id_nulled",
+      action: actionLabel,
+      detail: templateId,
+    });
     return null;
   }
   return templateId;

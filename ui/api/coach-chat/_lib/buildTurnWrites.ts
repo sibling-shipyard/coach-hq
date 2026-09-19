@@ -52,12 +52,14 @@ import type { RepliedTurn } from "./requestCoachReply.js";
 import {
   formatDroppedActionsNote,
   formatDroppedActionsCorrection,
+  formatMissedTemplateEditCorrection,
   formatMissedWorkoutCreateCorrection,
   formatProseOnlyWeekPlanCorrection,
   formatSynthesizedQuestEventNote,
 } from "./requestCoachReply.js";
 import { scheduleChangingFieldNames } from "./turnReplyValidation.js";
 import { formatPendingClarificationMarker } from "./turnRequest.js";
+import { recordSilentFixup } from "./decide/silentFixups.js";
 
 export interface TurnWrites extends RepliedTurn {
   chatWrite: ResolvedFileWrite;
@@ -134,6 +136,11 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     console.warn("[coach-chat] synthesized a quest_event the model itself failed to comply on:", {
       questId: synthesizedQuestEvent.quest_id,
       traceId,
+    });
+    recordSilentFixup(traceId, {
+      kind: "quest_event_synthesized",
+      action: "quest_event",
+      detail: synthesizedQuestEvent.quest_id,
     });
   }
 
@@ -488,10 +495,14 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const missedWorkoutCreateCorrection = formatMissedWorkoutCreateCorrection(
     turn.stillMissedWorkoutCreate ?? false,
   );
+  const missedTemplateEditCorrection = formatMissedTemplateEditCorrection(
+    turn.stillMissedTemplateEdit ?? false,
+  );
   const correctionSuffix = [
     droppedActionsCorrection,
     proseOnlyWeekPlanCorrection,
     missedWorkoutCreateCorrection,
+    missedTemplateEditCorrection,
     synthesizedQuestEventNote,
   ]
     .filter(Boolean)

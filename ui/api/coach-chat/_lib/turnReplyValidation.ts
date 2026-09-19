@@ -401,15 +401,38 @@ export function findMissedWorkoutCreateLanguage(turn: TurnState, reply: LlmReply
   return DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? asked : null;
 }
 
+// Round-2 retest: "permanently swap the core phase out of that routine" got "I took the core phase
+// out of that routine permanently" with no template_edit written and nothing correcting the
+// reply, the same narrated-not-written shape as workout_create above. Needs all of: a permanent
+// wording, a routine target and an edit verb in the athlete's message, plus a first-person
+// done-claim in the reply. An honest "I can't drop that" or "which routine?" has no done-claim.
+const PERMANENT_EDIT_LANGUAGE_PATTERN =
+  /\b(permanent(?:ly)?|going forward|every time|from now on|for good)\b/i;
+const EDIT_TARGET_LANGUAGE_PATTERN = /\b(routine|workout|template|phase|exercise)s?\b/i;
+const EDIT_VERB_LANGUAGE_PATTERN = /\b(swap|remove|drop|take out|cut|skip|delete|get rid of)\b/i;
+const EDIT_DONE_CLAIM_LANGUAGE_PATTERN =
+  /\bi(?:'ve| have)?\s+(?:took|taken|pulled|removed|dropped|swapped|cut|updated|saved)\b|\b(?:has|have)\s+been\s+(?:removed|dropped|updated|saved)\b|\b(?:it's|that's|it is)\s+(?:saved|locked in|done)\b/i;
+
+export function findMissedTemplateEditLanguage(turn: TurnState, reply: LlmReply): string | null {
+  if (turn.firstSession) return null;
+  if (reply.template_edit || reply.workout_create || reply.workout_remove) return null;
+  const permanent = firstMatch(turn.athleteMessage, PERMANENT_EDIT_LANGUAGE_PATTERN);
+  if (!permanent) return null;
+  if (!EDIT_TARGET_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  if (!EDIT_VERB_LANGUAGE_PATTERN.test(turn.athleteMessage)) return null;
+  return EDIT_DONE_CLAIM_LANGUAGE_PATTERN.test(reply.reply) ? permanent : null;
+}
+
 // #1009 (sports_update hardening): deliberately the narrowest pattern in this set. A bare sport
 // name risks matching an ordinary session report with no update intent at all ("badminton was
 // rough today" is not a sports_update moment), so this keys only on explicit new-activity
 // phrasing, never a sport name alone. Runs on every turn, not gated to first-session or
 // returning - a new/changed sport can arrive on either.
 // "starting" is included only when followed by an activity-shaped word: "starting rock climbing
-// this week" is a new sport, while "starting my run at 6" or "starting weight" is not.
+// this week" is a new sport, while "starting my run at 6" or "starting weight" is not. The same
+// idea excludes "getting into the car", "took up too much time" and "joined a Zoom call".
 const NEW_ACTIVITY_LANGUAGE_PATTERN =
-  /\b(started|new sport|picked up|also (?:play|do|doing)|starting (?!to\b|the\b|my\b|with\b|at\b|off\b|from\b|today\b|tomorrow\b|a\b|point\b|weight\b)[a-z]+|taking up|took up|getting into|got into|joined)\b/i;
+  /\b(started|new sport|picked up|also (?:play|do|doing)|starting (?!to\b|the\b|my\b|with\b|at\b|off\b|from\b|today\b|tomorrow\b|a\b|point\b|weight\b)[a-z]+|(?:taking|took) up(?! (?:too|the|a|an|my|space|time)\b)|(?:getting|got) into(?! (?:the|my|a|an|bed|trouble|it|this|that|work|town)\b)|joined(?! (?:a|the|my|our) (?:\w+ )?(?:zoom|teams|meet|call|meeting|webinar|thread|chat|slack|discord)\b))\b/i;
 
 export function findMissedSportsLanguage(turn: TurnState, reply: LlmReply): string | null {
   if ((reply.sports_update ?? []).length > 0) return null;

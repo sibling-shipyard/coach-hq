@@ -11,6 +11,7 @@ import type { ProgressionsJson } from "./coachQuestFiles.js";
 import { validateWorkout, computeUnackedInjuryFlags } from "./workoutSchema.js";
 import type { Workout } from "../../../../client/src/lib/workouts.js";
 import { compileWorkout, type WorkoutSpec } from "../_generated/compile-workout.bundle.js";
+import { recordSilentFixup } from "./silentFixups.js";
 
 export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templates/";
 // coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory
@@ -95,7 +96,12 @@ export function applyTemplateEdit(
   }
 
   const skipNums = new Set(edit.skip_exercise_nums ?? []);
-  for (const num of resolvePhaseNames(current.phases, edit.skip_phases ?? [], traceId))
+  for (const num of resolvePhaseNames(
+    current.phases,
+    edit.skip_phases ?? [],
+    traceId,
+    "template_edit",
+  ))
     skipNums.add(num);
   const phases =
     skipNums.size > 0 ? renumberAfterSkip(current.phases, [...skipNums]) : current.phases;
@@ -211,22 +217,24 @@ function resolvePhaseNames(
   phases: Workout["phases"],
   phaseNames: string[],
   traceId: string,
+  action: "session_plan" | "template_edit",
 ): number[] {
   const nums: number[] = [];
   for (const name of phaseNames) {
     const phase = findPhaseByName(phases, name);
     if (phase === "ambiguous") {
       console.warn(
-        `[coach-chat] session_plan: "${name}" matches more than one phase in this template - ignoring`,
+        `[coach-chat] ${action}: "${name}" matches more than one phase in this template - ignoring`,
         { traceId },
       );
+      recordSilentFixup(traceId, { kind: "phase_ambiguous", action, detail: name });
       continue;
     }
     if (!phase) {
-      console.warn(
-        `[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`,
-        { traceId },
-      );
+      console.warn(`[coach-chat] ${action}: no phase named "${name}" in this template - ignoring`, {
+        traceId,
+      });
+      recordSilentFixup(traceId, { kind: "phase_no_match", action, detail: name });
       continue;
     }
     nums.push(...phase.exercises.map((ex) => ex.num));
@@ -270,7 +278,7 @@ export function applySessionPlan(
   }
 
   const skipNums = new Set(plan.skip_exercise_nums ?? []);
-  for (const num of resolvePhaseNames(base.phases, plan.skip_phases ?? [], traceId))
+  for (const num of resolvePhaseNames(base.phases, plan.skip_phases ?? [], traceId, "session_plan"))
     skipNums.add(num);
   const phases = skipNums.size > 0 ? renumberAfterSkip(base.phases, [...skipNums]) : base.phases;
 
