@@ -13,7 +13,6 @@ import {
   type WorkoutCreateSpec,
 } from "./decide/coachWorkoutFiles.js";
 import { exerciseTypeFieldViolation, computeUnackedInjuryFlags } from "./decide/workoutSchema.js";
-import { DAYS_PATTERN, inferTrainingAvailability } from "./decide/coachFirstSessionBenchmark.js";
 
 // Layer 2 of the text-caps design (issue #462): the Gemini schema's maxLength (layer 1) and the
 // prompt's stated caps (layer 0) are both requests, not guarantees - Gemini can still overshoot.
@@ -406,37 +405,6 @@ export function findMissedProfileLanguage(turn: TurnState, reply: LlmReply): str
     if (hit) return hit;
   }
   return null;
-}
-
-// Round-2 follow-up (fsp-end-to-end live run): "I train 4 days a week" was acknowledged in the
-// reply ("four days is a solid base") but never set as memory_update - inferTrainingAvailability
-// (coachFirstSessionBenchmark.ts) parses this exact phrasing back out of fitness_baseline /
-// coaching_priorities at first-session completion, so an unrecorded answer means the first week
-// silently falls back to a generic default with no signal anything went wrong. Reuses DAYS_PATTERN
-// so the trigger and the parser agree on what counts as a stated frequency. Scoped first-session
-// only, same reasoning as findMissedProfileLanguage above - checks what's already on file so a
-// later turn restating it (already captured) doesn't reprompt again.
-// Review finding (#1250): checking bare `reply.memory_update` truthiness let a compound message
-// through the guard - a memory_update capturing something else entirely (an injury note, an
-// equipment note) still suppressed it, dropping the frequency silently, exactly the failure this
-// guard exists to catch. Only a memory_update actually covering frequency - the right label AND
-// text that matches the same pattern the parser reads back - counts as captured.
-function memoryUpdateCapturesFrequency(reply: LlmReply): boolean {
-  const update = reply.memory_update;
-  if (!update) return false;
-  const isFrequencyLabel =
-    update.label === "fitness_baseline" || update.label === "coaching_priorities";
-  return isFrequencyLabel && DAYS_PATTERN.test(update.text ?? "");
-}
-
-export function findMissedTrainingFrequencyLanguage(
-  turn: TurnState,
-  reply: LlmReply,
-): string | null {
-  if (!turn.firstSession) return null;
-  if (memoryUpdateCapturesFrequency(reply)) return null;
-  if (turn.context.memory && inferTrainingAvailability(turn.context.memory) != null) return null;
-  return firstMatch(turn.athleteMessage, DAYS_PATTERN);
 }
 
 // #1009 (workout_remove hardening): returning-athlete only - a first-session athlete has no

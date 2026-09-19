@@ -379,9 +379,7 @@ export function seedBenchmarkProgressions(
 // you train" as a natural question (both already-existing questions per the LLD); this just gives
 // the answer a structured home instead of only prose. `null` when nothing parseable was ever
 // said - a true "we don't know yet" state, distinct from a stated 0.
-// Exported so turnReplyValidation.ts's findMissedTrainingFrequencyLanguage triggers on exactly
-// the phrasing this function can actually parse back out - one pattern, not two that could drift.
-export const DAYS_PATTERN = /(\d+)\s*(?:days?|x|times?)\s*(?:a|\/|per)?\s*week/i;
+const DAYS_PATTERN = /(\d+)\s*(?:days?|x|times?)\s*(?:a|\/|per)?\s*week/i;
 
 function parseDaysPerWeek(text: string): number | null {
   const match = text.match(DAYS_PATTERN);
@@ -400,11 +398,23 @@ function parsePreferredDays(text: string): TrainingAvailability["preferred_days"
   return [...found] as TrainingAvailability["preferred_days"];
 }
 
-export function inferTrainingAvailability(memory: MemoryJson): TrainingAvailability | null {
-  const text = [
+// The model writes "I train 4 days a week" into coach_note, not memory_update, so coach_log rows
+// are the fallback when the memory notes carry no frequency. Memory notes win; otherwise the latest
+// row that states a frequency supplies both the count and any named days.
+export function inferTrainingAvailability(
+  memory: MemoryJson,
+  coachLogRows: readonly { text: string }[] = [],
+): TrainingAvailability | null {
+  let text = [
     memory.notes?.fitness_baseline?.text ?? "",
     memory.notes?.coaching_priorities?.text ?? "",
   ].join(" ");
+
+  if (parseDaysPerWeek(text) == null) {
+    const hit = [...coachLogRows].reverse().find((row) => parseDaysPerWeek(row.text) != null);
+    if (!hit) return null;
+    text = hit.text;
+  }
 
   const daysPerWeek = parseDaysPerWeek(text);
   if (daysPerWeek == null) return null;
