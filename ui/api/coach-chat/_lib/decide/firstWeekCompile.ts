@@ -180,7 +180,7 @@ export function compileFirstWeek(params: FirstWeekCompileParams): WeekUpdate {
   const body = pushedToTomorrow
     ? `First week, built from your benchmark. ${capitalizedTrainingDays.join(", ")} already passed this week, so your first session is set for tomorrow instead.`
     : trainingDays.length > 0
-      ? `First week, built from your benchmark. Sessions land on ${trainingDays.join(", ")} - the days you said you train.`
+      ? `First week, built from your benchmark. Sessions land on ${capitalizedTrainingDays.join(", ")} - the days you said you train.`
       : "First week. No training days stated yet, so nothing's scheduled - say when you train and next week will use it.";
 
   return {

@@ -176,5 +176,16 @@ describe("compileFirstWeek", () => {
       const update = compileFirstWeek({ ...base, availability }); // TODAY is Monday
       expect(update.body).not.toContain("already passed this week");
     });
+
+    // Same lowercase-weekday leak as the tomorrow message, on the ordinary "Sessions land on" copy.
+    it("capitalizes the stated days in the ordinary first-week message too", () => {
+      const availability: TrainingAvailability = {
+        days_per_week: 2,
+        preferred_days: ["tuesday", "friday"],
+      };
+      const update = compileFirstWeek({ ...base, availability });
+      expect(update.body).toContain("Sessions land on Tuesday, Friday");
+      expect(update.body).not.toContain("tuesday, friday");
+    });
   });
 });
